@@ -1,0 +1,43 @@
+{
+  "_comment": "Design brief for scripts/gen-pet.js. Edit freely; every field is dropped into the prompt skeletons in .claude/skills/pet-as-character/SKILL.md.",
+  "keyColor": "vivid chroma-key green (#00B140)",
+  "directions": [
+    {
+      "id": "A",
+      "label": "cat",
+      "rationale": "keeps the cat the product already promises in its README and tray icon",
+      "subject": "baby cat with a round head and two small rounded ears",
+      "feature": "one thick rounded tail curled beside the feet",
+      "colors": "warm apricot orange body with a cream belly and muzzle, plus a soft pink accent on the inner ears and nose",
+      "expression": "calm, awake and friendly, eyes wide open, faint closed smile"
+    },
+    {
+      "id": "B",
+      "label": "squirrel",
+      "rationale": "stashes everything it finds - the app's whole promise in one silhouette",
+      "subject": "baby squirrel with round cheeks full of what it has stashed",
+      "feature": "one enormous soft rounded tail arcing up behind the body, as wide as the body itself",
+      "colors": "warm chestnut brown body with a cream chest and tail tip, plus a soft peach accent on the cheeks",
+      "expression": "cheeks puffed a little, eyes wide open and pleased, tiny closed mouth"
+    },
+    {
+      "id": "C",
+      "label": "owl",
+      "rationale": "watches and hears everything while you work, then reports back in the morning",
+      "subject": "baby owl standing upright with a rounded body and two small rounded ear tufts",
+      "feature": "one pair of short rounded wings folded flat against the sides",
+      "colors": "warm mustard ochre body with a cream face disc and chest, plus a soft coral accent on the beak and feet",
+      "expression": "large calm attentive eyes, small blunt rounded beak, quietly alert"
+    }
+  ],
+  "frames": [
+    { "id": "idle", "pose": "standing calmly upright, both eyes open and round, a faint friendly closed smile, arms relaxed at the sides - the neutral resting pose" },
+    { "id": "blink", "pose": "exactly the resting pose, unchanged in every way, except both eyes are closed as two soft downward arcs" },
+    { "id": "capture", "pose": "eyes wide, round and surprised, mouth open in a small o, body upright and alert, both arms slightly raised" },
+    { "id": "think", "pose": "head tilted a little to one side, eyes looking up and away in thought, one front paw raised to touch the cheek" },
+    { "id": "listen", "pose": "ears perked high and forward, head tilted toward a sound, mouth slightly open, leaning in attentively" },
+    { "id": "happy", "pose": "both eyes closed as two upward happy arcs, wide open smile, body leaning back in a small delighted hop with both arms up" },
+    { "id": "sad", "pose": "ears and shoulders drooping, eyes looking down, mouth a small flat line, arms hanging low" },
+    { "id": "sleep", "pose": "sitting down curled and completely relaxed, eyes closed as two soft arcs, head tipped to one side, tail wrapped around the feet" }
+  ]
+}

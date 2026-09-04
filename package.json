@@ -1,0 +1,110 @@
+{
+  "name": "dailylogs",
+  "productName": "DailyLogs",
+  "version": "0.1.0",
+  "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
+  "main": "src/main/main.js",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "install-electron",
+    "start": "electron .",
+    "icons": "node scripts/gen-icons.js && node scripts/gen-ext-icons.js",
+    "pet": "node scripts/gen-pet.js",
+    "pet:electron": "electron scripts/gen-pet.js",
+    "pet:cutout": "node scripts/pet-cutout.js",
+    "pet:avatar": "node scripts/pet-avatar.js",
+    "pet:catalog": "node scripts/pet-catalog.js",
+    "pet:orient": "node scripts/pet-orient.js",
+    "fetch-models": "node scripts/fetch-bundled-models.js",
+    "preview": "node dev/preview/serve.js",
+    "pack": "npm run fetch-models && electron-builder --dir",
+    "dist": "npm run fetch-models && electron-builder",
+    "dist:win": "npm run fetch-models && electron-builder --win",
+    "dist:mac": "npm run fetch-models && electron-builder --mac"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
+    "@huggingface/transformers": "^4.2.0",
+    "opencc-js": "^1.4.2",
+    "pdf-parse": "^2.4.5",
+    "ppu-paddle-ocr": "^6.4.3"
+  },
+  "devDependencies": {
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.dailylogs.app",
+    "productName": "DailyLogs",
+    "directories": { "output": "release" },
+    "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "extension/**/*",
+      "bundled-models/**/*",
+      "package.json",
+      "!**/*.map",
+      "!node_modules/onnxruntime-web/**",
+      "!node_modules/@huggingface/transformers/node_modules/onnxruntime-web/**",
+      "!node_modules/pdfjs-dist/legacy/**",
+      "!node_modules/pdfjs-dist/web/**",
+      "!node_modules/pdfjs-dist/image_decoders/**",
+      "!node_modules/**/*.{md,markdown,map,flow,tsbuildinfo}",
+      "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc,.github,.vscode}/**",
+      "!node_modules/**/{LICENSE,LICENCE,license,AUTHORS,CHANGELOG,NOTICE}*"
+    ],
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**",
+      "node_modules/@huggingface/transformers/**",
+      "node_modules/ppu-ocv/**",
+      "node_modules/ppu-paddle-ocr/**",
+      "node_modules/sharp/**",
+      "node_modules/@img/**",
+      "node_modules/@napi-rs/**",
+      "node_modules/@techstark/**",
+      "bundled-models/**",
+      "extension/**"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "assets/icon.png",
+      "files": [
+        "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/win32/**/DirectML.dll",
+        "!node_modules/onnxruntime-node/bin/napi-v6/win32/**/dxcompiler.dll",
+        "!node_modules/onnxruntime-node/bin/napi-v6/win32/**/dxil.dll",
+        "!node_modules/@img/sharp-darwin*/**",
+        "!node_modules/@img/sharp-linux*/**",
+        "!node_modules/@napi-rs/canvas-darwin*/**",
+        "!node_modules/@napi-rs/canvas-linux*/**"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "files": [
+        "!node_modules/onnxruntime-node/bin/napi-v6/win32/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+        "!node_modules/@img/sharp-win32*/**",
+        "!node_modules/@img/sharp-linux*/**",
+        "!node_modules/@napi-rs/canvas-win32*/**",
+        "!node_modules/@napi-rs/canvas-linux*/**"
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "DailyLogs records voice notes and transcribes them locally.",
+        "NSScreenCaptureUsageDescription": "DailyLogs captures your screen when you press the shortcut or click the cat."
+      }
+    }
+  }
+}

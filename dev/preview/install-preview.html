@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DailyLogs 浏览器扩展</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --line:#e5e7eb; --text:#16181d; --muted:#6b7280; --accent:#f97316; --green:#16a34a;
+    color-scheme: light dark;
+    font-family:-apple-system,"Segoe UI Variable Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#17181c; --card:#222429; --line:#33363d; --text:#f3f4f6; --muted:#9aa0aa; --accent:#fb923c; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); display:flex; justify-content:center; padding:40px 20px 60px; }
+  .wrap { width:100%; max-width:640px; }
+  h1 { font-size:22px; margin:0 0 8px; letter-spacing:-.01em; }
+  .lead { color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 20px; }
+  kbd { background:var(--card); border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; padding:1px 6px; font:inherit; font-size:12.5px; }
+  .status { display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:14px; background:var(--card);
+    border:1px solid var(--line); margin-bottom:22px; font-weight:600; font-size:14px; }
+  .status .dot { width:10px; height:10px; border-radius:50%; background:var(--muted); flex:none; }
+  .status.waiting .dot { background:var(--accent); animation:pulse 1.4s ease-in-out infinite; }
+  .status.ok { border-color:var(--green); color:var(--green); }
+  .status.ok .dot { background:var(--green); animation:none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  ol { list-style:none; counter-reset:s; padding:0; margin:0; }
+  li { counter-increment:s; position:relative; padding:0 0 22px 42px; }
+  li::before { content:counter(s); position:absolute; left:0; top:0; width:26px; height:26px; border-radius:50%;
+    background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+  li::after { content:""; position:absolute; left:13px; top:30px; bottom:2px; width:2px; background:var(--line); }
+  li:last-child::after { display:none; }
+  h2 { font-size:15px; margin:3px 0 6px; }
+  p { margin:0 0 10px; color:var(--muted); font-size:13.5px; line-height:1.6; }
+  .copyrow { display:flex; gap:8px; align-items:stretch; margin:8px 0 4px; }
+  code { flex:1; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; word-break:break-all; display:flex; align-items:center; }
+  button { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:10px; padding:0 14px;
+    font:inherit; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  button:hover { border-color:var(--accent); }
+  button.done { border-color:var(--green); color:var(--green); }
+  .hint { font-size:12.5px; color:var(--muted); margin-top:18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🐱 DailyLogs 浏览器扩展</h1>
+  <p class="lead">装上它以后，在任何网页按 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>（或点扩展图标），就能把这一页的图片、视频、音频挑出来存进 DailyLogs。</p>
+
+  <div class="status waiting" id="status"><span class="dot"></span><span id="statusText">等待扩展连接…</span></div>
+
+  <ol>
+    <li>
+      <h2>打开扩展管理页</h2>
+      <p>浏览器不允许别的程序直接跳转到这个地址，请复制后粘贴到地址栏：</p>
+      <div class="copyrow"><code id="addr">chrome://extensions/</code><button data-copy="addr">复制</button></div>
+    </li>
+    <li>
+      <h2>打开右上角的「开发者模式」</h2>
+      <p>开关在扩展管理页的右上角。</p>
+    </li>
+    <li>
+      <h2>点「加载已解压的扩展程序」，选择这个文件夹</h2>
+      <div class="copyrow"><code id="dir">C:local projectdailylogsextension</code><button data-copy="dir">复制</button></div>
+    </li>
+    <li>
+      <h2>完成</h2>
+      <p>装好后这个页面会自己变成绿色。之后在任意网页按 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> 即可。</p>
+    </li>
+  </ol>
+
+  <p class="hint">如果你用的是 Edge，地址换成 edge://extensions；Brave 是 brave://extensions。</p>
+</div>
+<script>
+  const COPIED = "已复制";
+  const CONNECTED = "扩展已连接，可以关掉这个页面了";
+  for (const b of document.querySelectorAll('button[data-copy]')) {
+    b.addEventListener('click', async () => {
+      const text = document.getElementById(b.dataset.copy).textContent;
+      try { await navigator.clipboard.writeText(text); } catch (_) {
+        const r = document.createRange(); r.selectNode(document.getElementById(b.dataset.copy));
+        getSelection().removeAllRanges(); getSelection().addRange(r); document.execCommand('copy'); getSelection().removeAllRanges();
+      }
+      const old = b.textContent; b.textContent = COPIED; b.classList.add('done');
+      setTimeout(() => { b.textContent = old; b.classList.remove('done'); }, 1600);
+    });
+  }
+  async function poll() {
+    try {
+      const r = await fetch('/api/extension', { headers: { 'X-DailyLogs': '1' } });
+      const j = await r.json();
+      if (j.connected) {
+        const s = document.getElementById('status');
+        s.className = 'status ok';
+        document.getElementById('statusText').textContent = CONNECTED + (j.version ? ' (v' + j.version + ')' : '');
+        return;
+      }
+    } catch (_) { /* app closed */ }
+    setTimeout(poll, 2000);
+  }
+  poll();
+</script>
+</body>
+</html>

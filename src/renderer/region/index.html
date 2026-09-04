@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>DailyLogs region</title>
+  <link rel="stylesheet" href="region.css" />
+</head>
+<body>
+  <img id="frozen" alt="" draggable="false" />
+  <div id="shade"></div>
+  <div id="box" class="hidden">
+    <div class="handle nw"></div><div class="handle ne"></div><div class="handle sw"></div><div class="handle se"></div>
+  </div>
+  <div id="size" class="chip hidden"></div>
+  <div id="hint" class="hint"><span id="hintText"></span></div>
+  <div id="toolbar" class="toolbar hidden">
+    <button id="btnCancel" class="tool"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span id="labelCancel"></span></button>
+    <button id="btnOk" class="tool primary"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span id="labelOk"></span></button>
+  </div>
+  <script src="region.js"></script>
+</body>
+</html>

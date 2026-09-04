@@ -1,0 +1,123 @@
+/* The pet is one picture in a round frame (assets/pet/avatar.png, or the one picked in
+   Settings). The visible circle is --d wide; the window is --s, which leaves --m of
+   transparent room on every side so the ring, the shadow and every gesture stay inside
+   the window instead of being sliced off by its rectangular edge.
+
+   Two rules keep the circle a circle while things move (Chromium will otherwise let a
+   composited child escape a rounded overflow clip and show its square corners):
+     - nothing inside .frame gets a transform; the picture peeks by moving `top`
+     - everything inside .frame is itself border-radius: 50%
+   Motion is deliberately sparse: a slow breath, and every few seconds one small gesture. */
+:root { --s: 80px; --d: 54px; --m: 13px; }
+
+html, body {
+  margin: 0; padding: 0; width: var(--s); height: var(--s); overflow: hidden;
+  background: transparent; user-select: none; -webkit-user-select: none;
+  -webkit-app-region: no-drag; cursor: grab;
+}
+body:active { cursor: grabbing; }
+
+.pet { position: relative; width: var(--s); height: var(--s); }
+
+/* --- idle: still, breathing; a small double hop every 7.5 s --- */
+.float { position: absolute; inset: 0; animation: hop-now-and-then 7.5s ease-in-out infinite; }
+@keyframes hop-now-and-then {
+  0%, 84%, 100% { transform: translateY(0); }
+  87% { transform: translateY(-4px); }
+  90% { transform: translateY(0); }
+  93% { transform: translateY(-2px); }
+  96% { transform: translateY(0); }
+}
+
+.frame {
+  position: absolute; inset: var(--m); border-radius: 50%; overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .92), 0 2px 5px rgba(0, 0, 0, .32);
+  transform-origin: 50% 100%;   /* breathing grows upward from the base, like a chest */
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease;
+  animation: breathe 4.2s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025, 1.035); } }
+
+.avatar {
+  position: absolute; left: -5%; top: -5%; width: 110%; height: 110%;
+  border-radius: 50%; object-fit: cover; display: block; -webkit-user-drag: none;
+  animation: peek 11s ease-in-out infinite;
+}
+/* looks up for a moment: the (oversized) picture slides up inside the frame */
+@keyframes peek { 0%, 70%, 100% { top: -5%; } 76%, 88% { top: -10%; } }
+
+/* hover / drag: animation off so the authored transform can take over */
+.pet:hover .frame { animation: none; transform: scale(1.1); }
+.pet.dragging .frame { animation: none; transform: scale(1.04) rotate(-6deg); }
+
+/* --- recording: pulsing red ring, mic badge, the frame swells with the ring --- */
+.ring {
+  position: absolute; inset: calc(var(--m) - 3px); border-radius: 50%; pointer-events: none; opacity: 0;
+  border: 2px solid rgba(229, 72, 77, .85);
+}
+.state-recording .ring { opacity: 1; animation: pulse 1.5s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, .5); } 100% { box-shadow: 0 0 0 6px rgba(229, 72, 77, 0); } }
+.state-recording .frame { animation: listen 1.5s ease-out infinite; }
+@keyframes listen { 0% { transform: scale(1.04); } 60%, 100% { transform: scale(1); } }
+
+.mic {
+  position: absolute; right: calc(var(--m) - 5px); bottom: calc(var(--m) - 4px); width: 19px; height: 19px;
+  opacity: 0; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .3));
+  transition: opacity .15s ease;
+}
+.state-recording .mic { opacity: 1; }
+
+/* --- processing / capturing: thinking dots above, head tilted and held, eyes up --- */
+.dots {
+  position: absolute; top: calc(var(--m) - 7px); left: 0; right: 0; display: flex; justify-content: center; gap: 3px;
+  opacity: 0; pointer-events: none;
+}
+.dots span {
+  width: 5px; height: 5px; border-radius: 50%; background: #ff9f43;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .35); animation: hop 1s ease-in-out infinite;
+}
+.dots span:nth-child(2) { animation-delay: .15s; }
+.dots span:nth-child(3) { animation-delay: .3s; }
+.state-processing .dots, .state-capturing .dots { opacity: 1; }
+@keyframes hop { 0%, 100% { transform: translateY(0); opacity: .45; } 50% { transform: translateY(-3px); opacity: 1; } }
+.state-processing .frame { animation: think 3s ease-in-out infinite; }
+@keyframes think { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(-6deg); } }
+.state-processing .avatar { animation: look-up 3s ease-in-out infinite; }
+@keyframes look-up { 0%, 100% { top: -5%; } 25%, 75% { top: -11%; } }
+
+/* --- capturing: shutter flash inside the frame, a startled jump --- */
+.flash { position: absolute; inset: 0; border-radius: 50%; background: #fff; opacity: 0; pointer-events: none; }
+.state-capturing .flash { animation: flash .5s ease-out 1; }
+@keyframes flash { 0% { opacity: .9; } 100% { opacity: 0; } }
+.state-capturing .frame { animation: startle .5s ease-out 1; }
+@keyframes startle { 0% { transform: scale(1); } 30% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* --- success / error --- */
+.state-success .frame { animation: hooray .7s ease-out 1; }
+@keyframes hooray {
+  0% { transform: rotate(0) scale(1); }
+  25% { transform: rotate(-8deg) scale(1.08); }
+  60% { transform: rotate(8deg) scale(1.08); }
+  100% { transform: rotate(0) scale(1); }
+}
+.state-error .frame { animation: shake .5s ease-in-out 1; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+/* --- drop target --- */
+.pet.dropping .frame {
+  animation: none; transform: scale(1.1);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 6px 2px rgba(255, 159, 67, .95);
+}
+
+/* --- summary badge, on the circle's upper-right shoulder --- */
+.badge {
+  position: absolute; top: var(--m); right: var(--m); width: 10px; height: 10px; border-radius: 50%;
+  background: #8b5cf6; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  opacity: 0; pointer-events: none;
+}
+.has-badge .badge { opacity: 1; animation: pulse-badge 1.6s ease-in-out infinite; }
+@keyframes pulse-badge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }

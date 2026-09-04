@@ -1,0 +1,52 @@
+html, body {
+  margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+  cursor: crosshair; user-select: none; -webkit-user-select: none; background: #000;
+}
+.hidden { display: none !important; }
+
+/* the frozen desktop, shown at 1:1 */
+#frozen { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: fill; -webkit-user-drag: none; }
+
+/* everything outside the selection is dimmed; the box itself is a hole punched with a huge shadow */
+#shade { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); }
+/* four rectangles around the selection; cheaper to repaint than one screen-sized box-shadow */
+.shade-part { position: fixed; background: rgba(0, 0, 0, .45); pointer-events: none; }
+#box {
+  position: fixed; box-sizing: border-box; border: 1px solid #f97316;
+  cursor: move; will-change: left, top, width, height;
+}
+.handle { position: absolute; width: 9px; height: 9px; background: #fff; border: 1.5px solid #f97316; border-radius: 2px; }
+.handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
+.handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
+.handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+.handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+
+/* size readout, pinned just above the selection */
+.chip {
+  position: fixed; background: rgba(20, 20, 22, .88); color: #fff; padding: 3px 8px; border-radius: 6px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; pointer-events: none; white-space: nowrap;
+}
+
+.hint {
+  position: fixed; left: 50%; top: 40px; transform: translateX(-50%);
+  background: rgba(20, 20, 22, .82); color: #fff; padding: 9px 16px; border-radius: 999px;
+  font: 13px/1.4 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  pointer-events: none; backdrop-filter: blur(6px);
+}
+.hint kbd {
+  background: rgba(255, 255, 255, .16); border-radius: 4px; padding: 1px 5px; margin: 0 2px; font: inherit; font-size: 12px;
+}
+
+.toolbar {
+  position: fixed; display: flex; gap: 6px; padding: 5px; border-radius: 10px;
+  background: rgba(28, 28, 32, .94); box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+}
+.tool {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #e8e8ea;
+  padding: 6px 11px; border-radius: 7px; cursor: pointer;
+  font: 12.5px/1 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.tool:hover { background: rgba(255, 255, 255, .12); }
+.tool.primary { background: #f97316; color: #fff; }
+.tool.primary:hover { background: #ea580c; }
+.tool svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }

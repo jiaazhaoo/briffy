@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>DailyLogs 媒体采集</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="top">
+    <img src="icons/32.png" alt="" />
+    <div class="title"><b>DailyLogs</b><small id="pageTitle">正在扫描当前页面…</small></div>
+    <span id="appStatus" class="status"><i></i><span>连接中…</span></span>
+  </header>
+
+  <div class="filters">
+    <div class="seg" id="kindSeg">
+      <button data-kind="all" class="active">全部 <em id="nAll">0</em></button>
+      <button data-kind="image">图片 <em id="nImage">0</em></button>
+      <button data-kind="video">视频 <em id="nVideo">0</em></button>
+      <button data-kind="audio">音频 <em id="nAudio">0</em></button>
+    </div>
+    <label class="min">最小边 <input id="minSize" type="range" min="0" max="800" step="50" value="150" /><span id="minSizeLabel">150px</span></label>
+    <div class="sel">
+      <button id="btnAll" class="link">全选</button>
+      <button id="btnNone" class="link">清空</button>
+    </div>
+  </div>
+
+  <main id="grid" class="grid"><div class="empty">扫描中…</div></main>
+
+  <footer class="bottom">
+    <label class="check"><input type="checkbox" id="downloadVideos" /> 同时下载视频 / 音频文件（可能很大）</label>
+    <div class="row">
+      <span id="summary" class="muted">未选择</span>
+      <button id="btnSend" class="primary" disabled>发送到 DailyLogs</button>
+    </div>
+    <div id="progress" class="progress hidden"><div class="bar"><i></i></div><span></span></div>
+    <details class="settings">
+      <summary>设置</summary>
+      <label>DailyLogs 端口 <input id="port" type="number" min="1024" max="65535" /></label>
+      <p class="muted">DailyLogs 需要在电脑上运行，接口地址在 App 的 设置 › 浏览器扩展 里查看。</p>
+    </details>
+  </footer>
+  <script src="popup.js"></script>
+</body>
+</html>
