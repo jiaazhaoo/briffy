@@ -298,7 +298,9 @@
     document.body.dataset.tab = tab;
     for (const s of document.querySelectorAll('.tab')) s.classList.toggle('active', s.id === `tab-${tab}`);
     if (tab === 'settings' && document.querySelector('.sg-btn.active')?.dataset.group === 'pet') loadPetPicker().catch(() => {});
-    if (tab === 'ask') setTimeout(() => $('#askInput').focus(), 0);
+    // 进「问」这一页要把已有的对话画出来。以前只 focus 不渲染，第一次进去就是一整片空白——
+    // 而输入框那只托盘当时也被 CSS 藏着，于是那一页既没有内容也没有地方打字。
+    if (tab === 'ask') { renderAsk(); setTimeout(() => $('#askInput').focus(), 0); }
     if (tab === 'entries' && state.view === 'grid' && jgWidth !== gridWidth()) scheduleGrid();
   }
 
@@ -1251,6 +1253,62 @@
     return bits.join(' \u00b7 ');
   }
 
+  // 模型写回来的是 markdown，这里把它变成纸上的字。
+  //
+  // 这个函数一直被 turnHtml 调用，却从来没有被定义过——所以只要有回答送到，渲染就抛
+  // ReferenceError，整页停在「正在翻记录…」不动。「没有 AI 聊天页面」是这么来的：页面是有的，
+  // 是它一画就崩。
+  //
+  // 只认答案里真的会出现的那几样，而且**没有斜体**：纸面标准里那一条是硬的（永远无斜体）。
+  // 先转义再解析，所以模型写什么都不会变成标签——withCitations 也依赖这个前提。
+  function md(src) {
+    const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
+    const out = [];
+    let para = [];
+    let list = null;                      // 'ul' | 'ol'
+    let code = null;                      // 代码块里的行
+
+    const inline = (t) => esc(t)
+      .replace(/`([^`]+)`/g, (m, c) => `<code>${c}</code>`)
+      .replace(/\*\*([^*]+)\*\*/g, (m, b) => `<b>${b}</b>`)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, txt, href) => `<a href="${href}" target="_blank" rel="noreferrer">${txt}</a>`);
+    const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join('\n')).replace(/\n/g, '<br>')}</p>`); para = []; } };
+    const flushList = () => { if (list) { out.push(`</${list.tag}>`); list = null; } };
+
+    for (const raw of lines) {
+      const line = raw.replace(/\s+$/, '');
+      if (code !== null) {                                   // 代码块里一切照抄
+        if (/^\s*```/.test(line)) { out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`); code = null; }
+        else code.push(raw);
+        continue;
+      }
+      if (/^\s*```/.test(line)) { flushPara(); flushList(); code = []; continue; }
+      if (!line.trim()) { flushPara(); flushList(); continue; }
+
+      const bullet = line.match(/^\s*[-*+]\s+(.*)$/);
+      const number = line.match(/^\s*\d+[.)]\s+(.*)$/);
+      if (bullet || number) {
+        flushPara();
+        const tag = bullet ? 'ul' : 'ol';
+        if (list && list.tag !== tag) flushList();
+        if (!list) { list = { tag }; out.push(`<${tag}>`); }
+        out.push(`<li>${inline((bullet || number)[1])}</li>`);
+        continue;
+      }
+      const head = line.match(/^\s*#{1,6}\s+(.*)$/);
+      if (head) {                                            // 标题在一段回答里就是一行加重的话
+        flushPara(); flushList();
+        out.push(`<p class="mdh">${inline(head[1])}</p>`);
+        continue;
+      }
+      flushList();
+      para.push(line);
+    }
+    if (code !== null) out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`);
+    flushPara(); flushList();
+    return out.join('');
+  }
+
   // [2] in the answer becomes a chip pointing at source card 2. md() has already escaped everything,
   // so the brackets are plain text by the time we get here; numbers with no card are left alone.
   function withCitations(html, count) {
@@ -2189,6 +2247,13 @@
     $('#detail').addEventListener('click', detailClick);
     $('#listDetail').addEventListener('click', detailClick);
     $('#askForm').addEventListener('submit', (e) => { e.preventDefault(); runAsk(); });
+    // 回车送出，Shift+回车换行。textarea 默认回车就是换行，所以这一条必须自己写；
+    // 输入法正在选字时（isComposing）不能算送出，否则打到一半就被发出去了。
+    $('#askInput').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      runAsk();
+    });
     $('#askAnswer').addEventListener('click', (e) => { const c = e.target.closest('.cite'); if (c) flashSource(c.dataset.n); });
     $('#askAnswer').addEventListener('click', (e) => { const card = e.target.closest('.citecard'); if (card) openEntry(card.dataset.id); });
     $('#modelCards').addEventListener('click', (e) => {
