@@ -39,18 +39,28 @@
 const { spawn } = require('child_process');
 const { systemPreferences } = require('electron');
 
+const IDLE_EXIT_MS = 10 * 60 * 1000;   // 驱动进程自己的活命上限
+
 // Read from stdin, post a scroll for each line, answer 'ok'. Blocking reads, no polling.
 const DRIVER = `
 ObjC.import('CoreGraphics');
 ObjC.import('Foundation');
+// NSData 的 length 经过 JXA 桥出来是**字符串**，不是数字。写成 d.length === 0 永远不成立，
+// 于是父进程一死、管道关掉之后，availableData 不停返回空数据而循环永远不退出——一个核 100%，
+// 实测烧了四个半小时才被发现。数字比较必须先 Number()。
+const empty = (d) => !d || Number(d.length) === 0;
+// 再加一道保险：长截图最多跑几分钟，超过这个时间没收到任何指令就自己走，
+// 免得哪天又因为别的原因没退成。
+const DEADLINE = Date.now() + ${IDLE_EXIT_MS};
 const inh = $.NSFileHandle.fileHandleWithStandardInput;
 const outh = $.NSFileHandle.fileHandleWithStandardOutput;
 function reply(s) {
   outh.writeData($.NSString.alloc.initWithUTF8String(s).dataUsingEncoding($.NSUTF8StringEncoding));
 }
 while (true) {
+  if (Date.now() > DEADLINE) break;
   const data = inh.availableData;
-  if (!data || data.length === 0) break;
+  if (empty(data)) break;
   const text = ObjC.unwrap($.NSString.alloc.initWithDataEncoding(data, $.NSUTF8StringEncoding)) || '';
   for (const line of text.split('\\n')) {
     const t = line.trim();
@@ -97,6 +107,9 @@ function open() {
   try {
     child = spawn('osascript', ['-l', 'JavaScript', '-e', DRIVER], { stdio: ['pipe', 'pipe', 'ignore'] });
   } catch (_) { child = null; return false; }
+  child.unref();                        // 它不该拖着主进程不让退出
+  // 主进程走的时候把它带走。孤儿进程曾经在这里空转了四个半小时。
+  process.once('exit', () => { try { child && child.kill('SIGKILL'); } catch (_) { /* 已经没了 */ } });
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk) => {
     buf += chunk;
