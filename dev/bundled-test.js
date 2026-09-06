@@ -14,7 +14,12 @@ function readWav(file) {
   return out;
 }
 (async () => {
-  const noNet = 'C:/nonexistent-cache-dir-for-test';
+  // A cache directory that cannot exist and cannot be created, which is the whole point of passing one:
+  // it proves the models were found in the bundle rather than fetched. 'C:/nonexistent-...' did that on
+  // Windows and the opposite here -- macOS happily made a directory called `C:` in the repository root
+  // and downloaded 12 MB of models into it. A path that runs *through* an existing file fails with
+  // ENOTDIR everywhere instead.
+  const noNet = path.join(__filename, 'no-cache-here');
   console.log('stt.isBundled(tiny.en):', stt.isBundled('Xenova/whisper-tiny.en'));
   const t0 = Date.now();
   const r = await ocr.recognize(process.argv[2], { languages: ['zh-Hans', 'en'], cacheDir: noNet });

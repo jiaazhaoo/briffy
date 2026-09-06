@@ -8,7 +8,13 @@ const ocr = require('../src/main/ocr.js');
   console.log(`auto pick: ${pick.model} (${pick.reason})`);
   // both bundled sets must resolve without touching the network
   for (const model of ['v6-tiny', 'v6-small']) {
-    const r = await ocr.recognize(process.argv[2], { model, cacheDir: 'C:/nonexistent-so-bundle-only' });
+    // A cache directory that cannot exist and cannot be created, which is the whole point of passing one:
+    // it proves the models were found in the bundle rather than fetched. 'C:/nonexistent-...' did that on
+    // Windows and the opposite here -- macOS happily made a directory called `C:` in the repository root
+    // and downloaded 12 MB of models into it. A path that runs *through* an existing file fails with
+    // ENOTDIR everywhere instead.
+    const noCache = path.join(__filename, 'no-cache-here');
+    const r = await ocr.recognize(process.argv[2], { model, cacheDir: noCache });
     console.log(`  ${model}: ${r.ms} ms, ${r.text.length} chars, model=${r.model}`);
     await ocr.terminate();
   }
