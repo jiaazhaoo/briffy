@@ -25,11 +25,12 @@
       sContext: '记录来源', sContextOn: '保存时记下当时的应用、窗口和网页地址',
       sContextHint: '只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。',
       sContextTest: '看看现在能读到什么',
-      sAutoRecord: '自动录音', sAutoRecordOn: '别的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
-      sAutoRecordAllow: '白名单', sAutoRecordAllowPh: '留空＝除排除的以外都跟着录',
+      sAutoRecord: '自动录音', sAutoRecordOn: '白名单里的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
+      sAutoRecordAllow: '白名单', sAutoRecordAllowPh: '再加一个…',
+      autoAllowEmpty: '空的——除排除的以外都跟着录', autoAllowDrop: '点一下去掉',
       autoNowUsing: '用过麦克风的（点一下加进白名单）：', autoNowNobody: '这次开机后还没有别的软件用过麦克风',
       autoWaiting: '等着——没有别的软件在用麦克风', autoBecause: '因为 {who} 正在用麦克风',
-      sAutoRecordHint: '不是一直听着房间——briffy 平时不碰麦克风，只有当**别的软件打开了麦克风**（开会、通话、录音）时才跟着录一段，对方一关，它也关。所以手机上的游戏、屋里的电视不会被录进来。常驻只是每 5 秒问一次系统「现在谁在用麦克风」，实测一次 10 毫秒。会录到通话里对方的声音，很多地方这需要对方同意。',
+      sAutoRecordHint: '不是一直听着房间——briffy 平时不碰麦克风，只有当**白名单里的软件打开了麦克风**时才跟着录一段，对方一关，它也关。所以手机上的游戏、屋里的电视不会被录进来。默认名单是会议和通话软件；输入法永远不算，它的语音输入产出的是文字，那些字已经打在你要写的地方了。浏览器按**站点**放行（meet.google.com 这样），不是整个浏览器——否则网页里的语音输入也会被录。名单留空＝除排除的以外都跟着录。常驻只是每 5 秒问一次系统「现在谁在用麦克风」，实测一次 10 毫秒。会录到通话里对方的声音，很多地方这需要对方同意。',
       autoOff: '未开启', autoIdle: '在听（{mic}）', autoSpeech: '正在录…', autoDenied: '没有麦克风权限', autoFailed: '启动失败',
       sDiarizeOn: '区分录音里的不同说话人（首次会下载约 35 MB 模型）',
       speakersHead: '认识的声音', speakerUnnamed: '（未命名）', speakerName: '起个名字', speakerHeard: '共 {n}',
@@ -144,11 +145,12 @@
       sContext: 'Where it came from', sContextOn: 'Record the app, window and page address at the moment of a save',
       sContextHint: 'Asked once, at the instant you save something -- briffy never watches your screen. The window title needs Accessibility permission; the page address comes from the browser extension, and turning this off stops asking for both.',
       sContextTest: 'See what it can read now',
-      sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along whenever another app uses the microphone', sAutoRecordState: 'State',
-      sAutoRecordAllow: 'Only these', sAutoRecordAllowPh: 'empty = follow anything not excluded',
+      sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along when an app on the list uses the microphone', sAutoRecordState: 'State',
+      sAutoRecordAllow: 'Only these', sAutoRecordAllowPh: 'add one…',
+      autoAllowEmpty: 'empty — follows anything not excluded', autoAllowDrop: 'click to remove',
       autoNowUsing: 'have used the microphone (click to add):', autoNowNobody: 'nothing else has used the microphone since briffy started',
       autoWaiting: 'Waiting — nothing else is using the microphone', autoBecause: 'because {who} is using the microphone',
-      sAutoRecordHint: 'Not an open microphone on the room: briffy does not touch the mic until **another app opens it** (a meeting, a call, a recording), records alongside it, and lets go when that app does. A game on your phone or a TV in the room will not be recorded. All it runs is a 10 ms question to the system every 5 seconds: who is using the microphone. It will capture the other side of a call, which in many places needs their consent.',
+      sAutoRecordHint: 'Not an open microphone on the room: briffy does not touch the mic until **an app on the list opens it**, records alongside it, and lets go when that app does. A game on your phone or a TV in the room will not be recorded. The list starts as meeting and call apps. An input method never counts — what its voice input produces is text, already typed where you wanted it. Browsers are allowed by **site** (meet.google.com), not as a whole, or voice typing on any web page would be recorded too. An empty list means: follow anything not excluded. All it runs is a 10 ms question to the system every 5 seconds: who is using the microphone. It will capture the other side of a call, which in many places needs their consent.',
       autoOff: 'off', autoIdle: 'listening ({mic})', autoSpeech: 'recording…', autoDenied: 'no microphone permission', autoFailed: 'could not start',
       sDiarizeOn: 'Tell the speakers in a recording apart (fetches about 35 MB the first time)',
       speakersHead: 'Voices briffy knows', speakerUnnamed: '(unnamed)', speakerName: 'give a name', speakerHeard: '{n} in total',
@@ -1075,6 +1077,14 @@
     if (state.boxesOn && e.ocrBoxes) drawBoxes(box, e);
   }
 
+  // 点一下详情里那张图，它去自己的窗口里被看——图是用来看的，看图和读它的说明是两件事
+  document.addEventListener('click', (ev) => {
+    const img = ev.target.closest('#previewImg');
+    if (!img) return;
+    const e = currentEntry();
+    if (e && ws.openViewer) ws.openViewer(e.id);
+  });
+
   // ---------- where the words are ----------
   //
   // PP-OCR reported a box for every line it read and briffy kept them (see src/main/ocr-boxes.js).
@@ -1341,11 +1351,47 @@
     el.textContent = `${st.state === 'speech' ? t('autoSpeech') : t('autoIdle', { mic: st.mic || '' })} · ${t('autoBecause', { who })}`;
   }
 
+  // 白名单本身。一个 240px 的输入框装不下十八项用顿号连起来的名字——那串有 180 个字符，读不了也改不了。
+  // 所以名单是一排词，点一下去掉一个；旁边一个小框加新的。
+  let allowList = [];
+  function renderAllow() {
+    const box = $('#autoRecordAllowList');
+    if (!box) return;
+    box.textContent = '';
+    if (!allowList.length) {
+      const none = document.createElement('span');
+      none.className = 'chip zero';
+      none.textContent = t('autoAllowEmpty');
+      box.appendChild(none);
+      return;
+    }
+    for (const name of allowList) {
+      const c = document.createElement('span');
+      c.className = 'chip drop-app';
+      c.textContent = name;
+      c.title = t('autoAllowDrop');
+      c.addEventListener('click', () => {
+        allowList = allowList.filter((x) => x !== name);
+        renderAllow(); renderMicNow(lastListen); queueSave();
+      });
+      box.appendChild(c);
+    }
+  }
+  function addAllow(name) {
+    const t2 = String(name || '').trim();
+    if (!t2 || allowList.some((x) => x.toLowerCase() === t2.toLowerCase())) return;
+    allowList = allowList.concat(t2);
+    renderAllow(); renderMicNow(lastListen); queueSave();
+  }
+
   // 现在有谁在用麦克风，每个都能点一下加进白名单。
+  let lastListen = null;
   //
   // 列的是 `seen` 而不是 `holders`：holders 已经过了白名单，一旦白名单非空，别的应用就再也不出现，
   // 也就没办法被加进去——那样这个输入框只能靠手打进程名，等于没有。
   function renderMicNow(info) {
+    lastListen = info || lastListen;
+    info = lastListen;
     const el = $('#autoRecordNow');
     if (!el) return;
     // 这次运行里用过麦克风的，新的在前；没有就退回成此刻占着的
@@ -1358,13 +1404,8 @@
       b.textContent = h.app || h.name;
       // 写进名单的是进程名，不是显示名：「微信输入法」这五个字在 exe 路径里一个也找不到。
       b.title = h.name;
-      b.addEventListener('click', () => {
-        const box = $('#autoRecordAllow');
-        const now = box.value.split(/[、,，;；\n]+/).map((x) => x.trim()).filter(Boolean);
-        if (!now.some((x) => x.toLowerCase() === h.name.toLowerCase())) now.push(h.name);
-        box.value = now.join('、');
-        queueSave();
-      });
+      if (allowList.some((x) => x.toLowerCase() === h.name.toLowerCase())) continue;   // 已经在名单里了
+      b.addEventListener('click', () => addAllow(h.name));
       el.appendChild(b);
     }
   }
@@ -1419,7 +1460,8 @@
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
     $('#recordContext').checked = s.recordContext !== false;
     $('#autoRecord').checked = s.autoRecord === true;
-    $('#autoRecordAllow').value = (s.autoRecordAllow || []).join('、');
+    allowList = (s.autoRecordAllow || []).slice();
+    renderAllow();
     $('#diarize').checked = s.diarize === true;
     renderSpeakers(m.speakers);
     renderAutoRecord(m.listen);
@@ -1507,8 +1549,7 @@
       normalizeChineseScript: $('#normalizeChineseScript').checked,
       recordContext: $('#recordContext').checked,
       autoRecord: $('#autoRecord').checked,
-      // 顿号、逗号、分号都当分隔符：这栏是给人打字的，不该要求他记住用哪一个
-      autoRecordAllow: $('#autoRecordAllow').value.split(/[、,，;；\n]+/).map((x) => x.trim()).filter(Boolean),
+      autoRecordAllow: allowList.slice(),
       diarize: $('#diarize').checked,
       clipboardWatch: $('#clipboardWatch').checked,
       clipboardMinChars: Math.max(1, Number($('#clipboardMinChars').value) || 12),
@@ -2155,6 +2196,13 @@
     form.addEventListener('submit', (e) => e.preventDefault());
     const isSetting = (el) => el && el.matches('input, select') && el.id !== 'petSearch' && el.id !== 'workspaceDir';
     form.addEventListener('change', (e) => { if (isSetting(e.target)) queueSave(); });
+    // 「再加一个」：回车或离开都算加。它不是一个设置项（名单在 allowList 里），所以不能交给上面那条
+    const addBox = $('#autoRecordAllowAdd');
+    if (addBox) {
+      const take = () => { addAllow(addBox.value); addBox.value = ''; };
+      addBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); take(); } });
+      addBox.addEventListener('blur', take);
+    }
     form.addEventListener('input', (e) => {
       const el = e.target;
       if (!isSetting(el) || el.tagName !== 'INPUT') return;

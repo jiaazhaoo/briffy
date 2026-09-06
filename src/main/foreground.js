@@ -55,6 +55,10 @@ function noteTab(tab) {
   lastTab = { url, title: String((tab && tab.title) || '').trim().slice(0, 300), at: Date.now() };
 }
 function forgetTab() { lastTab = null; }
+/** 扩展最近报上来的那个标签页，够新才算数。自动录音的白名单用它按站点放行浏览器。 */
+function currentTab() {
+  return (lastTab && Date.now() - lastTab.at < TAB_FRESH_MS) ? { ...lastTab } : null;
+}
 
 function run(cmd, args, timeout) {
   return new Promise((resolve) => {
@@ -170,4 +174,4 @@ async function probe() {
   return { ok: true, app: front.app, window, tab: lastTab ? lastTab.url : '', reason: window ? '' : 'accessibility' };
 }
 
-module.exports = { read, readInto, noteTab, forgetTab, setEnabled, isEnabled, probe, trimWindowTitle, BROWSER_BUNDLES };
+module.exports = { read, readInto, noteTab, forgetTab, currentTab, setEnabled, isEnabled, probe, trimWindowTitle, BROWSER_BUNDLES };

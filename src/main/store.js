@@ -43,8 +43,23 @@ const DEFAULT_SETTINGS = {
   // 24 小时占着麦克风的东西（系统语音服务、常驻录音器）不算「有人在用麦克风」，
   // 否则自动录音会退回成一直录——正是它要避免的那件事。名字可改。
   autoRecordIgnore: ['corespeechd', 'screenpipe'],
-  // 空 = 除了排除的以外都跟着录；非空 = 只跟着名单里的应用录。见 src/main/micwatch.js
-  autoRecordAllow: [],
+  // 只有这些开着麦克风，才跟着录。空 = 除了排除的以外都跟着录。见 src/main/micwatch.js
+  //
+  // 默认不是空的，因为空的那条规则（"别人开了我就跟着录"）在真实的电脑上录到的多半不是对话：
+  // 输入法的语音输入、网页里的语音搜索、随手按一下的语音消息。选进来的标准是**你事后会想回看的对话**：
+  //
+  //   会议和通话的桌面应用 —— 它们打开麦克风就只有一个意思
+  //   会议网站           —— 只在浏览器**停在这一页**时才算。整个浏览器是不能放进来的：那等于把
+  //                        网页里的语音输入也一起放行，和输入法那件事一模一样
+  //
+  // 有意没放进来的：QuickTime、语音备忘录这类录音软件（它们本来就在录，再录一份是重复）；
+  // 微信和 QQ（语音消息不是会议，放进来又会变成刷屏——要的人自己加一行）。
+  autoRecordAllow: [
+    'zoom.us', 'TencentMeeting', 'wemeetapp', 'Microsoft Teams', 'Webex',
+    'FaceTime', 'Skype', 'Discord', 'Slack', 'Lark', 'Feishu', 'DingTalk',
+    'meet.google.com', 'teams.microsoft.com', 'teams.live.com',
+    'meeting.tencent.com', 'webex.com', 'whereby.com',
+  ],
   // Tell voices apart in a recording, and remember them between recordings. Off by default: it fetches
   // about 35 MB of models the first time. See src/main/diarize.js.
   diarize: false,

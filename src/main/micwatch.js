@@ -29,13 +29,22 @@
 //
 // 白名单（设置 autoRecordAllow）：留空时按上面三条排除，其余都跟着录；一旦填了，就只跟着名单里的
 // 应用录。想要"只录会议"的人填上会议软件即可，其余一律不碰——这比不断往排除名单里补名字可靠。
+//
+// **浏览器按站点放行，不按应用放行。** 把 Chrome 整个写进白名单，等于把刚关上的那个口子重新打开：
+// 网页里的语音输入、语音搜索、网页版聊天的语音消息，全都会被录，和输入法那件事一模一样。所以名单里
+// 的一项，除了比对进程名和路径，还会比对**浏览器当前停在哪个站点**（扩展报上来的，见 foreground.js）。
+// 于是 meet.google.com 只在你真的在开会那一页时才算数；同一个 Chrome 打开别的网站不算。
+// 不需要区分"这一项是应用还是站点"——zoom.us 恰好两者都是，两条都比对即可。
 const { execFile } = require('child_process');
 const path = require('path');
+const foreground = require('./foreground');
 
 const POLL_MS = 5000;
 const DEFAULT_IGNORE = ['corespeechd', 'screenpipe'];
 // macOS 只在这两处装输入法，第三方的也一样（微信输入法、搜狗、微软拼音都在 /Library/Input Methods）
 const INPUT_METHOD_DIRS = ['/Library/Input Methods/', '/System/Library/Input Methods/'];
+// 谁算浏览器——只影响"要不要拿站点去比对"，认错了最多是少放行一次
+const BROWSERS = ['chrome', 'chromium', 'safari', 'firefox', 'edge', 'brave', 'vivaldi', 'opera', 'arc', 'comet'];
 
 let timer = null;
 let deps = null;
@@ -97,12 +106,24 @@ async function appNameOf(exe) {
   return clean;
 }
 
-/** 名单项既可以写进程名（WeType），也可以写路径的一段（/Applications/zoom.us.app）。 */
-function listed(list, exe, base) {
+const isBrowser = (base) => BROWSERS.some((b) => base.toLowerCase().includes(b));
+
+/** 网址里的主机名，取不出来就是空串。 */
+function hostOf(url) {
+  try { return new URL(String(url || '')).hostname.toLowerCase(); } catch (_) { return ''; }
+}
+
+/**
+ * 名单项可以写进程名（WeType）、路径的一段（/Applications/zoom.us.app），或者一个站点
+ * （meet.google.com）——站点只在占着麦克风的是浏览器时才比对。
+ */
+function listed(list, exe, base, host) {
+  const browser = isBrowser(base);
   return (list || []).some((n) => {
     const t = String(n || '').trim().toLowerCase();
     if (!t) return false;
-    return base.toLowerCase().includes(t) || exe.toLowerCase().includes(t);
+    if (base.toLowerCase().includes(t) || exe.toLowerCase().includes(t)) return true;
+    return !!(browser && host && (host === t || host.endsWith(`.${t}`)));
   });
 }
 
@@ -113,14 +134,16 @@ function listed(list, exe, base) {
  * @param {Array<{pid:number, exe:string}>} found
  * @param {{allow?:string[], ignore?:string[]}} rules
  */
-function follow(found, { allow = [], ignore = DEFAULT_IGNORE } = {}) {
+function follow(found, { allow = [], ignore = DEFAULT_IGNORE, tabUrl = '' } = {}) {
+  const host = hostOf(tabUrl);
   const out = [];
   for (const { pid, exe } of found) {
     if (!exe || isOwn(exe) || isInputMethod(exe)) continue;
     const base = exe.split('/').pop();
-    if (listed(ignore, exe, base)) continue;
-    if ((allow || []).length && !listed(allow, exe, base)) continue;
-    out.push({ pid, name: base, exe });
+    // 排除名单不看站点：它挡的是"这个东西一直占着麦克风"，和它此刻在哪一页无关
+    if (listed(ignore, exe, base, '')) continue;
+    if ((allow || []).length && !listed(allow, exe, base, host)) continue;
+    out.push({ pid, name: base, exe, site: isBrowser(base) ? host : '' });
   }
   return out;
 }
@@ -134,8 +157,10 @@ async function poll() {
   const ignore = s.autoRecordIgnore || DEFAULT_IGNORE;
   // 两份：一份是会跟着录的，一份是**不看白名单**时会跟着录的。后者是设置页列出来给你挑的候选——
   // 只报前者的话，白名单一填，别的应用就再也不出现，你也就没办法把它加进名单，这个设置项等于一次性的。
-  const candidates = follow(found, { ignore, allow: [] });
-  const next = follow(found, { ignore, allow: s.autoRecordAllow || [] });
+  const tab = foreground.currentTab();
+  const tabUrl = (tab && tab.url) || '';
+  const candidates = follow(found, { ignore, allow: [], tabUrl });
+  const next = follow(found, { ignore, allow: s.autoRecordAllow || [], tabUrl });
   for (const h of candidates) h.app = await appNameOf(h.exe);
   const byPid = new Map(candidates.map((h) => [h.pid, h]));
   for (const h of next) h.app = (byPid.get(h.pid) || {}).app || '';
@@ -181,4 +206,4 @@ function status() {
   };
 }
 
-module.exports = { start, stop, status, follow, appNameOf, DEFAULT_IGNORE, INPUT_METHOD_DIRS, _pidsFrom: pidsFrom };
+module.exports = { start, stop, status, follow, appNameOf, DEFAULT_IGNORE, INPUT_METHOD_DIRS, BROWSERS, _pidsFrom: pidsFrom };

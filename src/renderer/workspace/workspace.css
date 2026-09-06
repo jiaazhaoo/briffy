@@ -327,7 +327,11 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .lv-row .tg { display: flex; gap: 9px; }
 .lv-row .src { font: 400 var(--fs-meta)/1 var(--sans); color: var(--ink-3); text-align: right;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lv-prev { overflow: auto; scrollbar-width: none; }
+/* 让 .detail 自己当滚动容器，.lv-prev 只是个框。
+   两个都 overflow:auto 的话，头钉的是 .detail 的滚动口，而真正在滚的是 .lv-prev——
+   钉了等于没钉，一滚就跑没了 */
+.lv-prev { overflow: hidden; display: flex; scrollbar-width: none; }
+.lv-prev .detail { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; }
 /* 旁边那半张纸让开同样的一条顶栏 */
 
 @media (max-width: 900px) { .lv { grid-template-columns: 1fr; } .lv-prev { display: none; } }
@@ -836,6 +840,15 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .marquee { position: fixed; z-index: 30; pointer-events: none;
   border: 1px solid var(--ink); background: var(--tone); }
 
-/* 当前占用麦克风的应用，点一下加进白名单。是词不是按钮——按钮会浮起来，而这里是印在纸上的字。 */
+/* 自动录音的白名单。全是印在纸上的词，没有框也没有影子：一排能点掉的名字，加一个用旁边那个小框。 */
+.chips { display: inline; }
+/* 名单是你设的值，底下那行是注解——两者不能同一级墨色，否则一眼看不出哪个才是设置 */
+.chips .chip { margin-right: var(--a2); color: var(--ink-2); font-size: var(--fs-act); }
+.chips .chip.zero { color: var(--ink-3); }
+/* 点一下去掉——悬停变印泥色，那是这一屏里"删除"的颜色，而且只在鼠标停上去时才出现 */
+.drop-app { cursor: pointer; }
+.drop-app:hover { color: var(--stamp); text-decoration: line-through; }
+#autoRecordAllowAdd { width: 96px; }
+/* 用过麦克风的应用，点一下加进白名单 */
 .st .add-app { cursor: pointer; margin-right: var(--a2); }
 .st .add-app:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

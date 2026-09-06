@@ -86,6 +86,65 @@ ok('拿到的每一条都带着完整路径，设置页才能把它写进名单'
   assert.strictEqual(typeof h.pid, 'number');
 });
 
+// ---------- 浏览器按站点放行 ----------
+const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper';
+const SAFARI = '/Applications/Safari.app/Contents/MacOS/Safari';
+
+ok('浏览器停在会议那一页，跟着录', () => {
+  const got = micwatch.follow(found(CHROME), { allow: ['meet.google.com'], tabUrl: 'https://meet.google.com/abc-defg-hij' });
+  assert.strictEqual(got.length, 1);
+  assert.strictEqual(got[0].site, 'meet.google.com');
+});
+
+ok('同一个浏览器开着别的网站，不录', () => {
+  assert.deepStrictEqual(
+    names(micwatch.follow(found(CHROME), { allow: ['meet.google.com'], tabUrl: 'https://mail.google.com/' })), []);
+});
+
+// 这是把整个浏览器写进白名单会犯的错：网页里的语音输入和输入法是同一类问题
+ok('不知道停在哪一页时，浏览器不算放行', () => {
+  assert.deepStrictEqual(names(micwatch.follow(found(CHROME), { allow: ['meet.google.com'], tabUrl: '' })), []);
+  assert.deepStrictEqual(names(micwatch.follow(found(SAFARI), { allow: ['meet.google.com'] })), []);
+});
+
+ok('子域名算，形近的域名不算', () => {
+  const at = (u) => names(micwatch.follow(found(CHROME), { allow: ['zoom.us'], tabUrl: u })).length;
+  assert.strictEqual(at('https://us02web.zoom.us/j/123'), 1, '子域名该算');
+  assert.strictEqual(at('https://notzoom.us/j/123'), 0, 'notzoom.us 不是 zoom.us');
+  assert.strictEqual(at('https://zoom.us.evil.com/'), 0, '把它放在前面也不算');
+});
+
+ok('站点只对浏览器生效，别的应用不会因为你开着那一页就被录', () => {
+  assert.deepStrictEqual(
+    names(micwatch.follow(found(MEETING), { allow: ['meet.google.com'], tabUrl: 'https://meet.google.com/x' })), []);
+});
+
+ok('同一项既能匹配应用也能匹配站点', () => {
+  // zoom.us 既是进程名也是域名，不需要分成两种写法
+  assert.deepStrictEqual(names(micwatch.follow(found(ZOOM), { allow: ['zoom.us'] })), ['zoom.us']);
+  assert.strictEqual(micwatch.follow(found(CHROME), { allow: ['zoom.us'], tabUrl: 'https://zoom.us/j/1' }).length, 1);
+});
+
+ok('排除名单不看站点：占着麦克风就是占着，跟在哪一页无关', () => {
+  assert.deepStrictEqual(
+    names(micwatch.follow(found(SPEECHD), { ignore: ['corespeechd'], tabUrl: 'https://meet.google.com/x' })), []);
+});
+
+// ---------- 默认名单 ----------
+ok('默认名单认得出常见的会议软件', () => {
+  const { DEFAULT_SETTINGS } = require('../src/main/store');
+  const allow = DEFAULT_SETTINGS.autoRecordAllow;
+  assert.ok(allow.length > 6, `默认只有 ${allow.length} 项`);
+  assert.deepStrictEqual(names(micwatch.follow(found(ZOOM, MEETING), { allow })), ['zoom.us', 'TencentMeeting']);
+});
+
+ok('默认名单不会把输入法或随便一个应用放进来', () => {
+  const { DEFAULT_SETTINGS } = require('../src/main/store');
+  const allow = DEFAULT_SETTINGS.autoRecordAllow;
+  const RANDOM = '/Applications/Preview.app/Contents/MacOS/Preview';
+  assert.deepStrictEqual(names(micwatch.follow(found(WETYPE, RANDOM), { allow })), []);
+});
+
 // ---------- pmset 的输出 ----------
 ok('从 pmset 的输出里认出谁在采集音频', () => {
   const text = [
