@@ -47,6 +47,22 @@ ok('自己不算，否则一开麦就永远停不下来', () => {
   assert.deepStrictEqual(names(micwatch.follow(found(own))), []);
 });
 
+// 这条是那两条 B 站录音换来的。采集麦克风的不是主进程，是 Chromium 的音频辅助进程，它住在
+// Contents/Frameworks 底下——只认 Contents/MacOS 的话，briffy 会把自己当成「别的软件」，然后一直录。
+ok('自己的 helper 也算自己，它才是真正开麦的那个', () => {
+  const app = '/Applications/briffy.app';
+  const root = micwatch.ownRootOf(`${app}/Contents/MacOS/briffy`, 'darwin');
+  assert.strictEqual(root, app, '要认到整个 .app，不是 Contents/MacOS');
+  // 采集麦克风的进程住在这里，之前它不以 Contents/MacOS 开头，于是被当成了「别的软件」
+  const helper = `${app}/Contents/Frameworks/briffy Helper.app/Contents/MacOS/briffy Helper`;
+  assert.ok(helper.startsWith(root), '把自己的 helper 当成别人 = 自己录自己，永不停止');
+});
+
+ok('不在 .app 里的时候，还是按可执行文件所在目录算', () => {
+  assert.strictEqual(micwatch.ownRootOf('/opt/briffy/bin/briffy', 'linux'), '/opt/briffy/bin');
+  assert.strictEqual(micwatch.ownRootOf('/opt/briffy/bin/briffy', 'darwin'), '/opt/briffy/bin');
+});
+
 ok('别的应用开了麦克风，就跟着录', () => {
   assert.deepStrictEqual(names(micwatch.follow(found(ZOOM, MEETING))), ['zoom.us', 'TencentMeeting']);
 });

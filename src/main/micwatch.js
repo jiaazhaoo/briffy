@@ -86,9 +86,23 @@ async function namesOf(pids) {
   return map;
 }
 
-// 我们自己的进程都住在同一个目录下（主进程、渲染进程、各种 helper）
-const ownDir = path.dirname(process.execPath);
-const isOwn = (exe) => exe.startsWith(ownDir);
+// 我们自己的进程。**要认到整个 .app，不能只认 Contents/MacOS。**
+//
+// 采集麦克风的从来不是主进程：Chromium 把音频放在一个辅助进程里，于是 pmset 上那条断言写的是
+//   <briffy.app>/Contents/Frameworks/briffy Helper.app/Contents/MacOS/briffy Helper
+// 而 process.execPath 的目录是
+//   <briffy.app>/Contents/MacOS
+// 前者不以后者开头，所以 briffy 一直没认出那是自己。后果正是这一行原本的注释所担心的那件事：
+// 一开麦，自己就出现在「谁在用麦克风」里，于是它认为「别的软件开着麦」，于是继续录——闭环，永不停止。
+// 真实后果是 2026-09-06 21:34 那两条：房间里在放一个 B 站视频，整段视频旁白被当成会议录了进去。
+function ownRootOf(execPath, platform = process.platform) {
+  const inBundle = /\/Contents\/MacOS\/[^/]+$/;
+  return platform === 'darwin' && inBundle.test(execPath)
+    ? execPath.replace(inBundle, '')
+    : path.dirname(execPath);
+}
+const ownRoot = ownRootOf(process.execPath);
+const isOwn = (exe) => exe.startsWith(ownRoot);
 const isInputMethod = (exe) => INPUT_METHOD_DIRS.some((d) => exe.startsWith(d));
 
 // 进程名不是给人看的东西。占着麦克风的那个叫 WeType，而你在系统里、在这台电脑上看到的名字是
@@ -160,10 +174,15 @@ async function poll() {
   // 只报前者的话，白名单一填，别的应用就再也不出现，你也就没办法把它加进名单，这个设置项等于一次性的。
   const tab = foreground.currentTab();
   const tabUrl = (tab && tab.url) || '';
-  // 没设置过（null）就用这台电脑上装了的会议软件；自己清空成 [] 是另一回事，那是「都跟着录」
-  const allow = s.autoRecordAllow || apps.defaultAllow();
+  // 没设置过（null / 没有这个键）就用这台电脑上装了的会议软件。
+  //
+  // 空名单是「什么都不自动录」，不是「什么都录」。后者曾经是这里的规则，而它是个陷阱：把名单里的词
+  // 一个个点掉，本以为是录得更少，结果是录得更多。名单叫白名单，那它就该照字面意思来——
+  // 空的就是没有人在名单上。真要「谁开麦都跟着录」，那是另一件事，不该由「清空」来表达。
+  const set = s.autoRecordAllow;
+  const allow = (set === null || set === undefined) ? apps.defaultAllow() : set;
   const candidates = follow(found, { ignore, allow: [], tabUrl });
-  const next = follow(found, { ignore, allow, tabUrl });
+  const next = allow.length ? follow(found, { ignore, allow, tabUrl }) : [];
   for (const h of candidates) h.app = await appNameOf(h.exe);
   const byPid = new Map(candidates.map((h) => [h.pid, h]));
   for (const h of next) h.app = (byPid.get(h.pid) || {}).app || '';
@@ -209,4 +228,4 @@ function status() {
   };
 }
 
-module.exports = { start, stop, status, follow, appNameOf, DEFAULT_IGNORE, INPUT_METHOD_DIRS, BROWSERS, _pidsFrom: pidsFrom };
+module.exports = { start, stop, status, follow, appNameOf, ownRootOf, DEFAULT_IGNORE, INPUT_METHOD_DIRS, BROWSERS, _pidsFrom: pidsFrom };

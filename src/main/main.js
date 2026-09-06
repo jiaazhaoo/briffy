@@ -871,7 +871,8 @@ function setupIpc() {
     // 白名单里的每一项此刻对应这台电脑上的哪个软件，以及装了哪些浏览器（它们按站点放行，见 apps.js）
     apps: {
       browsers: apps.detect().browsers.map((b) => b.name),
-      allow: apps.describe(store.getSettings().autoRecordAllow || apps.defaultAllow()),
+      allow: apps.describe(store.getSettings().autoRecordAllow ?? apps.defaultAllow()),
+      suggested: apps.defaultAllow(),
     },
     speakers: diarize.people(),
     extensionDir: extensionDir(),

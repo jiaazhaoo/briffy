@@ -27,7 +27,7 @@
       sContextTest: '看看现在能读到什么',
       sAutoRecord: '自动录音', sAutoRecordOn: '白名单里的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
       sAutoRecordAllow: '白名单', sAutoRecordAllowPh: '再加一个…',
-      autoAllowEmpty: '空的——除排除的以外都跟着录', autoAllowDrop: '点一下去掉',
+      autoAllowEmpty: '空的——不会自动录任何东西', autoAllowDrop: '点一下去掉', autoAllowReset: '恢复默认',
       autoAllowSite: '会议网站', autoBrowsers: '装了的浏览器只在上面这些网站时才算：',
       autoNowUsing: '用过麦克风的（点一下加进白名单）：', autoNowNobody: '这次开机后还没有别的软件用过麦克风',
       autoWaiting: '等着——没有别的软件在用麦克风', autoBecause: '因为 {who} 正在用麦克风',
@@ -148,7 +148,7 @@
       sContextTest: 'See what it can read now',
       sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along when an app on the list uses the microphone', sAutoRecordState: 'State',
       sAutoRecordAllow: 'Only these', sAutoRecordAllowPh: 'add one…',
-      autoAllowEmpty: 'empty — follows anything not excluded', autoAllowDrop: 'click to remove',
+      autoAllowEmpty: 'empty — nothing will be recorded automatically', autoAllowDrop: 'click to remove', autoAllowReset: 'restore the default',
       autoAllowSite: 'meeting site', autoBrowsers: 'the browsers you have count only while on those sites:',
       autoNowUsing: 'have used the microphone (click to add):', autoNowNobody: 'nothing else has used the microphone since briffy started',
       autoWaiting: 'Waiting — nothing else is using the microphone', autoBecause: 'because {who} is using the microphone',
@@ -1351,6 +1351,7 @@
   // 名单里存的是进程名（TencentMeeting），要显示的是这台电脑上那个软件叫什么（腾讯会议）。
   // 主进程扫过应用目录才知道两者的对应关系，所以翻译是它给的，见 src/main/apps.js。
   let allowInfo = new Map();
+  let allowSuggested = [];
   function renderAllow() {
     const box = $('#autoRecordAllowList');
     if (!box) return;
@@ -1374,11 +1375,23 @@
       });
       box.appendChild(c);
     }
+    // 改过之后总得有条路回去，否则「点掉了不该点的那个」就只能靠自己重新打一遍
+    if (allowSuggested.length && allowList.join('\u0001') !== allowSuggested.join('\u0001')) {
+      const r = document.createElement('span');
+      r.className = 'chip add-app';
+      r.textContent = t('autoAllowReset');
+      r.addEventListener('click', resetAllow);
+      box.appendChild(r);
+    }
   }
   function addAllow(name) {
     const t2 = String(name || '').trim();
     if (!t2 || allowList.some((x) => x.toLowerCase() === t2.toLowerCase())) return;
     allowList = allowList.concat(t2);
+    renderAllow(); renderMicNow(lastListen); queueSave();
+  }
+  function resetAllow() {
+    allowList = allowSuggested.slice();
     renderAllow(); renderMicNow(lastListen); queueSave();
   }
 
@@ -1466,6 +1479,7 @@
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
     $('#recordContext').checked = s.recordContext !== false;
     $('#autoRecord').checked = s.autoRecord === true;
+    allowSuggested = (m.apps && m.apps.suggested) || [];
     const described = (m.apps && m.apps.allow) || [];
     allowInfo = new Map(described.map((x) => [x.entry, x]));
     allowList = described.length ? described.map((x) => x.entry) : (s.autoRecordAllow || []).slice();
