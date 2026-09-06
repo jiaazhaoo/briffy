@@ -5,7 +5,7 @@
   "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
   "main": "src/main/main.js",
   "private": true,
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "postinstall": "install-electron && node scripts/fetch-fonts.js || echo fonts: skipped",
     "start": "electron .",
@@ -62,7 +62,7 @@
       "!node_modules/pdfjs-dist/image_decoders/**",
       "!node_modules/**/*.{md,markdown,map,flow,tsbuildinfo}",
       "!node_modules/**/{test,tests,__tests__,example,examples,docs,doc,.github,.vscode}/**",
-      "!node_modules/**/{LICENSE,LICENCE,license,AUTHORS,CHANGELOG,NOTICE}*"
+      "!node_modules/**/CHANGELOG*"
     ],
     "asarUnpack": [
       "node_modules/onnxruntime-node/**",

@@ -9,6 +9,16 @@
 // unicode-range slices -- Chromium then loads only the slices a page actually uses, which for the
 // CJK faces is the difference between ~10 MB on disk and a few hundred KB in memory.
 //
+// The licences come down with them, and the app will not build without them. The OFL says the licence
+// must travel with the fonts, and for a long time it did not: 212 font files shipped with no licence
+// text anywhere near them.
+//
+// They are fetched from each family's own repository rather than from the @fontsource package, because
+// all five @fontsource LICENSE files are byte-identical and name Google Inc. as the copyright holder.
+// The OFL text in them is right; the copyright line is not, for the two Adobe families and for IBM's,
+// and the copyright notice is the part the licence requires be preserved. What upstream publishes is
+// what ships.
+//
 // Why these faces: see .claude/skills/paper-ui/SKILL.md ("字 · 两种文字，一张纸"). In one line:
 // Latin first, then the CJK face designed to sit with it -- Source Sans / Source Serif are the
 // Latin halves of 思源黑 / 思源宋, drawn by the same team.
@@ -23,12 +33,13 @@ const CDN = 'https://cdn.jsdelivr.net/npm/';
 // family: the name the app's CSS uses (the packages call the variable cuts "… Variable"; we do not).
 // subsets: which unicode-range slices to keep; the CJK faces have no named subsets, so all of them.
 const FACES = [
-  { pkg: '@fontsource-variable/noto-sans-sc', ver: '5.2.5', css: ['index.css'], family: 'Noto Sans SC' },
-  { pkg: '@fontsource-variable/noto-serif-sc', ver: '5.2.5', css: ['index.css'], family: 'Noto Serif SC' },
-  { pkg: '@fontsource-variable/source-sans-3', ver: '5.2.5', css: ['index.css'], family: 'Source Sans 3', subsets: ['latin', 'latin-ext'] },
-  { pkg: '@fontsource-variable/source-serif-4', ver: '5.2.5', css: ['index.css'], family: 'Source Serif 4', subsets: ['latin', 'latin-ext'] },
-  { pkg: '@fontsource/ibm-plex-mono', ver: '5.2.5', css: ['400.css', '500.css', '600.css'], family: 'IBM Plex Mono', subsets: ['latin', 'latin-ext'] },
+  { pkg: '@fontsource-variable/noto-sans-sc', ver: '5.2.5', css: ['index.css'], family: 'Noto Sans SC', licence: 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/LICENSE' },
+  { pkg: '@fontsource-variable/noto-serif-sc', ver: '5.2.5', css: ['index.css'], family: 'Noto Serif SC', licence: 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Serif/LICENSE' },
+  { pkg: '@fontsource-variable/source-sans-3', ver: '5.2.5', css: ['index.css'], family: 'Source Sans 3', subsets: ['latin', 'latin-ext'], licence: 'https://raw.githubusercontent.com/adobe-fonts/source-sans/release/LICENSE.md' },
+  { pkg: '@fontsource-variable/source-serif-4', ver: '5.2.5', css: ['index.css'], family: 'Source Serif 4', subsets: ['latin', 'latin-ext'], licence: 'https://raw.githubusercontent.com/adobe-fonts/source-serif/release/LICENSE.md' },
+  { pkg: '@fontsource/ibm-plex-mono', ver: '5.2.5', css: ['400.css', '500.css', '600.css'], family: 'IBM Plex Mono', subsets: ['latin', 'latin-ext'], licence: 'https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt' },
 ];
+const LICENCES = path.join(OUT, 'licences');
 
 async function get(url) {
   const r = await fetch(url);
@@ -75,6 +86,20 @@ async function pool(items, n, fn) {
     }
     console.log(`${face.family}: ${blocks.length} slices`);
   }
+  // The licences, one file per family, exactly as that family publishes it. A failure here stops the
+  // script: fonts on disk without their licence is the state this exists to prevent, and carrying on
+  // with a warning would recreate it silently at the next clean install.
+  fs.mkdirSync(LICENCES, { recursive: true });
+  const index = ['The typefaces in ../files are used under the SIL Open Font License 1.1.',
+    'Each file here is the licence as published by that family, fetched by scripts/fetch-fonts.js.', ''];
+  for (const face of FACES) {
+    const name = `${face.family.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.txt`;
+    const dst = path.join(LICENCES, name);
+    if (!fs.existsSync(dst)) fs.writeFileSync(dst, await get(face.licence));
+    index.push(`${face.family.padEnd(16)} ${name}   ${face.licence}`);
+  }
+  fs.writeFileSync(path.join(LICENCES, 'README.txt'), index.join('\n') + '\n');
+
   fs.writeFileSync(path.join(OUT, 'fonts.css'), out.join('\n') + '\n');
   console.log(`fonts: ${fetched} fetched, ${kept} already present, ${(bytes / 1048576).toFixed(1)} MB on disk -> ${path.relative(ROOT, OUT)}`);
 })().catch((e) => { console.error('fetch-fonts:', e.message); process.exit(1); });
