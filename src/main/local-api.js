@@ -1,8 +1,9 @@
 'use strict';
 // Local HTTP API (127.0.0.1 only) used by the browser extension to hand over media from the current page.
 //   GET  /api/ping            → { app, version }
-//   POST /api/media/item      body = file bytes (may be empty), header X-DailyLogs-Meta = base64(JSON)
+//   POST /api/media/item      body = file bytes (may be empty), header X-Briffy-Meta = base64(JSON)
 //   POST /api/media/done      JSON { pageUrl, pageTitle, count, failed }
+//   POST /api/tab             JSON { url, title } – which page the browser is showing right now
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -13,7 +14,10 @@ const MAX_BODY = 2 * 1024 * 1024 * 1024;
 let server = null;
 let deps = null;
 let lastReceived = null;
-let extension = null;      // { version, id, lastSeen } – set by the extension's heartbeat
+// Set by the extension's heartbeat and remembered across restarts: without that, briffy forgets a
+// working extension every time it starts and claims it is not installed until the next heartbeat --
+// up to five minutes of a wrong answer on screen.
+let extension = null;      // { version, id, lastSeen }
 // The extension reports every 5 minutes, so two missed reports mean it is gone. Kept short so a stale
 // entry cannot keep claiming the extension is installed.
 const EXTENSION_STALE_MS = 11 * 60 * 1000;
@@ -29,12 +33,13 @@ function allowed(req, pathname) {
   if (origin && !/^(chrome|moz|safari-web|edge)-extension:\/\//.test(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost)/.test(origin)) return false;
   if (req.method === 'OPTIONS') return true;
   if (req.method === 'GET' && PUBLIC_GET.has(pathname)) return true;
-  return req.headers['x-dailylogs'] === '1';
+  // An extension the user has not reloaded since the rename still sends the old header.
+  return req.headers['x-briffy'] === '1' || req.headers['x-dailylogs'] === '1';
 }
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-DailyLogs, X-DailyLogs-Meta');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Briffy, X-Briffy-Meta, X-DailyLogs, X-DailyLogs-Meta');
   res.setHeader('Access-Control-Max-Age', '600');
 }
 function json(res, code, obj) {
@@ -52,7 +57,7 @@ function readJson(req) {
 // Streams the request body to a temp file (videos can be huge); resolves with { file, size } or null when empty.
 function readToTemp(req) {
   return new Promise((resolve, reject) => {
-    const file = path.join(os.tmpdir(), `dailylogs-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`);
+    const file = path.join(os.tmpdir(), `briffy-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`);
     const out = fs.createWriteStream(file);
     let size = 0;
     req.on('data', (c) => { size += c.length; if (size > MAX_BODY) { req.destroy(new Error('body too large')); } });
@@ -72,14 +77,17 @@ async function handle(req, res) {
     if (req.method === 'GET' && url.pathname === '/api/ping') {
       // Only a real browser extension counts as "connected": the Origin header is set by the browser
       // itself for extension fetches, so a local script or a curl cannot make the app claim it is installed.
-      const ver = req.headers['x-dailylogs-ext'];
+      const ver = req.headers['x-briffy-ext'] || req.headers['x-dailylogs-ext'];
       const id = extensionOrigin(req.headers);
       if (ver && id) {
         const known = extension && extension.id === id;
         extension = { version: String(ver), id, lastSeen: Date.now() };
+        if (deps.rememberExtension) deps.rememberExtension({ ...extension });
         if (!known && deps.onExtension) deps.onExtension(extension);
       }
-      json(res, 200, { ok: true, app: 'dailylogs', version: deps.version, lastReceived });
+      // `wantTab` asks the extension to report which page it is showing, so that something saved
+      // while a browser is in front can name the page. The extension sends nothing unless asked.
+      json(res, 200, { ok: true, app: 'briffy', version: deps.version, lastReceived, wantTab: !!(deps.wantsTab && deps.wantsTab()) });
       return;
     }
     // The guide page polls this while the user installs the extension.
@@ -89,16 +97,36 @@ async function handle(req, res) {
     }
     if (req.method === 'GET' && (url.pathname === '/install' || url.pathname === '/')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-      res.end(deps.installPage ? deps.installPage() : '<h1>DailyLogs</h1>');
+      res.end(deps.installPage ? deps.installPage() : '<h1>briffy</h1>');
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/media/item') {
       let meta = {};
-      try { meta = JSON.parse(Buffer.from(String(req.headers['x-dailylogs-meta'] || ''), 'base64').toString('utf8')); } catch (_) { json(res, 400, { ok: false, error: 'bad meta' }); return; }
+      try { meta = JSON.parse(Buffer.from(String(req.headers['x-briffy-meta'] || req.headers['x-dailylogs-meta'] || ''), 'base64').toString('utf8')); } catch (_) { json(res, 400, { ok: false, error: 'bad meta' }); return; }
       const body = await readToTemp(req);
       const entry = await deps.workspace.ingestBrowserMedia(meta, body);
       lastReceived = new Date().toISOString();
       json(res, 200, { ok: true, id: entry ? entry.id : null });
+      return;
+    }
+    // A page the user just bookmarked, with the text already pulled out in the tab (the pages worth
+    // saving are behind a login, where fetching the URL from here would return an empty shell).
+    if (req.method === 'POST' && url.pathname === '/api/page') {
+      const page = await readJson(req);
+      const entry = await deps.workspace.ingestBookmark(page || {});
+      // Leaves a trace in the log: "I clicked and nothing happened" is otherwise impossible to tell
+      // apart from "the click never reached the app at all".
+      console.log('[local-api] bookmark', entry ? 'saved' : 'duplicate', (page && page.url) || '?');
+      lastReceived = new Date().toISOString();
+      json(res, 200, { ok: true, id: entry ? entry.id : null, duplicate: !entry });
+      return;
+    }
+    // The page the browser is on. Held in memory for half a minute and attached only to something the
+    // user then chooses to save; nothing here is written to disk on its own. See foreground.js.
+    if (req.method === 'POST' && url.pathname === '/api/tab') {
+      const tab = await readJson(req);
+      if (deps.onTab) deps.onTab(tab || {});
+      json(res, 200, { ok: true, wantTab: !!(deps.wantsTab && deps.wantsTab()) });
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/media/done') {
@@ -117,6 +145,7 @@ async function handle(req, res) {
 
 function start(d) {
   deps = d;
+  if (!extension && d.lastExtension && d.lastExtension.lastSeen) extension = { ...d.lastExtension };
   stop();
   const port = Number(d.port) || DEFAULT_PORT;
   server = http.createServer((req, res) => { handle(req, res).catch((e) => { try { json(res, 500, { ok: false, error: e.message }); } catch (_) { /* ignore */ } }); });

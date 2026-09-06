@@ -1,11 +1,10 @@
 'use strict';
-// Provider-independent "five words" tagging and daily recap. Dispatches to Anthropic, OpenRouter,
+// Provider-independent titling and daily recap. Dispatches to Anthropic, OpenRouter,
 // a local Ollama model, or any OpenAI-compatible endpoint. Prompts enforce the no-translation rule.
 const ai = require('./ai');
 const oai = require('./openai-compat');
 const ollama = require('./ollama');
 const hardware = require('./hardware');
-const { normalizeWords } = require('./keywords');
 const { promptLanguageName } = require('./languages');
 
 const PROVIDERS = ['anthropic', 'openrouter', 'ollama', 'custom'];
@@ -13,14 +12,26 @@ const PROVIDERS = ['anthropic', 'openrouter', 'ollama', 'custom'];
 const TAG_LIMIT = { anthropic: 100000, openrouter: 60000, custom: 12000, ollama: 5000 };
 const DIGEST_LIMIT = { anthropic: 80000, openrouter: 60000, custom: 12000, ollama: 8000 };
 
+// The model is asked for a title and a sentence, and nothing else. The words that index an entry are
+// extracted locally from its own text (see workspace.js): they should not change, or cost anything, or
+// stop working offline, because someone switched provider.
 const TAG_SCHEMA = {
   type: 'object',
   properties: {
-    words: { type: 'array', items: { type: 'string' }, description: 'Exactly five short words or phrases' },
     title: { type: 'string', description: 'Concise title, at most 12 words' },
     summary: { type: 'string', description: 'One or two sentences, at most 60 words' },
   },
-  required: ['words', 'title', 'summary'],
+  required: ['title', 'summary'],
+  additionalProperties: false,
+};
+
+const ASK_SCHEMA = {
+  type: 'object',
+  properties: {
+    answer: { type: 'string', description: 'The answer in Markdown, citing items as [1], [2]' },
+    used: { type: 'array', items: { type: 'integer' }, description: 'Numbers of the items the answer actually relies on' },
+  },
+  required: ['answer', 'used'],
   additionalProperties: false,
 };
 
@@ -68,12 +79,11 @@ function anthropicAuth(cfg) {
 // ---------- prompts ----------
 function tagSystem(languageName, small) {
   const lines = [
-    'You tag items that a person saved into their personal daily log (screenshots, files, links, voice notes).',
-    'Return JSON with exactly these keys: "words" – an array of exactly five short words or phrases (1-3 words each) that together capture what the item is about;',
-    '"title" – a concise title (max 12 words); "summary" – one or two sentences (max 60 words) describing the content.',
-    'LANGUAGE RULE: write words, title and summary in the same language as the item\'s own content (its OCR text, transcript, page text or note).',
-    'Never translate. If the content mixes languages, use the dominant one.',
-    `If there is no readable content, follow the language of the file name or URL; if that is ambiguous, use ${languageName}.`,
+    'You title items that a person saved into their personal daily log (screenshots, files, links, voice notes).',
+    'Return JSON with exactly these keys: "title" – a concise title (max 12 words); "summary" – one or two sentences (max 60 words) describing the content.',
+    `LANGUAGE RULE: write the title and the summary in ${languageName}, whatever language the item itself is in — they are the app's own words about the item, not a copy of it.`,
+    'Quote names, products, people, places and technical terms exactly as they appear in the content, in their original language; do not translate those.',
+    'The content itself is never rewritten or translated elsewhere: only this title and summary are in the app\'s language.',
     'Base everything strictly on the provided content. Prefer specific nouns (product, topic, person, place, project) over generic words.',
     'Do not use words like "screenshot", "image", "file" or "document" unless that is the actual subject.',
   ];
@@ -93,6 +103,7 @@ function buildTagText(input, limit, { attachedPdf = false, attachedImage = false
   if (input.context) notes.push(input.context);
   if (input.kind === 'image') {
     if (input.text) notes.push(`OCR text extracted from the image:\n${clip(input.text, limit)}`);
+    else if (input.labels) notes.push(`The image has no readable text. A local image classifier recognised: ${input.labels}`);
     else if (!attachedImage) notes.push('(The image contains no readable text.)');
   } else if (input.kind === 'pdf') {
     if (!attachedPdf && input.pdfText) notes.push(`Text extracted from the PDF:\n${clip(input.pdfText, limit)}`);
@@ -112,13 +123,18 @@ function parseJsonLoose(text) {
   return null;
 }
 
-// ---------- five words ----------
+// ---------- title and summary ----------
 /**
  * @param {object} cfg   from config()
- * @param {{kind:'image'|'pdf'|'text'|'meta', image?:Buffer|string, imageMime?:string, pdf?:Buffer|string,
- *          pdfText?:string, text?:string, context?:string, filename?:string, url?:string}} input
+ * Writes a title and a one-line summary for one saved item.
+ * Pictures arrive as words, never as pixels: `text` when OCR read some, `labels` when a local
+ * classifier named what is in the frame (see vision.js). `image` is still honoured for callers that
+ * genuinely want a picture attached, but the ingestion pipeline does not set it.
+ * @param {{kind:'image'|'pdf'|'text'|'meta', image?:Buffer|string, imageMime?:string, labels?:string,
+ *          pdf?:Buffer|string, pdfText?:string, text?:string, context?:string, filename?:string,
+ *          url?:string}} input
  */
-async function fiveWords(cfg, input) {
+async function describe(cfg, input) {
   const limit = TAG_LIMIT[cfg.provider] || 12000;
   const image = input.kind === 'image' && input.image ? ai.prepareImage(input.image, input.imageMime) : null;
   const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
@@ -144,9 +160,7 @@ async function fiveWords(cfg, input) {
       throw new Error(`Unknown provider ${cfg.provider}`);
   }
   const parsed = parseJsonLoose(raw.text) || {};
-  const fallbackText = [input.text, input.pdfText, input.filename, input.url].filter(Boolean).join(' ');
   return {
-    words: normalizeWords(parsed.words, fallbackText),
     title: String(parsed.title || '').trim(),
     summary: String(parsed.summary || '').trim(),
     model: raw.model ? `${raw.model} (${providerName(cfg.provider)})` : label(cfg),
@@ -170,31 +184,50 @@ function buildDigest(entries, maxChars) {
   const sorted = [...entries].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   for (const e of sorted) {
     const excerpt = (e.text || e.summary || '').replace(/\s+/g, ' ').slice(0, perItem);
-    const line = `- [${fmtTime(e.createdAt)}] (${e.type}) ${e.title || e.path || ''}${e.tags && e.tags.length ? ` | tags: ${e.tags.join(', ')}` : ''}${excerpt ? ` | ${excerpt}` : ''}`;
+    const where = e.context && e.context.app
+      ? ` | from ${e.context.app}${e.context.window ? `: ${e.context.window}` : ''}${e.context.url ? ` <${e.context.url}>` : ''}`
+      : '';
+    const line = `- [${fmtTime(e.createdAt)}] (${e.type}) ${e.title || e.path || ''}${where}${e.visionLabels ? ` | in the picture: ${e.visionLabels}` : ''}${excerpt ? ` | ${excerpt}` : ''}`;
     if (used + line.length > maxChars) { lines.push('- [... more items omitted]'); break; }
     lines.push(line); used += line.length;
   }
   return lines.join('\n');
 }
 
-function digestSystem(languageName, small) {
+function digestSystem(languageName, small, headings) {
+  const h = headings || {};
   const lines = [
-    'You write the daily recap for a personal daily-log app. The user saved screenshots, files, links and voice notes during the day;',
-    'each item comes with its time, type, title, five tags and an excerpt of its text.',
-    `Write in ${languageName}, in Markdown, under 400 words. Structure: a short overview paragraph; a "Themes" section grouping related items with bullets;`,
-    'a brief "Timeline" section (morning / afternoon / evening); and a "Follow-ups" section only if the items imply open tasks or decisions.',
-    'Quote item titles, tags, names and terms exactly as they appear, in their original language – never translate them.',
-    'Be concrete. Do not invent anything that is not in the items.',
+    'You write the daily recap for briffy, a personal log of things the user deliberately chose to keep:',
+    'screenshots, copied passages, links, files and voice notes. Each item comes with its time, kind, title,',
+    'an excerpt of its text, the app and window it was saved from, and -- for a picture with no words in it --',
+    'what a local classifier saw. A block of counts is given first; those numbers are already correct.',
+    '',
+    'Rules, in order of importance:',
+    '1. Report only what the items actually show. If something is not in them, leave it out and say so plainly.',
+    '   Seeing a task discussed is not evidence the user did it.',
+    '2. Never invent an item, a time, a name or a number. Use the counts as given; do not recompute or estimate them.',
+    '3. Quote titles, names, code and terms exactly as they appear, in their original language. Never translate them.',
+    '4. Attach a time (HH:MM) to every concrete claim.',
+    '',
+    `Write in ${languageName}, in Markdown, under 400 words, using exactly these headings in this order:`,
+    `## ${h.overview || 'Overview'} -- one sentence: what this day was mostly about.`,
+    `## ${h.themes || 'What you were doing'} -- 2-5 bullets grouping related items, each with a time and the specific name, file or page.`,
+    `## ${h.moments || 'Worth remembering'} -- bullets for the few items that carry real information. Skip the section if there are none.`,
+    `## ${h.open || 'Unfinished'} -- open questions, half-read pages, undone tasks the items imply. Skip the section if there are none.`,
+    `## ${h.patterns || 'Patterns'} -- which apps and kinds dominated, and when. Use the given counts.`,
+    `End with a single line: **${h.next || 'Next step'}:** the one thing most worth picking up.`,
   ];
-  if (small) lines.push('Output only the Markdown recap.');
-  return lines.join(' ');
+  if (small) lines.push('Output only the Markdown recap, nothing before or after it.');
+  return lines.join('\n');
 }
 
-async function dailySummary(cfg, { dateKey, entries }) {
+async function dailySummary(cfg, { dateKey, entries, counts = '', headings = null }) {
   const limit = DIGEST_LIMIT[cfg.provider] || 12000;
   const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
-  const system = digestSystem(cfg.languageName, small);
-  const text = `Date: ${dateKey}\nItems (${entries.length}):\n${buildDigest(entries, limit)}`;
+  const system = digestSystem(cfg.languageName, small, headings);
+  // The counts come first and are already true, so the model never has to work out how many of
+  // anything there were -- the one thing it is reliably bad at and the one thing that is cheap to know.
+  const text = `${counts ? `Counts for this day (these are correct, use them as given):\n${counts}\n\n` : ''}Date: ${dateKey}\nItems (${entries.length}):\n${buildDigest(entries, limit)}`;
   let raw;
   switch (cfg.provider) {
     case 'anthropic':
@@ -215,6 +248,74 @@ async function dailySummary(cfg, { dateKey, entries }) {
   return { text: raw.text, model: raw.model ? `${raw.model} (${providerName(cfg.provider)})` : label(cfg) };
 }
 
+// ---------- asking the log a question ----------
+function buildNumbered(entries, maxChars) {
+  const lines = [];
+  let used = 0;
+  const perItem = Math.max(200, Math.min(900, Math.floor(maxChars / Math.max(entries.length, 1))));
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const excerpt = (e.text || e.summary || '').replace(/\s+/g, ' ').slice(0, perItem);
+    const line = `[${i + 1}] ${e.dateKey} ${fmtTime(e.createdAt)} (${e.type}) ${e.title || e.path || e.url || ''}`
+      + `${e.visionLabels ? ` | in the picture: ${e.visionLabels}` : ''}`
+      + `${e.summary ? ` | ${e.summary}` : ''}`
+      + `${excerpt ? ` | ${excerpt}` : ''}`;
+    if (used + line.length > maxChars) { lines.push(`[... ${entries.length - i} lower-ranked items omitted]`); break; }
+    lines.push(line); used += line.length;
+  }
+  return lines.join('\n');
+}
+
+function askSystem(languageName, small) {
+  const lines = [
+    'You answer questions about a person\'s own daily log. They saved screenshots, files, links and voice notes;',
+    'the items below were retrieved for this question and are numbered, each with its date, time, type, title and an excerpt.',
+    'Return JSON with these keys: "answer" \u2014 the answer in Markdown; "used" \u2014 the numbers of the items the answer actually relies on.',
+    'Cite items inline as [1], [2] right where you use them.',
+    `LANGUAGE RULE: answer in the same language as the question. If that is unclear, use ${languageName}.`,
+    'Quote titles, names and terms exactly as they appear in the items, in their original language \u2014 never translate them.',
+    'Answer only from the items. If they do not contain the answer, say so plainly and describe what is there instead; never invent an item, a date or a detail.',
+    'Be short and concrete: a direct answer first, then only the detail that supports it.',
+  ];
+  if (small) lines.push('Output only the JSON object, nothing else.');
+  return lines.join(' ');
+}
+
+/**
+ * @param {object} cfg   from config()
+ * @param {{question:string, entries:Array}} input  entries in ranked order; the tail is dropped when the context is full
+ */
+async function answerQuestion(cfg, { question, entries }) {
+  const limit = DIGEST_LIMIT[cfg.provider] || 12000;
+  const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
+  const system = askSystem(cfg.languageName, small);
+  const text = `Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit)}`;
+  let raw;
+  switch (cfg.provider) {
+    case 'anthropic':
+      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text, schema: ASK_SCHEMA, maxTokens: 2048, effort: 'medium' });
+      break;
+    case 'openrouter':
+      raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text, schema: ASK_SCHEMA, maxTokens: 1600 });
+      break;
+    case 'custom':
+      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1600 });
+      break;
+    case 'ollama':
+      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1200, numCtx: 12288 });
+      break;
+    default:
+      throw new Error(`Unknown provider ${cfg.provider}`);
+  }
+  const parsed = parseJsonLoose(raw.text);
+  // A small local model that ignores the schema still said something useful; take it as the answer.
+  const answer = String((parsed && parsed.answer) || (parsed ? '' : raw.text) || '').trim();
+  const used = parsed && Array.isArray(parsed.used)
+    ? [...new Set(parsed.used.map(Number))].filter((n) => Number.isInteger(n) && n >= 1 && n <= entries.length)
+    : [];
+  return { answer, used, model: raw.model ? `${raw.model} (${providerName(cfg.provider)})` : label(cfg) };
+}
+
 async function testProvider(cfg) {
   const probe = { system: 'Reply with the single word OK.', text: 'ping', maxTokens: 16 };
   switch (cfg.provider) {
@@ -226,4 +327,4 @@ async function testProvider(cfg) {
   }
 }
 
-module.exports = { config, isConfigured, label, fiveWords, dailySummary, testProvider, PROVIDERS, TAG_SCHEMA };
+module.exports = { config, isConfigured, label, describe, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA };

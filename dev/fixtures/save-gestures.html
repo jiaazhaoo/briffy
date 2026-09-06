@@ -1,0 +1,88 @@
+<!doctype html><meta charset="utf-8"><title>save-gesture fixture</title>
+<!-- Save vs un-save, against the markup each site actually uses. This is the whole risk of the
+     bookmark watcher: the same control does both on nearly every site, and getting it backwards means
+     saving the thing at the moment you decided to remove it.
+
+     Serve the repo root over http and open dev/fixtures/save-gestures.html, then in the console:
+         copy(window.runCases())
+     Real clicks matter too: HTMLElement.click() is not isTrusted and bookmark.js ignores it on
+     purpose, so the end of the file only exercises the decision, not the event path. -->
+<body>
+<article><h1>A test article</h1><p>Some body text that is long enough to be worth extracting, repeated so the extractor has something to find. Some body text that is long enough. Some body text that is long enough.</p></article>
+
+<!-- shapes copied from the real sites -->
+<button id="x-save"   data-testid="bookmark" aria-label="Bookmark">🔖</button>
+<button id="x-unsave" data-testid="removeBookmark" aria-label="Remove Tweet from Bookmarks">🔖</button>
+<button id="rd-save"   aria-label="Save post">Save</button>
+<button id="rd-unsave" aria-label="Unsave post">Unsave</button>
+<div    id="xhs-save"   class="collect-wrapper"><span>收藏</span></div>
+<div    id="xhs-unsave" class="collect-wrapper collected"><span>已收藏</span></div>
+<button id="generic-save">加入收藏</button>
+<button id="generic-undo">取消收藏</button>
+<button id="toggle-off" aria-label="收藏" aria-pressed="false">☆</button>
+<button id="toggle-on"  aria-label="收藏" aria-pressed="true">★</button>
+<button id="decoy-share">分享</button>
+<button id="decoy-save-file">保存文件到本地</button>
+<!-- the false positives: a page full of cards each containing a save button, and a header link that
+     goes to the list of saved things. Clicking either must do nothing. -->
+<div id="card-blank" style="border:1px solid #ccc;padding:8px">
+  <p>某个视频卡片的标题</p><span id="card-empty-space">　　　</span>
+  <button aria-label="收藏">收藏</button>
+</div>
+<a id="nav-fav" href="/account/favourites">收藏</a>
+<a id="nav-saved" href="https://example.com/saved">Saved</a>
+<div id="bili-fav" class="video-fav video-toolbar-left-item"><svg></svg><span class="video-fav-info">4242</span></div>
+<div id="bili-fav-on" class="video-fav video-toolbar-left-item on"><svg></svg><span class="video-fav-info">4243</span></div>
+<span   id="icon-inside"><button aria-label="Bookmark"><svg><rect/></svg><i id="deep-icon">·</i></button></span>
+
+<script>
+window.sent = [];
+window.chrome = { runtime: { sendMessage: (m) => { window.sent.push(m); return Promise.resolve({ ok: true }); } } };
+</script>
+<script src="../../extension/extract.js"></script>
+<script src="../../extension/savedetect.js"></script>
+<script src="../../extension/bookmark.js"></script>
+<script>
+// Exercise the decision itself: what would a click on this element be taken to mean?
+window.CASES = [
+  ['x-save', 'save', null], ['x-unsave', 'unsave', null],
+  ['x-save', 'save', 'x.com'], ['x-unsave', 'unsave', 'x.com'],
+  ['rd-save', 'save', null], ['rd-unsave', 'unsave', null],
+  ['rd-save', 'save', 'www.reddit.com'], ['rd-unsave', 'unsave', 'www.reddit.com'],
+  ['xhs-save', 'save', null], ['xhs-unsave', 'unsave', null],
+  ['xhs-save', 'save', 'www.xiaohongshu.com'], ['xhs-unsave', 'unsave', 'www.xiaohongshu.com'],
+  ['generic-save', 'save', null], ['generic-undo', 'unsave', null],
+  ['toggle-off', 'unsave', null], ['toggle-on', 'save', null],
+  ['decoy-share', 'ignored', null], ['decoy-save-file', 'ignored', null],
+  ['deep-icon', 'save', null],
+  // clicking blank space inside a card that happens to contain a save button
+  ['card-empty-space', 'ignored', null],
+  // a header link to the list of saved things is navigation, not saving
+  ['nav-fav', 'ignored', null],
+  ['nav-saved', 'ignored', null],
+  // bilibili's button carries a count, not the word
+  ['bili-fav', 'save', 'www.bilibili.com'],
+  ['bili-fav-on', 'unsave', 'www.bilibili.com'],
+];
+window.runCases = () => {
+  const rows = []; let bad = 0;
+  for (const [id, want, host] of window.CASES) {
+    let got; try { got = window.verdict(id, host); } catch (e) { got = 'ERR ' + e.message; }
+    if (got !== want) bad++;
+    rows.push(`${got === want ? 'ok  ' : 'FAIL'} ${id.padEnd(15)} ${(host || 'generic').padEnd(20)} got=${got} want=${want}`);
+  }
+  return `${rows.join('\n')}\n\n${window.CASES.length - bad} passed, ${bad} failed`;
+};
+
+window.verdict = (id, host) => {
+  const D = window.BriffySaveDetect;
+  const el = document.getElementById(id);
+  const hit = D.saveControl(el, host);
+  if (!hit) return 'ignored';
+  if (hit.undo) return 'unsave';
+  const state = D.pressedState(hit.el);
+  if (state === false) return 'unsave';
+  if (state === null && D.UNDO_WORDS.test(D.labelOf(hit.el)) && !hit.bySite) return 'unsave';
+  return 'save';
+};
+</script>

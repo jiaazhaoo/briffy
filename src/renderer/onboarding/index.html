@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:; font-src 'self' file:" />
+  <title>briffy</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
+  <link rel="stylesheet" href="onboarding.css" />
+</head>
+<body>
+  <header class="head">
+    <span class="word" data-i18n="setup">开始使用</span>
+    <div class="steps" id="steps"></div>
+    <span class="count" id="count"></span>
+  </header>
+
+  <main id="stage">
+    <!-- 1. what this is -->
+    <section class="step" data-step="hello">
+      <div class="mark" id="obHello"></div>
+      <h1 data-i18n="helloTitle">把你一天里看到的、听到的都记下来</h1>
+      <p class="sub" data-i18n="helloSub">截图、语音、拖进来的文件，都会自动整理进工作区。全部留在这台电脑上。</p>
+    </section>
+
+    <!-- 2. languages -->
+    <section class="step" data-step="lang">
+      <h1 data-i18n="langTitle">你平时用哪两种语言？</h1>
+      <p class="sub" data-i18n="langSub">这决定文字识别、语音识别和界面语言。第一种语言也是每日摘要的书写语言。</p>
+      <div class="row2">
+        <label><span data-i18n="lang1">语言 1</span><select id="lang1"></select></label>
+        <label><span data-i18n="lang2">语言 2</span><select id="lang2"></select></label>
+      </div>
+    </section>
+
+    <!-- 3. permissions -->
+    <section class="step" data-step="perm">
+      <h1 data-i18n="permTitle">两项权限，打开全部能力</h1>
+      <p class="sub" data-i18n="permSub">不给也能用，只是对应的功能会关着。</p>
+      <div id="permCards" class="perms"></div>
+      <p class="note" id="permNote"></p>
+    </section>
+
+    <!-- 4. AI -->
+    <section class="step" data-step="ai">
+      <h1 data-i18n="aiTitle">谁来读这些记录？</h1>
+      <p class="sub" data-i18n="aiSub">每条记录的标题和每日摘要都由它来写。现在跳过也行，之后在设置里随时能配。</p>
+      <div id="aiChoices" class="choices"></div>
+    </section>
+
+    <!-- 5. engines -->
+    <section class="step" data-step="engine">
+      <h1 data-i18n="engineTitle">正在准备本机引擎</h1>
+      <p class="sub" data-i18n="engineSub">文字识别和语音识别都在这台电脑上跑，不联网。第一次需要准备一下。</p>
+      <ol id="engineSteps" class="engine"></ol>
+    </section>
+
+    <!-- 6. done -->
+    <section class="step" data-step="done">
+      <!-- 一个绿方块说「好了」，不如让它自己点个头。它也是这一页上唯一的物件 -->
+      <div class="mark" id="obDone"></div>
+      <h1 data-i18n="doneTitle">好了</h1>
+      <p class="sub" id="doneSub"></p>
+      <ul class="gestures" id="gestures"></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span class="muted" data-i18n="footNote">全部存在这台电脑上 · 随时可以在设置里关掉任何一项</span>
+    <div class="btns">
+      <button type="button" class="btn ghost" id="btnBack" data-i18n="back">上一步</button>
+      <button type="button" class="btn primary" id="btnNext" data-i18n="next">继续</button>
+    </div>
+  </footer>
+  <script src="../../../assets/brand/briffy-anim.js"></script>
+  <script src="onboarding.js"></script>
+</body>
+</html>

@@ -6,8 +6,9 @@
 //   · the overlay windows are created once and reused (hidden, not destroyed), so opening is a show()
 //   · the frozen desktop travels as JPEG rather than PNG (13 ms vs 60 ms for a 2560×1440 screen)
 //   · the pet is hidden with a short, measured wait instead of a conservative one
-const { BrowserWindow, screen, ipcMain, desktopCapturer } = require('electron');
+const { BrowserWindow, nativeImage, screen, ipcMain, desktopCapturer } = require('electron');
 const path = require('path');
+const windowList = require('./window-list');
 
 const IDLE_KEEP_MS = 3 * 60 * 1000;   // drop the warm windows if unused for a while
 
@@ -56,22 +57,87 @@ function scheduleIdleDrop() {
   }, IDLE_KEEP_MS);
 }
 
-/** Grabs every display at native resolution as a frozen picture. */
+let ns = null; let nsTried = false;
+function native() {
+  if (!nsTried) {
+    nsTried = true;
+    try { ns = require('node-screenshots'); } catch (e) { console.warn('[region] node-screenshots unavailable:', e.message.split('\n')[0]); ns = null; }
+  }
+  return ns;
+}
+
+/**
+ * Every display, frozen, at its own real pixels.
+ *
+ * Measured on this machine, three displays:
+ *   node-screenshots, all of them at once   108 ms   ← this
+ *   desktopCapturer, all of them            212 ms   ← the fallback below
+ *
+ * The route through raw bytes is not an optimisation, it is the only route worth taking. The library
+ * will hand over a PNG, but encoding one costs 133 ms and decoding it back into a NativeImage another
+ * 138 ms -- together slower than the API this replaces. `toRaw` plus `createFromBitmap` costs 75 + 5.
+ */
+async function grabNative(displays) {
+  const lib = native();
+  if (!lib) return null;
+  let monitors;
+  try { monitors = lib.Monitor.all(); } catch (_) { return null; }
+  if (!monitors.length) return null;
+  // The library reports the same ids and the same logical bounds as Electron does -- checked against
+  // every attached display -- so they pair up by id, with position as the fallback.
+  const pick = (display) => monitors.find((m) => String(m.id()) === String(display.id))
+    || monitors.find((m) => m.x() === display.bounds.x && m.y() === display.bounds.y)
+    || null;
+
+  const shots = await Promise.all(displays.map(async (display) => {
+    const mon = pick(display);
+    if (!mon) return { display, image: null };
+    try {
+      const img = await mon.captureImage();
+      const raw = await img.toRaw();
+      return { display, image: nativeImage.createFromBitmap(raw, { width: img.width, height: img.height }) };
+    } catch (e) {
+      console.warn('[region] native capture failed for one display:', e.message);
+      return { display, image: null };
+    }
+  }));
+  // All or nothing: a half-native, half-fallback set would mix two coordinate conventions.
+  return shots.every((s) => s.image && !s.image.isEmpty()) ? shots : null;
+}
+
+/**
+ * The fallback, and what briffy used to do.
+ *
+ * desktopCapturer takes one thumbnailSize for all screens and scales each screen's picture to FIT
+ * that box, up or down, keeping its own aspect ratio. Asking for the size of the whole desktop --
+ * three displays side by side -- therefore hands back each screen blown up to the width of all three
+ * (measured here: a 3840-pixel-wide display came back 6827 wide, a 1280-wide one 6144), and a crop
+ * that multiplies by the display's scale factor lands in the wrong place. The box is the largest
+ * single display instead, so the biggest screen is exact and the others are close; the crop itself
+ * never assumes a ratio but measures it (see region:select).
+ */
+async function grabWithCapturer(displays) {
+  const box = displays.reduce((a, d) => ({
+    width: Math.max(a.width, Math.round(d.bounds.width * (d.scaleFactor || 1))),
+    height: Math.max(a.height, Math.round(d.bounds.height * (d.scaleFactor || 1))),
+  }), { width: 1, height: 1 });
+  const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: box });
+  return displays.map((display, i) => {
+    let image = sources.find((s) => String(s.display_id) === String(display.id))?.thumbnail || sources[i]?.thumbnail || sources[0]?.thumbnail;
+    if (image && !image.isEmpty()) {
+      const f = display.scaleFactor || 1;
+      const native2 = { width: Math.round(display.bounds.width * f), height: Math.round(display.bounds.height * f) };
+      const got = image.getSize();
+      // a smaller display comes back blown up to the box; bring it back to its own pixels
+      if (got.width > native2.width + 2 || got.height > native2.height + 2) image = image.resize({ ...native2, quality: 'best' });
+    }
+    return { display, image };
+  });
+}
+
 async function grabDisplays() {
   const displays = screen.getAllDisplays();
-  const maxScale = Math.max(...displays.map((d) => d.scaleFactor || 1), 1);
-  const b = displays.reduce((a, d) => ({
-    minX: Math.min(a.minX, d.bounds.x), minY: Math.min(a.minY, d.bounds.y),
-    maxX: Math.max(a.maxX, d.bounds.x + d.bounds.width), maxY: Math.max(a.maxY, d.bounds.y + d.bounds.height),
-  }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-  const sources = await desktopCapturer.getSources({
-    types: ['screen'],
-    thumbnailSize: { width: Math.round((b.maxX - b.minX) * maxScale), height: Math.round((b.maxY - b.minY) * maxScale) },
-  });
-  return displays.map((display, i) => ({
-    display,
-    image: sources.find((s) => String(s.display_id) === String(display.id))?.thumbnail || sources[i]?.thumbnail || sources[0]?.thumbnail,
-  }));
+  return (await grabNative(displays)) || grabWithCapturer(displays);
 }
 
 /**
@@ -84,14 +150,18 @@ async function selectRegion(deps) {
   const wait = await deps.hideWindows();
   if (wait) await new Promise((r) => setTimeout(r, wait));
 
-  let shots;
+  // Both at once: the capture costs about 190 ms and the window list about 104 ms, so asking for
+  // snapping alongside it adds nothing to how long the overlay takes to appear. The list is read
+  // before the overlay is shown, so the overlay itself can never turn up in it.
+  let shots; let windows = [];
   try {
-    shots = await grabDisplays();
+    [shots, windows] = await Promise.all([grabDisplays(), windowList.list()]);
   } catch (e) {
     deps.restoreWindows();
     throw e;
   }
 
+  const cursor = screen.getCursorScreenPoint();
   return new Promise((resolve) => {
     session = { resolve, done: false, restore: deps.restoreWindows, shown: [] };
     for (const { display, image } of shots) {
@@ -106,7 +176,13 @@ async function selectRegion(deps) {
         if (!session || session.done || win.isDestroyed()) return;
         win.webContents.send('region:init', {
           image: `data:image/jpeg;base64,${image.toJPEG(88).toString('base64')}`,
-          scale: display.scaleFactor || 1,
+          // picture pixels per window pixel -- measured, not the display's nominal factor (see grabDisplays)
+          scale: image.getSize().width / (display.bounds.width || 1),
+          windows: windowList.forDisplay(windows, display),
+          // Where the pointer already is. Without this the overlay knows nothing until the mouse moves,
+          // so pressing the shortcut while resting over a window highlighted nothing at all until you
+          // jiggled it -- the first thing anybody notices, and it made snapping look broken.
+          cursor: { x: cursor.x - display.bounds.x, y: cursor.y - display.bounds.y },
           strings: deps.strings,
         });
         win.setBounds(display.bounds);
@@ -147,14 +223,18 @@ function init() {
     if (!session || session.done) return;
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || !win.frozen) { cancel(); return; }
-    const scale = (win.displayInfo && win.displayInfo.scaleFactor) || 1;
+    // The box was drawn over the frozen picture stretched to the window, so the mapping from the box
+    // to picture pixels is simply picture size over window size -- whatever the capture came back as.
     const full = win.frozen;
     const size = full.getSize();
+    const wb = win.getBounds();
+    const sx = size.width / (wb.width || 1);
+    const sy = size.height / (wb.height || 1);
     const crop = {
-      x: Math.max(0, Math.round(rect.x * scale)),
-      y: Math.max(0, Math.round(rect.y * scale)),
-      width: Math.round(rect.width * scale),
-      height: Math.round(rect.height * scale),
+      x: Math.max(0, Math.round(rect.x * sx)),
+      y: Math.max(0, Math.round(rect.y * sy)),
+      width: Math.round(rect.width * sx),
+      height: Math.round(rect.height * sy),
     };
     crop.width = Math.min(crop.width, size.width - crop.x);
     crop.height = Math.min(crop.height, size.height - crop.y);
@@ -162,6 +242,27 @@ function init() {
     const cropped = full.crop(crop);
     finish({ png: cropped.toPNG(), width: crop.width, height: crop.height, display: win.displayInfo });
   });
+  // The same box, but the user wants what is below it too. Nothing is cropped here: the frozen
+  // picture is one screenful and a long shot is made of many, so this hands back where to look and
+  // lets longshot.js watch that rectangle live. See src/main/longshot.js.
+  ipcMain.on('region:long', (event, rect) => {
+    if (!session || session.done) return;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || !win.displayInfo) { cancel(); return; }
+    if (!rect || rect.width < 40 || rect.height < 40) { cancel(); return; }
+    finish({
+      long: true,
+      display: win.displayInfo,
+      // in the display's own logical points, which is what the overlay draws in
+      rect: {
+        x: Math.max(0, Math.round(rect.x)),
+        y: Math.max(0, Math.round(rect.y)),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      },
+    });
+  });
+
   // A display being added or removed invalidates the warm windows.
   screen.on('display-added', () => { if (!session) warm(); });
   screen.on('display-removed', () => {

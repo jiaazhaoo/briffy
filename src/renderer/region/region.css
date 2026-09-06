@@ -1,52 +1,54 @@
+/* 框选截图：冻住的桌面，压暗，选区是抠出来的一个洞。
+   这一屏盖在别人的桌面上，不是 briffy 自己的纸，所以浮在上面的几个标签是墨色的纸条。
+   直角照旧；选区用蓝墨画。标准：.claude/skills/paper-ui/SKILL.md */
 html, body {
   margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
   cursor: crosshair; user-select: none; -webkit-user-select: none; background: #000;
+  font-family: var(--sans);
 }
 .hidden { display: none !important; }
 
-/* the frozen desktop, shown at 1:1 */
+/* 冻住的桌面，1:1 显示 */
 #frozen { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: fill; -webkit-user-drag: none; }
 
-/* everything outside the selection is dimmed; the box itself is a hole punched with a huge shadow */
-#shade { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); }
-/* four rectangles around the selection; cheaper to repaint than one screen-sized box-shadow */
-.shade-part { position: fixed; background: rgba(0, 0, 0, .45); pointer-events: none; }
-#box {
-  position: fixed; box-sizing: border-box; border: 1px solid #f97316;
-  cursor: move; will-change: left, top, width, height;
-}
-.handle { position: absolute; width: 9px; height: 9px; background: #fff; border: 1.5px solid #f97316; border-radius: 2px; }
+/* 选区之外全部压暗 */
+#shade { position: fixed; inset: 0; background: rgba(16, 16, 14, .5); }
+/* 选区周围四个矩形；比一个盖满屏幕的 box-shadow 重绘便宜 */
+.shade-part { position: fixed; background: rgba(16, 16, 14, .5); pointer-events: none; }
+#box { position: fixed; box-sizing: border-box; border: 1px solid var(--accent); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35);
+  cursor: move; will-change: left, top, width, height; }
+.handle { position: absolute; width: 8px; height: 8px; background: #fff; border: 1.5px solid var(--accent); }
 .handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
 .handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
 .handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
 .handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
 
-/* size readout, pinned just above the selection */
-.chip {
-  position: fixed; background: rgba(20, 20, 22, .88); color: #fff; padding: 3px 8px; border-radius: 6px;
-  font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; pointer-events: none; white-space: nowrap;
-}
+/* 鼠标底下那扇窗。它和选区一样是从压暗里「抠出来」的，不加任何蒙版——
+   压暗的屏幕上再盖一层淡蓝，等于给你要看的东西蒙了两层纱，几乎看不出来。
+   所以这里只剩一道边线，窗口本身是原始亮度 */
+#snap { position: fixed; box-sizing: border-box; pointer-events: none;
+  border: 1px solid var(--accent); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 
-.hint {
-  position: fixed; left: 50%; top: 40px; transform: translateX(-50%);
-  background: rgba(20, 20, 22, .82); color: #fff; padding: 9px 16px; border-radius: 999px;
-  font: 13px/1.4 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  pointer-events: none; backdrop-filter: blur(6px);
-}
-.hint kbd {
-  background: rgba(255, 255, 255, .16); border-radius: 4px; padding: 1px 5px; margin: 0 2px; font: inherit; font-size: 12px;
-}
+/* 尺寸读数，钉在选区正上方 */
+.chip { position: fixed; background: #1b1a18; color: #fbfaf6; padding: 3px 7px;
+  font: 400 11px/1.5 var(--sans); font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap; }
 
-.toolbar {
-  position: fixed; display: flex; gap: 6px; padding: 5px; border-radius: 10px;
-  background: rgba(28, 28, 32, .94); box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
-}
-.tool {
-  display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #e8e8ea;
-  padding: 6px 11px; border-radius: 7px; cursor: pointer;
-  font: 12.5px/1 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-}
-.tool:hover { background: rgba(255, 255, 255, .12); }
-.tool.primary { background: #f97316; color: #fff; }
-.tool.primary:hover { background: #ea580c; }
-.tool svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.hint { position: fixed; left: 50%; top: 40px; transform: translateX(-50%);
+  background: #1b1a18; color: #fbfaf6; padding: 9px 15px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .4), 0 16px 40px rgba(0, 0, 0, .3);
+  font: 400 13px/1.5 var(--sans); text-autospace: normal; pointer-events: none; }
+.hint kbd { background: rgba(255, 255, 255, .13); padding: 1px 5px; margin: 0 2px; font: 400 11.5px/1.4 var(--sans); }
+
+.toolbar { position: fixed; display: flex; gap: 2px; padding: 4px;
+  background: #1b1a18; box-shadow: 0 4px 12px rgba(0, 0, 0, .45), 0 18px 44px rgba(0, 0, 0, .35); }
+/* 这条工具带本身是墨色的，所以按钮反过来：能按的地方要比它亮，主按钮是纸底墨字——
+   和纸面上「primary = 墨底纸字」是同一条规矩，只是底色反了。
+   之前按钮是透明底，压在近黑的带子上、又压在压暗的桌面上，三层深色叠在一起就糊了 */
+.tool { display: inline-flex; align-items: center; gap: 6px; border: 0; color: #fbfaf6;
+  background: rgba(255, 255, 255, .14);
+  padding: 7px 12px; cursor: pointer; font: 600 12px/1 var(--sans); }
+.tool:hover { background: rgba(255, 255, 255, .26); }
+.tool:active { transform: translateY(1px); }
+.tool.primary { background: #fbfaf6; color: #1b1a18; }
+.tool.primary:hover { background: #fff; }
+.tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }

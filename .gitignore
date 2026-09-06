@@ -8,3 +8,4 @@ bundled-models/
 build-*.log
 assets/pet/raw/
 smoke*.log*
+assets/fonts/

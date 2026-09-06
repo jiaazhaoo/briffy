@@ -1,0 +1,65 @@
+/* 书架：最近存进去的十五样东西，贴着屏幕右缘排成一列。
+   窗口本身是透明的，而且比面板宽，所以面板能从边上滑进来而不被裁掉；左边那条空的带子是穿透的（见 shelf.js）。
+
+   它不是躺在 briffy 自己的纸上，而是浮在**别人的桌面**上——所以整条书架是一张被举起来的纸，
+   影子最重、朝左下落。里面每条记录仍然是层 0 的一行字：一条一行的清单不需要每行都变成便签。
+   标准：.claude/skills/paper-ui/SKILL.md */
+:root { font-family: var(--sans); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; color: var(--ink);
+  font: 400 var(--fs-body)/1.6 var(--sans); user-select: none; cursor: default;
+  -webkit-font-smoothing: antialiased; text-autospace: normal; line-break: strict; }
+
+/* 进场：面板从它靠着的那条屏幕边滑出来，然后停住。曲线足够长，读起来是"移动"而不是"跳出来"。
+   一张纸不会淡入，所以只有位移，没有缩放 */
+#panel {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 262px;
+  display: flex; flex-direction: column;
+  background: var(--slip);
+  transform: translate3d(0, 14px, 0); opacity: 0;
+  transition: transform .26s cubic-bezier(.16, 1, .3, 1), opacity .18s ease-out;
+}
+body.in #panel { transform: translate3d(0, 0, 0); opacity: 1; }
+
+/* 每行比面板慢一点点，前几条错开，读起来是一次移动落定而不是一整块出现。
+   封顶：第八条之后，延迟会比滑动本身还长 */
+.card { opacity: 0; transform: translate3d(10px, 0, 0); transition: opacity .2s ease-out, transform .3s cubic-bezier(.16, 1, .3, 1); }
+body.in .card { opacity: 1; transform: none; transition-delay: calc(var(--i, 0) * 18ms + 40ms); }
+
+@media (prefers-reduced-motion: reduce) { #panel, .card { transition: none; } }
+
+.list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: var(--a3) var(--a2); display: flex; flex-direction: column; gap: 1px; }
+.list::-webkit-scrollbar { width: 6px; }
+.list::-webkit-scrollbar-thumb { background: var(--tone-2); }
+
+/* 一条记录：左边一张小图或一个图标，右边标题和一行铅笔字。经过时纸色深一阶——它没有抬起来 */
+.card { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center;
+  padding: var(--a2) 10px; cursor: grab; transition: background .12s; }
+.card:hover { background: var(--tone); }
+.card:active { cursor: grabbing; }
+.card.copied { background: var(--marker); }
+.card .th { width: 42px; height: 36px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.card .th:has(img) { background: var(--slip-2); }
+.card .th:not(:has(img)) { filter: grayscale(1); opacity: .75; }   /* emoji 是贴纸；印在纸上，它是灰的 */
+.card .th img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; }
+/* block，不是 flex column：flex 子项的 display 会被块化，.t 上的 -webkit-line-clamp 会失效 */
+.card .tx { min-width: 0; display: block; }
+.card .t { font-size: var(--fs-act); font-weight: var(--w-title); line-height: 1.35; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-word; }
+.card .m { display: block; margin-top: 2px; font-size: var(--fs-meta); color: var(--ink-3);
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { color: var(--ink-3); text-align: center; padding: 44px var(--a3); font-size: var(--fs-act); line-height: 1.7; }
+
+.open { flex: none; margin: var(--a1) var(--a3) var(--a3); display: flex; align-items: center; justify-content: center; gap: 7px;
+  border: 0; background: var(--tone); color: var(--ink); font: 600 var(--fs-act)/1 var(--sans); padding: 8px 0; cursor: pointer; }
+.open:hover { background: var(--tone-2); }
+.open:active { transform: translateY(1px); }
+.open svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }
+
+.toast { position: absolute; left: 50%; bottom: 52px; transform: translate(-50%, 6px); padding: 6px 11px;
+  background: var(--ink); color: var(--slip); font-size: var(--fs-meta); opacity: 0; pointer-events: none;
+  transition: opacity .14s, transform .14s; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* 置顶：标题前一个墨点，和工作区里同一个记号。没有别的区别——它还是一张一样的便签 */
+.card .pin { display: inline-block; width: 4px; height: 4px; background: var(--ink); margin-right: 5px; vertical-align: 2px; flex: none; }

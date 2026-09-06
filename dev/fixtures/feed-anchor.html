@@ -1,0 +1,64 @@
+<!doctype html><meta charset="utf-8"><title>feed anchoring fixture</title>
+<!-- A feed is a hundred posts and only one of them was saved. Before this, extraction took the first
+     <article> on the page, so bookmarking the third tweet saved the first one. Shapes copied from x.com. -->
+<body>
+<article data-testid="tweet">
+  <div data-testid="User-Name">第一位作者\n@first</div>
+  <div data-testid="tweetText">第一条推文的内容，关于早上的会议。</div>
+  <a href="/first/status/111?src=feed">link</a>
+  <button id="bm1" data-testid="bookmark" aria-label="Bookmark">🔖</button>
+</article>
+<article data-testid="tweet">
+  <div data-testid="User-Name">第二位作者\n@second</div>
+  <div data-testid="tweetText">第二条推文，讲的是 SQLite 为什么不需要服务器。</div>
+  <a href="/second/status/222?src=feed">link</a>
+  <button id="bm2" data-testid="bookmark" aria-label="Bookmark">🔖</button>
+</article>
+<article data-testid="tweet">
+  <div data-testid="User-Name">第三位作者\n@third</div>
+  <div data-testid="tweetText">第三条推文，和猫粮比价有关。</div>
+  <a href="/third/status/333?src=feed">link</a>
+  <button id="bm3" data-testid="bookmark" aria-label="Bookmark">🔖</button>
+</article>
+<!-- A tweet on its own page: the timestamp is plain text, because you are already there. The only
+     /status/ link left inside the article is the "Views" counter, which points at /analytics -- a page
+     only the author can open. Bookmarking here used to save that dead address. -->
+<article data-testid="tweet" id="focal">
+  <div data-testid="User-Name">第四位作者\n@fourth</div>
+  <div data-testid="tweetText">第四条推文，在它自己的页面上。</div>
+  <span>下午3:41 · 2026年9月5日</span>
+  <a href="/fourth/status/444/analytics">1.2万 Views</a>
+  <a href="/fourth/status/444/photo/1">图片</a>
+  <button id="bm4" data-testid="bookmark" aria-label="Bookmark">🔖</button>
+</article>
+<script src="../../extension/extract.js"></script>
+<script src="../../extension/savedetect.js"></script>
+<script>
+// Pretend to be x.com so the per-site rules apply, and collect what would have been sent.
+const _extract = window.BriffyExtract.extract;
+window.BriffyExtract.extract = (doc, anchor) => _extract(doc, anchor, 'x.com');
+window.sent = [];
+window.chrome = { runtime: { sendMessage: (m) => { window.sent.push(m); return Promise.resolve({ ok: true }); } } };
+
+// The behaviour that broke this: x.com replaces the whole action bar when the bookmark state flips,
+// so the element the click handler was given is detached from the document a moment later. Anything
+// that waits and *then* walks up from it finds nothing and silently falls back to the first post.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-testid="bookmark"]');
+  if (!btn) return;
+  setTimeout(() => {
+    const fresh = btn.cloneNode(true);
+    fresh.dataset.testid = 'removeBookmark';
+    fresh.setAttribute('aria-label', 'Remove Tweet from Bookmarks');
+    btn.replaceWith(fresh);          // the clicked node is now detached, exactly as on x.com
+  }, 120);
+}, true);
+</script>
+<script src="../../extension/bookmark.js"></script>
+<script>
+window.probe = (id, host = 'x.com') => {
+  const el = id ? document.getElementById(id) : null;
+  const r = _extract(document, el, host);
+  return { title: r.title, url: r.url, text: r.text.slice(0, 40) };
+};
+</script>

@@ -5,52 +5,96 @@
 
   const T = {
     zh: {
-      tabEntries: '记录', tabSummaries: '每日摘要', tabSettings: '设置', capture: '截图并识别', addFiles: '添加文件', save: '保存', brandSub: '每天的小记录',
-      searchPlaceholder: '搜索标题 / 五个词 / 文字', quickPlaceholder: '粘贴链接或输入一段笔记，回车存入工作区', allDates: '全部日期',
-      selectEntry: '选择一条记录查看详情', noEntries: '还没有记录。按快捷键截图、双击小猫录音，或把文件拖到小猫身上。',
-      generateSummary: '生成该日摘要', noSummary: '还没有摘要。小猫每天早上会自动生成昨天的摘要。', noEntriesThatDay: '这一天没有记录',
+      tabEntries: '记录', tabAsk: '问', tabSettings: '设置', close: '关闭窗口', newNote: '记一句话', noteHint: '回车保存，Esc 关掉', save: '保存', brandSub: '每天的小记录',
+      searchPlaceholder: '搜索标题 / 文字 / 画面内容', quickPlaceholder: '记一句话', allDates: '全部日期',
+      askPlaceholder: '问问你的记录',
+      askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
+      askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
+      askWhole: '这段时间的全部记录', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
+      askNoEntries: '工作区里还没有记录，先存点东西进来。',
+      askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
+      askFailed: 'AI 服务出错：{err}。下面仍然是匹配到的记录。',
+      srcAll: '全部', srcScreenshot: '截图', srcClipboard: '剪贴板', srcBookmark: '收藏', srcBrowser: '网页', srcVoice: '语音', srcOther: '文件 / 链接 / 笔记',
+      srcNote: '随手记', srcFile: '文件',
+      srcPinned: '置顶', srcMore: '更多…', srcLess: '收起', actMore: '更多…', actLess: '收起',
+      dropHere: '松手就存进来', dropped: '存进来 {n} 条', fromApp: '来自', pin: '置顶', unpin: '取消置顶', pinnedMark: '已置顶',
+      noteLabel: '我的备注', notePlaceholder: '给以后的自己留一句话', noteSaved: '备注已存',
+      copyLink: '复制链接', linkCopied: '链接已复制',
+      showBoxes: '文字位置', hideBoxes: '收起文字位置', copyLine: '点一行复制这行文字', lineCopied: '这行已复制',
+      dayWasOff: '这一天 briffy 没有运行，所以什么都没能记下。', dayWasIdle: 'briffy 运行了约 {min} 分钟，这一天你没有存下东西。',
+      sContext: '记录来源', sContextOn: '保存时记下当时的应用、窗口和网页地址',
+      sContextHint: '只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。',
+      sContextTest: '看看现在能读到什么',
+      sAutoRecord: '自动录音', sAutoRecordOn: '别的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
+      autoWaiting: '等着——没有别的软件在用麦克风', autoBecause: '因为 {who} 正在用麦克风',
+      sAutoRecordHint: '不是一直听着房间——briffy 平时不碰麦克风，只有当**别的软件打开了麦克风**（开会、通话、录音）时才跟着录一段，对方一关，它也关。所以手机上的游戏、屋里的电视不会被录进来。常驻只是每 5 秒问一次系统「现在谁在用麦克风」，实测一次 10 毫秒。会录到通话里对方的声音，很多地方这需要对方同意。',
+      autoOff: '未开启', autoIdle: '在听（{mic}）', autoSpeech: '正在录…', autoDenied: '没有麦克风权限', autoFailed: '启动失败',
+      sDiarizeOn: '区分录音里的不同说话人（首次会下载约 35 MB 模型）',
+      speakersHead: '认识的声音', speakerUnnamed: '（未命名）', speakerName: '起个名字', speakerHeard: '共 {n}',
+      speakersNone: '还没听到过任何声音。开启后，录音里的每个人会自动分开，给谁起过名字以后都认得。', contextNow: '现在：{app}{window}', contextNoTitle: '读不到窗口标题（需要在「系统设置 › 隐私与安全性 › 辅助功能」里勾上 briffy）', contextNone: '这台电脑读不到前台应用',
+      selectMode: '选择', selectDone: '完成', selectAll: '全选', selectNone: '取消选择', deleteSelected: '删除所选',
+      nSelected: '已选 {n} 项', confirmDeleteMany: '删除选中的 {n} 条记录（及其文件副本）？', deletedN: '已删除 {n} 条',
+      dayCount: '{n} 条', jumpTo: '{time} · {title}', today: '今天', yesterday: '昨天',
+      viewGrid: '网格', viewList: '列表',
+      selectEntry: '选择一条记录查看详情', noEntries: '还没有记录。按快捷键截图、双击 briffy 录音，或把文件拖到briffy身上。',
+      generateSummary: '生成该日摘要', noSummary: '还没有摘要。briffy每天早上会自动生成昨天的摘要。', noEntriesThatDay: '这一天没有记录',
       generating: '生成中…', generated: '摘要已生成', summaryItems: '{n} 条记录', bySource: { claude: 'Claude', local: '本地' },
       types: { screenshot: '截图', image: '图片', audio: '语音', pdf: 'PDF', text: '文本', url: '链接', note: '笔记', file: '文件' },
-      processing: '处理中', error: '出错', localTags: '本地词', done: '完成',
-      words: '五个词', summary: '摘要', text: '识别文字', transcript: '转写文字', content: '内容',
+      processing: '处理中', error: '出错', done: '完成',
+      seen: '画面内容', summary: '摘要', text: '识别文字', transcript: '转写文字', content: '内容',
       open: '打开原文件', reveal: '在文件夹中显示', openLink: '打开链接', retry: '重新处理', edit: '编辑', delete: '删除', cancel: '取消', copy: '复制文字', copied: '已复制',
-      confirmDelete: '删除这条记录（及其文件副本）？', title: '标题', tagsField: '五个词（用逗号分隔）', textField: '文字', duration: '时长',
-      sPet: '小动物形象', sPetHint: '来自 ipaslogo.com 的 3448 个免费形象（可免费商用），每个都套上同一个圆框。点一个就换成它。',
+      confirmDelete: '删除这条记录（及其文件副本）？', title: '标题', textField: '文字', duration: '时长',
+      sPet: '形象', sPetHint: '来自 ipaslogo.com 的 3448 个免费形象（可免费商用），每个都套上同一个圆框。点一个就换成它。',
       sPetSearch: '搜索（cat、owl、fox……）', sPetReset: '恢复默认', sPetCount: '{n} 个', sPetNone: '没有匹配的形象',
       sPetDefault: '默认形象', petApplying: '下载中…', petApplied: '已换上 ✓', petFailed: '换失败：{err}',
+      sTheme: '外观', sThemeLabel: '配色', sThemeHint: '窗口、气泡和常驻头像旁边的列表都会跟着变。',
+      sThemeSystem: '跟随系统', sThemeLight: '亮色', sThemeDark: '暗色',
       sLanguages: '语言包', sLanguagesHint: '选择两个语言：用于 OCR 文字识别、语音转文字和界面语言（第一个语言决定界面与摘要语言）。',
       sLang1: '语言 1', sLang2: '语言 2', sShortcut: '截图快捷键', sHotkey: '全局快捷键', sHotkeyPlaceholder: '点击后按下组合键', sHotkeyHint: '点击输入框后按下组合键。修改后立即生效。',
       sSetupRecheck: '重新检查',
-      sHotkeyRegion: '框选截图', sHotkeyScreen: '整屏截图', sHotkeyVoice: '开始 / 结束录音',
+      sHotkeyRegion: '框选截图', sHotkeyScreen: '整屏截图', sHotkeyVoice: '录音',
       sCaptureClipboard: '截图同时复制到系统剪贴板（不会因此重复记录一次）',
-      sGestureHint: '小猫身上：单击 = 整屏截图，双击 = 框选截图，中键点击或长按 = 开始 / 结束录音。',
+      sGestureHint: 'briffy 身上：单击 = 整屏截图，双击 = 框选截图，中键点击或长按 = 开始 / 结束录音。',
       captureRegion: '框选截图',
-      sClaude: 'Claude（五个词 & 每日摘要）', sApiKey: 'Anthropic API Key', sApiKeyPlaceholder: '留空表示不修改', sTestKey: '测试', sClearKey: '清除', sModel: '模型',
-      sClaudeHint: '没有 API Key 时，五个词会用本地关键词提取代替，摘要则是简单的清单。', sSpeech: '语音转文字（本地 Whisper）', sSttModel: '模型大小', sSttLanguage: '识别语言', sAuto: '自动检测（所有语言）', sAutoPacks: '自动检测（只在两个语言包之间）',
-      sMirror: '模型下载镜像（可选）', sSpeechHint: '首次录音时会下载模型并缓存到本机，之后完全离线运行。', sSummary: '每日摘要', sSummaryTime: '生成时间',
-      sSummaryHint: '每天到点后（且程序在运行）自动生成昨天的摘要，并弹出通知。', sStorage: '存储', sWorkspaceDir: '工作区文件夹', sChoose: '选择…', sOpenDir: '打开',
-      sTessPath: 'OCR 语言包地址（可选）', sOcrDropped: '拖入的图片也做 OCR', sPetHidden: '隐藏小猫（可从托盘菜单恢复）', sSave: '保存设置', sAbout: '状态',
+      sClaude: 'Claude（标题 & 每日摘要）', sApiKey: 'API Key', sApiKeyPlaceholder: '留空表示不修改', sTestKey: '测试', sClearKey: '清除', sModel: '模型',
+      sClaudeHint: '没有配置时，标题用文件名代替，摘要退化成清单。图片里有什么由本机识别，不经过 AI。', sSpeech: '语音转文字', sSttModel: '模型', sSttLanguage: '语言', sAuto: '在全部 99 种语言里判断', sAutoPacks: '在你选的两种语言之间判断（推荐）',
+      sMirror: '镜像', sSpeechHint: '用本地 Whisper。首次录音时会下载模型并缓存到本机，之后完全离线运行。', sSummary: '每日摘要', sSummaryTime: '时间',
+      sSummaryHint: '每天到点后（且程序在运行）自动生成昨天的摘要，并弹出通知。', sStorage: '工作区文件夹', sWorkspaceDir: '工作区文件夹', sChoose: '选择…', sOpenDir: '打开',
+      sTessPath: 'OCR 语言包地址（可选）', sOcrDropped: '拖入的图片也做 OCR', sPetHidden: '隐藏 briffy（可从托盘菜单恢复）', sSave: '保存设置', sAbout: '状态',
       keySet: '已设置：{hint}', keyNotSet: '未设置', keyOk: '可用 ✓（{model}）', keyFail: '失败：{err}', testing: '测试中…', saved: '已保存', needTwoLanguages: '两个语言不能相同',
-      hotkeyNeedsModifier: '需要搭配 Ctrl / Alt / Shift / Cmd', version: '版本', platform: '平台', stats: '{days} 天，共 {entries} 条记录', screenPerm: '屏幕录制权限',
+      hotkeyNeedsModifier: '需要搭配 Ctrl / Alt / Shift / Cmd', version: '版本', platform: '平台', stats: '{days} 天，共 {entries} 条记录', statsShort: '共 {entries} 条', screenPerm: '屏幕录制权限',
       keyCleared: '已清除 API Key', sameLang: '两个语言不能相同', dirChanged: '工作区已切换（旧文件不会自动搬迁）',
-      sAI: 'AI 服务（五个词 & 每日摘要）', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)', sProviderCustom: '自定义 OpenAI 兼容接口',
+      sOcrSection: '文字识别', sDownloads: '模型下载', sDropped: '拖进来的图片',
+      sDroppedHint: '截图一定会做文字识别；拖进来或复制来的图片可以选择要不要。识别不出文字的图片，会由本机分类器说出画面里有什么。',
+      sDownloadsHint: '文字识别和语音识别的模型都在第一次用到时下载到本机，之后完全离线。网络不通时可以填一个镜像。',
+      gLook: '外观与语言', gPet: '桌面形象', gAI: 'AI 服务', gEngines: '本机引擎', gCapture: '自动采集', gAbout: '工作区与关于',
+      sAI: 'AI 服务', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)', sProviderCustom: '自定义 OpenAI 兼容接口',
       sAnthropicAuth: '登录方式', sAccountOption: '已登录的 Claude 账号（ant auth login）', sAnthropicLogin: '用浏览器登录 Claude 账号',
-      sOpenrouterKey: 'OpenRouter API Key', sOpenrouterLogin: '用 OpenRouter 账号登录', sRefreshModels: '刷新模型列表',
-      sOllamaHost: 'Ollama 地址', sDetect: '重新检测', sOllamaModel: '使用的模型', sUseRecommended: '用推荐的', sPull: '下载模型',
-      sCustomBase: '接口地址（base URL）', sCustomKey: 'API Key（可选）', sNormalizeZh: '中文语音转写统一为所选的简体 / 繁体（不是翻译）',
-      sAIHint: '没有配置 AI 服务时，五个词会用本地关键词提取代替，摘要则是简单清单。五个词、标题和摘要不做翻译，始终使用内容本身的语言。',
-      configured: '当前使用：{label}', notConfigured: '尚未配置，会用本地关键词代替',
+      sOpenrouterKey: 'API Key', sOpenrouterLogin: '用 OpenRouter 账号登录', sRefreshModels: '刷新模型列表',
+      sOllamaHost: '地址', sDetect: '重新检测', sOllamaModel: '使用的模型', sUseRecommended: '用推荐的', sPull: '下载模型',
+      sCustomBase: '接口地址', sCustomKey: 'API Key', sNormalizeZh: '中文语音转写统一为所选的简体 / 繁体（不是翻译）',
+      sAIHint: '给标题、每日摘要和问答用。没有配置时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。',
+      configured: '当前使用：{label}', notConfigured: '还没配置，标题先用文件名',
       accountFound: '已检测到登录配置：{profiles}', accountEnv: '已通过环境变量提供凭据', accountNotFound: '未检测到登录，点右侧按钮在终端里完成 ant auth login',
       cliMissing: '未安装 ant 命令行工具（macOS：brew install anthropics/tap/ant；其他平台见 github.com/anthropics/anthropic-cli）',
       cliMissingCmd: '没找到 ant 命令，请先安装，再在终端运行：{cmd}', loginStarted: '已打开终端，按提示在浏览器里登录，完成后回来点「重新检测」',
       loginWaiting: '已打开浏览器，请在页面里完成登录…', loginOk: '登录成功，Key 已保存',
       hwLocal: '本机', hwCores: '{n} 线程', hwNoGpu: '未检测到', hwRecommend: '推荐', hwAlternatives: '备选',
       ollamaRunning: '运行中 {version}', ollamaInstalled: '已安装：{models}', ollamaNoModels: '还没有模型，点「下载模型」',
-      ollamaNotInstalled: '没有安装 Ollama —— 本地模型需要先装它（约 700 MB，装完不用登录、完全离线）',
+      sModels: '模型', sOtherModel: '用别的模型（手动填名称）', fitEasy: '轻松跑', fitOk: '跑得动', fitTight: '勉强，会慢', fitNo: '这台跑不动',
+      tierEasy: '轻松', tierEasyWhy: '几乎不占资源，答得最快', tierMedium: '适中', tierMediumWhy: '这台电脑的合适档位', tierStretch: '勉强', tierStretchWhy: '能加载，但会慢',
+      mdScored: '评测 {n} 分',
+      mdInstalled: '已下载', mdUse: '使用', mdInUse: '正在用', mdGet: '下载', mdDelete: '删除', mdRecommended: '最适合这台电脑', mdVision: '能看图', mdTextOnly: '只读文字', mdLive: '来自 Ollama 官方库，按公开评测榜和这台电脑排序（{n} 个模型有实测分）· 每天更新', mdCached: '离线，用的是上次缓存的列表',
+      mdConfirmDelete: '删除 {model}？它占的磁盘空间会释放，需要时可以再下。', resumeTitle: '上次没下完：{model}', resumeGot: '已下 {got} / {total}', resumeGo: '继续下载', resumeDrop: '不下了',
+      hwPick: '推荐在这台电脑上用 {model}', hwSize: '下载约 {gb} GB', hwWhy: '为什么是它？还有别的选择', ollamaReady: 'Ollama 已就绪',
+      jobInstallStarting: '准备安装…', jobInstallDownloading: '正在下载 Ollama', jobInstallInstalling: '正在安装', jobInstallVerifying: '正在校验', jobInstallDone: '装好了',
+      jobPullPreparing: '准备下载 {model}', jobPullDownloading: '正在下载 {model}', jobPullVerifying: '正在校验', jobPullFinishing: '收尾中', jobPullDone: '{model} 已就绪',
+      sShowLog: '查看详细日志',
+      ollamaNotInstalled: '先装一次 Ollama，模型才能在本机跑起来。约 700 MB，不用注册。',
       ollamaNotStarted: '已安装但没在运行（{binary}），点「启动 Ollama」',
       sInstallOllama: '一键安装 Ollama', sStartOllama: '启动 Ollama', sDownloadOllama: '手动下载',
-      installing: '正在安装 Ollama，这一步会下载几百 MB，请耐心等待…', installOk: 'Ollama 安装完成，现在可以下载模型了', installFail: '安装失败（{err}），请点「手动下载」自己装一次',
-      installManual: '这台电脑没有可用的安装器，已打开下载页面，装好后回来点「重新检测」',
+      installing: '正在安装 Ollama…', installOk: '装好了，接下来选一个模型下载', installFail: '装不上（{err}）。已经帮你打开下载页，手动装一次就行。',
+      installManual: '这台电脑没有自动安装器。已打开下载页，装完回来点「重新检测」。',
       starting: '正在启动 Ollama…', startOk: 'Ollama 已启动', startFail: '启动失败：{err}',
       pullNeedsOllama: '需要先安装并启动 Ollama 才能下载模型',
       pulling: '正在下载 {model}…', pullDone: '{model} 下载完成', modelsLoaded: '已加载 {n} 个模型，输入名称可筛选', orVision: '支持图片',
@@ -58,68 +102,116 @@
       sSetupWithOllama: '顺便装上本地大模型（Ollama + 推荐模型，约 7 GB）', sSetupLog: '查看详细日志',
       setupRunning: '配置中…', setupOk: '配置完成 ✓', setupFail: '配置失败：{err}',
       sOcrIndependent: '文字识别（OCR）用的是 PP-OCR 专用识别引擎，和大模型无关；换 AI 服务不会影响识别结果。',
-      sOcrModel: '文字识别模型', ocrAuto: '按语言自动选择', bundled: '已内置',
+      sOcrModel: '模型', ocrAuto: '按语言自动选择', bundled: '已内置',
       sMic: '麦克风', sMicRefresh: '刷新', sMicTest: '测试麦克风（说 2 秒）', micDefault: '系统默认', micLoading: '正在读取麦克风列表…',
       micTesting: '录 2 秒，请对着麦克风说话…', micOk: '有声音 ✓（{mic}，峰值 {peak}）', micSilent: '没有声音（{mic}）。这个设备是静音的，换一个再试', micError: '打不开麦克风：{err}',
       micNone: '没找到任何麦克风设备',
-      sClipboard: '剪贴板', sClipboardWatch: '实时记录剪贴板（复制的文字、图片、文件都会存入工作区并打五个词）', sClipboardMin: '文字至少多少个字才记录',
+      sClipboard: '剪贴板', sClipboardWatch: '实时记录剪贴板（复制的文字、图片、文件都会存入工作区）', sClipboardMin: '最少字数',
       sClipboardHint: '密码管理器复制的内容会自动跳过；从工作区里复制出去的文字不会重复记录。托盘菜单里也能随时开关。', fromClipboard: '📋 剪贴板', fromBrowser: '🧩 网页',
       extOn: '扩展已连接', extOff: '装浏览器扩展', extOffTitle: '点击查看安装步骤：装上后可以一键把网页里的图片和视频存进来',
       extOnTitle: '浏览器扩展 v{version} 已连接，在网页里按 Alt+Shift+D 使用', extApiOff: '扩展接口已关闭', extApiOffTitle: '设置 › 浏览器扩展 里可以重新打开',
       extGuideOpened: '已在浏览器里打开安装步骤',
-      sExtension: '浏览器扩展（采集网页图片 / 视频）', sExtensionHint: '装上扩展后，在任意网页点扩展图标（或按 Alt+Shift+D），就能看到这一页所有图片、视频、音频，勾选后一键存入工作区。',
+      sExtension: '浏览器扩展', sExtensionHint: '采集网页里的图片和视频。装上扩展后，在任意网页点扩展图标（或按 Alt+Shift+D），就能看到这一页所有图片、视频、音频，勾选后一键存入工作区。',
+      sFfmpeg: '视频下载', sFfmpegInstall: '安装 ffmpeg', sFfmpegRecheck: '重新检查', sFfmpegHint: '网站上的视频通常是切成几百个分片的流（HLS / DASH），画面和声音还常常是两条轨。把它们合成一个能播的文件需要 ffmpeg。它不打包进安装包，也不会去下载来路不明的二进制——只用你系统自己的包管理器安装。',
+      ffmpegFound: 'ffmpeg {version} 已就绪（{path}）', ffmpegMissing: '没有找到 ffmpeg —— 分片流可以被发现，但合并不了', ffmpegInstalling: '正在安装…', ffmpegManual: '这台电脑没有可用的包管理器，请手动安装：{url}',
       sLocalApi: '允许浏览器扩展连接（本机接口，仅监听 127.0.0.1）', sLocalApiPort: '端口', sExportExt: '导出扩展文件夹…', sOpenExt: '打开扩展文件夹', sExtHelp: '安装步骤',
       apiRunning: '接口运行中：http://127.0.0.1:{port}{last}', apiStopped: '接口已关闭，扩展无法连接', apiLast: '，最近一次接收：{time}',
-      extSteps: '<b>Chrome / Edge 安装步骤</b><br>1. 点「导出扩展文件夹…」把扩展复制到一个你不会删掉的位置（也可以直接用下面这个自带路径）。<br>2. 浏览器地址栏打开 <code>chrome://extensions</code>（Edge 是 <code>edge://extensions</code>）。<br>3. 打开右上角的「开发者模式」。<br>4. 点「加载已解压的扩展程序」，选择那个文件夹。<br>5. 在任意网页点扩展图标，或按 <code>Alt+Shift+D</code>。<br><br>扩展文件夹：<code>{dir}</code><br>如果扩展显示「DailyLogs 未运行」，检查上面的端口是否和扩展设置里的一致。',
+      extSteps: '<b>Chrome / Edge 安装步骤</b><br>1. 点「导出扩展文件夹…」把扩展复制到一个你不会删掉的位置（也可以直接用下面这个自带路径）。<br>2. 浏览器地址栏打开 <code>chrome://extensions</code>（Edge 是 <code>edge://extensions</code>）。<br>3. 打开右上角的「开发者模式」。<br>4. 点「加载已解压的扩展程序」，选择那个文件夹。<br>5. 在任意网页点扩展图标，或按 <code>Alt+Shift+D</code>。<br><br>扩展文件夹：<code>{dir}</code><br>如果扩展显示「briffy 未运行」，检查上面的端口是否和扩展设置里的一致。',
       extExported: '扩展已导出到 {dir}',
     },
     en: {
-      tabEntries: 'Entries', tabSummaries: 'Daily summaries', tabSettings: 'Settings', capture: 'Capture & read', addFiles: 'Add files', save: 'Save', brandSub: 'your daily log',
-      searchPlaceholder: 'Search title / five words / text', quickPlaceholder: 'Paste a link or type a note, press Enter to save', allDates: 'All dates',
-      selectEntry: 'Select an entry to see details', noEntries: 'Nothing yet. Press the shortcut to capture, double-click the cat to record, or drop files on it.',
-      generateSummary: 'Generate summary for this day', noSummary: 'No summaries yet. The cat writes one for yesterday every morning.', noEntriesThatDay: 'No entries on that day',
+      tabEntries: 'Entries', tabAsk: 'Ask', tabSettings: 'Settings', close: 'Close window', newNote: 'Jot a line', noteHint: 'Enter saves, Esc closes', save: 'Save', brandSub: 'your daily log',
+      searchPlaceholder: 'Search title, text, what is in a picture', quickPlaceholder: 'Note to self', allDates: 'All dates',
+      askPlaceholder: 'Ask your log',
+      askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
+      askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
+      askWhole: 'everything from that stretch', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
+      askNoEntries: 'The workspace has no entries yet.',
+      askNoProvider: 'No AI service configured (Settings › AI service), so nobody read these for you. Here are the matching records.',
+      askFailed: 'AI service failed: {err}. The matching records are still below.',
+      sFfmpeg: 'Video downloads', sFfmpegInstall: 'Install ffmpeg', sFfmpegRecheck: 'Check again', sFfmpegHint: 'Web video usually arrives as hundreds of stream fragments (HLS / DASH), often with picture and sound on separate tracks. Joining them into one playable file needs ffmpeg. It is not bundled and never fetched from an unknown source: it is installed only through your own system package manager.',
+      ffmpegFound: 'ffmpeg {version} ready ({path})', ffmpegMissing: 'ffmpeg not found — segmented streams can be found but not joined', ffmpegInstalling: 'Installing…', ffmpegManual: 'No package manager available here; install it yourself: {url}',
+      srcAll: 'All', srcScreenshot: 'Screenshots', srcClipboard: 'Clipboard', srcBookmark: 'Bookmarks', srcBrowser: 'Web', srcVoice: 'Voice', srcOther: 'Files / links / notes',
+      srcNote: 'Note', srcFile: 'File',
+      srcPinned: 'Pinned', srcMore: 'More…', srcLess: 'Less', actMore: 'More…', actLess: 'Less',
+      dropHere: 'Drop to keep it', dropped: '{n} added', fromApp: 'From', pin: 'Pin', unpin: 'Unpin', pinnedMark: 'Pinned',
+      noteLabel: 'My note', notePlaceholder: 'A line to your future self', noteSaved: 'Note saved',
+      copyLink: 'Copy link', linkCopied: 'Link copied',
+      showBoxes: 'Text regions', hideBoxes: 'Hide text regions', copyLine: 'Click a line to copy it', lineCopied: 'Line copied',
+      dayWasOff: 'briffy was not running on this day, so nothing could be saved.', dayWasIdle: 'briffy ran for about {min} minutes; you saved nothing on this day.',
+      sContext: 'Where it came from', sContextOn: 'Record the app, window and page address at the moment of a save',
+      sContextHint: 'Asked once, at the instant you save something -- briffy never watches your screen. The window title needs Accessibility permission; the page address comes from the browser extension, and turning this off stops asking for both.',
+      sContextTest: 'See what it can read now',
+      sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along whenever another app uses the microphone', sAutoRecordState: 'State',
+      autoWaiting: 'Waiting — nothing else is using the microphone', autoBecause: 'because {who} is using the microphone',
+      sAutoRecordHint: 'Not an open microphone on the room: briffy does not touch the mic until **another app opens it** (a meeting, a call, a recording), records alongside it, and lets go when that app does. A game on your phone or a TV in the room will not be recorded. All it runs is a 10 ms question to the system every 5 seconds: who is using the microphone. It will capture the other side of a call, which in many places needs their consent.',
+      autoOff: 'off', autoIdle: 'listening ({mic})', autoSpeech: 'recording…', autoDenied: 'no microphone permission', autoFailed: 'could not start',
+      sDiarizeOn: 'Tell the speakers in a recording apart (fetches about 35 MB the first time)',
+      speakersHead: 'Voices briffy knows', speakerUnnamed: '(unnamed)', speakerName: 'give a name', speakerHeard: '{n} in total',
+      speakersNone: 'No voices yet. Once this is on, everyone in a recording is separated, and anyone you name stays named.', contextNow: 'Right now: {app}{window}', contextNoTitle: 'Cannot read the window title (tick briffy under System Settings > Privacy & Security > Accessibility)', contextNone: 'This machine cannot report the front app',
+      selectMode: 'Select', selectDone: 'Done', selectAll: 'Select all', selectNone: 'Clear', deleteSelected: 'Delete selected',
+      nSelected: '{n} selected', confirmDeleteMany: 'Delete the {n} selected entries (and their stored copies)?', deletedN: 'Deleted {n}',
+      dayCount: '{n} records', jumpTo: '{time} · {title}', today: 'Today', yesterday: 'Yesterday',
+      viewGrid: 'Grid', viewList: 'List',
+      selectEntry: 'Select an entry to see details', noEntries: 'Nothing yet. Press the shortcut to capture, double-click briffy to record, or drop files on it.',
+      generateSummary: 'Generate summary for this day', noSummary: 'No summaries yet. briffy writes one for yesterday every morning.', noEntriesThatDay: 'No entries on that day',
       generating: 'Generating…', generated: 'Summary generated', summaryItems: '{n} items', bySource: { claude: 'Claude', local: 'local' },
       types: { screenshot: 'Screenshot', image: 'Image', audio: 'Voice', pdf: 'PDF', text: 'Text', url: 'Link', note: 'Note', file: 'File' },
-      processing: 'Processing', error: 'Error', localTags: 'local words', done: 'Done',
-      words: 'Five words', summary: 'Summary', text: 'Recognized text', transcript: 'Transcript', content: 'Content',
+      processing: 'Processing', error: 'Error', done: 'Done',
+      seen: 'In the picture', summary: 'Summary', text: 'Recognized text', transcript: 'Transcript', content: 'Content',
       open: 'Open file', reveal: 'Show in folder', openLink: 'Open link', retry: 'Reprocess', edit: 'Edit', delete: 'Delete', cancel: 'Cancel', copy: 'Copy text', copied: 'Copied',
-      confirmDelete: 'Delete this entry (and its stored copy)?', title: 'Title', tagsField: 'Five words (comma separated)', textField: 'Text', duration: 'Duration',
-      sPet: 'Pet character', sPetHint: '3448 free characters from ipaslogo.com (free for commercial use), each in the same round frame. Click one to wear it.',
+      confirmDelete: 'Delete this entry (and its stored copy)?', title: 'Title', textField: 'Text', duration: 'Duration',
+      sPet: 'Its face', sPetHint: '3448 free characters from ipaslogo.com (free for commercial use), each in the same round frame. Click one to wear it.',
       sPetSearch: 'Search (cat, owl, fox…)', sPetReset: 'Back to default', sPetCount: '{n} found', sPetNone: 'Nothing matches',
       sPetDefault: 'Default character', petApplying: 'Downloading…', petApplied: 'Applied ✓', petFailed: 'Could not apply: {err}',
+      sTheme: 'Appearance', sThemeLabel: 'Colours', sThemeHint: 'The windows, the balloon and the shelf beside the pet all follow.',
+      sThemeSystem: 'Follow system', sThemeLight: 'Light', sThemeDark: 'Dark',
       sLanguages: 'Language packs', sLanguagesHint: 'Pick two languages for OCR, speech-to-text and the UI (the first one drives the UI and summary language).',
       sLang1: 'Language 1', sLang2: 'Language 2', sShortcut: 'Capture shortcut', sHotkey: 'Global shortcut', sHotkeyPlaceholder: 'Click, then press keys', sHotkeyHint: 'Click a box and press a key combination. Applied immediately.',
       sSetupRecheck: 'Check again',
-      sHotkeyRegion: 'Capture a region', sHotkeyScreen: 'Capture the whole screen', sHotkeyVoice: 'Start / stop recording',
+      sHotkeyRegion: 'Capture a region', sHotkeyScreen: 'Capture the whole screen', sHotkeyVoice: 'Recording',
       sCaptureClipboard: 'Also copy captures to the system clipboard (this does not record them twice)',
       sGestureHint: 'On the pet: one click = whole screen, two clicks = drag a box, middle click or long press = start / stop recording.',
       captureRegion: 'Capture a region',
-      sClaude: 'Claude (five words & daily summary)', sApiKey: 'Anthropic API key', sApiKeyPlaceholder: 'Leave empty to keep the current key', sTestKey: 'Test', sClearKey: 'Clear', sModel: 'Model',
-      sClaudeHint: 'Without an API key the five words come from local keyword extraction and the summary is a plain list.', sSpeech: 'Speech-to-text (local Whisper)', sSttModel: 'Model size', sSttLanguage: 'Recognition language', sAuto: 'Auto-detect (any language)', sAutoPacks: 'Auto-detect (only between the two language packs)',
-      sMirror: 'Model download mirror (optional)', sSpeechHint: 'The model is downloaded on the first recording and cached locally; afterwards it runs fully offline.', sSummary: 'Daily summary', sSummaryTime: 'Generate at',
-      sSummaryHint: 'After this time (while the app runs) yesterday\'s summary is generated and a notification is shown.', sStorage: 'Storage', sWorkspaceDir: 'Workspace folder', sChoose: 'Choose…', sOpenDir: 'Open',
-      sTessPath: 'OCR language data URL (optional)', sOcrDropped: 'Also OCR dropped images', sPetHidden: 'Hide the cat (restore from the tray menu)', sSave: 'Save settings', sAbout: 'Status',
+      sClaude: 'Claude (titles & daily summary)', sApiKey: 'API Key', sApiKeyPlaceholder: 'Leave empty to keep the current key', sTestKey: 'Test', sClearKey: 'Clear', sModel: 'Model',
+      sClaudeHint: 'Without a provider the title falls back to the file name and the summary to a plain list. What is in a picture is recognised on this machine, never by AI.', sSpeech: 'Speech to text', sSttModel: 'Model', sSttLanguage: 'Language', sAuto: 'Decide among all 99 languages', sAutoPacks: 'Decide between your two languages (recommended)',
+      sMirror: 'Mirror', sSpeechHint: 'Local Whisper. The model downloads on the first recording and is cached; after that it runs fully offline.', sSummary: 'Daily summary', sSummaryTime: 'Time',
+      sSummaryHint: 'After this time (while the app runs) yesterday\'s summary is generated and a notification is shown.', sStorage: 'Workspace folder', sWorkspaceDir: 'Workspace folder', sChoose: 'Choose…', sOpenDir: 'Open',
+      sTessPath: 'OCR language data URL (optional)', sOcrDropped: 'Also OCR dropped images', sPetHidden: 'Hide briffy (restore from the tray menu)', sSave: 'Save settings', sAbout: 'Status',
       keySet: 'Set: {hint}', keyNotSet: 'Not set', keyOk: 'Working ✓ ({model})', keyFail: 'Failed: {err}', testing: 'Testing…', saved: 'Saved', needTwoLanguages: 'The two languages must differ',
-      hotkeyNeedsModifier: 'Needs Ctrl / Alt / Shift / Cmd', version: 'Version', platform: 'Platform', stats: '{days} days, {entries} entries', screenPerm: 'Screen recording permission',
+      hotkeyNeedsModifier: 'Needs Ctrl / Alt / Shift / Cmd', version: 'Version', platform: 'Platform', stats: '{days} days, {entries} entries', statsShort: '{entries} in all', screenPerm: 'Screen recording permission',
       keyCleared: 'API key cleared', sameLang: 'The two languages must differ', dirChanged: 'Workspace switched (old files are not moved automatically)',
-      sAI: 'AI service (five words & daily summary)', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)', sProviderCustom: 'Custom OpenAI-compatible endpoint',
-      sAnthropicAuth: 'Sign-in method', sAccountOption: 'Signed-in Claude account (ant auth login)', sAnthropicLogin: 'Sign in to Claude in the browser',
-      sOpenrouterKey: 'OpenRouter API key', sOpenrouterLogin: 'Sign in with OpenRouter', sRefreshModels: 'Refresh model list',
-      sOllamaHost: 'Ollama address', sDetect: 'Detect again', sOllamaModel: 'Model to use', sUseRecommended: 'Use recommended', sPull: 'Download model',
-      sCustomBase: 'Endpoint (base URL)', sCustomKey: 'API key (optional)', sNormalizeZh: 'Normalise Chinese transcripts to the selected Simplified / Traditional script (not a translation)',
-      sAIHint: 'Without an AI service the five words come from local keyword extraction and the summary is a plain list. Words, titles and summaries are never translated – they follow the language of the content.',
-      configured: 'In use: {label}', notConfigured: 'Not configured yet – local keywords will be used',
+      sOcrSection: 'Text recognition', sDownloads: 'Model downloads', sDropped: 'Pictures you drop in',
+      sDroppedHint: 'Screenshots are always read for text; pictures you drop or copy in are up to you. A picture with no text is described by the classifier on this machine instead.',
+      sDownloadsHint: 'The text and speech models download on first use and run offline afterwards. Fill in a mirror if the download cannot reach it.',
+      gLook: 'Look & language', gPet: 'Desktop mark', gAI: 'AI service', gEngines: 'On-device engines', gCapture: 'What gets recorded', gAbout: 'Workspace & about',
+      sAI: 'AI service', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)', sProviderCustom: 'Custom OpenAI-compatible endpoint',
+      sAnthropicAuth: 'Sign in with', sAccountOption: 'Signed-in Claude account (ant auth login)', sAnthropicLogin: 'Sign in to Claude in the browser',
+      sOpenrouterKey: 'API Key', sOpenrouterLogin: 'Sign in with OpenRouter', sRefreshModels: 'Refresh model list',
+      sOllamaHost: 'Address', sDetect: 'Detect again', sOllamaModel: 'Model to use', sUseRecommended: 'Use recommended', sPull: 'Download model',
+      sCustomBase: 'Base URL', sCustomKey: 'API Key', sNormalizeZh: 'Normalise Chinese transcripts to the selected Simplified / Traditional script (not a translation)',
+      sAIHint: 'Used for titles, the daily summary and questions. Without one, titles fall back to file names and the summary becomes a plain list. Titles and summaries are written in your first language; captured text (OCR, transcripts) stays as it is.',
+      configured: 'In use: {label}', notConfigured: 'Not configured yet – titles fall back to the file name',
       accountFound: 'Sign-in profile found: {profiles}', accountEnv: 'Credentials provided via environment variables', accountNotFound: 'Not signed in – click the button to run ant auth login in a terminal',
       cliMissing: 'The ant CLI is not installed (macOS: brew install anthropics/tap/ant; other platforms: github.com/anthropics/anthropic-cli)',
       cliMissingCmd: 'ant CLI not found – install it, then run in a terminal: {cmd}', loginStarted: 'A terminal was opened – finish the browser sign-in, then click "Detect again"',
       loginWaiting: 'Browser opened – finish signing in there…', loginOk: 'Signed in, key saved',
       hwLocal: 'This machine', hwCores: '{n} threads', hwNoGpu: 'none detected', hwRecommend: 'Recommendation', hwAlternatives: 'Alternatives',
       ollamaRunning: 'running {version}', ollamaInstalled: 'installed: {models}', ollamaNoModels: 'no models yet – click "Download model"',
-      ollamaNotInstalled: 'Ollama is not installed – local models need it first (about 700 MB, no account, fully offline)',
+      sModels: 'Models', sOtherModel: 'Use a different model (type its name)', fitEasy: 'runs easily', fitOk: 'runs fine', fitTight: 'tight, will be slow', fitNo: 'too big for this machine',
+      tierEasy: 'Comfortable', tierEasyWhy: 'barely uses the machine, answers fastest', tierMedium: 'Balanced', tierMediumWhy: 'the right trade for this machine', tierStretch: 'A stretch', tierStretchWhy: 'it loads, but it will be slow',
+      mdScored: 'scored {n}',
+      mdInstalled: 'downloaded', mdUse: 'Use', mdInUse: 'in use', mdGet: 'Download', mdDelete: 'Delete', mdRecommended: 'best fit for this machine', mdVision: 'reads images', mdTextOnly: 'text only', mdLive: "From Ollama's library, ranked by public benchmarks and this machine ({n} scored) · refreshed daily", mdCached: 'Offline — showing the last cached list',
+      mdConfirmDelete: 'Delete {model}? The disk space comes back and you can download it again later.', resumeTitle: 'Not finished last time: {model}', resumeGot: '{got} of {total} downloaded', resumeGo: 'Resume', resumeDrop: 'Forget it',
+      hwPick: 'Recommended for this machine: {model}', hwSize: 'about {gb} GB to download', hwWhy: 'Why this one, and what else there is', ollamaReady: 'Ollama is ready',
+      jobInstallStarting: 'Getting ready…', jobInstallDownloading: 'Downloading Ollama', jobInstallInstalling: 'Installing', jobInstallVerifying: 'Verifying', jobInstallDone: 'Installed',
+      jobPullPreparing: 'Getting ready to download {model}', jobPullDownloading: 'Downloading {model}', jobPullVerifying: 'Verifying', jobPullFinishing: 'Finishing up', jobPullDone: '{model} is ready',
+      sShowLog: 'Show details',
+      ollamaNotInstalled: 'Install Ollama once and models run on this machine. About 700 MB, no account.',
       ollamaNotStarted: 'Installed but not running ({binary}) – click "Start Ollama"',
       sInstallOllama: 'Install Ollama', sStartOllama: 'Start Ollama', sDownloadOllama: 'Download manually',
-      installing: 'Installing Ollama – this downloads a few hundred MB, please wait…', installOk: 'Ollama installed – you can download a model now', installFail: 'Installation failed ({err}) – use "Download manually" instead',
-      installManual: 'No package manager available here; the download page is open. Install it, then click "Detect again".',
+      installing: 'Installing Ollama…', installOk: 'Installed. Now pick a model to download.', installFail: 'Could not install it ({err}). The download page is open — install it by hand.',
+      installManual: 'No installer available here. The download page is open; come back and click "Check again".',
       starting: 'Starting Ollama…', startOk: 'Ollama started', startFail: 'Could not start it: {err}',
       pullNeedsOllama: 'Install and start Ollama before downloading a model',
       pulling: 'Downloading {model}…', pullDone: '{model} downloaded', modelsLoaded: '{n} models loaded – type to filter', orVision: 'understands images',
@@ -127,19 +219,19 @@
       sSetupWithOllama: 'Also install a local language model (Ollama + recommended model, about 7 GB)', sSetupLog: 'Show detailed log',
       setupRunning: 'Setting up…', setupOk: 'Setup complete ✓', setupFail: 'Setup failed: {err}',
       sOcrIndependent: 'Text recognition (OCR) uses the dedicated PP-OCR engine and never involves a language model; changing the AI service does not affect it.',
-      sOcrModel: 'Text-recognition model', ocrAuto: 'Choose automatically from the languages', bundled: 'bundled',
+      sOcrModel: 'Model', ocrAuto: 'Choose automatically from the languages', bundled: 'bundled',
       sMic: 'Microphone', sMicRefresh: 'Refresh', sMicTest: 'Test microphone (speak for 2 s)', micDefault: 'System default', micLoading: 'Reading microphone list…',
       micTesting: 'Recording 2 seconds – please speak…', micOk: 'Sound detected ✓ ({mic}, peak {peak})', micSilent: 'No sound ({mic}). This device is silent – try another one', micError: 'Cannot open microphone: {err}',
       micNone: 'No microphone devices found',
-      sClipboard: 'Clipboard', sClipboardWatch: 'Record the clipboard in real time (copied text, images and files are saved and tagged)', sClipboardMin: 'Minimum text length to record',
+      sClipboard: 'Clipboard', sClipboardWatch: 'Record the clipboard live (copied text, pictures and files go into the workspace)', sClipboardMin: 'Min. characters',
       sClipboardHint: 'Content copied from password managers is skipped; text copied out of the workspace itself is not recorded twice. The tray menu has the same switch.', fromClipboard: '📋 clipboard', fromBrowser: '🧩 web page',
       extOn: 'Extension connected', extOff: 'Install the extension', extOffTitle: 'Click for the installation steps – then you can send images and videos from any page here',
       extOnTitle: 'Browser extension v{version} connected – press Alt+Shift+D on any page', extApiOff: 'Extension endpoint off', extApiOffTitle: 'Turn it back on in Settings › Browser extension',
       extGuideOpened: 'Opened the installation steps in your browser',
-      sExtension: 'Browser extension (collect images / videos from a page)', sExtensionHint: 'With the extension installed, click its icon on any page (or press Alt+Shift+D) to see every image, video and audio file on it and send the ones you pick to the workspace.',
+      sExtension: 'Browser extension', sExtensionHint: 'Collect pictures and video from web pages. With the extension installed, click its icon on any page (or press Alt+Shift+D) to see every image, video and audio file there and save the ones you tick.',
       sLocalApi: 'Allow the browser extension to connect (local endpoint, 127.0.0.1 only)', sLocalApiPort: 'Port', sExportExt: 'Export extension folder…', sOpenExt: 'Open extension folder', sExtHelp: 'Installation steps',
       apiRunning: 'Endpoint running: http://127.0.0.1:{port}{last}', apiStopped: 'Endpoint off – the extension cannot connect', apiLast: ', last received {time}',
-      extSteps: '<b>Chrome / Edge</b><br>1. Click "Export extension folder…" to copy the extension somewhere permanent (or use the bundled path below).<br>2. Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>).<br>3. Turn on "Developer mode".<br>4. Click "Load unpacked" and choose that folder.<br>5. Click the extension icon on any page, or press <code>Alt+Shift+D</code>.<br><br>Extension folder: <code>{dir}</code><br>If the extension says DailyLogs is not running, check that the port above matches the one in the extension settings.',
+      extSteps: '<b>Chrome / Edge</b><br>1. Click "Export extension folder…" to copy the extension somewhere permanent (or use the bundled path below).<br>2. Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>).<br>3. Turn on "Developer mode".<br>4. Click "Load unpacked" and choose that folder.<br>5. Click the extension icon on any page, or press <code>Alt+Shift+D</code>.<br><br>Extension folder: <code>{dir}</code><br>If the extension says briffy is not running, check that the port above matches the one in the extension settings.',
       extExported: 'Extension exported to {dir}',
     },
   };
@@ -147,7 +239,11 @@
 
   const state = {
     meta: null, settings: null, ui: 'zh', entries: [], dates: [], selectedId: null, editing: false,
-    query: '', date: '', summaries: [], summaryKey: null, tab: 'entries',
+    query: '', date: '', sources: [], pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
+    selecting: false, picked: new Set(),
+    view: 'grid',
+    boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
+    ask: { question: '', result: null, busy: false }, ffmpeg: null,
   };
   const t = (k, p) => {
     let s = T[state.ui][k] ?? T.en[k] ?? k;
@@ -158,6 +254,10 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const locale = () => (state.ui === 'zh' ? 'zh-CN' : 'en-US');
   const fmtTime = (iso) => new Date(iso).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+  const fmtShortDate = (key) => {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
+  };
   const fmtDate = (key) => {
     const [y, m, d] = key.split('-').map(Number);
     return new Date(y, m - 1, d).toLocaleDateString(locale(), { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
@@ -166,6 +266,7 @@
     const d = new Date(); d.setDate(d.getDate() + offset);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
+  const dayLabel = (key) => (key === todayKey() ? t('today') : key === todayKey(-1) ? t('yesterday') : fmtDate(key));
 
   let toastTimer = null;
   function toast(msg) {
@@ -175,17 +276,22 @@
   }
 
   function applyI18n() {
-    document.documentElement.lang = state.ui === 'zh' ? 'zh' : 'en';
+    document.documentElement.lang = state.ui === 'zh' ? 'zh-Hans' : 'en';   // the CJK faces pick their glyph forms from this
     for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
     for (const el of document.querySelectorAll('[data-i18n-placeholder]')) el.placeholder = t(el.dataset.i18nPlaceholder);
+    for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
   }
 
   // ---------- tabs ----------
   function switchTab(tab) {
+    if (!['entries', 'ask', 'settings'].includes(tab)) tab = 'entries';   // 每日摘要没了，别的入口落回记录
     state.tab = tab;
-    for (const b of document.querySelectorAll('.tab-btn')) b.classList.toggle('active', b.dataset.tab === tab);
+    // the margin carries the tools for the entries page only; the css hides them elsewhere
+    document.body.dataset.tab = tab;
     for (const s of document.querySelectorAll('.tab')) s.classList.toggle('active', s.id === `tab-${tab}`);
-    if (tab === 'settings') loadPetPicker().catch((e) => console.error('pet catalogue', e));
+    if (tab === 'settings' && document.querySelector('.sg-btn.active')?.dataset.group === 'pet') loadPetPicker().catch(() => {});
+    if (tab === 'ask') setTimeout(() => $('#askInput').focus(), 0);
+    if (tab === 'entries' && state.view === 'grid' && jgWidth !== gridWidth()) scheduleGrid();
   }
 
   // ---------- pet picker ----------
@@ -265,10 +371,90 @@
   // ---------- entries ----------
   async function loadEntries() {
     state.dates = await ws.listDates();
-    state.entries = await ws.listEntries({ query: state.query, dates: state.date ? [state.date] : null });
+    state.entries = await ws.listEntries({ query: state.query, dates: state.date ? [state.date] : null, sources: state.sources, pinned: state.pinned });
+    ws.stats().then((st) => { state.counts = st.bySource || null; state.pinnedCount = st.pinned || 0; renderSources(); }).catch(() => {});
     renderDateFilter();
+    renderSources();
     renderList();
-    if (state.selectedId && !state.entries.some((e) => e.id === state.selectedId)) { state.selectedId = null; renderDetail(); }
+    renderAxis();
+    if (state.selectedId && !state.entries.some((e) => e.id === state.selectedId)) closeDetail();
+  }
+
+  // Screenshots, clipboard and web grabs are three different habits, and one merged stream buries them.
+  // The counts are over the whole workspace, so a source with nothing in it still says so.
+  const SOURCE_CHIPS = [
+    ['', 'srcAll'], ['screenshot', 'srcScreenshot'], ['clipboard', 'srcClipboard'], ['bookmark', 'srcBookmark'],
+    ['browser', 'srcBrowser'], ['voice', 'srcVoice'], ['other', 'srcOther'],
+    // Pinned is not a source, but it answers the same question -- "show me only these" -- and a
+    // separate control for one boolean would cost a whole line of the page.
+    ['pinned', 'srcPinned'],
+  ];
+  // 一行里只站四个常用的来源，其余收进「更多」。数字只跟在选中的那个后面——
+  // 八个数字排成一行是八个同等重量的东西，那是这一行最吵的地方。
+  const PRIMARY_SOURCES = ['', 'screenshot', 'clipboard', 'bookmark'];
+  function renderSources() {
+    const c = state.counts;
+    const open = state.moreSources || SOURCE_CHIPS.some(([k]) => !PRIMARY_SOURCES.includes(k) && isOn(k));
+    const chip = ([key, label]) => {
+      const n = !c ? null : key === 'pinned' ? state.pinnedCount : (c[key] || 0);
+      const zero = n === 0 && key !== '';   // 别叫 empty：那是空状态那块大居中的名字
+      return `<button type="button" class="src-chip${isOn(key) ? ' active' : ''}${zero ? ' zero' : ''}" data-source="${key}">`
+        + `${esc(t(label))}</button>`;
+    };
+    const shown = SOURCE_CHIPS.filter(([k]) => open || PRIMARY_SOURCES.includes(k));
+    $('#sources').innerHTML = shown.map(chip).join('')
+      + `<button type="button" class="src-chip more" data-more="1">${esc(t(open ? 'srcLess' : 'srcMore'))}</button>`;
+  }
+  // 「全部」是"什么都没勾"。来源可以多选；置顶是另一件事，单独一个开关
+  function isOn(key) {
+    if (key === 'pinned') return state.pinned;
+    if (key === '') return !state.sources.length && !state.pinned;
+    return state.sources.includes(key);
+  }
+  function toggleSource(key) {
+    if (key === 'pinned') { state.pinned = !state.pinned; return; }
+    if (key === '') { state.sources = []; state.pinned = false; return; }
+    const i = state.sources.indexOf(key);
+    if (i >= 0) state.sources.splice(i, 1); else state.sources.push(key);
+  }
+
+  // 左边的时间轴：一天一行，相对日 + 条数。日期抬头已经不显示了，所以哪一天只由它说。
+  // 点一行跳过去；滚动时哪一天正压在视野顶上，哪一行就加粗。
+  function renderAxis() {
+    const byDay = new Map();
+    for (const e of state.entries) byDay.set(e.dateKey, (byDay.get(e.dateKey) || 0) + 1);
+    const days = state.dates.filter((d) => byDay.has(d));
+    $('#axis').innerHTML = days.map((d) => `<button type="button" class="ax" data-day="${esc(d)}">`
+      + `<span>${esc(relDay(d))}</span><span class="n">${byDay.get(d)}</span></button>`).join('');
+    markAxis();
+  }
+  function relDay(dateKey) {
+    if (dateKey === todayKey()) return t('today');
+    if (dateKey === todayKey(-1)) return t('yesterday');
+    const [, m, d] = dateKey.split('-');
+    return `${+m}/${+d}`;   // 轴只有 60px 宽，日期得短
+  }
+  // 轴对的是"当前正在滚的那一张纸"。写死 #jgScroll 的时候，切到列表它就是死的：
+  // 高亮不动、点一天也跳不过去，因为它找的锚点在一个 hidden 的容器里。
+  function dayScroller() {
+    return state.view === 'list'
+      ? { box: $('#lvRows'), sel: '.lv-day' }
+      : { box: $('#jgScroll'), sel: '.jg-day' };
+  }
+  function markAxis() {
+    const { box, sel } = dayScroller();
+    if (!box) return;
+    let now = '';
+    for (const el of box.querySelectorAll(sel)) {
+      if (el.offsetTop - box.scrollTop <= 40) now = el.dataset.day; else break;
+    }
+    if (!now) now = box.querySelector(sel)?.dataset.day || '';
+    for (const b of document.querySelectorAll('.ax')) b.classList.toggle('now', b.dataset.day === now);
+  }
+  function jumpToDay(dateKey) {
+    const { box, sel } = dayScroller();
+    const el = box && box.querySelector(`${sel}[data-day="${dateKey}"]`);
+    if (el) box.scrollTo({ top: Math.max(0, el.offsetTop - 14), behavior: 'smooth' });
   }
 
   function renderDateFilter() {
@@ -281,40 +467,512 @@
   function statusPill(e) {
     if (e.status === 'processing') return `<span class="pill processing">${esc(t('processing'))}${e.progress ? ` · ${esc(e.progress)}` : ''}</span>`;
     if (e.status === 'error') return `<span class="pill error">${esc(t('error'))}</span>`;
-    if (e.tagsSource === 'local') return `<span class="pill local">${esc(t('localTags'))}</span>`;
+    // "local words" used to mark the entries a model had not seen; now that is every entry, so it says nothing
     return '';
   }
 
-  function renderList() {
-    const list = $('#entryList');
-    if (!state.entries.length) { list.innerHTML = `<div class="empty"><div class="empty-art">🐱</div><span>${esc(t('noEntries'))}</span></div>`; return; }
-    const groups = new Map();
-    for (const e of state.entries) { if (!groups.has(e.dateKey)) groups.set(e.dateKey, []); groups.get(e.dateKey).push(e); }
-    let html = '';
-    for (const [key, items] of groups) {
-      html += `<div class="day-head">${esc(fmtDate(key))} · ${items.length}</div>`;
-      for (const e of items) {
-        const thumb = (e.type === 'screenshot' || e.type === 'image') && e.fileUrl
-          ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
-        html += `<div class="card${e.id === state.selectedId ? ' selected' : ''}" data-id="${e.id}">
-          <div class="thumb t-${esc(e.type)}">${thumb}</div>
-          <div class="card-body">
-            <div class="card-title">${esc(e.title || e.path || e.url || '')}</div>
-            <div class="card-meta"><span>${fmtTime(e.createdAt)}</span><span>${esc(t('types')[e.type] || e.type)}</span>${e.origin === 'clipboard' ? `<span>${esc(t('fromClipboard'))}</span>` : ''}${e.origin === 'browser' ? `<span>${esc(t('fromBrowser'))}</span>` : ''}${statusPill(e)}</div>
-            ${e.tags && e.tags.length ? `<div class="tags">${e.tags.map((w) => `<span class="chip">${esc(w)}</span>`).join('')}</div>` : ''}
-          </div></div>`;
+  // ---------- the grid: equal-height rows ----------
+  // The layout photo libraries settled on (Google Photos, Immich, Flickr) and that Eagle makes its
+  // default for design assets: every row the same height, every picture at its own proportions, read
+  // left to right and then down -- so a row is also a stretch of time, which a waterfall of columns
+  // filling independently could never promise. Days are sections with a sticky heading, the hours
+  // inside them are labelled, and the rail down the right edge is the whole scroll in miniature.
+  const ROW_TARGET = 150;                       // px; the height a row is aimed at before it is justified
+  const ROW_GAP = 8;
+  const TEXT_RATIO = { note: 2, text: 2, url: 2, audio: 2, pdf: 1.6, file: 1.6, video: 1.8, media: 1.8 };
+  // 一条记录长成哪种纸。有画面的一律是相纸——你要看的是那张图，不是它从哪来的。
+  function cardKind(e) {
+    if (isPicture(e)) return 'shot';
+    if (e.type === 'audio') return 'voice';
+    if (e.source === 'bookmark') return 'mark';
+    if (e.source === 'clipboard') return 'clip';
+    if (e.type === 'note' || e.type === 'text') return 'note';
+    return 'file';
+  }
+  // 形状是宽高比：一条磁带 / 一张索引卡 / 一张正方形便利贴 / 一片撕下来的纸。
+  // 每种再分大中小——**一条记录该占多大，取决于它有多少东西可看**，不是取决于它是哪一类。
+  // 一段 7 秒的录音和一段 5 分钟的录音占同样大的地方，是上一版最刺眼的毛病。
+  // 瀑布流是等高行，同一行里高度是共享的，所以「大小」落在**宽度**上：小的窄，大的宽。
+  const SIZE_RATIO = {
+    voice: { s: 1.5, m: 2.4, l: 3.4 },
+    note:  { s: 0.85, m: 1.15, l: 1.6 },
+    clip:  { s: 0.9, m: 1.2, l: 1.6 },
+    mark:  { s: 1.3, m: 1.8, l: 2.4 },
+    file:  { s: 1.3, m: 1.6, l: 2 },
+  };
+  // 有多少东西可看：录音看时长，别的看字数。图片不参与——它的形状是它自己的，不该被我们改。
+  function cardSize(e) {
+    const kind = cardKind(e);
+    if (kind === 'voice') { const s = Number(e.durationSec) || 0; return s < 20 ? 's' : s < 120 ? 'm' : 'l'; }
+    // 量的必须是**卡片上看得见的那些字**。收藏卡只显示标题和域名，拿它藏起来的整页摘录去算大小，
+    // 就会得到一张又宽又空的卡——这是上一版那两张大白卡的来源。
+    const shown = kind === 'mark' ? cardTitle(e) : (cardText(e) || cardTitle(e));
+    const n = String(shown || '').trim().length;
+    if (kind === 'mark') return n < 18 ? 's' : n < 44 ? 'm' : 'l';
+    return n < 40 ? 's' : n < 160 ? 'm' : 'l';
+  }
+  const SOURCE_LABEL = { screenshot: 'srcScreenshot', clipboard: 'srcClipboard', bookmark: 'srcBookmark', browser: 'srcBrowser', voice: 'srcVoice', other: 'srcOther' };
+  // 「其它」这一组在筛选器上是一个词，在一行上得说清楚到底是哪一件
+  const OTHER_LABEL = { note: 'srcNote', file: 'srcFile' };
+  const ratioCache = new Map();                 // learned from the <img> when a record carries no size
+  let jgIds = '';                               // the order the grid was last dealt for
+  let jgWidth = 0;                              // and the width
+  let jgTimer = null;
+
+  const clipText = (str, n) => (str.length > n ? `${str.slice(0, n).trimEnd()}…` : str);
+  // The app (and window) that was in front when this was saved -- see src/main/foreground.js. Old
+  // records have none, and neither do the ones saved from briffy itself, so everything below is optional.
+  const ctxOf = (e) => (e && e.context && e.context.app ? e.context : null);
+  function ctxShort(e) {
+    const c = ctxOf(e);
+    return c ? c.app : '';
+  }
+  function ctxHost(e) {
+    const c = ctxOf(e);
+    if (!c || !c.url) return '';
+    try { return new URL(c.url).host; } catch (_) { return c.url; }
+  }
+  function ctxLong(e) {
+    const c = ctxOf(e);
+    if (!c) return '';
+    return c.window ? `${c.app} · ${c.window}` : c.app;
+  }
+  const cardText = (e) => String(e.text || e.summary || '').trim();
+  const isPicture = (e) => (e.type === 'screenshot' || e.type === 'image') && !!e.fileUrl;
+  const emptyMarkup = (extra = '') => `<div class="empty"><div class="empty-art">🐱</div><span>${esc(extra || t('noEntries'))}</span></div>`;
+
+  // "Nothing here" used to mean two opposite things: nothing was worth keeping, or briffy was closed
+  // and the day was never offered. It knows which now (src/main/uptime.js), so it says which.
+  async function emptyReason() {
+    if (!state.date || state.query || state.sources.length || state.pinned) return '';
+    try {
+      const st = await ws.dayStats(state.date);
+      if (st.status === 'off') return t('dayWasOff');
+      if (st.status === 'idle') return t('dayWasIdle', { min: st.uptimeMinutes });
+    } catch (_) { /* an older workspace has no record of this */ }
+    return '';
+  }
+  function fillEmptyReason(box) {
+    emptyReason().then((why) => {
+      if (!why) return;
+      const span = box.querySelector('.empty span');
+      if (span) span.textContent = why;
+    });
+  }
+
+  // A note's stored title is its first line cut to length. Older records were cut at a fixed
+  // character, which could land mid-word ("你看看蛛丝" | "马迹"); shown, the title runs on to the next
+  // natural break so the heading and the body underneath it meet cleanly.
+  function cardTitle(e) {
+    const raw = e.title || e.path || e.url || '';
+    const text = String(e.text || '');
+    if (!raw || raw.endsWith('…') || !text.startsWith(raw) || text.length === raw.length) return raw;
+    const rest = text.slice(raw.length);
+    if (/^[\s\p{P}]/u.test(rest)) return raw;
+    const m = /^[^\s\p{P}]{1,20}/u.exec(rest);
+    return m ? `${raw}${m[0]}` : raw;
+  }
+
+  // Only what the title has not already said -- for a one-line note, nothing at all.
+  function cardExcerpt(e) {
+    const text = cardText(e);
+    const title = String(cardTitle(e)).trim().replace(/…$/, '');
+    if (!title || !text.startsWith(title)) return text;
+    return text.slice(title.length).replace(/^[\s\u3000·、，。：:,.-]+/, '');
+  }
+
+  // The shape of the box a record gets. A picture keeps its own, within limits -- a very tall one
+  // would otherwise shrink to a sliver, a very wide one swallow a row. Words get a fixed 3:2 card.
+  function tileRatio(e) {
+    if (!isPicture(e)) return (SIZE_RATIO[cardKind(e)] || SIZE_RATIO.file)[cardSize(e)];
+    const w = Number(e.width) || 0, h = Number(e.height) || 0;
+    const r = w && h ? w / h : (ratioCache.get(e.id) || 4 / 3);
+    return Math.min(Math.max(r, 0.55), 2.4);
+  }
+
+  // Flickr's justified layout: fill a row until the boxes at the target height overflow the width,
+  // then scale that row so the widths sum exactly to it. The last row keeps the target height unless
+  // it is nearly full, so a lone final picture is not blown up to the width of the page.
+  function justify(items, width, target = ROW_TARGET, gap = ROW_GAP) {
+    const rows = [];
+    let row = [];
+    const widthAt = (r, h) => r.reduce((a, it) => a + tileRatio(it) * h, 0) + gap * (r.length - 1);
+    const fit = (r) => (width - gap * (r.length - 1)) / r.reduce((a, x) => a + tileRatio(x), 0);
+    for (const it of items) {
+      row.push(it);
+      if (widthAt(row, target) >= width) { rows.push({ items: row, h: Math.min(fit(row), target * 1.3) }); row = []; }
+    }
+    if (row.length) rows.push({ items: row, h: widthAt(row, target) / width >= 0.7 ? fit(row) : target });
+    return rows;
+  }
+
+  function tileMarkup(e) {
+    const kind = cardKind(e);
+    const time = esc(fmtTime(e.createdAt));
+    const mark = `${e.pinned ? '<span class="jg-pin"></span>' : ''}${statusPill(e)}`;
+
+    // 截图 / 图片 —— 一张拍立得：白边包着画面，底边更宽，时间写在那道宽边上
+    if (kind === 'shot') {
+      return `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
+        + `<span class="cap">${time}</span>${mark}`;
+    }
+    // 录音 —— 一条磁带：没有标题，底边一整条是磁粉，转写只留一行压在时间后面
+    if (kind === 'voice') {
+      const said = clipText(cardText(e) || cardTitle(e), 400);
+      return `<div class="lab"><span class="tm">${time}</span></div>`
+        + `<div class="said">${esc(said)}</div><div class="tape"></div>`
+        + `<span class="dur">${esc(fmtDuration(e.durationSec))}</span>${mark}`;
+    }
+    // 收藏 —— 一张索引卡：一个粗标题领着，域名跟在下面，左上垂一条书签舌
+    if (kind === 'mark') {
+      let host = '';
+      if (e.url) { try { host = new URL(e.url).host; } catch (_) { host = ''; } }
+      return `<span class="ribbon"></span><div class="lab"><span class="tm">${time}</span></div>`
+        + `<div class="ttl">${esc(cardTitle(e))}</div>${host ? `<div class="host">${esc(host)}</div>` : ''}${mark}`;
+    }
+    // 随手记 —— 一张便利贴：你的话在最上面，字更大；时间退到最下角；右下角折起
+    if (kind === 'note') {
+      return `<div class="said">${esc(clipText(cardText(e) || cardTitle(e), 400))}</div>`
+        + `<div class="lab"><span class="tm">${time}</span></div><span class="fold"></span>${mark}`;
+    }
+    // 剪贴板 —— 一片撕下来的纸：原文加引号，底下写从哪个应用来
+    if (kind === 'clip') {
+      const where = ctxShort(e);
+      return `<div class="b"><div class="bb">${esc(clipText(cardText(e) || cardTitle(e), 300))}</div></div>`
+        + `<div class="lab"><span class="tm">${time}</span></div>`
+        + `${where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : ''}${mark}`;
+    }
+    // 别的（文件、网页里拿来的东西）：还是那张白便签
+    const more = cardExcerpt(e);
+    let host = '';
+    if (e.url) { try { host = new URL(e.url).host; } catch (_) { host = ''; } }
+    const body = `<b>${esc(cardTitle(e))}</b>${host ? `\n<span class="host">${esc(host)}</span>` : ''}`
+      + `${more ? `\n${esc(clipText(more, 300))}` : (!host && (e.path || e.url) ? `\n<span class="host">${esc(e.path || e.url)}</span>` : '')}`;
+    return `<div class="jg-txt"><div class="k"><span>${time}</span>${mark}</div>`
+      + `<div class="b"><div class="bb">${body}</div></div></div>`;
+  }
+  const fmtDuration = (s) => {
+    const n = Math.max(0, Math.round(Number(s) || 0));
+    return `${Math.floor(n / 60)}\u2032${String(n % 60).padStart(2, '0')}\u2033`;
+  };
+
+  function tileEl(e) {
+    const el = document.createElement('div');
+    el.className = `jg-tile k-${cardKind(e)} z-${cardSize(e)}${state.picked.has(e.id) ? ' picked' : ''}`;
+    el.dataset.id = e.id;
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    el.innerHTML = `<span class="jg-check"></span>${tileMarkup(e)}`;
+    return el;
+  }
+
+  // A record that arrived without its size (a dropped file, a picture pulled from a page) reports it
+  // once its picture has loaded, and the grid is dealt again to match.
+  function learnRatio(img) {
+    const tile = img.closest('.jg-tile');
+    if (!tile || !img.naturalWidth || !img.naturalHeight) return;
+    const e = state.entries.find((x) => x.id === tile.dataset.id);
+    if (!e || (Number(e.width) && Number(e.height))) return;
+    const r = img.naturalWidth / img.naturalHeight;
+    if (ratioCache.get(e.id) === r) return;
+    ratioCache.set(e.id, r);
+    scheduleGrid();
+  }
+
+  // 网格的宽度就是滚动区的内容盒——问它自己要，别把页边写死两遍
+  const gridWidth = () => { const s = $('#jgScroll'), cs = getComputedStyle(s);
+    return Math.max(120, s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)); };
+  const hourKey = (iso) => String(new Date(iso).getHours()).padStart(2, '0');
+  const HOURS_FROM = 12;     // a day with fewer records than this is one block, no hour labels
+  const HOUR_MIN = 3;        // an hour with fewer records than this is folded into the next one
+
+  // Split one day's records (newest first) into labelled groups by hour, folding thin hours together.
+  function hourGroups(items) {
+    if (items.length < HOURS_FROM) return [{ items, label: '', first: hourKey(items[0].createdAt) }];
+    const byHour = [];
+    for (const e of items) {
+      const hk = hourKey(e.createdAt);
+      const last = byHour[byHour.length - 1];
+      if (last && last.hk === hk) last.items.push(e); else byHour.push({ hk, items: [e] });
+    }
+    const groups = [];
+    let acc = null;
+    for (const h of byHour) {
+      if (!acc) acc = { newest: h.hk, oldest: h.hk, items: [...h.items] };
+      else { acc.oldest = h.hk; acc.items.push(...h.items); }
+      if (acc.items.length >= HOUR_MIN) { groups.push(acc); acc = null; }
+    }
+    if (acc) { if (groups.length) { const g = groups[groups.length - 1]; g.oldest = acc.oldest; g.items.push(...acc.items); } else groups.push(acc); }
+    return groups.map((g) => ({ items: g.items, first: g.newest, label: g.newest === g.oldest ? `${g.newest}:00` : `${g.oldest}:00–${g.newest}:59` }));
+  }
+  const shortDay = (key) => { const l = dayLabel(key); return l === fmtDate(key) ? fmtShortDate(key) : l; };
+
+  function layoutGrid() {
+    const scroller = $('#jgScroll');
+    const width = gridWidth();
+    const keep = scroller.scrollTop;
+    // newest first, as the store lists them; a day is a section, and inside it the records are
+    // grouped by hour -- but only where that earns its keep. A quiet day of nine records would become
+    // nine labelled rows of one tile each, so a day with fewer than a dozen records is one block, and
+    // an hour with only a couple of records is folded into the next until the group has a few.
+    const days = new Map();
+    for (const e of state.entries) {
+      if (!days.has(e.dateKey)) days.set(e.dateKey, []);
+      days.get(e.dateKey).push(e);
+    }
+    const frag = document.createDocumentFragment();
+    for (const [day, all] of days) {
+      const head = document.createElement('div');
+      head.className = 'jg-day';
+      head.dataset.day = day;
+      // 日期由左边的时间轴去说。这个空块只是锚点（时间轴跳转和高亮都认它）和一天与一天之间的留白
+      head.setAttribute('aria-label', fmtDate(day));
+      frag.appendChild(head);
+      for (const group of hourGroups(all)) {
+        if (group.label) {
+          const lab = document.createElement('div');
+          lab.className = 'jg-hour';
+          lab.dataset.hour = `${day}T${group.first}`;
+          lab.innerHTML = `<b>${esc(group.label)}</b>${esc(t('dayCount', { n: group.items.length }))}`;
+          frag.appendChild(lab);
+        }
+        const items = group.items;
+        const block = document.createElement('div');
+        block.className = 'jg-rows';
+        let top = 0;
+        for (const row of justify(items, width)) {
+          let left = 0;
+          for (const e of row.items) {
+            const w = tileRatio(e) * row.h;
+            const tile = tileEl(e);
+            // --lines: how many 18px lines of the slip are left for words -- the row height less the slip's
+            // padding (14+15), its label row (19) and its tag row (17+8). See .jg-txt in the css.
+            tile.style.cssText = `left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${w.toFixed(1)}px;height:${row.h.toFixed(1)}px;--lines:${Math.max(1, Math.floor((row.h - 78) / 18))};--nlines:${Math.max(1, Math.floor((row.h - 62) / 26))};--clines:${Math.max(1, Math.floor((row.h - 74) / 21))}`;
+            block.appendChild(tile);
+            left += w + ROW_GAP;
+          }
+          top += row.h + ROW_GAP;
+        }
+        block.style.height = `${Math.max(0, top - ROW_GAP)}px`;
+        frag.appendChild(block);
       }
     }
-    list.innerHTML = html;
+    scroller.innerHTML = '';
+    scroller.appendChild(frag);
+    scroller.scrollTop = keep;
+    jgWidth = width;
+  }
+
+  function scheduleGrid() {
+    clearTimeout(jgTimer);
+    jgTimer = setTimeout(() => { if (state.view === 'grid' && state.tab === 'entries') { jgIds = ''; renderList(); } }, 120);
+  }
+
+  // The same records, only changed: repaint what changed where it stands. A record being processed
+  // sends a stream of these, and dealing the whole grid on each would blink every picture.
+  function refreshTiles() {
+    const scroller = $('#jgScroll');
+    for (const e of state.entries) {
+      const el = scroller.querySelector(`.jg-tile[data-id="${e.id}"]`);
+      if (!el) continue;
+      el.classList.toggle('picked', state.picked.has(e.id));
+      if (isPicture(e)) {                       // keep the <img>; swap only the status badge
+        for (const p of el.querySelectorAll(':scope > .pill')) p.remove();
+        const pill = statusPill(e);
+        if (pill) el.insertAdjacentHTML('beforeend', pill);
+      } else {
+        const html = `<span class="jg-check"></span>${tileMarkup(e)}`;
+        if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; }
+      }
+    }
+  }
+
+  // ---------- the list ----------
+  // Raindrop's headlines, a mail client's message list: one record a row with the time in its own
+  // column, and the chosen one previewed beside it. The densest view, and the one for tidying up.
+  function rowMarkup(e) {
+    const thumb = isPicture(e) ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
+    const where = ctxShort(e);
+    // 「文件 / 链接 / 笔记」是筛选器上那一组的名字，一行只是一件东西，不能拿一组的名字当它的来源
+    const src = where || t(e.source === 'other' ? (OTHER_LABEL[cardKind(e)] || 'srcFile') : (SOURCE_LABEL[e.source] || 'srcFile'));
+    return `<span class="ck"></span><span class="tm">${esc(fmtTime(e.createdAt))}</span><span class="th">${thumb}</span>`
+      + `<span class="ti">${e.pinned ? '<span class="row-pin"></span>' : ''}${esc(cardTitle(e))}</span>`
+      + `<span class="src">${esc(src)}</span>`;
+  }
+
+  function renderListView() {
+    const box = $('#lvRows');
+    const keep = box.scrollTop;
+    $('#entryList').classList.toggle('selecting', state.selecting);
+    if (!state.entries.length) { box.innerHTML = emptyMarkup(); fillEmptyReason(box); renderDetailInto($('#listDetail')); return; }
+    if (!state.selectedId || !state.entries.some((e) => e.id === state.selectedId)) state.selectedId = state.entries[0].id;
+    let html = '';
+    let day = '';
+    for (const e of state.entries) {
+      if (e.dateKey !== day) {
+        day = e.dateKey;
+        // 只是锚点和一天与一天之间的留白，不写字——日期由右边的时间轴说（和网格同一条规矩）
+        html += `<div class="lv-day" data-day="${esc(day)}" aria-label="${esc(fmtDate(day))}"></div>`;
+      }
+      html += `<div class="lv-row${e.id === state.selectedId ? ' sel' : ''}${state.picked.has(e.id) ? ' picked' : ''}" data-id="${e.id}" role="button" tabindex="0">${rowMarkup(e)}</div>`;
+    }
+    box.innerHTML = html;
+    box.scrollTop = keep;
+    renderDetailInto($('#listDetail'));
+  }
+
+  function renderList() {
+    if (state.view === 'list') { jgIds = ''; renderListView(); return; }   // the grid is dealt again when it returns
+    const grid = $('#entryGrid');
+    const scroller = $('#jgScroll');
+    grid.classList.toggle('selecting', state.selecting);
+    if (!state.entries.length) { scroller.innerHTML = emptyMarkup(); fillEmptyReason(scroller); jgIds = ''; return; }
+    const ids = state.entries.map((e) => e.id).join(',');
+    if (ids === jgIds && jgWidth === gridWidth() && scroller.querySelector('.jg-tile')) { refreshTiles(); return; }
+    jgIds = ids;
+    layoutGrid();
+  }
+
+  function applyView(view) {
+    state.view = view === 'list' ? 'list' : 'grid';
+    try { localStorage.setItem('briffy.view', state.view); } catch (_) { /* storage unavailable */ }
+    $('#entryGrid').hidden = state.view !== 'grid';
+    $('#entryList').hidden = state.view !== 'list';
+    for (const b of document.querySelectorAll('#viewSeg button')) b.classList.toggle('active', b.dataset.view === state.view);
+    if (state.view === 'grid') jgIds = '';          // dealt while hidden, if at all: deal it again at its real width
+    renderList();
+    markAxis();                                    // 轴跟的是当前这张纸，换了纸就得重新看一眼
+    if (state.view === 'list') renderDetail();
+  }
+
+  // ---------- picking several at once ----------
+  function renderBulk() {
+    const bar = $('#bulkBar');
+    bar.hidden = !state.selecting;
+    $('#bulkCount').textContent = t('nSelected', { n: state.picked.size });
+    bar.querySelector('[data-bulk="delete"]').disabled = state.picked.size === 0;
+  }
+
+  // 选中一整天。additive：接着已有的选择加，否则只留这一天
+  function pickDay(dateKey, additive) {
+    if (!state.selecting) setSelecting(true);
+    if (!additive) state.picked.clear();
+    for (const e of state.entries) if (e.dateKey === dateKey) state.picked.add(e.id);
+    renderBulk();
+    renderList();
+  }
+
+  // 拉框选：在空白处按下往外拖，框到哪些便签就选哪些。
+  // 框本身用 fixed 定位，这样它和便签都在同一套视口坐标里，滚动、缩放都不用换算。
+  let marqueeMoved = false;
+  function startMarquee(down, scroller, itemSel) {
+    marqueeMoved = false;
+    const bounds = scroller.getBoundingClientRect();
+    const x0 = down.clientX, y0 = down.clientY;
+    const top0 = scroller.scrollTop;
+    const additive = down.metaKey || down.ctrlKey || down.shiftKey;
+    const before = additive ? new Set(state.picked) : new Set();
+    let box = null;
+    let moved = false;
+    let last = down;
+
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+    const draw = () => {
+      // 起点是钉在纸上的，不是钉在屏幕上的：纸滚过多少，起点就跟着走多少
+      const ax = x0, ay = y0 - (scroller.scrollTop - top0);
+      const x1 = clamp(last.clientX, bounds.left, bounds.right);
+      const y1 = clamp(last.clientY, bounds.top, bounds.bottom);
+      const r = { left: Math.min(ax, x1), top: Math.min(ay, y1), right: Math.max(ax, x1), bottom: Math.max(ay, y1) };
+      if (!moved && (r.right - r.left > 5 || r.bottom - r.top > 5)) {
+        moved = true; marqueeMoved = true;
+        if (!state.selecting) setSelecting(true);
+        box = document.createElement('div');
+        box.className = 'marquee';
+        document.body.appendChild(box);
+      }
+      if (!moved) return;
+      const top = clamp(r.top, bounds.top, bounds.bottom);
+      const bottom = clamp(r.bottom, bounds.top, bounds.bottom);
+      box.style.cssText = `left:${r.left}px;top:${top}px;width:${r.right - r.left}px;height:${bottom - top}px`;
+      state.picked = new Set(before);
+      for (const tile of scroller.querySelectorAll(itemSel)) {
+        const t = tile.getBoundingClientRect();
+        const hit = t.right > r.left && t.left < r.right && t.bottom > r.top && t.top < r.bottom;
+        if (hit) state.picked.add(tile.dataset.id);
+        tile.classList.toggle('picked', state.picked.has(tile.dataset.id));
+      }
+      renderBulk();
+    };
+    const paint = (ev) => { last = ev; draw(); };
+
+    // 拖到上下边缘就接着往下滚：一屏装不下的时候，正常的做法是纸自己走，
+    // 而不是让人松手、滚一段、再重新框一次
+    const EDGE = 28;
+    const timer = setInterval(() => {
+      if (!moved) return;
+      const y = last.clientY;
+      let d = 0;
+      if (y < bounds.top + EDGE) d = -Math.ceil((bounds.top + EDGE - y) / 2);
+      else if (y > bounds.bottom - EDGE) d = Math.ceil((y - (bounds.bottom - EDGE)) / 2);
+      if (!d) return;
+      const at = scroller.scrollTop;
+      scroller.scrollTop = clamp(at + clamp(d, -40, 40), 0, scroller.scrollHeight - scroller.clientHeight);
+      if (scroller.scrollTop !== at) draw();
+    }, 16);
+
+    const up = () => {
+      clearInterval(timer);
+      window.removeEventListener('pointermove', paint);
+      window.removeEventListener('pointerup', up);
+      if (box) box.remove();
+      if (moved) renderList();
+      setTimeout(() => { marqueeMoved = false; }, 0);   // 让紧随其后的那次 click 看得到它
+    };
+    window.addEventListener('pointermove', paint);
+    window.addEventListener('pointerup', up);
+  }
+
+  function setSelecting(on) {
+    state.selecting = on;
+    if (!on) state.picked.clear();
+    document.body.classList.toggle('picking', on);   // 批量条顶掉左、中两只托盘
+    const btn = $('#selectToggle');
+    btn.classList.toggle('on', on);
+    // 它现在是个图标按钮：只换提示语，别往里写字——写了会把 SVG 冲掉
+    btn.dataset.i18nTitle = on ? 'selectDone' : 'selectMode';
+    btn.title = t(btn.dataset.i18nTitle);
+    renderBulk();
+    renderList();
   }
 
   function currentEntry() { return state.entries.find((e) => e.id === state.selectedId) || null; }
 
-  function renderDetail() {
-    const box = $('#detail');
+  // The grid wants the whole width, so a record opens in a window over it. The list has a preview
+  // pane beside it, and the same rendering goes there.
+  function openDetail(id) {
+    state.selectedId = id;
+    state.editing = false;
+    $('#detailModal').hidden = false;
+    renderDetail();
+    renderList();
+  }
+
+  function closeDetail() {
+    if ($('#detailModal').hidden) return;
+    $('#detailModal').hidden = true;
+    state.editing = false;
+    if (state.view === 'grid') state.selectedId = null;   // the list keeps its row
+    renderList();
+    if (state.view === 'list') renderDetail();
+  }
+
+  const detailBox = () => (!$('#detailModal').hidden ? $('#detail') : $('#listDetail'));
+  function renderDetail() { renderDetailInto(detailBox()); }
+
+  function renderDetailInto(box) {
     const e = currentEntry();
     if (!e) { box.innerHTML = `<div class="empty"><div class="empty-art">🐾</div><span>${esc(t('selectEntry'))}</span></div>`; return; }
-    if (state.editing) { renderEditForm(e); return; }
+    if (state.editing) { renderEditForm(e, box); return; }
     let preview = '';
     if ((e.type === 'screenshot' || e.type === 'image') && e.fileUrl) preview = `<img id="previewImg" src="${esc(e.fileUrl)}" alt="" />`;
     else if (e.type === 'audio') preview = `<audio controls src="${esc(e.fileUrl)}"></audio><div class="muted" style="padding:0 12px 10px">${esc(t('duration'))}: ${e.durationSec || 0}s</div>`;
@@ -330,35 +988,111 @@
     box.innerHTML = `
       <div class="detail-head"><span class="tile t-${esc(e.type)}">${ICONS[e.type] || ICONS.file}</span><h2>${esc(e.title || e.path || e.url || '')}</h2></div>
       <div class="time">${esc(fmtDate(e.dateKey))} ${fmtTime(e.createdAt)} · ${esc(t('types')[e.type] || e.type)}${e.origin === 'clipboard' ? ` · ${esc(t('fromClipboard'))}` : ''}${e.origin === 'browser' ? ` · ${esc(t('fromBrowser'))}` : ''}${e.sttLanguage ? ` · ${esc(e.sttLanguage)}` : ''}${e.model ? ` · ${esc(e.model)}` : ''}</div>
+      ${ctxLong(e) ? `<div class="time from">${esc(t('fromApp'))} ${esc(ctxLong(e))}${ctxOf(e).url ? ` · <a href="#" data-action="openContextUrl">${esc(ctxHost(e))}</a>` : ''}</div>` : ''}
       <div class="preview">${preview}</div>
       ${statusLine}
-      <h3>${esc(t('words'))}</h3>
-      <div class="tags">${(e.tags || []).map((w) => `<span class="chip">${esc(w)}</span>`).join('') || '<span class="muted">—</span>'}</div>
+      ${e.ocrBoxes ? `<div class="box-tools"><button type="button" class="btn" data-action="boxes">${esc(t(state.boxesOn ? 'hideBoxes' : 'showBoxes'))}</button>${state.boxesOn ? `<span class="st">${esc(t('copyLine'))}</span>` : ''}</div>` : ''}
+      ${e.visionLabels ? `<h3>${esc(t('seen'))}</h3><p class="summary-text">${esc(e.visionLabels)}</p>` : ''}
+      <h3>${esc(t('noteLabel'))}</h3>
+      <textarea class="note-field" id="noteField" rows="2" placeholder="${esc(t('notePlaceholder'))}">${esc(e.note || '')}</textarea>
       ${e.summary ? `<h3>${esc(t('summary'))}</h3><p class="summary-text">${esc(e.summary)}</p>` : ''}
       <div class="actions">
-        ${e.path ? `<button class="btn" data-action="open">${esc(t('open'))}</button><button class="btn" data-action="reveal">${esc(t('reveal'))}</button>` : ''}
-        ${e.url ? `<button class="btn" data-action="openLink">${esc(t('openLink'))}</button>` : ''}
-        <button class="btn" data-action="retry">${esc(t('retry'))}</button>
+        ${e.path ? `<button class="btn" data-action="open">${esc(t('open'))}</button>` : ''}
         <button class="btn" data-action="edit">${esc(t('edit'))}</button>
         ${e.text ? `<button class="btn" data-action="copy">${esc(t('copy'))}</button>` : ''}
-        <button class="btn danger" data-action="delete">${esc(t('delete'))}</button>
+        ${state.moreActions ? `
+        ${e.path ? `<button class="btn" data-action="reveal">${esc(t('reveal'))}</button>` : ''}
+        ${e.url ? `<button class="btn" data-action="openLink">${esc(t('openLink'))}</button>` : ''}
+        <button class="btn${e.pinned ? ' primary' : ''}" data-action="pin">${esc(t(e.pinned ? 'unpin' : 'pin'))}</button>
+        <button class="btn" data-action="retry">${esc(t('retry'))}</button>
+        <button class="btn" data-action="copyLink">${esc(t('copyLink'))}</button>` : ''}
+        <button class="btn quiet" data-action="moreActions">${esc(t(state.moreActions ? 'actLess' : 'actMore'))}</button>
       </div>
-      ${e.text ? `<h3>${esc(textLabel)}</h3><div class="text-block">${esc(e.text)}</div>` : ''}`;
+      ${e.text ? `<h3>${esc(textLabel)}</h3><div class="text-block">${esc(e.text)}</div>` : ''}
+      <div class="danger-row"><button class="btn danger" data-action="delete">${esc(t('delete'))}</button></div>`;
+
+    // The note is the user's own line and nothing else writes it, so it saves itself when they leave it.
+    const note = box.querySelector('#noteField');
+    if (note) {
+      note.addEventListener('blur', async () => {
+        const value = note.value.trim();
+        if (value === (e.note || '')) return;
+        const updated = await ws.updateEntry(e.id, { note: value });
+        if (updated) { upsert(updated); toast(t('noteSaved')); }
+      });
+    }
+    if (state.boxesOn && e.ocrBoxes) drawBoxes(box, e);
   }
 
-  function renderEditForm(e) {
-    $('#detail').innerHTML = `
+  // ---------- where the words are ----------
+  //
+  // PP-OCR reported a box for every line it read and briffy kept them (see src/main/ocr-boxes.js).
+  // Shown over the picture they turn a wall of recognised text back into something you can point at:
+  // hover a line to find it on the original, click it to copy just that line.
+  let boxWatcher = null;    // one at a time: the previous overlay's observer is dropped before a new one
+
+  async function drawBoxes(box, e) {
+    const img = box.querySelector('#previewImg');
+    if (!img) return;
+    const data = state.boxes && state.boxes.id === e.id ? state.boxes.data : await ws.entryBoxes(e.id);
+    if (!data || !data.lines || !data.lines.length) return;
+    state.boxes = { id: e.id, data };
+    const wrap = img.parentElement;
+    if (!wrap) return;
+    wrap.querySelectorAll('.ocr-layer').forEach((n) => n.remove());
+
+    const layer = document.createElement('div');
+    layer.className = 'ocr-layer';
+    // Positions are a share of the picture, so the boxes hold as it is resized.
+    const W = data.w || img.naturalWidth || 1;
+    const H = data.h || img.naturalHeight || 1;
+    layer.innerHTML = data.lines.map(([x, y, w, h, , text], i) =>
+      `<span class="ocr-box" data-i="${i}" title="${esc(text)}" style="left:${(x / W * 100).toFixed(3)}%;top:${(y / H * 100).toFixed(3)}%;width:${(w / W * 100).toFixed(3)}%;height:${(h / H * 100).toFixed(3)}%"></span>`).join('');
+    layer.addEventListener('click', async (ev) => {
+      const hit = ev.target.closest('.ocr-box');
+      if (!hit) return;
+      ev.stopPropagation();
+      await navigator.clipboard.writeText(data.lines[Number(hit.dataset.i)][5] || '');
+      toast(t('lineCopied'));
+    });
+    wrap.appendChild(layer);
+
+    // The picture is drawn with object-fit: contain, so it is letterboxed inside its box whenever the
+    // proportions differ -- and a screenshot inside a 380px-tall frame almost always differs. Laying
+    // the overlay over the whole frame would then shift every box sideways by the size of the bar, so
+    // the layer is fitted to the painted picture instead, and refitted whenever the window changes.
+    const fit = () => {
+      const rw = img.clientWidth; const rh = img.clientHeight;
+      if (!rw || !rh) return;
+      const scale = Math.min(rw / W, rh / H);
+      const pw = W * scale; const ph = H * scale;
+      layer.style.left = `${img.offsetLeft + (rw - pw) / 2}px`;
+      layer.style.top = `${img.offsetTop + (rh - ph) / 2}px`;
+      layer.style.width = `${pw}px`;
+      layer.style.height = `${ph}px`;
+    };
+    if (img.complete) fit(); else img.addEventListener('load', fit, { once: true });
+    if (window.ResizeObserver) {
+      // An element has no 'remove' event to hang this on, and a detail view is re-rendered on every
+      // click, so the observer is owned here and the old one is dropped rather than left watching a
+      // picture nobody can see any more.
+      if (boxWatcher) boxWatcher.disconnect();
+      boxWatcher = new ResizeObserver(fit);
+      boxWatcher.observe(img);
+    }
+  }
+
+  function renderEditForm(e, box = detailBox()) {
+    box.innerHTML = `
       <form class="edit-form" id="editForm">
         <label><span>${esc(t('title'))}</span><input name="title" value="${esc(e.title || '')}" /></label>
-        <label><span>${esc(t('tagsField'))}</span><input name="tags" value="${esc((e.tags || []).join(', '))}" /></label>
         <label><span>${esc(t('textField'))}</span><textarea name="text">${esc(e.text || '')}</textarea></label>
         <div class="actions"><button type="submit" class="btn primary">${esc(t('save'))}</button><button type="button" class="btn" data-action="cancelEdit">${esc(t('cancel'))}</button></div>
       </form>`;
     $('#editForm').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const fd = new FormData(ev.target);
-      const tags = String(fd.get('tags') || '').split(/[,，、\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 5);
-      const updated = await ws.updateEntry(e.id, { title: fd.get('title'), tags, text: fd.get('text') });
+      const updated = await ws.updateEntry(e.id, { title: fd.get('title'), text: fd.get('text') });
       if (updated) upsert(updated);
       state.editing = false;
       renderDetail(); renderList();
@@ -385,84 +1119,190 @@
       case 'openLink': await ws.openExternal(e.url); break;
       case 'retry': await ws.retryEntry(e.id); break;
       case 'edit': state.editing = true; renderDetail(); break;
+      case 'moreActions': state.moreActions = !state.moreActions; renderDetail(); break;
       case 'cancelEdit': state.editing = false; renderDetail(); break;
       case 'copy': await navigator.clipboard.writeText(e.text || ''); toast(t('copied')); break;
+      case 'openContextUrl': await ws.openExternal(ctxOf(e) ? ctxOf(e).url : ''); break;
+      case 'pin': {
+        const updated = await ws.updateEntry(e.id, { pinned: !e.pinned });
+        if (updated) { upsert(updated); state.pinnedCount += updated.pinned ? 1 : -1; renderSources(); renderDetail(); renderList(); }
+        break;
+      }
+      case 'copyLink': {
+        const link = await ws.entryLink(e.id);
+        if (link) { await navigator.clipboard.writeText(link); toast(t('linkCopied')); }
+        break;
+      }
+      case 'boxes':
+        state.boxesOn = !state.boxesOn;
+        if (!state.boxesOn && boxWatcher) { boxWatcher.disconnect(); boxWatcher = null; }
+        renderDetail();
+        break;
       case 'delete':
         if (!window.confirm(t('confirmDelete'))) return;
         await ws.deleteEntry(e.id);
         state.entries = state.entries.filter((x) => x.id !== e.id);
-        state.selectedId = null; renderList(); renderDetail();
+        if (!$('#detailModal').hidden) closeDetail();
+        else { state.selectedId = null; renderList(); }
         break;
       default: break;
     }
   }
 
-  // ---------- summaries ----------
-  async function loadSummaries() {
-    state.summaries = await ws.listSummaries();
-    renderSummaryList();
+  // 记一句话：一张从左下角升起的纸，写完就收起来
+  function toggleNote(on) {
+    const pad = $('#notePad');
+    const show = on === undefined ? pad.hidden : on;
+    pad.hidden = !show;
+    if (show) setTimeout(() => $('#quickInput').focus(), 0);
   }
-  function renderSummaryList() {
-    const list = $('#summaryList');
-    if (!state.summaries.length) { list.innerHTML = `<div class="empty"><div class="empty-art">📖</div><span>${esc(t('noSummary'))}</span></div>`; return; }
-    list.innerHTML = state.summaries.map((s) => `
-      <div class="sum-item${s.dateKey === state.summaryKey ? ' selected' : ''}" data-date="${s.dateKey}">
-        <div class="d">${esc(fmtDate(s.dateKey))}</div>
-        <div class="muted">${esc(t('summaryItems', { n: s.entryCount ?? '?' }))} · ${esc(t('bySource')[s.source] || s.source || '')}${s.model ? ` · ${esc(s.model)}` : ''}</div>
-      </div>`).join('');
-  }
-  async function showSummary(dateKey) {
-    state.summaryKey = dateKey;
-    renderSummaryList();
-    const s = await ws.getSummary(dateKey);
-    const view = $('#summaryView');
-    if (!s) { view.innerHTML = `<div class="empty">${esc(t('noSummary'))}</div>`; return; }
-    const gen = s.meta && s.meta.generatedAt ? new Date(s.meta.generatedAt).toLocaleString(locale()) : '';
-    view.innerHTML = `<div class="meta">${esc(fmtDate(dateKey))}${gen ? ` · ${esc(gen)}` : ''}${s.meta && s.meta.model ? ` · ${esc(s.meta.model)}` : ''}</div>${md(s.text)}`;
-  }
-  async function generateSummary() {
-    const date = $('#summaryDate').value;
-    if (!date) return;
-    const btn = $('#btnGenSummary');
-    btn.disabled = true; $('#summaryStatus').textContent = t('generating');
+
+  // ---------- ask ----------
+  // recall.js in the main process decides which entries a question is about; the model then answers over
+  // only those and cites them by number. Those numbers are the chips in the answer and the badges on the
+  // cards beside it, so every sentence can be traced back to the records it came from.
+  async function runAsk() {
+    const q = $('#askInput').value.trim();
+    if (!q || state.ask.busy) return;
+    $('#askInput').value = '';
+    switchTab('ask');
+    state.ask = { question: q, result: null, busy: true };
+    $('#btnAsk').disabled = true;
+    renderAsk();
     try {
-      const r = await ws.generateSummary(date);
-      if (!r) { $('#summaryStatus').textContent = t('noEntriesThatDay'); return; }
-      $('#summaryStatus').textContent = t('generated');
-      await loadSummaries();
-      await showSummary(date);
-    } catch (e) {
-      $('#summaryStatus').textContent = `${t('error')}: ${e.message}`;
+      state.ask.result = await ws.ask(q);
+    } catch (err) {
+      state.ask.result = { question: q, answer: '', used: [], sources: [], range: null, scored: true, noProvider: false, error: err.message, total: 0 };
     } finally {
-      btn.disabled = false;
+      state.ask.busy = false;
+      $('#btnAsk').disabled = false;
+      if (state.ask.result) state.chat.push(state.ask.result);   // 问过的留在这一页上
+      renderAsk();
     }
   }
 
-  function inline(s) {
-    return esc(s)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  function askMeta(r) {
+    const bits = [];
+    if (r.range) bits.push(r.range.from === r.range.to ? fmtDate(r.range.from) : t('askRange', { from: fmtDate(r.range.from), to: fmtDate(r.range.to) }));
+    if (!r.scored && r.sources.length) bits.push(t('askWhole'));
+    if (r.sources.length) bits.push(t('askCount', { n: r.sources.length }));
+    if (r.model) bits.push(r.model);
+    return bits.join(' \u00b7 ');
   }
-  function md(src) {
-    const lines = String(src || '').split(/\r?\n/);
-    let html = ''; let list = null; let para = [];
-    const flush = () => { if (para.length) { html += `<p>${inline(para.join(' '))}</p>`; para = []; } };
-    const close = () => { if (list) { html += `</${list}>`; list = null; } };
-    for (const line of lines) {
-      let m;
-      if ((m = /^(#{1,6})\s+(.*)$/.exec(line))) { flush(); close(); html += `<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`; }
-      else if ((m = /^\s*[-*+]\s+(.*)$/.exec(line))) { flush(); if (list !== 'ul') { close(); html += '<ul>'; list = 'ul'; } html += `<li>${inline(m[1])}</li>`; }
-      else if ((m = /^\s*\d+[.)]\s+(.*)$/.exec(line))) { flush(); if (list !== 'ol') { close(); html += '<ol>'; list = 'ol'; } html += `<li>${inline(m[1])}</li>`; }
-      else if ((m = /^>\s?(.*)$/.exec(line))) { flush(); close(); html += `<blockquote>${inline(m[1])}</blockquote>`; }
-      else if (!line.trim()) { flush(); close(); }
-      else para.push(line);
+
+  // [2] in the answer becomes a chip pointing at source card 2. md() has already escaped everything,
+  // so the brackets are plain text by the time we get here; numbers with no card are left alone.
+  function withCitations(html, count) {
+    return html.replace(/\[(\d{1,2})\]/g, (whole, n) => (Number(n) >= 1 && Number(n) <= count ? `<span class="cite" data-n="${n}">${n}</span>` : whole));
+  }
+
+  function sourceCard(e, n, cited) {
+    const thumb = (e.type === 'screenshot' || e.type === 'image') && e.fileUrl
+      ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
+    return `<div class="card src${cited ? ' cited' : ''}" data-id="${e.id}" data-n="${n}">
+      <div class="num">${n}</div>
+      <div class="thumb t-${esc(e.type)}">${thumb}</div>
+      <div class="card-body">
+        <div class="card-title">${esc(e.title || e.path || e.url || '')}</div>
+        <div class="card-meta"><span>${esc(fmtDate(e.dateKey))}</span><span>${fmtTime(e.createdAt)}</span><span>${esc(t('types')[e.type] || e.type)}</span></div>
+      </div></div>`;
+  }
+
+  // 问过的话留在这一页上，一轮一轮往下排。最后一轮引用的记录列在右边。
+  function renderAsk() {
+    const box = $('#askAnswer');
+    const turns = state.chat;
+    if (!turns.length && !state.ask.busy) {
+      box.innerHTML = `<div class="empty"><span>${esc(t('askEmpty'))}</span></div>`;
+      return;
     }
-    flush(); close();
-    return html;
+    let html = turns.map(turnHtml).join('');
+    if (state.ask.busy) html += `<div class="turn"><p class="ask-q">${esc(state.ask.question)}</p><div class="ask-note">${esc(t('askThinking'))}</div></div>`;
+    box.innerHTML = html;
+    box.parentElement.scrollTop = box.parentElement.scrollHeight;
+  }
+  // 被引用的记录是回答里的一小片纸，不是另一栏。点它跳到那条记录。
+  function citeCard(e, n, cited) {
+    const thumb = (e.type === 'screenshot' || e.type === 'image') && e.fileUrl
+      ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
+    return `<button type="button" class="citecard${cited ? ' cited' : ''}" data-id="${esc(e.id)}" data-n="${n}">`
+      + `<span class="cn">${n}</span><span class="ct">${thumb}</span>`
+      + `<span class="cb"><b>${esc(cardTitle(e))}</b><span>${esc(fmtTime(e.createdAt))}</span></span></button>`;
+  }
+
+  function turnHtml(r) {
+    let note = '';
+    if (r.error) note = `<div class="ask-note warn">${esc(t('askFailed', { err: r.error }))}</div>`;
+    else if (r.noProvider) note = `<div class="ask-note">${esc(t('askNoProvider'))}</div>`;
+    else if (!r.sources.length) note = `<div class="ask-note">${esc(r.total ? t('askNoMatch') : t('askNoEntries'))}</div>`;
+    const meta = askMeta(r);
+    return `<div class="turn"><p class="ask-q">${esc(r.question)}</p>`
+      + (meta ? `<div class="meta">${esc(meta)}</div>` : '')
+      + note
+      + (r.answer ? withCitations(md(r.answer), r.sources.length) : '')
+      + (r.sources.length ? `<div class="cites">${r.sources.map((e, i) => citeCard(e, i + 1, r.used.includes(i + 1))).join('')}</div>` : '')
+      + `</div>`;
+  }
+
+  let flashTimer = null;
+  function flashSource(n) {
+    const turn = $('#askAnswer').lastElementChild;
+    const el = turn && turn.querySelector(`.citecard[data-n="${n}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    clearTimeout(flashTimer);
+    for (const c of document.querySelectorAll('.citecard.flash')) c.classList.remove('flash');
+    el.classList.add('flash');
+    flashTimer = setTimeout(() => el.classList.remove('flash'), 1400);
+  }
+
+  // A source can be anywhere in the log, so the entries tab has to drop its filters to show it.
+  async function openEntry(id) {
+    state.query = ''; $('#search').value = '';
+    state.date = ''; $('#dateFilter').value = '';
+    await loadEntries();
+    switchTab('entries');
+    setSelecting(false);
+    openDetail(id);
+    const el = document.querySelector(`#jgScroll .jg-tile[data-id="${id}"], #lvRows .lv-row[data-id="${id}"]`);
+    if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('flash'); }
   }
 
   // ---------- settings ----------
+  // What automatic recording is doing right now, in a line.
+  function renderAutoRecord(info) {
+    const el = $('#autoRecordState');
+    if (!el) return;
+    const st = info || {};
+    if (!st.on) { el.textContent = t('autoOff'); return; }
+    if (st.state === 'denied') { el.textContent = t('autoDenied'); return; }
+    if (st.state === 'failed') { el.textContent = t('autoFailed'); return; }
+    // 谁开着麦克风，直接写出来——这个功能整个建立在这件事上
+    const who = (st.holders || []).map((h) => h.name).join('、');
+    if (!st.inUse) { el.textContent = t('autoWaiting'); return; }
+    el.textContent = `${st.state === 'speech' ? t('autoSpeech') : t('autoIdle', { mic: st.mic || '' })} · ${t('autoBecause', { who })}`;
+  }
+
+  // Everyone briffy has heard, and a box to name them in. A name is the whole point: it turns
+  // "speaker 2" into a person, and it carries into every recording after.
+  function renderSpeakers(list) {
+    const box = $('#speakerList');
+    if (!box) return;
+    if (!$('#diarize').checked) { box.innerHTML = ''; return; }
+    const people = Array.isArray(list) ? list : [];
+    if (!people.length) { box.innerHTML = `<div class="muted">${esc(t('speakersNone'))}</div>`; return; }
+    const mins = (sec) => (sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`);
+    box.innerHTML = `<div class="muted">${esc(t('speakersHead'))}</div>`
+      + people.map((p) => `<label class="f"><span class="fl">${esc(mins(p.seconds))}</span>`
+        + `<span class="fc"><input type="text" class="speaker-name" data-id="${esc(p.id)}" value="${esc(p.name || '')}" placeholder="${esc(t('speakerName'))}" /></span></label>`).join('');
+    for (const input of box.querySelectorAll('.speaker-name')) {
+      input.addEventListener('blur', async () => {
+        await ws.nameSpeaker(input.dataset.id, input.value.trim());
+        flashSaved();
+      });
+    }
+  }
+
   function langOptions(selected) {
     return state.meta.languages.map((l) => `<option value="${l.code}"${l.code === selected ? ' selected' : ''}>${esc(l.name)}${l.name !== l.english ? ` (${esc(l.english)})` : ''}</option>`).join('');
   }
@@ -489,7 +1329,13 @@
     $('#customModel').value = s.customModel || '';
     $('#customKey').value = '';
     $('#customKeyStatus').textContent = keyStatus(s.hasCustomKey, s.customKeyHint);
+    for (const b of document.querySelectorAll('#themeSeg button')) b.classList.toggle('active', b.dataset.theme === (s.theme || 'system'));
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
+    $('#recordContext').checked = s.recordContext !== false;
+    $('#autoRecord').checked = s.autoRecord === true;
+    $('#diarize').checked = s.diarize === true;
+    renderSpeakers(m.speakers);
+    renderAutoRecord(m.listen);
     $('#clipboardWatch').checked = s.clipboardWatch !== false;
     $('#clipboardMinChars').value = s.clipboardMinChars ?? 12;
     $('#localApi').checked = s.localApi !== false;
@@ -508,21 +1354,20 @@
       .concat((m.ocrModels || []).map((x) => `<option value="${esc(x.id)}"${x.id === s.ocrModel ? ' selected' : ''}>${esc(x.name)} · ${x.bundled ? t('bundled') : `${x.sizeMB} MB`}</option>`)).join('');
     renderSttLanguage();
     $('#hfMirror').value = s.hfMirror || '';
-    $('#summaryTime').value = s.summaryTime || '08:00';
     $('#workspaceDir').value = m.workspaceDir || '';
     $('#ocrDroppedImages').checked = !!s.ocrDroppedImages;
     $('#petHidden').checked = !!s.petHidden;
     const perm = m.platform === 'darwin' ? `<br><b>${esc(t('screenPerm'))}:</b> ${esc(m.screenPermission)}` : '';
     $('#aboutBox').innerHTML = `<b>${esc(t('version'))}:</b> ${esc(m.version)} · <b>${esc(t('platform'))}:</b> ${esc(m.platform)}<br>${esc(t('stats', m.stats))}${perm}`;
-    $('#sideStats').textContent = t('stats', m.stats);
+    $('#sideStats').textContent = t('statsShort', m.stats);
   }
   function renderSttLanguage() {
     const langs = [$('#lang1').value, $('#lang2').value];
     const names = Object.fromEntries(state.meta.languages.map((l) => [l.code, l.name]));
-    const cur = state.settings.sttLanguage || 'auto';
+    const cur = state.settings.sttLanguage || 'packs';
     $('#sttLanguage').innerHTML = [
-      `<option value="auto"${cur === 'auto' ? ' selected' : ''}>${esc(t('sAuto'))}</option>`,
       `<option value="packs"${cur === 'packs' ? ' selected' : ''}>${esc(t('sAutoPacks'))}</option>`,
+      `<option value="auto"${cur === 'auto' ? ' selected' : ''}>${esc(t('sAuto'))}</option>`,
     ].concat(langs.map((c) => `<option value="${c}"${c === cur ? ' selected' : ''}>${esc(names[c] || c)}</option>`)).join('');
   }
   function keyFromEvent(e) {
@@ -538,8 +1383,16 @@
     else key = { ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Escape: 'Esc', Enter: 'Return', Backspace: 'Backspace', Delete: 'Delete', Tab: 'Tab', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown', '`': '`', '-': '-', '=': '=', '[': '[', ']': ']', ';': ';', "'": "'", ',': ',', '.': '.', '/': '/', '\\': '\\' }[e.key] || null;
     return { mods, key };
   }
+  // no save button: a change saves itself. text fields wait until you pause typing; secrets wait until you leave the box
+  let saveTimer = null;
+  function queueSave(delay = 0) { clearTimeout(saveTimer); saveTimer = setTimeout(() => { saveSettings().catch((e) => toast(String(e?.message || e))); }, delay); }
+  let savedTimer = null;
+  function flashSaved() {
+    const el = $('#settingsStatus'); el.textContent = t('saved'); el.classList.add('show');
+    clearTimeout(savedTimer); savedTimer = setTimeout(() => el.classList.remove('show'), 1400);
+  }
   async function saveSettings(ev) {
-    ev.preventDefault();
+    if (ev) ev.preventDefault();
     const l1 = $('#lang1').value; const l2 = $('#lang2').value;
     if (l1 === l2) { toast(t('sameLang')); return; }
     const patch = {
@@ -552,7 +1405,6 @@
       sttModel: $('#sttModel').value,
       sttLanguage: $('#sttLanguage').value,
       hfMirror: $('#hfMirror').value.trim(),
-      summaryTime: $('#summaryTime').value || '08:00',
       ocrDroppedImages: $('#ocrDroppedImages').checked,
       petHidden: $('#petHidden').checked,
     };
@@ -565,6 +1417,9 @@
       customBaseUrl: $('#customBaseUrl').value.trim(),
       customModel: $('#customModel').value.trim(),
       normalizeChineseScript: $('#normalizeChineseScript').checked,
+      recordContext: $('#recordContext').checked,
+      autoRecord: $('#autoRecord').checked,
+      diarize: $('#diarize').checked,
       clipboardWatch: $('#clipboardWatch').checked,
       clipboardMinChars: Math.max(1, Number($('#clipboardMinChars').value) || 12),
       ocrModel: $('#ocrModel').value,
@@ -581,9 +1436,8 @@
     if (chosenDir !== undefined && chosenDir !== state.meta.workspaceDir) patch.workspaceDir = chosenDir;
     const updated = await ws.saveSettings(patch);
     await refreshMeta(updated);
-    $('#settingsStatus').textContent = t('saved');
-    toast(t('saved'));
-    if (patch.workspaceDir !== undefined) { toast(t('dirChanged')); await loadEntries(); await loadSummaries(); }
+    flashSaved();
+    if (patch.workspaceDir !== undefined) { toast(t('dirChanged')); await loadEntries(); }
   }
   async function refreshMeta(settings) {
     state.meta = await ws.getSettings();
@@ -592,7 +1446,7 @@
     state.ui = state.settings.languages[0].startsWith('zh') ? 'zh' : 'en';
     applyI18n();
     populateSettings();
-    renderList(); renderDetail(); renderSummaryList();
+    renderList(); renderDetail();
   }
 
   // ---------- browser-extension status chip ----------
@@ -637,7 +1491,8 @@
       $('#setupSummary').innerHTML = st.summary.map((x) => `<li>${esc(x)}</li>`).join('');
       $('#setupSummary').classList.remove('hidden');
     }
-    $('#btnSetup').disabled = !!st.running;
+    $('#btnSetup').disabled = !!st.running;
+
   }
   async function runSetup() {
     $('#setupLog').textContent = '';
@@ -729,27 +1584,109 @@
     const rec = st.recommendation || { reason: '', notes: [], alternatives: [], model: '' };
     const ol = st.ollama || { running: false, models: [] };
     const gpus = hw.gpus.length ? hw.gpus.map((g) => `${g.name}${g.vramGB ? ` (${g.vramGB} GB)` : ''}`).join(', ') : t('hwNoGpu');
-    let html = `<div><b>${esc(t('hwLocal'))}:</b> ${esc(hw.cpu)} · ${esc(t('hwCores', { n: hw.cores }))} · RAM ${hw.ramGB} GB · GPU ${esc(gpus)}</div>`;
-    html += `<div><b>${esc(t('hwRecommend'))}:</b> ${esc(rec.reason)}${rec.notes.length ? ` ${esc(rec.notes.join(' '))}` : ''}</div>`;
-    html += `<div>${esc(t('hwAlternatives'))}: ${rec.alternatives.map((x) => `<code>${esc(x.model)}</code> (${x.sizeGB} GB, ${esc(x.note)})`).join(' · ')}</div>`;
+    // Two things decide whether someone goes ahead: which model, and how big the download is. Those
+    // lead. The machine's specs and the runner-up models are real but are not a decision anyone is
+    // making here, so they fold away.
+    // One recommendation on the page, not two. The shelves below are what actually decides it, so this
+    // line reads from them; computing it separately is how it came to advise a 27B while offering a 2B.
+    const shelf = (st.catalogue && st.catalogue.tiers) || {};
+    const starred = [...(shelf.easy || []), ...(shelf.medium || []), ...(shelf.stretch || [])].find((m) => m.recommended);
+    const pickModel = starred ? starred.model : rec.model;
+    const pickSize = starred ? starred.sizeGB : rec.sizeGB;
+    const size = pickSize ? t('hwSize', { gb: pickSize }) : '';
+    let html = `<div class="lede">${esc(t('hwPick', { model: pickModel || '?' }))}${size ? ` <span class="muted">${esc(size)}</span>` : ''}</div>`;
     if (ol.running) {
       const names = ol.models.map((m) => m.name);
-      html += `<div><b>Ollama:</b> <span class="ok">${esc(t('ollamaRunning', { version: ol.version || '' }))}</span> · ${names.length ? esc(t('ollamaInstalled', { models: names.join(', ') })) : esc(t('ollamaNoModels'))}</div>`;
+      html += `<div class="ok">${esc(t('ollamaReady'))}${names.length ? ` · ${esc(t('ollamaInstalled', { models: names.join(', ') }))}` : ''}</div>`;
       $('#ollamaModels').innerHTML = names.map((n) => `<option value="${esc(n)}"></option>`).join('');
     } else if (ol.installed) {
-      html += `<div><b>Ollama:</b> <span class="bad">${esc(t('ollamaNotStarted', { binary: ol.binary || '' }))}</span></div>`;
+      html += `<div class="bad">${esc(t('ollamaNotStarted', { binary: ol.binary || '' }))}</div>`;
     } else {
-      html += `<div><b>Ollama:</b> <span class="bad">${esc(t('ollamaNotInstalled'))}</span></div>`;
+      html += `<div class="bad">${esc(t('ollamaNotInstalled'))}</div>`;
     }
+    const alts = rec.alternatives.map((x) => `<code>${esc(x.model)}</code> ${x.sizeGB} GB · ${esc(x.note)}`).join('<br>');
+    html += `<details class="why"><summary>${esc(t('hwWhy'))}</summary>`
+      + `<div>${esc(rec.reason)}${rec.notes.length ? ` ${esc(rec.notes.join(' '))}` : ''}</div>`
+      + `<div class="muted">${esc(hw.cpu)} · ${esc(t('hwCores', { n: hw.cores }))} · RAM ${hw.ramGB} GB · ${esc(gpus)}</div>`
+      + (alts ? `<div class="alts"><b>${esc(t('hwAlternatives'))}</b><br>${alts}</div>` : '')
+      + `</details>`;
     $('#hwBox').innerHTML = html;
     $('#ollamaModel').placeholder = rec.model || '';
+    renderModelCards();
     // only offer the step that is actually needed
     $('#ollamaSetup').classList.toggle('hidden', !!ol.running);
     $('#btnInstallOllama').classList.toggle('hidden', !!ol.installed);
     $('#btnStartOllama').classList.toggle('hidden', !ol.installed);
     $('#btnPull').disabled = !ol.running;
   }
+  // What decides a multi-gigabyte download: which model, how big, and whether this machine can run it.
+  // A text field with a datalist answered none of those, and a model already on disk looked identical
+  // to one that was not.
+  // Three shelves, three models each, cut for this machine and this week: what runs comfortably here,
+  // what is a fair trade, and the heaviest that will load at all. Quality is a public leaderboard score
+  // (ifeval for following instructions in the shape asked for, mmlu-pro for knowing things), not a
+  // guess from the name -- so the table moves when the leaderboard does.
+  const TIERS = [['easy', 'tierEasy'], ['medium', 'tierMedium'], ['stretch', 'tierStretch']];
+  function modelCard(m, installed, current, running) {
+    const have = installed.has(m.model);
+    const inUse = m.model === current;
+    const bits = [`${m.sizeGB} GB`, m.vision ? t('mdVision') : t('mdTextOnly')];
+    if (m.measured) bits.push(t('mdScored', { n: (m.quality * 100).toFixed(0) }));
+    const acts = [];
+    if (!have) acts.push(`<button type="button" class="btn primary" data-get="${esc(m.model)}"${running ? '' : ' disabled'}>${esc(t('mdGet'))}</button>`);
+    else if (!inUse) acts.push(`<button type="button" class="btn" data-use="${esc(m.model)}">${esc(t('mdUse'))}</button>`);
+    if (have) acts.push(`<button type="button" class="btn" data-del="${esc(m.model)}">${esc(t('mdDelete'))}</button>`);
+    return `<div class="card-model${inUse ? ' in-use' : ''}">
+      <div class="nm">${esc(m.model)}${m.recommended ? `<span class="tag-rec">${esc(t('mdRecommended'))}</span>` : ''}</div>
+      <div class="sz">${esc(bits.join(' · '))}</div>
+      <div class="sz">${have ? esc(t('mdInstalled')) : ''}${inUse ? ` · ${esc(t('mdInUse'))}` : ''}</div>
+      <div class="acts">${acts.join('')}</div>
+    </div>`;
+  }
+  function renderModelCards() {
+    const st = state.providerStatus;
+    if (!st) return;
+    const tiers = (st.catalogue && st.catalogue.tiers) || {};
+    const installed = new Set(((st.ollama && st.ollama.models) || []).map((m) => m.name));
+    const current = state.settings.ollamaModel || (st.recommendation && st.recommendation.model) || '';
+    const running = !!(st.ollama && st.ollama.running);
+    $('#modelCards').innerHTML = TIERS.map(([key, label]) => {
+      const list = tiers[key] || [];
+      if (!list.length) return '';
+      return `<div class="tier"><div class="tier-head">${esc(t(label))}<span>${esc(t(`${label}Why`))}</span></div>`
+        + `<div class="cards">${list.map((m) => modelCard(m, installed, current, running)).join('')}</div></div>`;
+    }).join('');
+    const c = st.catalogue || {};
+    $('#modelsNote').textContent = c.live
+      ? t('mdLive', { n: c.scored || 0 }) : t('mdCached');
+
+    const pend = st.pendingPull;
+    const box = $('#resumePull');
+    if (pend && pend.model && !installed.has(pend.model)) {
+      const got = pend.totalBytes ? t('resumeGot', { got: mb(pend.receivedBytes || 0), total: mb(pend.totalBytes) }) : '';
+      box.innerHTML = `<span><b>${esc(t('resumeTitle', { model: pend.model }))}</b>${got ? ` · ${esc(got)}` : ''}</span>`
+        + `<button type="button" class="btn primary" data-get="${esc(pend.model)}">${esc(t('resumeGo'))}</button>`
+        + `<button type="button" class="btn" id="btnDropPull">${esc(t('resumeDrop'))}</button>`;
+      box.classList.remove('hidden');
+    } else {
+      box.classList.add('hidden');
+    }
+  }
+
+  async function useModel(model) {
+    state.settings.ollamaModel = model;
+    $('#ollamaModel').value = model;
+    await ws.saveSettings({ ollamaModel: model });
+    await loadProviderStatus();
+  }
+  async function deleteModel(model) {
+    if (!window.confirm(t('mdConfirmDelete', { model }))) return;
+    try { await ws.ollamaRemove(model); } catch (e) { toast(e.message); }
+    await loadProviderStatus();
+  }
+
   async function loadOpenrouterModels(refresh = false) {
+
     const r = await ws.openrouterModels({ refresh });
     if (!r.ok) { $('#openrouterModelInfo').textContent = t('keyFail', { err: r.error }); return; }
     state.orModels = r.models;
@@ -769,45 +1706,109 @@
     if (!model) return;
     pullingModel = model;
     $('#btnPull').disabled = true;
-    $('#pullProgress').innerHTML = `<span>${esc(t('pulling', { model }))}</span><div class="bar"><i></i></div>`;
+    $('#pullProgress').textContent = '';
+    showJob('jobPullPreparing', { model });
     try {
       const r = await ws.ollamaPull(model);
       if (r && r.ok) {
-        $('#pullProgress').textContent = t('pullDone', { model });
-        $('#ollamaModel').value = model;
+        finishJob('jobPullDone', { model });
+        await useModel(model);          // downloading it is asking to use it
       } else {
         const code = r && r.code;
-        $('#pullProgress').textContent = code === 'ollama-not-installed' ? t('ollamaNotInstalled')
+        failJob(code === 'ollama-not-installed' ? t('ollamaNotInstalled')
           : code === 'ollama-not-running' ? t('pullNeedsOllama')
-            : `${t('error')}: ${(r && r.error) || ''}`;
+            : `${t('error')}: ${(r && r.error) || ''}`);
       }
       await loadProviderStatus();
     } catch (e) {
-      $('#pullProgress').textContent = `${t('error')}: ${e.message}`;
+      failJob(`${t('error')}: ${e.message}`);
     } finally {
       $('#btnPull').disabled = false;
       pullingModel = '';
     }
   }
 
+  // Installing Ollama and pulling a model look the same to whoever is waiting: something large is
+  // coming down. One block serves both -- what is happening, in words, and how far along it is.
+  // A job with nothing to measure yet shows a moving stripe rather than a bar stuck at zero.
+  function showJob(labelKey, params) {
+    $('#ollamaJob').classList.remove('hidden');
+    $('#jobLabel').textContent = t(labelKey, params);
+    $('#jobNumbers').textContent = '';
+    $('#jobBar').style.width = '0%';
+    $('#jobBar').parentElement.classList.add('waiting');
+    $('#installLog').textContent = '';
+  }
+  const mb = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : `${Math.round(n / 1048576)} MB`);
+  function updateJob({ labelKey, params, percent, received, total }) {
+    if (labelKey) $('#jobLabel').textContent = t(labelKey, params);
+    const bar = $('#jobBar');
+    if (percent === undefined || percent === null) {
+      bar.parentElement.classList.add('waiting');
+    } else {
+      bar.parentElement.classList.remove('waiting');
+      bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    }
+    $('#jobNumbers').textContent = total
+      ? `${mb(received || 0)} / ${mb(total)}`
+      : (percent === undefined || percent === null ? '' : `${percent}%`);
+  }
+  function finishJob(labelKey, params) {
+    $('#jobLabel').textContent = t(labelKey, params);
+    $('#jobBar').parentElement.classList.remove('waiting');
+    $('#jobBar').style.width = '100%';
+  }
+  function failJob(msg) {
+    $('#jobLabel').textContent = msg;
+    $('#jobBar').parentElement.classList.remove('waiting');
+    $('#jobBar').style.width = '0%';
+    $('#jobLogBox').open = true;   // it went wrong, so the detail stops being noise
+  }
+
   function appendLog(line) {
+
     const box = $('#installLog');
     box.classList.remove('hidden');
     box.textContent = `${box.textContent}${box.textContent ? '\n' : ''}${line}`.split('\n').slice(-200).join('\n');
     box.scrollTop = box.scrollHeight;
   }
+  // ffmpeg: found on the machine or installed through its package manager; never bundled.
+  async function loadFfmpeg(refresh = false) {
+    const st = await ws.ffmpegStatus({ refresh }).catch(() => null);
+    if (!st) return;
+    state.ffmpeg = st;
+    $('#ffmpegStatus').textContent = st.installed
+      ? t('ffmpegFound', { version: st.version, path: st.ffmpeg })
+      : t('ffmpegMissing');
+    $('#btnFfmpegInstall').classList.toggle('hidden', !!st.installed);
+  }
+  async function installFfmpeg() {
+    const btn = $('#btnFfmpegInstall');
+    const log = $('#ffmpegLog');
+    btn.disabled = true;
+    log.textContent = ''; log.classList.remove('hidden');
+    $('#ffmpegStatus').textContent = t('ffmpegInstalling');
+    try {
+      const r = await ws.ffmpegInstall();
+      if (r && r.manual) $('#ffmpegStatus').textContent = t('ffmpegManual', { url: r.url });
+      else await loadFfmpeg(true);
+    } catch (e) {
+      $('#ffmpegStatus').textContent = `${t('error')}: ${e.message}`;
+    } finally { btn.disabled = false; }
+  }
+
   async function installOllama() {
     $('#btnInstallOllama').disabled = true;
-    $('#installLog').textContent = '';
-    $('#pullProgress').textContent = t('installing');
+    $('#pullProgress').textContent = '';
+    showJob('jobInstallStarting');
     try {
       const r = await ws.ollamaInstall();
-      if (r.manual) { $('#pullProgress').textContent = t('installManual'); await ws.openExternal(r.url); }
-      else if (r.ok) $('#pullProgress').textContent = t('installOk');
-      else { $('#pullProgress').textContent = t('installFail', { err: r.exitCode !== undefined ? `exit ${r.exitCode}` : (r.error || '') }); await ws.openExternal(r.url || 'https://ollama.com/download'); }
+      if (r.manual) { failJob(t('installManual')); await ws.openExternal(r.url); }
+      else if (r.ok) finishJob('jobInstallDone');
+      else { failJob(t('installFail', { err: r.exitCode !== undefined ? `exit ${r.exitCode}` : (r.error || '') })); await ws.openExternal(r.url || 'https://ollama.com/download'); }
       await loadProviderStatus(true);
     } catch (e) {
-      $('#pullProgress').textContent = t('installFail', { err: e.message });
+      failJob(t('installFail', { err: e.message }));
     } finally {
       $('#btnInstallOllama').disabled = false;
     }
@@ -832,13 +1833,54 @@
     state.ui = state.settings.languages[0].startsWith('zh') ? 'zh' : 'en';
     applyI18n();
     populateSettings();
-    $('#summaryDate').value = todayKey(-1);
+    let savedView = 'grid';
+    try { savedView = localStorage.getItem('briffy.view') || 'grid'; } catch (_) { /* storage unavailable */ }
+    applyView(savedView === 'list' ? 'list' : 'grid');
     await loadEntries();
-    await loadSummaries();
 
-    document.querySelector('.nav').addEventListener('click', (e) => { const b = e.target.closest('.tab-btn'); if (b) switchTab(b.dataset.tab); });
-    $('#btnCapture').addEventListener('click', () => ws.capture().catch((err) => toast(err.message)));
-    $('#btnAddFiles').addEventListener('click', () => ws.addFiles());
+    // 底栏：左下角新建，中间问，右下角设置
+    // 底栏那两个入口是开关：再点一下就回记录页，否则设置页没有出口
+    $('#btnSettings').addEventListener('click', () => switchTab(state.tab === 'settings' ? 'entries' : 'settings'));
+    $('#btnAskPage').addEventListener('click', () => switchTab(state.tab === 'ask' ? 'entries' : 'ask'));
+    $('#winClose').addEventListener('click', () => window.close());
+
+    // 拖外部文件进窗口 = 拖到常驻头像上：同一个入口，只是这里多一层蒙版说清楚松手会发生什么
+    const veil = $('#dropVeil');
+    let dragDepth = 0;
+    const hasFiles = (dt) => !!dt && [...(dt.types || [])].some((x) => x === 'Files' || x === 'text/uri-list');
+    window.addEventListener('dragenter', (e) => { if (!hasFiles(e.dataTransfer)) return; dragDepth++; veil.hidden = false; });
+    window.addEventListener('dragover', (e) => { if (!hasFiles(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; veil.hidden = true; } });
+    window.addEventListener('drop', async (e) => {
+      if (!hasFiles(e.dataTransfer)) return;
+      e.preventDefault();
+      dragDepth = 0; veil.hidden = true;
+      const dt = e.dataTransfer;
+      const paths = [...(dt.files || [])].map((f) => ws.pathForFile(f)).filter(Boolean);
+      const uriList = dt.getData('text/uri-list') || '';
+      const urls = uriList.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#') && /^https?:/i.test(l));
+      const text = dt.getData('text/plain') || '';
+      if (!paths.length && !urls.length && !text) return;
+      try {
+        const added = await ws.drop({ paths, urls: paths.length ? [] : urls, text: paths.length || urls.length ? '' : text });
+        toast(t('dropped', { n: (added || []).length }));
+      } catch (err) { toast(err.message); }
+    });
+    $('#btnNew').addEventListener('click', () => toggleNote());
+    $('#quickInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { toggleNote(false); return; }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#quickAdd').requestSubmit(); }
+    });
+    // 时间轴：点一行跳过去，滚动时它自己跟着走
+    $('#axis').addEventListener('click', (e) => {
+      const b = e.target.closest('.ax');
+      if (!b) return;
+      // 多选模式下（或按住 Cmd），点一天就是选中这一天——轴本来就是按天分的
+      if (state.selecting || e.metaKey || e.ctrlKey) { pickDay(b.dataset.day, e.metaKey || e.ctrlKey || e.shiftKey); return; }
+      jumpToDay(b.dataset.day);
+    });
+    $('#jgScroll').addEventListener('scroll', markAxis, { passive: true });
+    $('#lvRows').addEventListener('scroll', markAxis, { passive: true });
     let searchTimer = null;
     $('#search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = e.target.value; loadEntries(); }, 200); });
     $('#dateFilter').addEventListener('change', (e) => { state.date = e.target.value; loadEntries(); });
@@ -849,22 +1891,186 @@
       $('#quickInput').value = '';
       if (/^(https?:\/\/|www\.)\S+$/i.test(v)) await ws.addUrl(v); else await ws.addNote(v);
     });
-    $('#entryList').addEventListener('click', (e) => {
-      const card = e.target.closest('.card');
-      if (!card) return;
-      state.selectedId = card.dataset.id; state.editing = false;
-      renderList(); renderDetail();
+    $('#themeSeg').addEventListener('click', async (ev) => {
+      const b = ev.target.closest('button[data-theme]');
+      if (!b) return;
+      for (const x of document.querySelectorAll('#themeSeg button')) x.classList.toggle('active', x === b);
+      await ws.saveSettings({ theme: b.dataset.theme });      // seeing it change is the confirmation
     });
-    $('#detail').addEventListener('click', (e) => {
+    $('#sources').addEventListener('click', (e) => {
+      if (e.target.closest('[data-more]')) { state.moreSources = !state.moreSources; renderSources(); return; }
+      const chip = e.target.closest('.src-chip');
+      if (!chip) return;
+      toggleSource(chip.dataset.source);
+      loadEntries();
+    });
+    let lastPicked = null;
+    // Press: open the record, or in select mode pick it. Shift picks everything between this and the
+    // last one picked, in the order on screen -- the way Immich and the Finder do it.
+    function pressEntry(id, ev) {
+      const additive = !!(ev && (ev.metaKey || ev.ctrlKey));
+      if (!state.selecting) {
+        if (!additive) { openDetail(id); return; }
+        setSelecting(true);              // Cmd 点一下就进多选，不用先去按那个按钮
+      }
+      if (ev && ev.shiftKey && lastPicked) {
+        const ids = state.entries.map((e) => e.id);
+        const a = ids.indexOf(lastPicked), b = ids.indexOf(id);
+        if (a >= 0 && b >= 0) for (const x of ids.slice(Math.min(a, b), Math.max(a, b) + 1)) state.picked.add(x);
+      } else if (state.picked.has(id)) state.picked.delete(id);
+      else state.picked.add(id);
+      lastPicked = id;
+      renderBulk();
+      renderList();
+    }
+    const scroller = $('#jgScroll');
+    scroller.addEventListener('click', (e) => { const tile = e.target.closest('.jg-tile'); if (tile) pressEntry(tile.dataset.id, e); });
+    // 空白处按下往外拖 = 拉框选。这是 startMarquee 唯一的入口，之前它是段没人调用的死代码
+    scroller.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('.jg-tile')) return;          // 便签自己处理点击
+      startMarquee(e, scroller, '.jg-tile');
+    });
+    // 在空白处点一下（没拖动）就是取消选择——和 Finder 一样
+    scroller.addEventListener('click', (e) => {
+      if (e.target.closest('.jg-tile')) return;
+      if (state.selecting && !marqueeMoved) setSelecting(false);
+    });
+    scroller.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const tile = e.target.closest('.jg-tile');
+      if (!tile) return;
+      e.preventDefault();               // Space would scroll the grid
+      pressEntry(tile.dataset.id, e);
+    });
+    scroller.addEventListener('load', (e) => { if (e.target.tagName === 'IMG') learnRatio(e.target); }, true);   // load does not bubble
+    // The list: a click chooses the row for the preview pane, a double click or Enter opens the window.
+    $('#lvRows').addEventListener('click', (e) => {
+      const row = e.target.closest('.lv-row');
+      if (!row) return;
+      if (state.selecting) { pressEntry(row.dataset.id, e); return; }
+      state.selectedId = row.dataset.id; state.editing = false;
+      renderListView();
+    });
+    // 列表里也能拉框：换个视图不该换一套操作
+    $('#lvRows').addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('.lv-row')) return;
+      startMarquee(e, $('#lvRows'), '.lv-row');
+    });
+    $('#lvRows').addEventListener('click', (e) => {
+      if (e.target.closest('.lv-row')) return;
+      if (state.selecting && !marqueeMoved) setSelecting(false);
+    });
+    $('#lvRows').addEventListener('dblclick', (e) => { const row = e.target.closest('.lv-row'); if (row && !state.selecting) openDetail(row.dataset.id); });
+    $('#lvRows').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = e.target.closest('.lv-row');
+      if (!row) return;
+      e.preventDefault();
+      if (state.selecting) pressEntry(row.dataset.id, e); else openDetail(row.dataset.id);
+    });
+    $('#viewSeg').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-view]'); if (b) applyView(b.dataset.view); });
+    $('#selectToggle').addEventListener('click', () => setSelecting(!state.selecting));
+    $('#bulkBar').addEventListener('click', async (ev) => {
+      const b = ev.target.closest('[data-bulk]');
+      if (!b) return;
+      if (b.dataset.bulk === 'all') { for (const x of state.entries) state.picked.add(x.id); renderList(); renderBulk(); return; }
+      if (b.dataset.bulk === 'none') { state.picked.clear(); renderList(); renderBulk(); return; }
+      if (b.dataset.bulk === 'exit') { setSelecting(false); return; }
+      const n = state.picked.size;
+      if (!n || !window.confirm(t('confirmDeleteMany', { n }))) return;
+      b.disabled = true;
+      for (const id of [...state.picked]) await ws.deleteEntry(id);
+      state.entries = state.entries.filter((x) => !state.picked.has(x.id));
+      setSelecting(false);
+      toast(t('deletedN', { n }));
+      loadEntries();
+    });
+    $('#detailModal').addEventListener('click', (ev) => { if (ev.target.closest('[data-close]')) closeDetail(); });
+    document.addEventListener('keydown', (ev) => {
+      // 多选的键盘约定：Cmd/Ctrl+A 全选、Esc 退出
+      if (state.tab === 'entries' && !/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) {
+        if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'a') {
+          ev.preventDefault();
+          if (!state.selecting) setSelecting(true);
+          for (const e of state.entries) state.picked.add(e.id);
+          renderBulk(); renderList();
+          return;
+        }
+        if (ev.key === 'Escape' && state.selecting) { ev.preventDefault(); setSelecting(false); return; }
+      }
+      if (ev.key === 'Escape') {
+        if (!$('#detailModal').hidden) { closeDetail(); return; }
+        if (state.selecting) setSelecting(false);
+        return;
+      }
+      if (state.tab !== 'entries' || state.view !== 'list' || !$('#detailModal').hidden) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) return;
+      if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+      ev.preventDefault();
+      const i = state.entries.findIndex((e) => e.id === state.selectedId);
+      const j = Math.min(state.entries.length - 1, Math.max(0, (i < 0 ? 0 : i) + (ev.key === 'ArrowDown' ? 1 : -1)));
+      if (!state.entries[j]) return;
+      state.selectedId = state.entries[j].id;
+      renderListView();
+      const row = document.querySelector(`#lvRows .lv-row[data-id="${state.selectedId}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    });
+    // Rows are measured against the width, so a resized window has to be dealt again.
+    window.addEventListener('resize', () => { if (state.view === 'grid' && state.tab === 'entries') scheduleGrid(); });
+    function detailClick(e) {
       const img = e.target.closest('#previewImg');
       if (img) { const lb = document.createElement('div'); lb.className = 'lightbox'; lb.innerHTML = `<img src="${esc(img.src)}" alt="" />`; lb.addEventListener('click', () => lb.remove()); document.body.appendChild(lb); return; }
       const btn = e.target.closest('[data-action]');
       if (btn) { e.preventDefault(); detailAction(btn.dataset.action); }
+    }
+    $('#detail').addEventListener('click', detailClick);
+    $('#listDetail').addEventListener('click', detailClick);
+    $('#askForm').addEventListener('submit', (e) => { e.preventDefault(); runAsk(); });
+    $('#askAnswer').addEventListener('click', (e) => { const c = e.target.closest('.cite'); if (c) flashSource(c.dataset.n); });
+    $('#askAnswer').addEventListener('click', (e) => { const card = e.target.closest('.citecard'); if (card) openEntry(card.dataset.id); });
+    $('#modelCards').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.get) { $('#ollamaModel').value = b.dataset.get; pullModel(); }
+      else if (b.dataset.use) useModel(b.dataset.use);
+      else if (b.dataset.del) deleteModel(b.dataset.del);
     });
-    $('#summaryList').addEventListener('click', (e) => { const it = e.target.closest('.sum-item'); if (it) showSummary(it.dataset.date); });
-    $('#btnGenSummary').addEventListener('click', generateSummary);
+    $('#resumePull').addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.id === 'btnDropPull') { await ws.forgetPendingPull(); await loadProviderStatus(); return; }
+      if (b.dataset.get) { $('#ollamaModel').value = b.dataset.get; pullModel(); }
+    });
+    // One group at a time. The pet picker is heavy, so it is only built when its group is opened.
+    $('#settingsNav').addEventListener('click', (e) => {
+      const b = e.target.closest('.sg-btn');
+      if (!b) return;
+      const g = b.dataset.group;
+      for (const x of document.querySelectorAll('.sg-btn')) x.classList.toggle('active', x === b);
+      for (const p of document.querySelectorAll('.sg-pane')) p.classList.toggle('active', p.dataset.group === g);
+      document.querySelector('.sg-panes').scrollTop = 0;   // 标签行不滚动，所以只需要把内容退回顶部
+      if (g === 'pet') loadPetPicker().catch(() => {});
+      if (g === 'ai') loadProviderStatus().catch(() => {});
+      if (g === 'capture') loadFfmpeg().catch(() => {});
+    });
+    $('#btnFfmpegInstall').addEventListener('click', installFfmpeg);
 
-    $('#settingsForm').addEventListener('submit', saveSettings);
+    $('#btnFfmpegRecheck').addEventListener('click', () => loadFfmpeg(true));
+    ws.onFfmpegInstall(({ line }) => { const l = $('#ffmpegLog'); l.textContent = `${l.textContent}${line}\n`.slice(-4000); l.scrollTop = l.scrollHeight; });
+    loadFfmpeg().catch(() => {});
+
+    const form = $('#settingsForm');
+    form.addEventListener('submit', (e) => e.preventDefault());
+    const isSetting = (el) => el && el.matches('input, select') && el.id !== 'petSearch' && el.id !== 'workspaceDir';
+    form.addEventListener('change', (e) => { if (isSetting(e.target)) queueSave(); });
+    form.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!isSetting(el) || el.tagName !== 'INPUT') return;
+      if (el.type === 'password' || el.type === 'checkbox' || el.hasAttribute('list')) return;   // wait for change
+      queueSave(700);
+    });
     $('#petSearch').addEventListener('input', (e) => filterPets(e.target.value));
     $('#petReset').addEventListener('click', () => pickPet(''));
     $('#petGrid').addEventListener('click', (e) => { const b = e.target.closest('.pet-cell'); if (b) pickPet(b.dataset.k); });
@@ -880,6 +2086,7 @@
       if (!key) return;
       if (!mods.length) { $('#hotkeyHint').textContent = t('hotkeyNeedsModifier'); return; }
       e.target.value = [...mods, key].join('+');
+      queueSave();
     });
     $('#provider').addEventListener('change', () => { showProviderPanel(); if ($('#provider').value === 'openrouter' && !state.orModels) loadOpenrouterModels(); });
     $('#anthropicAuth').addEventListener('change', showProviderPanel);
@@ -909,7 +2116,11 @@
     $('#btnInstallOllama').addEventListener('click', installOllama);
     $('#btnStartOllama').addEventListener('click', startOllama);
     $('#btnDownloadOllama').addEventListener('click', () => ws.openExternal('https://ollama.com/download'));
-    ws.onOllamaInstall(({ line }) => appendLog(line));
+    ws.onOllamaInstall(({ line, phase, percent }) => {
+      appendLog(line);
+      const key = { downloading: 'jobInstallDownloading', installing: 'jobInstallInstalling', verifying: 'jobInstallVerifying', done: 'jobInstallDone' }[phase];
+      updateJob({ labelKey: key || undefined, percent: phase === 'downloading' ? percent : undefined });
+    });
     $('#extChip').addEventListener('click', onExtChipClick);
     ws.onExtension((st) => renderExtChip({ ...(state.extStatus || {}), running: true, extension: st }));
     loadExtStatus();
@@ -927,6 +2138,17 @@
       box.innerHTML = t('extSteps', { dir: (state.meta.extensionDir || '') });
       box.classList.toggle('hidden');
     });
+    // Shows what this machine can actually answer -- and, the first time, makes macOS ask for the
+    // permission, so the user finds out here rather than by noticing records with nothing on them.
+    $('#btnContextTest').addEventListener('click', async () => {
+      const out = $('#contextStatus');
+      out.textContent = '…';
+      const r = await ws.contextProbe();
+      if (!r || !r.ok) { out.textContent = t('contextNone'); return; }
+      out.textContent = r.window
+        ? t('contextNow', { app: r.app, window: ` · ${r.window}` })
+        : `${t('contextNow', { app: r.app, window: '' })} — ${t('contextNoTitle')}`;
+    });
     $('#btnOpenExt').addEventListener('click', () => ws.openExtensionDir());
     $('#btnExportExt').addEventListener('click', async () => {
       const dir = await ws.exportExtension();
@@ -943,14 +2165,14 @@
     });
     ws.onOllamaPull((p) => {
       if (!pullingModel || p.model !== pullingModel) return;
-      const bar = document.querySelector('#pullProgress .bar i');
-      if (bar && p.percent !== undefined) bar.style.width = `${p.percent}%`;
-      const label = document.querySelector('#pullProgress span');
-      if (label) label.textContent = `${t('pulling', { model: p.model })} ${p.status || ''}${p.percent !== undefined ? ` ${p.percent}%` : ''}`;
+      // Ollama's own words ('pulling manifest', a sha256) are true and useless to read; the phase is
+      // what someone waiting actually wants, and the megabytes are how they judge whether to wait.
+      const key = { preparing: 'jobPullPreparing', downloading: 'jobPullDownloading', verifying: 'jobPullVerifying', finishing: 'jobPullFinishing', done: 'jobPullDone' }[p.phase] || 'jobPullDownloading';
+      updateJob({ labelKey: key, params: { model: p.model }, percent: p.percent, received: p.receivedBytes, total: p.totalBytes });
     });
     $('#btnChooseDir').addEventListener('click', async () => {
       const dir = await ws.chooseDir();
-      if (dir) { $('#workspaceDir').value = dir; $('#workspaceDir').dataset.chosen = dir; }
+      if (dir) { $('#workspaceDir').value = dir; $('#workspaceDir').dataset.chosen = dir; queueSave(); }
     });
     $('#btnOpenDir').addEventListener('click', () => ws.openWorkspaceDir());
 
@@ -960,14 +2182,13 @@
         state.entries = state.entries.filter((x) => x.id !== entry.id);
         if (state.selectedId === entry.id) { state.selectedId = null; state.editing = false; }
       } else {
-        if (state.query) { const hay = `${entry.title} ${(entry.tags || []).join(' ')} ${entry.text} ${entry.summary}`.toLowerCase(); if (!hay.includes(state.query.toLowerCase()) && !state.entries.some((x) => x.id === entry.id)) return; }
+        if (state.query) { const hay = `${entry.title} ${(entry.tags || []).join(' ')} ${entry.visionLabels || ''} ${entry.text} ${entry.summary}`.toLowerCase(); if (!hay.includes(state.query.toLowerCase()) && !state.entries.some((x) => x.id === entry.id)) return; }
         upsert(entry);
       }
       renderList();
-      if (state.selectedId === entry.id && !state.editing) renderDetail();
-      else if (!state.selectedId) renderDetail();
+      if (kind === 'delete' && $('#detailModal').hidden === false && !state.selectedId) closeDetail();
+      else if (state.selectedId === entry.id && !state.editing) renderDetail();
     });
-    ws.onSummary(() => loadSummaries());
     ws.onSettings((s) => {
       // don't clobber a form the user is editing; the save handler refreshes explicitly
       if (state.tab === 'settings') { state.settings = s; return; }
@@ -975,10 +2196,15 @@
     });
     ws.onNavigate(({ tab, arg }) => {
       if (tab) switchTab(tab);
-      if (tab === 'summaries' && arg) { loadSummaries().then(() => showSummary(arg)); }
       if (tab === 'entries' && arg) {
-        state.selectedId = arg; state.editing = false;
-        loadEntries().then(() => { renderList(); renderDetail(); });
+        // briffy://day/<date> hands over a date, briffy://entry/<id> an id -- both arrive here.
+        if (/^\d{4}-\d{2}-\d{2}$/.test(arg)) {
+          state.date = arg; state.selectedId = null;
+          loadEntries().then(() => { const sel = $('#dateFilter'); if (sel) sel.value = arg; });
+        } else {
+          state.selectedId = arg; state.editing = false;
+          loadEntries().then(() => { if (state.entries.some((x) => x.id === arg)) openDetail(arg); else { renderList(); renderDetail(); } });
+        }
       }
     });
   }

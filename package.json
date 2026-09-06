@@ -1,13 +1,13 @@
 {
-  "name": "dailylogs",
-  "productName": "DailyLogs",
+  "name": "briffy",
+  "productName": "briffy",
   "version": "0.1.0",
   "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
   "main": "src/main/main.js",
   "private": true,
   "license": "MIT",
   "scripts": {
-    "postinstall": "install-electron",
+    "postinstall": "install-electron && node scripts/fetch-fonts.js || echo fonts: skipped",
     "start": "electron .",
     "icons": "node scripts/gen-icons.js && node scripts/gen-ext-icons.js",
     "pet": "node scripts/gen-pet.js",
@@ -18,27 +18,36 @@
     "pet:orient": "node scripts/pet-orient.js",
     "fetch-models": "node scripts/fetch-bundled-models.js",
     "preview": "node dev/preview/serve.js",
-    "pack": "npm run fetch-models && electron-builder --dir",
-    "dist": "npm run fetch-models && electron-builder",
-    "dist:win": "npm run fetch-models && electron-builder --win",
-    "dist:mac": "npm run fetch-models && electron-builder --mac"
+    "pack": "npm run fetch-models && npm run fetch-fonts && electron-builder --dir",
+    "dist": "npm run fetch-models && npm run fetch-fonts && electron-builder",
+    "dist:win": "npm run fetch-models && npm run fetch-fonts && electron-builder --win",
+    "dist:mac": "npm run fetch-models && npm run fetch-fonts && electron-builder --mac",
+    "fetch-fonts": "node scripts/fetch-fonts.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
     "@huggingface/transformers": "^4.2.0",
+    "node-screenshots": "^0.2.8",
     "opencc-js": "^1.4.2",
     "pdf-parse": "^2.4.5",
-    "ppu-paddle-ocr": "^6.4.3"
+    "ppu-paddle-ocr": "^6.4.3",
+    "sherpa-onnx-node": "^1.13.7"
   },
   "devDependencies": {
     "electron": "^44.1.1",
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.dailylogs.app",
-    "productName": "DailyLogs",
-    "directories": { "output": "release" },
-    "electronLanguages": ["en-US", "zh-CN", "zh-TW"],
+    "appId": "com.briffy.app",
+    "productName": "briffy",
+    "directories": {
+      "output": "release"
+    },
+    "electronLanguages": [
+      "en-US",
+      "zh-CN",
+      "zh-TW"
+    ],
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -68,7 +77,9 @@
       "extension/**"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "assets/icon.png",
       "files": [
         "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
@@ -88,8 +99,11 @@
     },
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "assets/icon.png",
-      "target": ["dmg", "zip"],
+      "icon": "assets/icon-mac.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
@@ -102,9 +116,17 @@
         "!node_modules/@napi-rs/canvas-linux*/**"
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "DailyLogs records voice notes and transcribes them locally.",
-        "NSScreenCaptureUsageDescription": "DailyLogs captures your screen when you press the shortcut or click the cat."
+        "NSMicrophoneUsageDescription": "briffy records voice notes and transcribes them locally.",
+        "NSScreenCaptureUsageDescription": "briffy captures your screen when you press the shortcut or click the cat."
       }
-    }
+    },
+    "protocols": [
+      {
+        "name": "briffy",
+        "schemes": [
+          "briffy"
+        ]
+      }
+    ]
   }
 }

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-Hans" data-v="a" data-e="note-w" data-h="h1" data-tilt="0">
+<head>
+<meta charset="utf-8" />
+<title>briffy · 设计语言样张</title>
+<link rel="stylesheet" href="/assets/fonts/fonts.css" />
+<style>
+/* A static sheet for judging by eye. Nothing here is wired to the app.
+
+   Three axes, switchable at the top right:
+     纸    the paper and the type scale                     (a / b / c)
+     边/便签 what a record is                                (none / hair / fill / rule / note-*)
+     层级  who outranks whom, and where the chrome lives     (h1 / h2 / h3)
+
+   The rules every combination obeys, copied from Steidl:
+     one typeface, one accent used once, no rules, no boxes, no texture.
+     Only a real object casts a shadow.  */
+
+:root {
+  --sans: "Source Sans 3", "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* THE RANKS. One typeface, so rank comes from size, weight, colour and air -- nothing else.
+     The fault in the last sheet was giving four different ranks the same 13px/600: the brand, the
+     nav, the filters and the day all spoke at the same volume, so none of them led. */
+  --fs-day:    21px;  --w-day:    600;   /* 1 · the day. The spine of the product, and the biggest thing on the page */
+  --fs-title:  13px;  --w-title:  600;   /* 2 · a record's title */
+  --fs-body:   13px;  --w-body:   400;   /* 2 · a record's words */
+  --fs-nav:    13px;                     /* 3 · which page you are on: ink and weight carry it, not size */
+  --fs-act:    12px;                     /* 4 · tools. A step under the nav: an action is not a place */
+  --fs-filter: 12px;                     /* 4 · view controls, quieter than the day they filter */
+  --fs-meta:   11px;                     /* 5 · time, source, size */
+  --fs-brand:  12px;                     /* 6 · identity. It never changes, so it never needs reading */
+}
+
+/* ---- A · Steidl 暖灰 ---------------------------------------------------- */
+[data-v="a"] { --page: #d6d3cc; --ink: #1b1a18; --ink-2: #6d6a63; --ink-3: #918e86; --accent: #2a6cf0; --lh: 1.6; --pad: 40px;
+  --shadow: 0 1px 2px rgba(0,0,0,.14), 0 6px 16px rgba(0,0,0,.12); }
+/* ---- B · 同一语言，暖米白纸 --------------------------------------------- */
+[data-v="b"] { --page: #f4f1e8; --ink: #1c1a16; --ink-2: #6b665c; --ink-3: #938d80; --accent: #2a6cf0; --lh: 1.6; --pad: 40px;
+  --shadow: 0 1px 2px rgba(0,0,0,.10), 0 6px 16px rgba(0,0,0,.09); }
+/* ---- C · iA Writer 式：字为主，图退后 ----------------------------------- */
+[data-v="c"] { --page: #f7f4ec; --ink: #16150f; --ink-2: #5f5a4e; --ink-3: #8d8778; --accent: #2a6cf0; --lh: 1.75; --pad: 64px;
+  --fs-title: 15px; --fs-body: 15px; --fs-nav: 15px;
+  --shadow: 0 1px 2px rgba(0,0,0,.09), 0 5px 14px rgba(0,0,0,.08); }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--page); color: var(--ink);
+  font: var(--w-body) var(--fs-body)/var(--lh) var(--sans);
+  -webkit-font-smoothing: antialiased; font-kerning: normal;
+  text-autospace: normal; text-spacing-trim: space-first; line-break: strict;
+  display: flex; overflow: hidden;
+}
+
+/* the switcher is not part of the design; it floats above it */
+#sw { position: fixed; right: 14px; top: 14px; z-index: 99; display: flex; flex-direction: column; gap: 6px; font: 500 11px/1 var(--sans); align-items: flex-end; }
+#sw .row { display: flex; gap: 1px; align-items: center; }
+#sw i { font-style: normal; color: var(--ink-3); margin-right: 6px; }
+#sw button { border: 0; padding: 7px 11px; background: rgba(0,0,0,.06); color: var(--ink-2); cursor: pointer; }
+#sw button.on { background: var(--ink); color: var(--page); }
+
+/* ================= the chrome ================= */
+.side { width: 176px; flex: none; padding: var(--pad) 0 26px var(--pad); display: flex; flex-direction: column; }
+
+/* 6 · identity: small, grey, said once */
+.mark { font: 700 var(--fs-brand)/1.2 var(--sans); color: var(--ink-3); letter-spacing: .02em; margin-bottom: 34px; }
+
+/* 3 · where you are. The only part of the chrome allowed full ink. */
+nav { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-nav); }
+nav a { color: var(--ink-3); text-decoration: none; cursor: pointer; }
+nav a:hover { color: var(--ink-2); }
+nav a.on { color: var(--ink); font-weight: 600; }
+
+/* 4 · tools. A step smaller than the nav, so a place never looks like an action. */
+.acts { margin-top: 26px; display: flex; flex-direction: column; gap: 7px; font-size: var(--fs-act); }
+.acts a { color: var(--ink-2); text-decoration: none; cursor: pointer; }
+.acts a:hover { color: var(--ink); }
+
+.foot { margin-top: auto; color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+
+/* the search: a field with no box. Its only edge is the hairline it sits on. */
+.search { display: block; width: 100%; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-body); outline: none; padding: 0 0 5px; }
+.search::placeholder { color: var(--ink-3); }
+.search:focus { border-bottom-color: var(--ink); }
+
+/* 4 · the filters: a row of words, quieter than the day they filter */
+.filters { display: flex; gap: 13px; flex-wrap: wrap; font-size: var(--fs-filter); color: var(--ink-3); }
+.filters span { cursor: pointer; white-space: nowrap; }
+.filters span:hover { color: var(--ink-2); }
+.filters .on { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+
+/* ================= the page ================= */
+main { flex: 1; min-width: 0; overflow: hidden; padding: var(--pad) var(--pad) 0 40px; }
+
+/* 1 · the day. Big, and given a lot of air -- the air is half of what makes it rank. */
+.day { display: flex; align-items: baseline; gap: 14px; margin: 0 0 22px; }
+.day b { font: var(--w-day) var(--fs-day)/1.2 var(--sans); letter-spacing: -.01em; text-autospace: no-autospace; }
+.day span { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.day-body { margin-bottom: 54px; }
+
+/* ---------- the records ---------- */
+.grid { display: flex; flex-wrap: wrap; gap: 30px 26px; align-items: flex-start; }
+.rec { width: 232px; }
+[data-v="c"] .rec { width: 268px; }
+.rec.wide { width: 300px; }
+[data-v="c"] .rec.wide { width: 340px; }
+.rec img { display: block; width: 100%; height: auto; box-shadow: var(--shadow); }
+.rec .t { margin-top: 9px; font-weight: var(--w-title); font-size: var(--fs-title); }
+.rec .b { margin-top: 3px; color: var(--ink-2); }
+.rec.note .b { color: var(--ink); }
+.rec .m { margin-top: 7px; color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.rec .m i { font-style: normal; color: var(--accent); }   /* the one colour, and only while something is happening */
+
+/* ---------- what gives a record an edge ---------- */
+[data-e="hair"] .rec { border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent); padding: 11px 13px 13px; }
+[data-e="fill"] .rec { background: color-mix(in srgb, var(--ink) 5%, transparent); padding: 11px 13px 13px; }
+[data-e="rule"] .rec { border-top: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); padding-top: 11px; }
+[data-e="hair"] .rec img, [data-e="fill"] .rec img, [data-e="rule"] .rec img { box-shadow: none; }
+[data-e="hair"] .rec .t, [data-e="fill"] .rec .t { margin-top: 10px; }
+
+/* 便签: a slip of paper lying on the page. It reads as an object only if it is LIGHTER than what it
+   lies on and casts the shadow of something a millimetre thick: a tight contact shadow, then a short
+   soft one, both falling downward. No border -- paper has no outline; its edge is where the shadow starts. */
+[data-v="a"][data-e^="note"] { --page: #cbc7be; }
+[data-v="b"][data-e^="note"] { --page: #e6e1d3; }
+[data-v="c"][data-e^="note"] { --page: #e9e4d5; }
+[data-e="note-w"] { --slip: #fbfaf6; }
+[data-e="note-y"] { --slip: #f7f0d8; }
+[data-e="note-q"] { --slip: #ddd9d1; }
+[data-v="b"][data-e="note-q"], [data-v="c"][data-e="note-q"] { --slip: #f3efe3; }
+[data-e^="note"] .rec { background: var(--slip); padding: 13px 15px 15px; box-shadow: 0 1px 1px rgba(0,0,0,.10), 0 4px 10px rgba(0,0,0,.10); }
+[data-e^="note"] .rec img { box-shadow: none; }
+[data-e^="note"] .rec .t { margin-top: 11px; }
+[data-e^="note"] .rec.note { min-height: 96px; }
+[data-tilt="1"][data-e^="note"] .rec { transform: rotate(var(--r, 0deg)); }
+[data-tilt="1"][data-e^="note"] .rec:nth-child(4n+1) { --r: -.5deg; }
+[data-tilt="1"][data-e^="note"] .rec:nth-child(4n+2) { --r: .4deg; }
+[data-tilt="1"][data-e^="note"] .rec:nth-child(4n+3) { --r: -.3deg; }
+[data-tilt="1"][data-e^="note"] .rec:nth-child(4n)   { --r: .6deg; }
+
+/* ================= 层级: three ways to divide the chrome ================= */
+/* Every piece of chrome is written once in the markup and switched on per hierarchy. */
+.s-search, .s-filters, .m-search, .m-filters, .bar { display: none; }
+
+/* --- H1 · 一列是壳，一列是内容 ---
+   Search and filters go into the margin with the nav, so the content column holds nothing but days
+   and records. The strongest hierarchy: the page has exactly one subject. */
+[data-h="h1"] .s-search, [data-h="h1"] .s-filters { display: block; }
+[data-h="h1"] .s-search { margin-bottom: 28px; }
+[data-h="h1"] .s-filters { margin-top: 24px; }
+[data-h="h1"] .s-filters .filters { flex-direction: column; gap: 7px; }
+
+/* --- H2 · 顶栏管找，侧栏管去，内容列管看 ---
+   The search sits over the content it searches; the filters sit directly above the first day.
+   Closest to what the app does today, but now each row has one job and one rank. */
+[data-h="h2"] .m-search, [data-h="h2"] .m-filters { display: block; }
+[data-h="h2"] .m-search { max-width: 340px; margin-bottom: 20px; }
+[data-h="h2"] .m-filters { margin-bottom: 30px; }
+
+/* --- H3 · 没有侧栏 ---
+   One line across the top carries everything and the records get the full width. The flattest, and
+   the most Are.na. It works because there are only four places to go. */
+[data-h="h3"] .side { display: none; }
+[data-h="h3"] .bar { display: flex; align-items: baseline; gap: 28px; position: absolute; left: 0; right: 0; top: 0; padding: 30px var(--pad) 0; }
+[data-h="h3"] .bar .mark { margin: 0; }
+[data-h="h3"] .bar nav { flex-direction: row; gap: 18px; }
+[data-h="h3"] .bar .acts { flex-direction: row; gap: 14px; margin: 0; }
+[data-h="h3"] .bar .search { width: 220px; margin-left: auto; }
+[data-h="h3"] main { padding: calc(var(--pad) + 34px) var(--pad) 0; }
+[data-h="h3"] .m-filters { display: block; margin-bottom: 30px; }
+</style>
+</head>
+<body>
+
+<div id="sw">
+  <div class="row"><i>纸</i><button data-go="a" class="on">A 暖灰</button><button data-go="b">B 米白</button><button data-go="c">C iA</button></div>
+  <div class="row"><i>边</i><button data-e="none">1 无</button><button data-e="hair">2 细线</button><button data-e="fill">3 底色</button><button data-e="rule">4 分隔线</button></div>
+  <div class="row"><i>便签</i><button data-e="note-w" class="on">5 白</button><button data-e="note-y">6 米黄</button><button data-e="note-q">7 极淡</button><button data-tilt="1">歪斜</button></div>
+  <div class="row"><i>层级</i><button data-h="h1" class="on">H1 壳/内容分列</button><button data-h="h2">H2 顶栏+侧栏</button><button data-h="h3">H3 无侧栏</button></div>
+</div>
+
+<!-- H3 only: one line across the top -->
+<div class="bar">
+  <div class="mark">briffy</div>
+  <nav><a class="on">记录</a><a>问</a><a>每日摘要</a><a>设置</a></nav>
+  <div class="acts"><a>截图并识别</a><a>添加文件</a></div>
+  <input class="search" placeholder="搜索" />
+</div>
+
+<aside class="side">
+  <div class="mark">briffy</div>
+  <div class="s-search"><input class="search" placeholder="搜索" /></div>
+  <nav>
+    <a class="on">记录</a>
+    <a>问</a>
+    <a>每日摘要</a>
+    <a>设置</a>
+  </nav>
+  <div class="s-filters">
+    <div class="filters">
+      <span class="on">全部 12</span><span>截图 2</span><span>剪贴板 1</span><span>语音 2</span><span>网页 1</span><span>笔记 5</span>
+    </div>
+  </div>
+  <div class="acts">
+    <a>截图并识别</a>
+    <a>添加文件</a>
+  </div>
+  <div class="foot">3 天 · 12 条</div>
+</aside>
+
+<main>
+  <div class="m-search"><input class="search" placeholder="搜索标题 / 文字 / 画面内容" /></div>
+  <div class="m-filters">
+    <div class="filters">
+      <span class="on">全部 12</span><span>截图 2</span><span>剪贴板 1</span><span>语音 2</span><span>网页 1</span><span>笔记 5</span>
+    </div>
+  </div>
+
+  <div class="day"><b>今天</b><span>9月5日 星期六 · 9 条</span></div>
+  <div class="day-body">
+    <div class="grid">
+      <div class="rec pic">
+        <img src="/sample.png" alt="" />
+        <div class="t">截图 09:12</div>
+        <div class="m">09:12 · 2320×1520</div>
+      </div>
+      <div class="rec note">
+        <div class="t">语音 10:03</div>
+        <div class="b">你好，这是一段测试录音。明天上午记得把项目预算发给张老师，下午三点开会讨论产品方案。</div>
+        <div class="m">10:03 · 0:42 · 预算 张老师 下午三点</div>
+      </div>
+      <div class="rec note wide">
+        <div class="t">Optical character recognition — Wikipedia</div>
+        <div class="b">Optical character recognition or optical character reader is the electronic or mechanical conversion of images of typed, handwritten or printed text into machine-encoded text.</div>
+        <div class="m">11:25 · en.wikipedia.org</div>
+      </div>
+      <div class="rec note">
+        <div class="t">第三季度预算与路线图会议.pdf</div>
+        <div class="b">第三季度预算评审与路线图规划。1. 预算概览 …</div>
+        <div class="m">13:40 · 6 页 · 180 KB</div>
+      </div>
+      <div class="rec note wide">
+        <div class="b">这是一个测试笔记。<br />明天上午十点和产品团队开会，讨论第三季度的预算和路线图。<br />记得把会议纪要发给王经理。</div>
+        <div class="m">15:02 · 笔记 · 产品团队 开会 预算</div>
+      </div>
+      <div class="rec pic">
+        <img src="/assets/icon.png" alt="" />
+        <div class="t">design-ref.png</div>
+        <div class="m"><i>识别文字中 40%</i></div>
+      </div>
+      <div class="rec note">
+        <div class="t">为什么 SQLite 不需要服务器</div>
+        <div class="b">SQLite 把整个数据库放在一个文件里，进程直接读写这个文件，没有守护进程、没有端口。</div>
+        <div class="m">17:30 · example.com</div>
+      </div>
+      <div class="rec note">
+        <div class="b">后端联调排在本周四，前端先按 mock 走，接口字段定了再改。</div>
+        <div class="m">12:15 · 剪贴板 · Slack</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="day"><b>昨天</b><span>9月4日 星期五 · 3 条</span></div>
+  <div class="day-body">
+    <div class="grid">
+      <div class="rec pic">
+        <img src="/sample.png" alt="" />
+        <div class="t">截图 09:05</div>
+        <div class="m">09:05 · Google Maps</div>
+      </div>
+      <div class="rec note">
+        <div class="t">photos.zip</div>
+        <div class="m">14:20 · 50 MB</div>
+      </div>
+      <div class="rec note">
+        <div class="t">语音 18:45</div>
+        <div class="b">这段录音是静音的（麦克风：CABLE Output）。</div>
+        <div class="m">18:45 · 0:08</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const sw = document.getElementById('sw');
+  const html = document.documentElement;
+  sw.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.tilt) { const on = html.dataset.tilt === '1'; html.dataset.tilt = on ? '0' : '1'; b.classList.toggle('on', !on); return; }
+    const key = b.dataset.go ? 'v' : b.dataset.e ? 'e' : 'h';
+    const attr = { v: 'go', e: 'e', h: 'h' }[key];
+    html.dataset[key] = b.dataset[attr];
+    for (const x of sw.querySelectorAll('button')) if (x.dataset[attr] && !x.dataset.tilt) x.classList.toggle('on', x === b);
+  });
+  const q = new URLSearchParams(location.search);
+  for (const [key, attr] of [['v', 'go'], ['e', 'e'], ['h', 'h']]) {
+    const val = q.get(key); if (!val) continue;
+    html.dataset[key] = val;
+    for (const x of sw.querySelectorAll('button')) if (x.dataset[attr]) x.classList.toggle('on', x.dataset[attr] === val);
+  }
+  if (q.get('tilt') === '1') { html.dataset.tilt = '1'; sw.querySelector('[data-tilt]').classList.add('on'); }
+</script>
+</body>
+</html>

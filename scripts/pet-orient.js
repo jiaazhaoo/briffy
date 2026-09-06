@@ -19,7 +19,7 @@ try { sharp = require('sharp'); } catch {
 }
 
 const CATALOG = path.join(__dirname, '..', 'assets', 'pet', 'catalog.json');
-const CACHE = path.join(os.tmpdir(), 'dailylogs-pet-thumbs');
+const CACHE = path.join(os.tmpdir(), 'briffy-pet-thumbs');
 const CONCURRENCY = 8;
 const SAMPLE = 160;   // plenty for a which-corner question
 

@@ -1,6 +1,6 @@
 ---
 name: pet-as-character
-description: Generate a cute desktop-pet animal character as transparent-background PNG frames - one consistent creature redrawn in several poses and expressions for an always-on-top desktop companion. Use when creating or replacing the DailyLogs pet, or any animated desktop mascot sprite set. Not for icons, logos or app marks.
+description: Generate a cute desktop-pet animal character as transparent-background PNG frames - one consistent creature redrawn in several poses and expressions for an always-on-top desktop companion. Use when creating or replacing the briffy pet, or any animated desktop mascot sprite set. Not for icons, logos or app marks.
 ---
 
 # Pet as Character

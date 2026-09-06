@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>briffy 动起来</title>
+<link rel="stylesheet" href="/assets/fonts/fonts.css" />
+<link rel="stylesheet" href="/assets/paper/tokens.css" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: var(--fs-body)/1.6 var(--sans);
+    padding: 54px var(--pad) 90px; min-height: 100vh; }
+  h1 { font: var(--w-day) var(--fs-day)/1.2 var(--sans); margin: 0 0 6px; letter-spacing: -.01em; }
+  .lead { color: var(--ink-2); max-width: 60ch; margin: 0 0 40px; }
+  h2 { font: 600 14px/1.4 var(--sans); color: var(--ink); margin: 46px 0 16px; }
+  .note { color: var(--ink-3); font-size: var(--fs-meta); max-width: 62ch; margin: 8px 0 0; }
+
+  /* 六张牌：一个状态一张，牌上是它自己在演 */
+  .set { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--a4); }
+  .card { background: var(--slip); box-shadow: var(--e1); padding: var(--a3); cursor: pointer;
+    transition: box-shadow .12s, transform .12s; }
+  .card:hover { box-shadow: var(--e2); transform: translateY(-2px); }
+  .card .stage { height: 132px; display: flex; align-items: center; justify-content: center; }
+  .card .stage > div { width: 108px; height: 108px; }
+  .card b { display: block; font: 600 var(--fs-title)/1.4 var(--sans); margin-top: var(--a2); }
+  .card span { display: block; color: var(--ink-3); font-size: var(--fs-meta); }
+
+  /* 大的那只，跟着按钮走 */
+  .big { display: flex; gap: var(--a5); align-items: flex-start; flex-wrap: wrap; }
+  .big .stage { width: 240px; height: 240px; background: var(--slip); box-shadow: var(--e1);
+    display: flex; align-items: center; justify-content: center; flex: none; }
+  .big .stage > div { width: 190px; height: 190px; }
+  .ctl { display: flex; flex-wrap: wrap; gap: var(--a2); max-width: 460px; }
+  button { font: 600 var(--fs-act)/1 var(--sans); color: var(--ink); background: var(--tone); border: 0;
+    padding: 9px 14px; cursor: pointer; }
+  button:hover { background: var(--tone-2); }
+  button:active { transform: translateY(1px); }
+  button.on { background: var(--ink); color: var(--page); }
+  .read { margin-top: var(--a3); font-size: var(--fs-meta); color: var(--ink-3);
+    font-variant-numeric: tabular-nums; }
+  .read b { color: var(--ink); font-weight: 600; }
+
+  /* 三个真实尺寸：桌面形象 50、底栏头像 24、托盘 18 */
+  .sizes { display: flex; align-items: flex-end; gap: var(--a5); }
+  .sizes figure { margin: 0; text-align: center; }
+  .sizes figcaption { color: var(--ink-3); font-size: var(--fs-meta); margin-top: var(--a2); }
+  .s50 { width: 50px; height: 50px; } .s24 { width: 24px; height: 24px; } .s18 { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+  <h1>briffy 动起来</h1>
+  <p class="lead">
+    两道弧永远是 <code>assets/brand/briffy.svg</code> 里量出来的那两道——不管它在做什么，
+    随便截一帧下来还是这个标记。动的只有一张脸（两只眼睛、一张嘴），和整只回形针作为**一个刚体**
+    被抬起、歪一下、弹一下。没有关键帧：每个状态只说「去哪儿」，弹簧自己走过去；
+    走完就注销 rAF，两个状态之间一帧都不画。
+  </p>
+
+  <h2>六个状态</h2>
+  <div class="set" id="set"></div>
+  <p class="note">点任意一张，下面那只大的会跟着演一遍。</p>
+
+  <h2>放大看</h2>
+  <div class="big">
+    <div class="stage"><div id="big"></div></div>
+    <div>
+      <div class="ctl" id="ctl"></div>
+      <div class="read">
+        现在：<b id="rPose">idle</b> · 弹簧<b id="rRun">停着</b> ·
+        这一次动用了 <b id="rFrames">0</b> 帧，<b id="rMs">0</b> ms
+      </div>
+      <p class="note">
+        「用了多少帧」是这套东西的重点。桌面那个窗口是透明、置顶、永不关闭的，
+        它每要一帧就是一次永不停止的 alpha 合成——pet.css 量过，三个 <code>infinite</code>
+        循环吃掉一个核的 11.4%，静止是 0.9%。所以弹簧必须会停：到了目标附近、速度也没了，
+        就精确落到目标并 <code>cancelAnimationFrame</code>。上面那个数字停止增长的时刻，
+        就是 CPU 回到 0 的时刻。
+      </p>
+    </div>
+  </div>
+
+  <h2>它真正会被画多大</h2>
+  <div class="sizes">
+    <figure><div class="s50" id="z50"></div><figcaption>50px · 桌面形象</figcaption></figure>
+    <figure><div class="s24" id="z24"></div><figcaption>24px · 底栏头像</figcaption></figure>
+    <figure><div class="s18" id="z18"></div><figcaption>18px · 托盘图标</figcaption></figure>
+  </div>
+  <p class="note">18px 上五官只剩几个像素，所以每个状态的差别得先落在**轮廓**上（歪、跳、缩），再落在脸上。</p>
+
+  <script src="/assets/brand/briffy-anim.js"></script>
+  <script>
+    const STATES = [
+      ['idle', '待机', '就是标记本身'],
+      ['recording', '录音', '睁大眼睛，嘴闭成一条'],
+      ['processing', '处理中', '往上看，歪着想'],
+      ['capturing', '截图', '快门一响，整只弹起来'],
+      ['success', '存好了', '眼睛笑成两道弧，点个头'],
+      ['error', '出错', '眯眼、撇嘴，横着摇一下'],
+    ];
+
+    const set = document.getElementById('set');
+    const small = {};
+    for (const [key, name, why] of STATES) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = '<div class="stage"><div></div></div><b></b><span></span>';
+      card.querySelector('b').textContent = name;
+      card.querySelector('span').textContent = why;
+      set.appendChild(card);
+      small[key] = briffyAnim.attach(card.querySelector('.stage > div'));
+      small[key].set(key);
+      card.addEventListener('click', () => { small[key].poke(key); go(key); });
+    }
+
+    const big = briffyAnim.attach(document.getElementById('big'));
+    const zooms = ['z50', 'z24', 'z18'].map((id) => briffyAnim.attach(document.getElementById(id)));
+
+    const ctl = document.getElementById('ctl');
+    const buttons = {};
+    for (const [key, name] of STATES) {
+      const b = document.createElement('button');
+      b.textContent = name;
+      b.addEventListener('click', () => go(key));
+      ctl.appendChild(b);
+      buttons[key] = b;
+    }
+
+    // 数帧：从按下去到弹簧停住，一共画了几帧、花了多久
+    let frames = 0; let t0 = 0; let watching = false;
+    function watch() {
+      if (!watching) return;
+      frames++;
+      document.getElementById('rFrames').textContent = frames;
+      document.getElementById('rMs').textContent = Math.round(performance.now() - t0);
+      if (big.running()) requestAnimationFrame(watch);
+      else { watching = false; document.getElementById('rRun').textContent = '停着'; }
+    }
+    function go(key) {
+      if (big.pose() === key) big.poke(key); else big.set(key);
+      for (const z of zooms) { if (z.pose() === key) z.poke(key); else z.set(key); }
+      for (const k in buttons) buttons[k].classList.toggle('on', k === key);
+      document.getElementById('rPose').textContent = key;
+      document.getElementById('rRun').textContent = '在动';
+      frames = 0; t0 = performance.now();
+      if (!watching) { watching = true; requestAnimationFrame(watch); }
+    }
+    go('idle');
+    for (const k in buttons) buttons[k].classList.toggle('on', k === 'idle');
+  </script>
+</body>
+</html>

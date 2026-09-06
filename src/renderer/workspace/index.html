@@ -1,319 +1,426 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh-Hans">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https://cdn.ipaslogo.com; media-src 'self' file:;" />
-  <title>DailyLogs</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: https://cdn.ipaslogo.com; media-src 'self' file:; font-src 'self' file:" />
+  <title>briffy</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
   <link rel="stylesheet" href="workspace.css" />
 </head>
-<body>
-  <aside class="sidebar">
-    <div class="brand">
-      <img id="brandAvatar" src="../../../assets/pet/avatar.png" alt="" />
-      <div><b>DailyLogs</b><small data-i18n="brandSub">每天的小记录</small></div>
-    </div>
-    <nav class="nav">
-      <button class="tab-btn active" data-tab="entries">
-        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13" /></svg><span data-i18n="tabEntries">记录</span>
-      </button>
-      <button class="tab-btn" data-tab="summaries">
-        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18" /></svg><span data-i18n="tabSummaries">每日摘要</span>
-      </button>
-      <button class="tab-btn" data-tab="settings">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg><span data-i18n="tabSettings">设置</span>
-      </button>
-    </nav>
-    <div class="side-actions">
-      <button id="btnCapture" class="btn primary block">
-        <svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><circle cx="12" cy="13" r="3.5" /></svg><span data-i18n="capture">截图</span>
-      </button>
-      <button id="btnAddFiles" class="btn block">
-        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M12 11v6M9 14h6" /></svg><span data-i18n="addFiles">添加文件</span>
-      </button>
-    </div>
-    <div class="side-foot"><span id="sideStats"></span></div>
-  </aside>
-
-  <main class="main">
-    <section id="tab-entries" class="tab active">
-      <div class="toolbar">
-        <label class="search">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-          <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" />
-        </label>
+<body data-tab="entries">
+  <!-- 无边框窗口（为了直角）自己的控件：一条看不见的拖拽带 + 一个关闭 -->
+  <div class="winbar">
+    <button type="button" id="winClose" class="ico wclose" data-i18n-title="close" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+  <!-- 顶栏不是托盘：托盘属于底部（浮在滚动内容上的常驻工具），顶部是导航和筛选，
+       就是纸上的字。参照 are.na 的 Explore 和 Steidl——它们顶上都没有条，只有字。 -->
+  <header class="top">
+    <div class="top-row">
+      <label class="search"><input id="search" type="search" data-i18n-placeholder="searchPlaceholder" /></label>
+      <div class="view">
         <select id="dateFilter" class="select"></select>
-        <form id="quickAdd" class="quick">
-          <input id="quickInput" data-i18n-placeholder="quickPlaceholder" />
-          <button type="submit" class="btn" data-i18n="save">保存</button>
-        </form>
-        <button type="button" id="extChip" class="chip-status" title="">
-          <span class="dot"></span><span id="extChipText"></span>
+        <div class="seg" id="viewSeg" role="tablist">
+          <button type="button" data-view="grid" class="active" data-i18n-title="viewGrid" aria-label="grid">
+            <svg viewBox="0 0 24 24"><path d="M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z" /></svg>
+          </button>
+          <button type="button" data-view="list" data-i18n-title="viewList" aria-label="list">
+            <svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16" /></svg>
+          </button>
+        </div>
+        <button type="button" id="selectToggle" class="ico sm" data-i18n-title="selectMode" aria-label="select">
+          <svg viewBox="0 0 24 24"><path d="M3.5 3.5h17v17h-17z" /><path d="M8 12l3 3 5-6" /></svg>
         </button>
       </div>
-      <div class="split">
-        <div id="entryList" class="list"></div>
-        <aside id="detail" class="detail"><div class="empty"><div class="empty-art">🐾</div><span data-i18n="selectEntry">选择一条记录查看详情</span></div></aside>
-      </div>
-    </section>
+    </div>
+    <div class="sources" id="sources"></div>
+  </header>
 
-    <section id="tab-summaries" class="tab">
-      <div class="toolbar">
-        <input type="date" id="summaryDate" class="input" />
-        <button id="btnGenSummary" class="btn primary" data-i18n="generateSummary">生成该日摘要</button>
-        <span id="summaryStatus" class="muted"></span>
-      </div>
-      <div class="split">
-        <div id="summaryList" class="list"></div>
-        <article id="summaryView" class="detail md"><div class="empty"><div class="empty-art">📖</div><span data-i18n="noSummary">还没有摘要。小猫每天早上会自动生成昨天的摘要。</span></div></article>
-      </div>
-    </section>
+  <div class="mid">
+    <main class="main">
+      <section id="tab-entries" class="tab active">
+        <div id="entryGrid" class="jg">
+          <div class="jg-scroll" id="jgScroll"></div>
+        </div>
+        <div id="entryList" class="lv" hidden>
+          <div class="lv-rows" id="lvRows"></div>
+          <aside class="lv-prev"><div id="listDetail" class="detail"></div></aside>
+        </div>
+        <div id="bulkBar" class="bulk-bar" hidden>
+          <span id="bulkCount" class="bulk-count"></span>
+          <button type="button" class="btn" data-bulk="all" data-i18n="selectAll">全选</button>
+          <button type="button" class="btn" data-bulk="none" data-i18n="selectNone">取消选择</button>
+          <button type="button" class="btn danger" data-bulk="delete" data-i18n="deleteSelected">删除所选</button>
+          <button type="button" class="btn ghost" data-bulk="exit" data-i18n="selectDone">完成</button>
+        </div>
+      </section>
 
-    <section id="tab-settings" class="tab">
+      <!-- 问：和主页平级的一页。问句从底栏那个输入框来，答案连着它引用的记录一起留在这里 -->
+      <section id="tab-ask" class="tab">
+        <div class="askcol"><article id="askAnswer" class="md"></article></div>
+      </section>
+
+        <section id="tab-settings" class="tab">
       <form id="settingsForm" class="settings" autocomplete="off">
-        <section class="card-section setup">
-          <h2><span class="h-ico">🪄</span><span data-i18n="sSetup">本机准备情况</span></h2>
-          <p class="muted" data-i18n="sSetupHint">这些都是自动完成的：检查电脑、准备文字识别和语音识别引擎，全部在本机运行。下面每一项都可以自己改。</p>
-<div id="setupPanel" class="setup-panel">
-            <div class="bar"><i></i></div>
-            <div class="setup-now"><span id="setupNow"></span></div>
-            <ol id="setupSteps" class="steps"></ol>
-            <ul id="setupSummary" class="summary hidden"></ul>
-            <details id="setupLogBox" class="loginfo"><summary data-i18n="sSetupLog">查看详细日志</summary><pre id="setupLog" class="log"></pre></details>
-          </div>
-          <div class="row">
-            <button type="button" class="btn" id="btnSetup" data-i18n="sSetupRecheck">重新检查</button>
-          </div>
-        </section>
+        <!-- 六组，一排词，和记录页的筛选行同一个位置。改一项立刻生效，右端是那一声「已保存」 -->
+        <nav class="sg-nav" id="settingsNav">
+          <button type="button" class="sg-btn active" data-group="look"><span data-i18n="gLook">外观与语言</span></button>
+          <button type="button" class="sg-btn" data-group="pet"><span data-i18n="gPet">桌面形象</span></button>
+          <button type="button" class="sg-btn" data-group="capture"><span data-i18n="gCapture">自动采集</span></button>
+          <button type="button" class="sg-btn" data-group="engines"><span data-i18n="gEngines">本机引擎</span></button>
+          <button type="button" class="sg-btn" data-group="ai"><span data-i18n="gAI">AI 服务</span></button>
+          <button type="button" class="sg-btn" data-group="about"><span data-i18n="gAbout">工作区与关于</span></button>
+          <span id="settingsStatus" class="saved"></span>
+        </nav>
+        <div class="sg-panes">
 
-        <section class="card-section">
-          <h2><span class="h-ico">🐾</span><span data-i18n="sPet">小动物形象</span></h2>
-          <p class="muted" data-i18n="sPetHint"></p>
-          <div class="pet-pick">
-            <div class="pet-now">
-              <img id="petCurrent" class="pet-avatar" src="../../../assets/pet/avatar.png" alt="" />
-              <div class="pet-now-text">
-                <b id="petCurrentName"></b>
-                <span class="muted" id="petStatus"></span>
+        <!-- ================= 外观与语言 ================= -->
+        <div class="sg-pane active" data-group="look">
+          <section class="card-section">
+            <h2><span data-i18n="sTheme">外观</span><span class="info"><i>i</i><span class="tip" data-i18n="sThemeHint">窗口、气泡和常驻头像旁边的列表都会跟着变。</span></span></h2>
+            <div class="body">
+            <div class="f"><span class="fl" data-i18n="sThemeLabel">配色</span><span class="fc">
+              <div class="seg" id="themeSeg" role="group">
+                <button type="button" data-theme="system" data-i18n="sThemeSystem">跟随系统</button>
+                <button type="button" data-theme="light" data-i18n="sThemeLight">亮色</button>
+                <button type="button" data-theme="dark" data-i18n="sThemeDark">暗色</button>
               </div>
-              <button type="button" class="btn" id="petReset" data-i18n="sPetReset">恢复默认</button>
+            </span></div>
             </div>
-            <div class="row">
-              <input id="petSearch" type="search" data-i18n-placeholder="sPetSearch" />
-              <span class="muted" id="petCount"></span>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sLanguages">语言包</span><span class="info"><i>i</i><span class="tip" data-i18n="sLanguagesHint">选择两个语言：用于 OCR 文字识别、语音转文字和界面语言（第一个语言决定界面与摘要语言）。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl" data-i18n="sLang1">语言 1</span><span class="fc"><select id="lang1"></select></span></label>
+            <label class="f"><span class="fl" data-i18n="sLang2">语言 2</span><span class="fc"><select id="lang2"></select></span></label>
             </div>
-            <div id="petGrid" class="pet-grid"></div>
-          </div>
-        </section>
+          </section>
+        </div>
 
-        <section class="card-section">
-          <h2><span class="h-ico">🌐</span><span data-i18n="sLanguages">语言包</span></h2>
-          <p class="muted" data-i18n="sLanguagesHint">选择两个语言：用于 OCR 文字识别、语音转文字和界面语言（第一个语言决定界面与摘要语言）。</p>
-          <div class="row">
-            <label><span data-i18n="sLang1">语言 1</span><select id="lang1"></select></label>
-            <label><span data-i18n="sLang2">语言 2</span><select id="lang2"></select></label>
-          </div>
-        </section>
+        <!-- ================= 桌面形象 ================= -->
+        <div class="sg-pane" data-group="pet">
+          <section class="card-section top">
+            <h2><span data-i18n="sPet">形象</span><span class="info"><i>i</i><span class="tip" data-i18n="sPetHint"></span></span></h2>
+            <div class="body">
+            <div class="pet-pick">
+              <div class="pet-now">
+                <img id="petCurrent" class="pet-avatar" src="../../../assets/pet/avatar.png" alt="" />
+                <div class="pet-now-text">
+                  <b id="petCurrentName"></b>
+                  <span class="muted" id="petStatus"></span>
+                </div>
+                <button type="button" class="btn" id="petReset" data-i18n="sPetReset">恢复默认</button>
+              </div>
+              <div class="fc"><input id="petSearch" type="search" data-i18n-placeholder="sPetSearch" /><span class="st" id="petCount"></span></div>
+              <div id="petGrid" class="pet-grid"></div>
+            </div>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="petHidden" /><span data-i18n="sPetHidden">隐藏桌面形象（可从托盘菜单恢复）</span></span></label>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sShortcut">截图快捷键</span><span class="info"><i>i</i><span class="tip" data-i18n="sGestureHint">桌面形象身上：单击 = 整屏截图，双击 = 框选截图，中键点击或长按 = 开始 / 结束录音。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl" data-i18n="sHotkeyRegion">框选截图</span><span class="fc"><input id="hotkeyRegion" data-i18n-placeholder="sHotkeyPlaceholder" /></span></label>
+            <label class="f"><span class="fl" data-i18n="sHotkeyScreen">整屏截图</span><span class="fc"><input id="hotkeyScreen" data-i18n-placeholder="sHotkeyPlaceholder" /></span></label>
+            <label class="f"><span class="fl" data-i18n="sHotkeyVoice">开始 / 结束录音</span><span class="fc"><input id="hotkeyVoice" data-i18n-placeholder="sHotkeyPlaceholder" /></span></label>
+            <div class="f wide"><span class="fc"><span class="st" id="hotkeyHint" data-i18n="sHotkeyHint">点击输入框后按下组合键。修改后立即生效。</span><span class="st warn" id="hotkeyError"></span></span></div>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="captureToClipboard" /><span data-i18n="sCaptureClipboard">截图同时复制到系统剪贴板（不会因此重复记录一次）</span></span></label>
+            </div>
+          </section>
+        </div>
 
-        <section class="card-section">
-          <h2><span class="h-ico">⌨️</span><span data-i18n="sShortcut">截图快捷键</span></h2>
-          <div class="row">
-            <label><span data-i18n="sHotkeyRegion">框选截图</span><input id="hotkeyRegion" data-i18n-placeholder="sHotkeyPlaceholder" /></label>
-            <label><span data-i18n="sHotkeyScreen">整屏截图</span><input id="hotkeyScreen" data-i18n-placeholder="sHotkeyPlaceholder" /></label>
-            <label><span data-i18n="sHotkeyVoice">开始 / 结束录音</span><input id="hotkeyVoice" data-i18n-placeholder="sHotkeyPlaceholder" /></label>
-          </div>
-          <p class="muted" id="hotkeyHint" data-i18n="sHotkeyHint">点击输入框后按下组合键。修改后立即生效。</p>
-          <div class="row checks">
-            <label class="check"><input type="checkbox" id="captureToClipboard" /><span data-i18n="sCaptureClipboard">截图同时复制到系统剪贴板（不会因此重复记录一次）</span></label>
-          </div>
-          <p class="muted" data-i18n="sGestureHint">小猫身上：单击 = 整屏截图，双击 = 框选截图，中键点击或长按 = 开始 / 结束录音。</p>
-          <p class="muted warn" id="hotkeyError"></p>
-        </section>
+        <!-- ================= 自动采集 ================= -->
+        <div class="sg-pane" data-group="capture">
+          <section class="card-section">
+            <h2><span data-i18n="sContext">记录来源</span><span class="info"><i>i</i><span class="tip" data-i18n="sContextHint">只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。</span></span></h2>
+            <div class="body">
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="recordContext" /><span data-i18n="sContextOn">保存时记下当时的应用、窗口和网页地址</span></span></label>
+            <div class="f wide"><span class="fc">
+              <button type="button" class="btn" id="btnContextTest" data-i18n="sContextTest">看看现在能读到什么</button>
+              <span id="contextStatus" class="st"></span>
+            </span></div>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sAutoRecord">自动录音</span><span class="info"><i>i</i><span class="tip" data-i18n="sAutoRecordHint">打开后 briffy 会一直占用麦克风，听到人说话就自动录一段存进工作区，说完停几秒自动收尾。这是 briffy 唯一不用你动手的功能——会录到你没打算录的会议和别人的声音，很多地方这需要对方同意。开着时菜单栏会一直显示橙色的录音指示点。实测常驻开销约 2.6% 的一个核。</span></span></h2>
+            <div class="body">
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="autoRecord" /><span data-i18n="sAutoRecordOn">听到人说话就自动录下来</span></span></label>
+            <div class="f"><span class="fl" data-i18n="sAutoRecordState">状态</span><span class="fc"><span id="autoRecordState" class="st"></span></span></div>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="diarize" /><span data-i18n="sDiarizeOn">区分录音里的不同说话人（首次会下载约 35 MB 模型）</span></span></label>
+            <div id="speakerList" class="hw indent"></div>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sClipboard">剪贴板</span><span class="info"><i>i</i><span class="tip" data-i18n="sClipboardHint">密码管理器复制的内容会自动跳过；从工作区里复制出去的文字不会重复记录。托盘菜单里也能随时开关。</span></span></h2>
+            <div class="body">
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="clipboardWatch" /><span data-i18n="sClipboardWatch">实时记录剪贴板（复制的文字、图片、文件都会存入工作区）</span></span></label>
+            <label class="f"><span class="fl" data-i18n="sClipboardMin">文字至少多少个字才记录</span><span class="fc"><input id="clipboardMinChars" type="number" min="1" max="500" class="short" /></span></label>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sDropped">拖进来的图片</span><span class="info"><i>i</i><span class="tip" data-i18n="sDroppedHint">截图一定会做文字识别；拖进来或复制来的图片可以选择要不要。识别不出文字的图片，会由本机分类器说出画面里有什么。</span></span></h2>
+            <div class="body">
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="ocrDroppedImages" /><span data-i18n="sOcrDropped">拖入的图片也做 OCR</span></span></label>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sExtension">浏览器扩展（采集网页图片 / 视频）</span><span class="info"><i>i</i><span class="tip" data-i18n="sExtensionHint">装上扩展后，在任意网页点扩展图标（或按 Alt+Shift+D），就能看到这一页所有图片、视频、音频，勾选后一键存入工作区。</span></span></h2>
+            <div class="body">
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="localApi" /><span data-i18n="sLocalApi">允许浏览器扩展连接（本机接口，仅监听 127.0.0.1）</span></span></label>
+            <label class="f"><span class="fl" data-i18n="sLocalApiPort">端口</span><span class="fc"><input id="localApiPort" type="number" min="1024" max="65535" class="short" /><span id="apiStatus" class="st"></span></span></label>
+            <div class="f wide"><span class="fc">
+              <button type="button" class="btn primary" id="btnExportExt" data-i18n="sExportExt">导出扩展文件夹…</button>
+              <button type="button" class="btn" id="btnOpenExt" data-i18n="sOpenExt">打开扩展文件夹</button>
+              <button type="button" class="btn" id="btnExtHelp" data-i18n="sExtHelp">安装步骤</button>
+            </span></div>
+            <div id="extHelp" class="hw indent hidden"></div>
+            </div>
+            </section>
+          <section class="card-section">
+            <h2><span data-i18n="sFfmpeg">视频下载</span><span class="info"><i>i</i><span class="tip" data-i18n="sFfmpegHint">网站上的视频通常是切成几百个分片的流（HLS / DASH），画面和声音还常常是两条轨。把它们合成一个能播的文件需要 ffmpeg。它不打包进安装包，也不会去下载来路不明的二进制——只用你系统自己的包管理器安装。</span></span></h2>
+            <div class="body">
+            <div class="f"><span class="fl">ffmpeg</span><span class="fc">
+              <button type="button" class="btn primary" id="btnFfmpegInstall" data-i18n="sFfmpegInstall">安装 ffmpeg</button>
+              <button type="button" class="btn" id="btnFfmpegRecheck" data-i18n="sFfmpegRecheck">重新检查</button>
+              <span id="ffmpegStatus" class="st"></span>
+            </span></div>
+            <pre id="ffmpegLog" class="log indent hidden"></pre>
+            </div>
+          </section>
+        </div>
 
-        <section class="card-section">
-          <h2><span class="h-ico">✨</span><span data-i18n="sAI">AI 服务（五个词 & 每日摘要）</span></h2>
-          <div class="row">
-            <label><span data-i18n="sProvider">来源</span>
+        <!-- ================= 本机引擎 ================= -->
+        <div class="sg-pane" data-group="engines">
+          <section class="card-section">
+            <h2><span data-i18n="sOcrSection">文字识别</span><span class="info"><i>i</i><span class="tip" data-i18n="sOcrIndependent">文字识别（OCR）用的是 PP-OCR 专用识别引擎，和大模型无关；换 AI 服务不会影响识别结果。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl" data-i18n="sOcrModel">文字识别模型</span><span class="fc"><select id="ocrModel"></select></span></label>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sSpeech">语音转文字（本地 Whisper）</span><span class="info"><i>i</i><span class="tip" data-i18n="sSpeechHint">首次录音时会下载模型并缓存到本机，之后完全离线运行。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl" data-i18n="sSttModel">模型大小</span><span class="fc"><select id="sttModel"></select></span></label>
+            <label class="f"><span class="fl" data-i18n="sSttLanguage">识别语言</span><span class="fc"><select id="sttLanguage"></select></span></label>
+            <label class="f"><span class="fl" data-i18n="sMic">麦克风</span><span class="fc">
+              <select id="micDevice"></select>
+              <button type="button" class="btn" id="btnMicRefresh" data-i18n="sMicRefresh">刷新</button>
+              <button type="button" class="btn" id="btnMicTest" data-i18n="sMicTest">测试麦克风（说 2 秒）</button>
+              <span class="st" id="micStatus"></span>
+            </span></label>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="normalizeChineseScript" /><span data-i18n="sNormalizeZh">中文语音转写统一为所选的简体 / 繁体（不是翻译）</span></span></label>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2><span data-i18n="sDownloads">模型下载</span><span class="info"><i>i</i><span class="tip" data-i18n="sDownloadsHint">文字识别和语音识别的模型都在第一次用到时下载到本机，之后完全离线。网络不通时可以填一个镜像。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl" data-i18n="sMirror">模型下载镜像（可选）</span><span class="fc"><input id="hfMirror" placeholder="https://hf-mirror.com/" /></span></label>
+            </div>
+          </section>
+          <section class="card-section setup top">
+            <h2><span data-i18n="sSetup">本机准备情况</span><span class="info"><i>i</i><span class="tip" data-i18n="sSetupHint">这些都是自动完成的：检查电脑、准备文字识别和语音识别引擎，全部在本机运行。下面每一项都可以自己改。</span></span></h2>
+            <div class="body">
+            <div id="setupPanel" class="setup-panel">
+              <div class="bar"><i></i></div>
+              <div class="setup-now"><span id="setupNow"></span></div>
+              <ol id="setupSteps" class="steps"></ol>
+              <ul id="setupSummary" class="summary hidden"></ul>
+              <details id="setupLogBox" class="loginfo"><summary data-i18n="sSetupLog">查看详细日志</summary><pre id="setupLog" class="log"></pre></details>
+              <div class="acts"><button type="button" class="btn" id="btnSetup" data-i18n="sSetupRecheck">重新检查</button></div>
+            </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ================= AI 服务 ================= -->
+        <div class="sg-pane" data-group="ai">
+          <section class="card-section">
+            <h2><span data-i18n="sAI">AI 服务（标题、每日摘要 & 问答）</span><span class="info"><i>i</i><span class="tip" data-i18n="sAIHint">没有配置 AI 服务时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl" data-i18n="sProvider">来源</span><span class="fc">
               <select id="provider">
                 <option value="anthropic">Claude (Anthropic)</option>
                 <option value="openrouter">OpenRouter</option>
                 <option value="ollama" data-i18n="sProviderOllama">本地模型 (Ollama)</option>
                 <option value="custom" data-i18n="sProviderCustom">自定义 OpenAI 兼容接口</option>
               </select>
-            </label>
-            <span id="providerConfigured" class="muted hint"></span>
-          </div>
+              <span id="providerConfigured" class="st"></span>
+            </span></label>
 
-          <div id="panel-anthropic" class="panel">
-            <div class="row">
-              <label><span data-i18n="sAnthropicAuth">登录方式</span>
+            <div id="panel-anthropic" class="panel">
+              <label class="f"><span class="fl" data-i18n="sAnthropicAuth">登录方式</span><span class="fc">
                 <select id="anthropicAuth">
                   <option value="apiKey">API Key</option>
                   <option value="account" data-i18n="sAccountOption">已登录的 Claude 账号（ant auth login）</option>
                 </select>
-              </label>
-              <label><span data-i18n="sModel">模型</span><select id="model"></select></label>
-            </div>
-            <div class="row" id="rowApiKey">
-              <label class="wide"><span data-i18n="sApiKey">Anthropic API Key</span>
+              </span></label>
+              <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc"><select id="model"></select></span></label>
+              <label class="f" id="rowApiKey"><span class="fl" data-i18n="sApiKey">Anthropic API Key</span><span class="fc">
                 <input id="apiKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
-              </label>
-              <button type="button" class="btn" id="btnClearKey" data-i18n="sClearKey">清除</button>
+                <button type="button" class="btn" id="btnClearKey" data-i18n="sClearKey">清除</button>
+                <span class="st" id="apiKeyStatus"></span>
+              </span></label>
+              <div class="f wide" id="rowAccount"><span class="fc">
+                <button type="button" class="btn" id="btnAnthropicLogin" data-i18n="sAnthropicLogin">用浏览器登录 Claude 账号</button>
+                <span id="anthropicAccountStatus" class="st"></span>
+              </span></div>
             </div>
-            <p class="muted" id="apiKeyStatus"></p>
-            <div class="row" id="rowAccount">
-              <span id="anthropicAccountStatus" class="muted hint"></span>
-              <button type="button" class="btn" id="btnAnthropicLogin" data-i18n="sAnthropicLogin">用浏览器登录 Claude 账号</button>
-            </div>
-          </div>
 
-          <div id="panel-openrouter" class="panel">
-            <div class="row">
-              <label class="wide"><span data-i18n="sOpenrouterKey">OpenRouter API Key</span>
+            <div id="panel-openrouter" class="panel">
+              <label class="f"><span class="fl" data-i18n="sOpenrouterKey">OpenRouter API Key</span><span class="fc">
                 <input id="openrouterKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
-              </label>
-              <button type="button" class="btn primary" id="btnOpenrouterLogin" data-i18n="sOpenrouterLogin">用 OpenRouter 账号登录</button>
-              <button type="button" class="btn" id="btnClearOpenrouterKey" data-i18n="sClearKey">清除</button>
-            </div>
-            <p class="muted" id="openrouterKeyStatus"></p>
-            <div class="row">
-              <label class="wide"><span data-i18n="sModel">模型</span>
+                <button type="button" class="btn primary" id="btnOpenrouterLogin" data-i18n="sOpenrouterLogin">用 OpenRouter 账号登录</button>
+                <button type="button" class="btn" id="btnClearOpenrouterKey" data-i18n="sClearKey">清除</button>
+                <span class="st" id="openrouterKeyStatus"></span>
+              </span></label>
+              <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc">
                 <input id="openrouterModel" list="openrouterModels" placeholder="anthropic/claude-opus-5" />
                 <datalist id="openrouterModels"></datalist>
-              </label>
-              <button type="button" class="btn" id="btnOpenrouterModels" data-i18n="sRefreshModels">刷新模型列表</button>
+                <button type="button" class="btn" id="btnOpenrouterModels" data-i18n="sRefreshModels">刷新模型列表</button>
+                <span class="st" id="openrouterModelInfo"></span>
+              </span></label>
             </div>
-            <p class="muted" id="openrouterModelInfo"></p>
-          </div>
 
-          <div id="panel-ollama" class="panel">
-            <div class="row">
-              <label class="wide"><span data-i18n="sOllamaHost">Ollama 地址</span><input id="ollamaHost" placeholder="http://127.0.0.1:11434" /></label>
-              <button type="button" class="btn" id="btnDetect" data-i18n="sDetect">重新检测</button>
+            <div id="panel-ollama" class="panel">
+              <label class="f"><span class="fl" data-i18n="sOllamaHost">Ollama 地址</span><span class="fc">
+                <input id="ollamaHost" placeholder="http://127.0.0.1:11434" />
+                <button type="button" class="btn" id="btnDetect" data-i18n="sDetect">重新检测</button>
+              </span></label>
+              <div id="hwBox" class="hw"></div>
+              <div class="f wide" id="ollamaSetup"><span class="fc">
+                <button type="button" class="btn primary" id="btnInstallOllama" data-i18n="sInstallOllama">一键安装 Ollama</button>
+                <button type="button" class="btn" id="btnStartOllama" data-i18n="sStartOllama">启动 Ollama</button>
+                <button type="button" class="btn" id="btnDownloadOllama" data-i18n="sDownloadOllama">手动下载</button>
+              </span></div>
+              <div id="ollamaJob" class="job indent hidden">
+                <div class="job-head"><span id="jobLabel"></span><span id="jobNumbers" class="muted"></span></div>
+                <div class="bar"><i id="jobBar"></i></div>
+                <details id="jobLogBox" class="loginfo"><summary data-i18n="sShowLog">查看详细日志</summary><pre id="installLog" class="log"></pre></details>
+              </div>
+              <div id="resumePull" class="resume indent hidden"></div>
+              <h4 data-i18n="sModels">模型</h4>
+              <div id="modelCards" class="cards"></div>
+              <p class="st" id="modelsNote"></p>
+              <details class="why"><summary data-i18n="sOtherModel">用别的模型（手动填名称）</summary>
+                <div class="fc">
+                  <input id="ollamaModel" list="ollamaModels" placeholder="qwen3.5:9b" />
+                  <datalist id="ollamaModels"></datalist>
+                  <button type="button" class="btn" id="btnUseRecommended" data-i18n="sUseRecommended">用推荐的</button>
+                  <button type="button" class="btn primary" id="btnPull" data-i18n="sPull">下载模型</button>
+                </div>
+              </details>
+              <div id="pullProgress" class="st"></div>
+              <p class="st" id="ollamaTip"></p>
             </div>
-            <div id="hwBox" class="hw"></div>
-            <div class="row" id="ollamaSetup">
-              <button type="button" class="btn primary" id="btnInstallOllama" data-i18n="sInstallOllama">一键安装 Ollama</button>
-              <button type="button" class="btn" id="btnStartOllama" data-i18n="sStartOllama">启动 Ollama</button>
-              <button type="button" class="btn" id="btnDownloadOllama" data-i18n="sDownloadOllama">手动下载</button>
+
+            <div id="panel-custom" class="panel">
+              <label class="f"><span class="fl" data-i18n="sCustomBase">接口地址（base URL）</span><span class="fc"><input id="customBaseUrl" placeholder="http://127.0.0.1:1234/v1" /></span></label>
+              <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc"><input id="customModel" placeholder="model name" /></span></label>
+              <label class="f"><span class="fl" data-i18n="sCustomKey">API Key（可选）</span><span class="fc">
+                <input id="customKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
+                <button type="button" class="btn" id="btnClearCustomKey" data-i18n="sClearKey">清除</button>
+                <span class="st" id="customKeyStatus"></span>
+              </span></label>
             </div>
-            <pre id="installLog" class="log hidden"></pre>
-            <div class="row">
-              <label class="wide"><span data-i18n="sOllamaModel">使用的模型</span>
-                <input id="ollamaModel" list="ollamaModels" />
-                <datalist id="ollamaModels"></datalist>
-              </label>
-              <button type="button" class="btn" id="btnUseRecommended" data-i18n="sUseRecommended">用推荐的</button>
-              <button type="button" class="btn primary" id="btnPull" data-i18n="sPull">下载模型</button>
+
+            <div class="f wide"><span class="fc">
+              <button type="button" class="btn" id="btnTestProvider" data-i18n="sTestKey">测试</button>
+              <span id="providerTestStatus" class="st"></span>
+            </span></div>
             </div>
-            <div id="pullProgress" class="muted"></div>
-          </div>
-
-          <div id="panel-custom" class="panel">
-            <div class="row">
-              <label class="wide"><span data-i18n="sCustomBase">接口地址（base URL）</span><input id="customBaseUrl" placeholder="http://127.0.0.1:1234/v1" /></label>
-              <label><span data-i18n="sModel">模型</span><input id="customModel" placeholder="model name" /></label>
-            </div>
-            <div class="row">
-              <label class="wide"><span data-i18n="sCustomKey">API Key（可选）</span><input id="customKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" /></label>
-              <button type="button" class="btn" id="btnClearCustomKey" data-i18n="sClearKey">清除</button>
-            </div>
-            <p class="muted" id="customKeyStatus"></p>
-          </div>
-
-          <div class="row">
-            <button type="button" class="btn" id="btnTestProvider" data-i18n="sTestKey">测试</button>
-            <span id="providerTestStatus" class="muted hint"></span>
-          </div>
-          <p class="muted" data-i18n="sAIHint">没有配置 AI 服务时，五个词会用本地关键词提取代替，摘要则是简单清单。五个词、标题和摘要不做翻译，始终使用内容本身的语言。</p>
-        </section>
-
-        <section class="card-section">
-          <h2><span class="h-ico">🎙️</span><span data-i18n="sSpeech">语音转文字（本地 Whisper）</span></h2>
-          <div class="row">
-            <label><span data-i18n="sSttModel">模型大小</span><select id="sttModel"></select></label>
-            <label><span data-i18n="sSttLanguage">识别语言</span><select id="sttLanguage"></select></label>
-          </div>
-          <p class="muted" data-i18n="sOcrIndependent">文字识别（OCR）用的是 PP-OCR 专用识别引擎，和大模型无关；换 AI 服务不会影响识别结果。</p>
-          <div class="row">
-            <label class="wide"><span data-i18n="sOcrModel">文字识别模型</span><select id="ocrModel"></select></label>
-          </div>
-          <div class="row">
-            <label class="wide"><span data-i18n="sMic">麦克风</span><select id="micDevice"></select></label>
-            <button type="button" class="btn" id="btnMicRefresh" data-i18n="sMicRefresh">刷新</button>
-            <button type="button" class="btn" id="btnMicTest" data-i18n="sMicTest">测试麦克风（说 2 秒）</button>
-          </div>
-          <p class="muted" id="micStatus"></p>
-          <div class="row">
-            <label class="wide"><span data-i18n="sMirror">模型下载镜像（可选）</span><input id="hfMirror" placeholder="https://hf-mirror.com/" /></label>
-          </div>
-          <div class="row checks">
-            <label class="check"><input type="checkbox" id="normalizeChineseScript" /><span data-i18n="sNormalizeZh">中文语音转写统一为所选的简体 / 繁体（不是翻译）</span></label>
-          </div>
-          <p class="muted" data-i18n="sSpeechHint">首次录音时会下载模型并缓存到本机，之后完全离线运行。</p>
-        </section>
-
-        <section class="card-section">
-          <h2><span class="h-ico">📋</span><span data-i18n="sClipboard">剪贴板</span></h2>
-          <div class="row checks">
-            <label class="check"><input type="checkbox" id="clipboardWatch" /><span data-i18n="sClipboardWatch">实时记录剪贴板（复制的文字、图片、文件都会存入工作区并打五个词）</span></label>
-          </div>
-          <div class="row">
-            <label><span data-i18n="sClipboardMin">文字至少多少个字才记录</span><input id="clipboardMinChars" type="number" min="1" max="500" /></label>
-            <span class="muted hint" data-i18n="sClipboardHint">密码管理器复制的内容会自动跳过；从工作区里复制出去的文字不会重复记录。托盘菜单里也能随时开关。</span>
-          </div>
-        </section>
-
-        <section class="card-section">
-          <h2><span class="h-ico">🧩</span><span data-i18n="sExtension">浏览器扩展（采集网页图片 / 视频）</span></h2>
-          <p class="muted" data-i18n="sExtensionHint">装上扩展后，在任意网页点扩展图标（或按 Alt+Shift+D），就能看到这一页所有图片、视频、音频，勾选后一键存入工作区。</p>
-          <div class="row checks">
-            <label class="check"><input type="checkbox" id="localApi" /><span data-i18n="sLocalApi">允许浏览器扩展连接（本机接口，仅监听 127.0.0.1）</span></label>
-          </div>
-          <div class="row">
-            <label><span data-i18n="sLocalApiPort">端口</span><input id="localApiPort" type="number" min="1024" max="65535" /></label>
-            <span id="apiStatus" class="muted hint"></span>
-          </div>
-          <div class="row">
-            <button type="button" class="btn primary" id="btnExportExt" data-i18n="sExportExt">导出扩展文件夹…</button>
-            <button type="button" class="btn" id="btnOpenExt" data-i18n="sOpenExt">打开扩展文件夹</button>
-            <button type="button" class="btn" id="btnExtHelp" data-i18n="sExtHelp">安装步骤</button>
-          </div>
-          <div id="extHelp" class="hw hidden"></div>
-        </section>
-
-        <section class="card-section">
-          <h2><span class="h-ico">📅</span><span data-i18n="sSummary">每日摘要</span></h2>
-          <div class="row">
-            <label><span data-i18n="sSummaryTime">生成时间</span><input id="summaryTime" type="time" /></label>
-            <span class="muted hint" data-i18n="sSummaryHint">每天到点后（且程序在运行）自动生成昨天的摘要，并弹出通知。</span>
-          </div>
-        </section>
-
-        <section class="card-section">
-          <h2><span class="h-ico">🗂️</span><span data-i18n="sStorage">存储</span></h2>
-          <div class="row">
-            <label class="wide"><span data-i18n="sWorkspaceDir">工作区文件夹</span><input id="workspaceDir" readonly /></label>
-            <button type="button" class="btn" id="btnChooseDir" data-i18n="sChoose">选择…</button>
-            <button type="button" class="btn" id="btnOpenDir" data-i18n="sOpenDir">打开</button>
-          </div>
-          <div class="row checks">
-            <label class="check"><input type="checkbox" id="ocrDroppedImages" /><span data-i18n="sOcrDropped">拖入的图片也做 OCR</span></label>
-            <label class="check"><input type="checkbox" id="petHidden" /><span data-i18n="sPetHidden">隐藏小猫（可从托盘菜单恢复）</span></label>
-          </div>
-        </section>
-
-        <div class="row actions">
-          <button type="submit" class="btn primary" data-i18n="sSave">保存设置</button>
-          <span id="settingsStatus" class="muted"></span>
+          </section>
         </div>
 
-        <section class="card-section">
-          <h2><span class="h-ico">ℹ️</span><span data-i18n="sAbout">状态</span></h2>
-          <div id="aboutBox" class="about muted"></div>
-        </section>
+        <!-- ================= 工作区与关于 ================= -->
+        <div class="sg-pane" data-group="about">
+          <section class="card-section">
+            <h2 data-i18n="sStorage">工作区文件夹</h2>
+            <div class="body">
+            <label class="f wide"><span class="fc">
+              <input id="workspaceDir" readonly />
+              <button type="button" class="btn" id="btnChooseDir" data-i18n="sChoose">选择…</button>
+              <button type="button" class="btn" id="btnOpenDir" data-i18n="sOpenDir">打开</button>
+            </span></label>
+            </div>
+          </section>
+          <section class="card-section">
+            <h2 data-i18n="sAbout">状态</h2>
+            <div class="body">
+            <div id="aboutBox" class="about"></div>
+            </div>
+          </section>
+        </div>
+
+        </div>
       </form>
     </section>
-  </main>
+
+
+    </main>
+
+    <!-- 右：时间轴。窄窄一条，一天一行——相对日 + 条数。它是索引，不是内容 -->
+    <nav class="axis"><div id="axis" class="ax-days"></div><span id="sideStats" class="ax-total"></span></nav>
+  </div>
+
+  <!-- 底栏不是一条栏，是三只托盘：左边新建，中间问，右边状态和设置 -->
+  <footer class="dock d-left">
+    <button type="button" id="btnNew" class="ico" data-i18n-title="newNote">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+    </button>
+  </footer>
+
+  <footer class="dock d-mid">
+    <form id="askForm" class="ask-bar">
+      <button type="button" id="btnAskPage" class="pet" data-i18n-title="tabAsk">
+        <img id="brandAvatar" src="../../../assets/pet/avatar.png" alt="" />
+      </button>
+      <input id="askInput" data-i18n-placeholder="askPlaceholder" autocomplete="off" />
+      <button type="submit" id="btnAsk" class="send" data-i18n-title="askGo">
+        <svg viewBox="0 0 24 24"><path d="M5 12h13M12 5l7 7-7 7" /></svg>
+      </button>
+    </form>
+  </footer>
+
+  <footer class="dock d-right">
+    <button type="button" id="extChip" class="chip-status" title="">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.6 2.6h7.6v2.7a2.7 2.7 0 0 0 5.4 0V2.6h5.4v7.6h-2.7a2.7 2.7 0 0 0 0 5.4h2.7v5.8h-7.6v-2.7a2.7 2.7 0 0 0-5.4 0v2.7H2.6z" stroke-width="1.9" />
+        </svg><span id="extChipText"></span>
+      </button>
+    <button type="button" id="btnSettings" class="ico" data-i18n-title="tabSettings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+    </button>
+  </footer>
+
+  <!-- 记一句话：从左下角那个加号升起的一张纸 -->
+  <div id="notePad" class="notepad" hidden>
+    <form id="quickAdd">
+      <textarea id="quickInput" rows="3" data-i18n-placeholder="quickPlaceholder"></textarea>
+      <div class="np-acts">
+        <span class="st" data-i18n="noteHint">回车保存，Esc 关掉</span>
+        <button type="submit" class="btn primary" data-i18n="save">保存</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="detailModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <button type="button" class="modal-close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+      <aside id="detail" class="detail"></aside>
+    </div>
+  </div>
+  <!-- 拖文件进来时压在整扇窗上的一层：和拖到常驻头像上是同一件事 -->
+  <div id="dropVeil" class="dropveil" hidden>
+    <div class="dv-word">
+      <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M12 11v6M9 14h6" /></svg>
+      <span data-i18n="dropHere">松手就存进来</span>
+    </div>
+  </div>
   <div id="toast" class="toast"></div>
   <script src="workspace.js"></script>
 </body>

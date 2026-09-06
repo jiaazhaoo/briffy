@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>briffy · 五种卡片</title>
+<link rel="stylesheet" href="/assets/fonts/fonts.css" />
+<link rel="stylesheet" href="/assets/paper/tokens.css" />
+<style>
+/* 五种记录，五张形状不同的纸。一张静态样张，不接应用，只用来用眼睛判。
+   标准：.claude/skills/paper-ui/SKILL.md
+
+   第一版的错：五张都是 240 宽、同样的内边距、同样的头一行，只在角上差一个小细节——
+   远看当然一样。区分不能靠装饰，得靠轮廓和「墨落在哪里」。
+
+   五种形（2026-09-05 定）：
+     录音    横跨两列的一条。没有标题，整条底边是波形——磁带
+     截图    竖的，白框包着画面，底边更宽——拍立得
+     随手记  正方形，字更大，下半张空着，右下角折起——便利贴
+     收藏    横跨两列，一个粗标题 + 域名，左上垂书签舌——索引卡
+     剪切板  上下都撕开的一条——从别处撕下来的碎片
+
+   纸色极淡：眯起眼糊成同一张纸，睁开靠形状认出是谁。 */
+
+/* 纸色已经进 assets/paper/tokens.css：这里不再自带一份，免得两处打架 */
+
+* { box-sizing: border-box; }
+body { margin: 0; padding: var(--pad); background: var(--page); color: var(--ink);
+  font: 400 var(--fs-body)/1.6 var(--sans); -webkit-font-smoothing: antialiased;
+  text-autospace: normal; text-spacing-trim: space-first; line-break: strict; }
+h1 { font: var(--w-day) var(--fs-day)/1.3 var(--sans); margin: 0 0 var(--a1); }
+.lede { color: var(--ink-2); margin: 0 0 var(--a5); max-width: 46em; text-wrap: pretty; }
+h2 { font: 600 var(--fs-h2)/1.4 var(--sans); margin: var(--a5) 0 var(--a4); }
+h2 em { font-style: normal; font-weight: 400; font-size: var(--fs-meta); color: var(--ink-3); margin-left: var(--a3); }
+
+/* ---------- 一张一张看：卡片按真实尺寸，说明写在右边 ---------- */
+.spec { display: flex; align-items: flex-start; gap: var(--a5); margin-bottom: var(--a5); }
+.spec .cap-t { width: 300px; padding-top: 2px; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.75; }
+.spec .cap-t b { display: block; color: var(--ink); font-weight: 600; font-size: var(--fs-act); margin-bottom: 2px; }
+.spec .cap-t i { font-style: normal; color: var(--ink-2); }
+
+/* ---------- 五种纸共有的那点东西 ---------- */
+.c { position: relative; background: var(--slip); box-shadow: var(--e1);
+  transition: transform .12s, box-shadow .12s; }
+.c:hover { transform: translateY(-2px); box-shadow: var(--e2); }
+.k { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums; }
+/* 图标的尺寸和描边写在一处：漏掉一个位置，SVG 会按默认填满容器并涂黑 */
+.k svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5;
+  stroke-linecap: square; stroke-linejoin: miter; flex: none; }
+
+/* 1 · 录音 —— 一条磁带。没有标题，整条底边是波形；转写只留一行，压在时间后面 */
+.c-voice { background: var(--p-voice); padding: var(--a3) var(--a3) 0; }
+.c-voice .lab { display: flex; align-items: baseline; gap: var(--a3); }
+.c-voice .lab .said { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--ink-2); }
+.c-voice .dur { flex: none; color: var(--ink-2); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.wave { display: flex; align-items: flex-end; gap: 1px; height: 36px;
+  margin: var(--a3) calc(var(--a3) * -1) 0; padding: 0 var(--a3) 9px; background: var(--p-voice-2); }
+.wave i { flex: 1; min-width: 1px; background: var(--ink-3); opacity: .55; }
+
+/* 2 · 截图 —— 拍立得。白框包着画面，底边更宽，时间写在那道宽边上 */
+.c-shot { background: var(--p-shot); padding: 8px 8px 0; }
+.c-shot .pic { display: block; width: 100%; background: var(--slip-2); }
+.c-shot .k { height: 34px; }
+
+/* 3 · 随手记 —— 便利贴。正方形，字更大，下半张空着；时间退到最下面，因为纸上先有的是你的话 */
+.c-note { background: var(--p-note); aspect-ratio: 1 / 1; padding: var(--a3) var(--a3) 0; }
+.c-note .said { margin: 0; font-size: 15px; line-height: 1.75;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.c-note .k { position: absolute; left: var(--a3); bottom: var(--a3); }
+.c-note .fold { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px;
+  background: var(--p-note-2); clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(-1px -1px 1.5px rgba(0, 0, 0, .16)); }
+
+/* 4 · 收藏 —— 索引卡。横跨两列，一个粗标题领着，域名跟在下面；书签舌躺在纸上，不是左边框 */
+.c-mark { background: var(--p-mark); padding: var(--a3) var(--a3) var(--a3) 34px; }
+.c-mark .ttl { font: 600 15px/1.45 var(--sans); margin: 2px 0 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.c-mark .host { display: block; color: var(--ink-3); font-size: var(--fs-meta); margin-top: 3px; }
+.c-mark .ribbon { position: absolute; left: var(--a3); top: 0; width: 10px; height: 44px;
+  background: var(--p-mark-2); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); }
+
+/* 5 · 剪切板 —— 上下都撕开的一条：它是从别处撕下来的碎片。
+   撕过的边不齐，box-shadow 只会画矩形，所以改用两层 drop-shadow（数值同 --e1） */
+.c-clip { background: var(--p-clip); padding: 19px var(--a3) 21px; box-shadow: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .10)) drop-shadow(0 4px 10px rgba(0, 0, 0, .10));
+  clip-path: polygon(
+    0 7px, 7% 2px, 13% 8px, 21% 1px, 28% 6px, 36% 2px, 44% 8px, 52% 3px, 60% 7px, 68% 1px, 76% 6px, 84% 2px, 92% 7px, 100% 3px,
+    100% calc(100% - 6px), 93% calc(100% - 1px), 85% calc(100% - 7px), 77% calc(100% - 2px), 69% calc(100% - 6px),
+    61% calc(100% - 1px), 53% calc(100% - 7px), 45% calc(100% - 3px), 37% calc(100% - 8px), 29% calc(100% - 2px),
+    21% calc(100% - 6px), 13% calc(100% - 1px), 6% calc(100% - 7px), 0 calc(100% - 3px)); }
+.c-clip:hover { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .12)) drop-shadow(0 10px 22px rgba(0, 0, 0, .13)); }
+@media (prefers-color-scheme: dark) {
+  .c-clip { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .5)) drop-shadow(0 4px 10px rgba(0, 0, 0, .4)); }
+  .c-clip:hover { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)) drop-shadow(0 10px 22px rgba(0, 0, 0, .45)); }
+}
+.c-clip .said { margin: var(--a2) 0 0; }
+.c-clip .from { display: block; margin-top: var(--a2); color: var(--ink-3); font-size: var(--fs-meta); }
+
+/* ---------- 混在一起：真的按四列瀑布流排一遍，两列宽的那条要占两列 ---------- */
+.mix { position: relative; }
+.mix > .c { position: absolute; }
+</style>
+</head>
+<body>
+
+<h1>五种卡片</h1>
+<p class="lede">形状先分开，再谈细节：一条磁带、一张拍立得、一张便利贴、一张索引卡、一片撕下来的纸。
+纸色仍然极淡——眯起眼它们糊成同一张纸，睁开是靠轮廓认出谁是谁的。</p>
+
+<h2>一张一张看<em>各自的轮廓，各自的墨落在哪里</em></h2>
+
+<div class="spec">
+  <article class="c c-voice" style="width: 506px">
+    <div class="lab">
+      <span class="k"><svg viewBox="0 0 12 12"><path d="M4.5 1.2h3v5h-3z"/><path d="M2.5 5.5v.8a3.5 3.5 0 0 0 7 0v-.8"/><path d="M6 9.8v1.2"/></svg><span>10:03</span></span>
+      <span class="said">你好，这是一段测试录音。明天上午记得把项目预算发给张老师，下午三点开会讨论产品。</span>
+      <span class="dur">1′04″</span>
+    </div>
+    <div class="wave" data-seed="7" data-n="92"></div>
+  </article>
+  <p class="cap-t"><b>录音 · 一条磁带</b>横跨两列，矮。<i>没有标题</i>——一段录音本来就没有标题，整条底边是波形，转写只留一行压在时间后面。时长在最右端。</p>
+</div>
+
+<div class="spec">
+  <article class="c c-shot" style="width: 240px">
+    <img class="pic" src="/dev/preview/shot.svg" alt="" />
+    <div class="k"><svg viewBox="0 0 12 12"><path d="M1 3.5h2.2l1-1.5h3.6l1 1.5H11v6.5H1z"/><path d="M4.3 6.7h3.4v-2H4.3z"/></svg><span>09:12</span></div>
+  </article>
+  <p class="cap-t"><b>截图 · 一张拍立得</b>竖的，一列宽。白边包着画面，<i>底边更宽</i>，时间写在那道宽边上。高度跟着画面本身走。</p>
+</div>
+
+<div class="spec">
+  <article class="c c-note" style="width: 240px">
+    <p class="said">明天上午十点和产品团队开会，讨论第三季度的预算和路线图。</p>
+    <div class="k"><svg viewBox="0 0 12 12"><path d="M2 1.5h5.5L10 4v6.5H2z"/><path d="M7.3 1.6V4H10"/><path d="M4 6.4h4M4 8.3h2.6"/></svg><span>15:02</span></div>
+    <span class="fold"></span>
+  </article>
+  <p class="cap-t"><b>随手记 · 一张便利贴</b>正方形，字更大（15px），<i>下半张空着</i>——便利贴本来就是写一句话、剩下都是空的。时间退到最下面：纸上先有的是你的话。右下角折起，露出纸背。</p>
+</div>
+
+<div class="spec">
+  <article class="c c-mark" style="width: 506px">
+    <span class="ribbon"></span>
+    <div class="k"><svg viewBox="0 0 12 12"><path d="M3 1.5h6v9L6 8.2 3 10.5z"/></svg><span>11:25</span></div>
+    <p class="ttl">Optical character recognition — Wikipedia</p>
+    <span class="host">en.wikipedia.org</span>
+  </article>
+  <p class="cap-t"><b>收藏 · 一张索引卡</b>横跨两列，矮。<i>一个粗标题领着</i>，域名跟在下面——一条收藏就是"这一页叫什么、在哪儿"。左上垂一条书签舌，燕尾口；它躺在纸上，不是左边框，所以正文让开它。</p>
+</div>
+
+<div class="spec">
+  <article class="c c-clip" style="width: 240px">
+    <div class="k"><svg viewBox="0 0 12 12"><path d="M2.5 2.5h7v8h-7z"/><path d="M4.5 1h3v2h-3z"/><path d="M4.5 5.5h3.5M4.5 7.5h2"/></svg><span>12:15</span></div>
+    <p class="said">“后端联调排在本周四，前端先按 mock 走，接口字段定了再改。”</p>
+    <span class="from">从 Slack</span>
+  </article>
+  <p class="cap-t"><b>剪切板 · 一片撕下来的纸</b>一列宽，<i>上下都撕开</i>——它是从别处撕下来的一块，不是完整的一张。原文加引号，底下写从哪个应用来。</p>
+</div>
+
+<h2>混在一起<em>四列瀑布流，录音和收藏占两列</em></h2>
+<div class="mix">
+  <article class="c c-shot" data-span="1"><img class="pic" src="/dev/preview/shot.svg" alt="" /><div class="k"><svg viewBox="0 0 12 12"><path d="M1 3.5h2.2l1-1.5h3.6l1 1.5H11v6.5H1z"/><path d="M4.3 6.7h3.4v-2H4.3z"/></svg><span>09:12</span></div></article>
+  <article class="c c-note" data-span="1"><p class="said">买牛奶、修自行车的闸线。</p><div class="k"><svg viewBox="0 0 12 12"><path d="M2 1.5h5.5L10 4v6.5H2z"/><path d="M7.3 1.6V4H10"/><path d="M4 6.4h4M4 8.3h2.6"/></svg><span>08:40</span></div><span class="fold"></span></article>
+  <article class="c c-voice" data-span="2"><div class="lab"><span class="k"><svg viewBox="0 0 12 12"><path d="M4.5 1.2h3v5h-3z"/><path d="M2.5 5.5v.8a3.5 3.5 0 0 0 7 0v-.8"/><path d="M6 9.8v1.2"/></svg><span>10:03</span></span><span class="said">你好，这是一段测试录音。明天上午记得把项目预算发给张老师。</span><span class="dur">1′04″</span></div><div class="wave" data-seed="7" data-n="92"></div></article>
+  <article class="c c-mark" data-span="2"><span class="ribbon"></span><div class="k"><svg viewBox="0 0 12 12"><path d="M3 1.5h6v9L6 8.2 3 10.5z"/></svg><span>11:25</span></div><p class="ttl">为什么 SQLite 不需要服务器</p><span class="host">example.com</span></article>
+  <article class="c c-clip" data-span="1"><div class="k"><svg viewBox="0 0 12 12"><path d="M2.5 2.5h7v8h-7z"/><path d="M4.5 1h3v2h-3z"/><path d="M4.5 5.5h3.5M4.5 7.5h2"/></svg><span>12:15</span></div><p class="said">“后端联调排在本周四，前端先按 mock 走，接口字段定了再改。”</p><span class="from">从 Slack</span></article>
+  <article class="c c-note" data-span="1"><p class="said">明天上午十点和产品团队开会，讨论第三季度的预算和路线图。记得把上次那版对比表带上。</p><div class="k"><svg viewBox="0 0 12 12"><path d="M2 1.5h5.5L10 4v6.5H2z"/><path d="M7.3 1.6V4H10"/><path d="M4 6.4h4M4 8.3h2.6"/></svg><span>15:02</span></div><span class="fold"></span></article>
+  <article class="c c-shot" data-span="1"><img class="pic" src="/dev/preview/shot.svg" alt="" /><div class="k"><svg viewBox="0 0 12 12"><path d="M1 3.5h2.2l1-1.5h3.6l1 1.5H11v6.5H1z"/><path d="M4.3 6.7h3.4v-2H4.3z"/></svg><span>13:33</span></div></article>
+  <article class="c c-voice" data-span="2"><div class="lab"><span class="k"><svg viewBox="0 0 12 12"><path d="M4.5 1.2h3v5h-3z"/><path d="M2.5 5.5v.8a3.5 3.5 0 0 0 7 0v-.8"/><path d="M6 9.8v1.2"/></svg><span>18:45</span></span><span class="said">路上想到的：把识别和摘要分成两步，识别不用等模型。</span><span class="dur">0′22″</span></div><div class="wave" data-seed="23" data-n="92"></div></article>
+  <article class="c c-clip" data-span="1"><div class="k"><svg viewBox="0 0 12 12"><path d="M2.5 2.5h7v8h-7z"/><path d="M4.5 1h3v2h-3z"/><path d="M4.5 5.5h3.5M4.5 7.5h2"/></svg><span>18:37</span></div><p class="said">“Dell ultrawide monitor p3425we”</p><span class="from">从 Chrome</span></article>
+  <article class="c c-mark" data-span="2"><span class="ribbon"></span><div class="k"><svg viewBox="0 0 12 12"><path d="M3 1.5h6v9L6 8.2 3 10.5z"/></svg><span>19:43</span></div><p class="ttl">时天天 tt 的个人空间 — 哔哩哔哩视频</p><span class="host">space.bilibili.com</span></article>
+</div>
+
+<h2>纸色<em>极淡；分类靠形，颜色只是帮腔</em></h2>
+<div class="swatches">
+  <div class="sw"><div class="chip" style="background: var(--p-voice)"></div><div class="nm">录音 · 牛皮</div><div class="hex">--p-voice</div></div>
+  <div class="sw"><div class="chip" style="background: var(--p-shot)"></div><div class="nm">截图 · 相纸</div><div class="hex">--p-shot（= --slip）</div></div>
+  <div class="sw"><div class="chip" style="background: var(--p-note)"></div><div class="nm">随手记 · 浅黄</div><div class="hex">--p-note</div></div>
+  <div class="sw"><div class="chip" style="background: var(--p-mark)"></div><div class="nm">收藏 · 淡青</div><div class="hex">--p-mark</div></div>
+  <div class="sw"><div class="chip" style="background: var(--p-clip)"></div><div class="nm">剪切板 · 灰</div><div class="hex">--p-clip</div></div>
+  <div class="sw"><div class="chip" style="background: var(--marker)"></div><div class="nm">选中 · 荧光笔</div><div class="hex">--marker</div></div>
+</div>
+<p class="note-warn">还是那个要当心的地方：随手记的黄纸和<mark>选中的荧光笔</mark>是同一族颜色。现在便签黄比荧光笔淡一档，挨着能分开。</p>
+
+<style>
+.swatches { display: flex; gap: var(--a4); flex-wrap: wrap; }
+.sw { width: 150px; }
+.sw .chip { height: 54px; box-shadow: var(--e1); }
+.sw .nm { margin-top: var(--a2); font-size: var(--fs-act); font-weight: var(--w-title); }
+.sw .hex { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.note-warn { margin-top: var(--a4); color: var(--ink-2); font-size: var(--fs-act); max-width: 46em; }
+.note-warn mark { background: var(--marker); color: inherit; padding: 0 4px; }
+</style>
+
+<script>
+// 波形：一段确定的伪随机，样张每次打开长得一样。真接上去时这几根柱子来自音频本身。
+for (const w of document.querySelectorAll('.wave')) {
+  const n = +w.dataset.n || 44;
+  let s = +w.dataset.seed || 7;
+  let html = '';
+  for (let i = 0; i < n; i++) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    html += '<i style="height:' + (14 + ((s >> 16) % 100) / 100 * 74).toFixed(0) + '%"></i>';
+  }
+  w.innerHTML = html;
+}
+
+// 四列瀑布流，和应用里那套一样：占两列的挑一对相邻列里最矮的那对。
+// 这一段只是为了证明宽窄不一的卡片排得下——真的实现在 workspace.js 的 layoutGrid。
+function layout() {
+  const COL = 240, GAP = 26, N = 4;
+  const grid = document.querySelector('.mix');
+  grid.style.width = (N * COL + (N - 1) * GAP) + 'px';
+  const cards = [...grid.children];
+  for (const c of cards) {
+    const span = +c.dataset.span || 1;
+    c.style.width = (span * COL + (span - 1) * GAP) + 'px';
+  }
+  const h = new Array(N).fill(0);
+  for (const c of cards) {
+    const span = +c.dataset.span || 1;
+    let bi = 0, bv = Infinity;
+    for (let i = 0; i + span <= N; i++) {
+      const v = Math.max(...h.slice(i, i + span));
+      if (v < bv - 0.5) { bv = v; bi = i; }
+    }
+    c.style.left = (bi * (COL + GAP)) + 'px';
+    c.style.top = bv + 'px';
+    const next = bv + c.offsetHeight + GAP;
+    for (let i = bi; i < bi + span; i++) h[i] = next;
+  }
+  grid.style.height = (Math.max(...h) - GAP) + 'px';
+}
+layout();
+window.addEventListener('load', layout);
+document.fonts.ready.then(layout);
+</script>
+</body>
+</html>

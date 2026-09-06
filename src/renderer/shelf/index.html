@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data:; font-src 'self' file:" />
+  <title>briffy shelf</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
+  <link rel="stylesheet" href="shelf.css" />
+</head>
+<body>
+  <div id="panel">
+    <div id="list" class="list"></div>
+    <button type="button" id="open" class="open">
+      <svg viewBox="0 0 24 24"><path d="M4 6h6l2 2h8v10H4z" /></svg>
+      <span id="openLabel"></span>
+    </button>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="shelf.js"></script>
+</body>
+</html>

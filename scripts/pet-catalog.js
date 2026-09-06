@@ -19,7 +19,7 @@ const OUT = path.join(__dirname, '..', 'assets', 'pet', 'catalog.json');
 const ENTRY = /"logos\/([0-9a-f]{16}-[a-z0-9-]+)\.png":\{backgroundColor:\s*[`"']([^`"']+)[`"']\s*,\s*width:\s*(\d+)\s*,\s*height:\s*(\d+)/g;
 
 async function text(url) {
-  const res = await fetch(url, { headers: { 'user-agent': 'dailylogs-pet-catalog' } });
+  const res = await fetch(url, { headers: { 'user-agent': 'briffy-pet-catalog' } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return res.text();
 }

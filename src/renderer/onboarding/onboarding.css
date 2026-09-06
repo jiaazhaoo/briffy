@@ -1,0 +1,99 @@
+/* 第一次打开。一屏一件事，屏幕上不出现和这件事无关的东西。
+   窗口是一张暖灰的底纸，每一步印在上面。权限那几项是一行行的字，不是盒子：
+   正在问的那一项亮着，其它的只是变淡而不是藏起来，所以一开始就能看见这条路有多长。
+   标准：.claude/skills/paper-ui/SKILL.md */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--ground); color: var(--ink);
+  font: 400 var(--fs-body)/1.7 var(--sans); -webkit-font-smoothing: antialiased;
+  text-autospace: normal; text-spacing-trim: space-first; line-break: strict;
+  display: flex; flex-direction: column; user-select: none; -webkit-user-select: none;
+}
+
+/* ---------- 页眉：不说一个字，只说你在哪 ---------- */
+.head { display: flex; align-items: center; gap: var(--a3); padding: 28px var(--pad) 0; -webkit-app-region: drag; }
+.word, .count { font-size: var(--fs-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.steps { flex: 1; display: flex; gap: 5px; }
+.steps i { flex: 1; height: 2px; background: var(--tone-2); transition: background .25s; }
+.steps i.done { background: var(--ink-3); }
+.steps i.now { background: var(--ink); }
+
+/* ---------- 这一步本身 ---------- */
+main { flex: 1; overflow: auto; padding: 0 var(--pad); display: flex; flex-direction: column; justify-content: center; }
+.step { display: none; animation: rise .22s ease-out; }
+.step.active { display: block; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+h1 { font: var(--w-day) var(--fs-day)/1.3 var(--sans); letter-spacing: -.01em; margin: 0 0 var(--a2); text-wrap: balance; }
+.sub { color: var(--ink-2); margin: 0 0 var(--a5); max-width: 42em; text-wrap: pretty; }
+/* 桌面形象，就是它待会儿贴在桌面上的样子：一张拍立得。这一页上唯一的物件 */
+.mark { width: 74px; height: 94px; padding: 4px 4px 22px; background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .22), 0 8px 18px rgba(0, 0, 0, .18); margin-bottom: var(--a4); transform: rotate(-3deg); }
+.mark svg { display: block; }
+
+.row2 { display: flex; gap: var(--a4); flex-wrap: wrap; }
+.row2 label { display: flex; flex-direction: column; gap: var(--a1); font-size: var(--fs-meta); color: var(--ink-3); min-width: 200px; flex: 1; }
+select, input { background: transparent; color: var(--ink); border: 0; border-bottom: 1px solid var(--hair);
+  padding: 0 0 6px; font: 400 var(--fs-body)/1.5 var(--sans); width: 100%; }
+select:focus, input:focus { outline: none; border-bottom-color: var(--ink); }
+select { appearance: none; -webkit-appearance: none; padding-right: 18px; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: right 5px top 9px, right 0 top 9px; background-size: 5px 5px; background-repeat: no-repeat; }
+
+/* ---------- 权限：一行一项 ---------- */
+.perms { display: flex; flex-direction: column; gap: 0; }
+.perm { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: var(--a3);
+  padding: var(--a3) 0; transition: opacity .2s; }
+/* 正在问的那一项亮着；其它的还看得见，只是退后 */
+.perm.idle { opacity: .42; }
+.perm.granted { opacity: .55; }
+.perm .ico { width: 30px; font-size: 17px; filter: grayscale(1); opacity: .75; }
+.perm .t { font-weight: var(--w-title); margin-bottom: 1px; }
+.perm .d { color: var(--ink-2); font-size: var(--fs-act); }
+.perm .act { font: 600 var(--fs-body)/1 var(--sans); color: var(--accent); background: none; border: 0; cursor: pointer; padding: 6px 0; white-space: nowrap; }
+.perm .act:hover { color: var(--ink); }
+.perm .state { font-size: var(--fs-meta); color: var(--ink-3); white-space: nowrap; }
+.perm .state.ok { color: var(--ok); }
+.note { margin-top: var(--a4); font-size: var(--fs-act); color: var(--ink-3); min-height: 1.5em; }
+.note.warn { color: var(--stamp); }
+
+/* ---------- 谁来读：选中的那张被荧光笔划过 ---------- */
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2px; }
+.choice { text-align: left; padding: var(--a3) var(--a3); border: 0; background: transparent; cursor: pointer;
+  color: inherit; font: inherit; transition: background .12s; }
+.choice:hover { background: var(--tone); }
+.choice.on { background: var(--marker); }
+.choice b { display: block; margin-bottom: 2px; font-weight: var(--w-title); }
+.choice span { color: var(--ink-2); font-size: var(--fs-act); }
+
+/* ---------- 准备本机引擎 ---------- */
+.engine { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0; }
+.engine li { display: flex; align-items: center; gap: var(--a3); padding: var(--a3) 0; color: var(--ink-2); }
+.engine .dot { width: 6px; height: 6px; background: var(--ink-3); flex: none; }
+.engine li.run { color: var(--ink); }
+.engine li.run .dot { background: var(--accent); animation: blink 1s ease-in-out infinite; }
+.engine li.done { color: var(--ink); }
+.engine li.done .dot { background: var(--ok); }
+.engine li.warn .dot { background: var(--stamp); }
+.engine .detail { margin-left: auto; font-size: var(--fs-meta); color: var(--ink-3); }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+.gestures { list-style: none; padding: 0; margin: var(--a4) 0 0; display: flex; flex-direction: column; gap: var(--a2);
+  color: var(--ink-2); font-size: var(--fs-act); }
+.gestures b { color: var(--ink); font-weight: var(--w-title); }
+
+/* ---------- 页脚 ---------- */
+.foot { display: flex; align-items: center; gap: var(--a4); padding: var(--a4) var(--pad) 28px; }
+.muted { color: var(--ink-3); font-size: var(--fs-meta); flex: 1; }
+.btns { display: flex; gap: var(--a2); }
+/* 按钮：印在纸上的一块，层 0——没有影子、不抬起 */
+.btn { border: 0; background: var(--tone); color: var(--ink); padding: 8px 18px;
+  font: 600 var(--fs-act)/1.3 var(--sans); cursor: pointer; }
+.btn:hover { background: var(--tone-2); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--ink); color: var(--page); }
+.btn.primary:hover { background: var(--ink-2); }
+.btn.ghost { background: none; color: var(--ink-3); padding-left: 0; padding-right: var(--a3); }
+.btn.ghost:hover { color: var(--ink); background: none; }
+.btn.ghost:active { transform: none; }
+.btn[hidden] { display: none; }

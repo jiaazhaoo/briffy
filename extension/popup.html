@@ -2,13 +2,14 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8" />
-  <title>DailyLogs 媒体采集</title>
+  <title>briffy 媒体采集</title>
+  <link rel="stylesheet" href="paper/tokens.css" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <header class="top">
     <img src="icons/32.png" alt="" />
-    <div class="title"><b>DailyLogs</b><small id="pageTitle">正在扫描当前页面…</small></div>
+    <div class="title"><b>briffy</b><small id="pageTitle">正在扫描当前页面…</small></div>
     <span id="appStatus" class="status"><i></i><span>连接中…</span></span>
   </header>
 
@@ -29,18 +30,19 @@
   <main id="grid" class="grid"><div class="empty">扫描中…</div></main>
 
   <footer class="bottom">
-    <label class="check"><input type="checkbox" id="downloadVideos" /> 同时下载视频 / 音频文件（可能很大）</label>
+    <label class="check"><input type="checkbox" id="downloadVideos" /> 同时下载视频 / 音频文件（分片流会用 ffmpeg 合并，可能很大）</label>
     <div class="row">
       <span id="summary" class="muted">未选择</span>
-      <button id="btnSend" class="primary" disabled>发送到 DailyLogs</button>
+      <button id="btnSend" class="primary" disabled>发送到 briffy</button>
     </div>
     <div id="progress" class="progress hidden"><div class="bar"><i></i></div><span></span></div>
     <details class="settings">
       <summary>设置</summary>
-      <label>DailyLogs 端口 <input id="port" type="number" min="1024" max="65535" /></label>
-      <p class="muted">DailyLogs 需要在电脑上运行，接口地址在 App 的 设置 › 浏览器扩展 里查看。</p>
+      <label>briffy 端口 <input id="port" type="number" min="1024" max="65535" /></label>
+      <p class="muted">briffy 需要在电脑上运行，接口地址在 App 的 设置 › 浏览器扩展 里查看。</p>
     </details>
   </footer>
+  <script src="classify.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

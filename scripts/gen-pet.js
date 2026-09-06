@@ -122,7 +122,7 @@ const PROVIDERS = {
       if (ref) content.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${ref.toString('base64')}` } });
       const json = await postJson('https://openrouter.ai/api/v1/chat/completions', {
         model, modalities: ['image', 'text'], messages: [{ role: 'user', content }],
-      }, { Authorization: `Bearer ${key}`, 'HTTP-Referer': 'https://github.com/dailylogs', 'X-Title': 'DailyLogs pet' });
+      }, { Authorization: `Bearer ${key}`, 'HTTP-Referer': 'https://github.com/jiaazhaoo/briffy', 'X-Title': 'briffy pet' });
       const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
       if (!url) throw new Error(`no image in response: ${JSON.stringify(json).slice(0, 400)}`);
       return b64(url.replace(/^data:image\/\w+;base64,/, ''));

@@ -1,7 +1,7 @@
 'use strict';
 (async () => {
   const $ = (s) => document.querySelector(s);
-  const state = { items: [], selected: new Set(), kind: 'all', minSize: 150, tab: null, pageTitle: '' };
+  const state = { items: [], selected: new Set(), kind: 'all', minSize: 150, tab: null, pageTitle: '', mse: false, players: [] };
   const KIND_ICON = { image: '🖼️', video: '🎬', audio: '🎵', stream: '📺', blob: '🎬' };
   const KIND_LABEL = { image: '图片', video: '视频', audio: '音频', stream: '流媒体', blob: '页内播放' };
 
@@ -13,7 +13,7 @@
     const r = await chrome.runtime.sendMessage({ type: 'ping' });
     const el = $('#appStatus');
     el.className = `status ${r && r.ok ? 'ok' : 'bad'}`;
-    el.querySelector('span').textContent = r && r.ok ? `DailyLogs ${r.version || ''} 已连接` : 'DailyLogs 未运行';
+    el.querySelector('span').textContent = r && r.ok ? `briffy ${r.version || ''} 已连接` : 'briffy 未运行';
     return !!(r && r.ok);
   }
   checkApp();
@@ -24,20 +24,35 @@
   state.pageTitle = tab.title || '';
   $('#pageTitle').textContent = tab.title || tab.url;
   let dom = [];
+  let players = [];
   try {
     const results = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ['scan.js'] });
-    for (const r of results) if (r && r.result && Array.isArray(r.result.items)) dom.push(...r.result.items);
+    for (const r of results) {
+      if (!r || !r.result) continue;
+      if (Array.isArray(r.result.items)) dom.push(...r.result.items);
+      if (Array.isArray(r.result.players)) players.push(...r.result.players);
+    }
   } catch (e) {
     $('#grid').innerHTML = `<div class="empty">无法扫描这个页面（${e.message}）。浏览器内置页面和商店页面不允许扩展访问。</div>`;
   }
-  const sniffed = (await chrome.runtime.sendMessage({ type: 'getSniffed', tabId: tab.id })) || [];
+  const collected = (await chrome.runtime.sendMessage({ type: 'collect', tabId: tab.id, pageUrl: tab.url })) || {};
+  const sniffed = collected.items || [];
+  state.mse = !!collected.mse;
+  state.players = players;
   const byUrl = new Map();
   for (const it of [...dom, ...sniffed]) {
     const cur = byUrl.get(it.url);
     if (!cur) byUrl.set(it.url, { ...it });
     else Object.assign(cur, { ...it, ...cur, width: Math.max(cur.width || 0, it.width || 0), height: Math.max(cur.height || 0, it.height || 0), sniffed: cur.sniffed || it.sniffed });
   }
-  state.items = [...byUrl.values()].filter((it) => it.kind !== 'blob' || false).map((it, i) => ({ ...it, id: i, filename: it.filename || `media-${i}` }));
+  const poster = (players.find((pl) => pl.poster) || {}).poster || '';
+  state.items = [...byUrl.values()]
+    .filter((it) => it.kind !== 'blob' && it.kind !== 'segment')
+    .map((it, i) => {
+      const isVideo = it.kind === 'video' || it.kind === 'stream';
+      // filename stays the technical one so the app can trust its extension; name is for reading
+      return { ...it, id: i, filename: it.filename || baseName(it.url) || '', name: displayName(it, i), poster: isVideo ? poster : '' };
+    });
   // videos and streams first, then big images
   state.items.sort((a, b) => rank(b) - rank(a));
   function rank(it) { return (it.kind === 'video' || it.kind === 'stream' ? 1e9 : it.kind === 'audio' ? 5e8 : 0) + (it.width || 0) * (it.height || 0) + (it.size || 0) / 1000; }
@@ -57,26 +72,49 @@
     for (const it of state.items) { c.all++; if (it.kind === 'image') c.image++; else if (it.kind === 'video' || it.kind === 'stream') c.video++; else if (it.kind === 'audio') c.audio++; }
     $('#nAll').textContent = c.all; $('#nImage').textContent = c.image; $('#nVideo').textContent = c.video; $('#nAudio').textContent = c.audio;
   }
+  function displayName(it, i) {
+    const base = baseName(it.url);
+    if (base) return base;
+    if (it.hint) return cleanTitle(state.pageTitle, state.tab && state.tab.url) || `stream-${i}`;
+    if (it.kind === 'video' || it.kind === 'stream' || it.kind === 'audio') {
+      const t = cleanTitle(state.pageTitle, state.tab && state.tab.url);
+      if (t) return t;
+    }
+    if (it.alt) return it.alt.slice(0, 60);
+    return `media-${i}`;
+  }
+
   function fmtSize(n) { return n ? (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`) : ''; }
   function render() {
     counts();
     const list = visible();
     const grid = $('#grid');
-    if (!list.length) { grid.innerHTML = '<div class="empty">这个页面上没有找到符合条件的媒体</div>'; updateSummary(); return; }
+    if (!list.length) {
+      const why = [];
+      if (state.players.length) why.push(`页面里有 ${state.players.length} 个 <video>，但它的地址是 blob:（播放器自己拼流）`);
+      if (state.mse) why.push('检测到 MSE 流式播放');
+      why.push('试试先让视频播放几秒再打开这个面板，分片请求出现后才认得出来');
+      grid.innerHTML = `<div class="empty">这个页面上没有找到符合条件的媒体<br><span class="why">${why.map(escapeHtml).join('<br>')}</span></div>`;
+      updateSummary(); return;
+    }
     grid.innerHTML = list.map((it) => {
       const on = state.selected.has(it.id) ? ' on' : '';
-      const thumb = it.kind === 'image' ? `<img src="${it.url.replace(/"/g, '&quot;')}" loading="lazy" alt="" />` : (KIND_ICON[it.kind] || '📎');
-      const dims = it.width && it.height ? `${it.width}×${it.height}` : fmtSize(it.size) || KIND_LABEL[it.kind];
+      const thumbSrc = it.kind === 'image' ? it.url : it.poster;
+      const thumb = thumbSrc ? `<img src="${thumbSrc.replace(/"/g, '&quot;')}" loading="lazy" alt="" />` : (KIND_ICON[it.kind] || '📎');
+      const dims = it.hint ? `${it.fragments} 个分片` : it.width && it.height ? `${it.width}×${it.height}` : fmtSize(it.size) || KIND_LABEL[it.kind];
       return `<div class="item${on}" data-id="${it.id}" title="${it.url.replace(/"/g, '&quot;')}">
         <div class="th">${thumb}</div><span class="chk"></span><span class="tag">${KIND_LABEL[it.kind] || it.kind}</span>
-        <div class="cap"><b>${escapeHtml(it.filename)}</b><br>${dims}${it.sniffed ? ' · 网络' : ''}</div></div>`;
+        <div class="cap"><b>${escapeHtml(it.name)}</b><br>${dims}${it.sniffed ? ' · 网络' : ''}</div></div>`;
     }).join('');
     // learn real sizes from the loaded thumbnails
     for (const img of grid.querySelectorAll('img')) {
       img.addEventListener('load', () => {
         const id = Number(img.closest('.item').dataset.id);
         const it = state.items.find((x) => x.id === id);
-        if (it && (!it.width || !it.height)) { it.width = img.naturalWidth; it.height = img.naturalHeight; img.closest('.item').querySelector('.cap').innerHTML = `<b>${escapeHtml(it.filename)}</b><br>${it.width}×${it.height}${it.sniffed ? ' · 网络' : ''}`; }
+        if (it && it.kind === 'image' && (!it.width || !it.height)) {
+          it.width = img.naturalWidth; it.height = img.naturalHeight;
+          img.closest('.item').querySelector('.cap').innerHTML = `<b>${escapeHtml(it.name)}</b><br>${it.width}×${it.height}${it.sniffed ? ' · 网络' : ''}`;
+        }
       }, { once: true });
       img.addEventListener('error', () => { img.replaceWith(document.createTextNode('🖼️')); }, { once: true });
     }
@@ -109,7 +147,7 @@
   $('#btnNone').addEventListener('click', () => { state.selected.clear(); render(); });
 
   $('#btnSend').addEventListener('click', async () => {
-    if (!(await checkApp())) { alert('DailyLogs 没有运行，请先打开 App。'); return; }
+    if (!(await checkApp())) { alert('briffy 没有运行，请先打开 App。'); return; }
     const items = state.items.filter((it) => state.selected.has(it.id)).map(({ id, ...rest }) => rest);
     $('#btnSend').disabled = true;
     $('#progress').classList.remove('hidden');

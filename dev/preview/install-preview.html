@@ -3,47 +3,52 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>DailyLogs 浏览器扩展</title>
+<title>briffy 浏览器扩展</title>
 <style>
-  :root { --bg:#f4f5f7; --card:#fff; --line:#e5e7eb; --text:#16181d; --muted:#6b7280; --accent:#f97316; --green:#16a34a;
+  :root { --ground:#eef0f3; --sheet:#fff; --sheet-2:#f4f5f8; --rule:#d5d9e1; --rule-strong:#9aa4b5; --ink:#1a2238; --ink-2:#4b556b; --spot:#2a6cf0; --ok:#1f7a3e;
+    --shadow-ink:rgba(26,34,56,.18);
     color-scheme: light dark;
-    font-family:-apple-system,"Segoe UI Variable Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#17181c; --card:#222429; --line:#33363d; --text:#f3f4f6; --muted:#9aa0aa; --accent:#fb923c; } }
+    font-family:"Source Sans 3","Noto Sans SC",-apple-system,"Segoe UI Variable Text","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+  @media (prefers-color-scheme: dark) { :root { --ground:#15181e; --sheet:#1d2128; --sheet-2:#262b34; --rule:#333944; --rule-strong:#4e5666; --ink:#e7eaf0; --ink-2:#a3abbb; --spot:#6b9cff; --ok:#6fc283; --shadow-ink:rgba(0,0,0,.55); } }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); display:flex; justify-content:center; padding:40px 20px 60px; }
+  body { margin:0; background:var(--ground); color:var(--ink); display:flex; justify-content:center; padding:40px 20px 60px; line-height:1.6; text-autospace:normal; line-break:strict; }
   .wrap { width:100%; max-width:640px; }
-  h1 { font-size:22px; margin:0 0 8px; letter-spacing:-.01em; }
-  .lead { color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 20px; }
-  kbd { background:var(--card); border:1px solid var(--line); border-bottom-width:2px; border-radius:6px; padding:1px 6px; font:inherit; font-size:12.5px; }
-  .status { display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:14px; background:var(--card);
-    border:1px solid var(--line); margin-bottom:22px; font-weight:600; font-size:14px; }
-  .status .dot { width:10px; height:10px; border-radius:50%; background:var(--muted); flex:none; }
-  .status.waiting .dot { background:var(--accent); animation:pulse 1.4s ease-in-out infinite; }
-  .status.ok { border-color:var(--green); color:var(--green); }
-  .status.ok .dot { background:var(--green); animation:none; }
+  h1 { font:700 26px/1.25 "Source Serif 4","Noto Serif SC","Iowan Old Style","Songti SC","SimSun",Georgia,serif; letter-spacing:.02em; margin:0 0 8px; }
+  .lead { color:var(--ink-2); font-size:14px; line-height:1.6; margin:0 0 20px; }
+  kbd { background:var(--sheet); border:1px solid var(--rule-strong); border-bottom-width:2px; padding:1px 6px; font:500 12px/1.3 "IBM Plex Mono",ui-monospace,Consolas,monospace; }
+  .status { display:flex; align-items:center; gap:10px; padding:14px 16px; background:var(--sheet); border:1px solid var(--ink); box-shadow:2px 2px 0 var(--shadow-ink); margin-bottom:22px; font-weight:600; font-size:14px; }
+  .status .dot { width:9px; height:9px; background:var(--ink-2); flex:none; }
+  .status.waiting .dot { background:var(--spot); animation:pulse 1.4s ease-in-out infinite; }
+  .status.ok { border-color:var(--ok); color:var(--ok); }
+  .status.ok .dot { background:var(--ok); animation:none; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
   ol { list-style:none; counter-reset:s; padding:0; margin:0; }
   li { counter-increment:s; position:relative; padding:0 0 22px 42px; }
-  li::before { content:counter(s); position:absolute; left:0; top:0; width:26px; height:26px; border-radius:50%;
-    background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
-  li::after { content:""; position:absolute; left:13px; top:30px; bottom:2px; width:2px; background:var(--line); }
+  li::before { content:counter(s); position:absolute; left:0; top:0; width:26px; height:26px;
+    background:var(--ink); color:var(--sheet); display:flex; align-items:center; justify-content:center; font:600 12px/1 "IBM Plex Mono",ui-monospace,Consolas,monospace; }
+  li::after { content:""; position:absolute; left:13px; top:30px; bottom:2px; width:1px; background:var(--rule-strong); }
   li:last-child::after { display:none; }
-  h2 { font-size:15px; margin:3px 0 6px; }
-  p { margin:0 0 10px; color:var(--muted); font-size:13.5px; line-height:1.6; }
+  h2 { font-size:16px; font-weight:600; margin:3px 0 6px; }
+  p { margin:0 0 10px; color:var(--ink-2); font-size:14px; line-height:1.6; }
   .copyrow { display:flex; gap:8px; align-items:stretch; margin:8px 0 4px; }
-  code { flex:1; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
-    font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; word-break:break-all; display:flex; align-items:center; }
-  button { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:10px; padding:0 14px;
+  code { flex:1; background:var(--sheet); border:1px solid var(--rule-strong); padding:10px 12px;
+    font:12.5px/1.5 "IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,monospace; word-break:break-all; display:flex; align-items:center; }
+  button { border:1px solid var(--ink); background:var(--sheet); color:var(--ink); padding:0 14px; box-shadow:2px 2px 0 var(--shadow-ink);
     font:inherit; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
-  button:hover { border-color:var(--accent); }
-  button.done { border-color:var(--green); color:var(--green); }
-  .hint { font-size:12.5px; color:var(--muted); margin-top:18px; }
+  button:hover { background:var(--sheet-2); }
+  button:active { transform:translate(2px,2px); box-shadow:none; }
+  button.done { border-color:var(--ok); color:var(--ok); }
+  .hint { font-size:12.5px; color:var(--ink-2); margin-top:18px; }
+  .head { display:flex; align-items:center; gap:14px; margin-bottom:8px; }
+  .head h1 { margin:0; }
+  .mark { width:44px; height:44px; flex:none; }
+  .mark svg { display:block; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🐱 DailyLogs 浏览器扩展</h1>
-  <p class="lead">装上它以后，在任何网页按 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>（或点扩展图标），就能把这一页的图片、视频、音频挑出来存进 DailyLogs。</p>
+  <div class="head"><div class="mark" id="mark"></div><h1>briffy 浏览器扩展</h1></div>
+  <p class="lead">装上它以后，在任何网页按 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>（或点扩展图标），就能把这一页的图片、视频、音频挑出来存进 briffy。</p>
 
   <div class="status waiting" id="status"><span class="dot"></span><span id="statusText">等待扩展连接…</span></div>
 
@@ -59,7 +64,7 @@
     </li>
     <li>
       <h2>点「加载已解压的扩展程序」，选择这个文件夹</h2>
-      <div class="copyrow"><code id="dir">C:local projectdailylogsextension</code><button data-copy="dir">复制</button></div>
+      <div class="copyrow"><code id="dir"></code><button data-copy="dir">复制</button></div>
     </li>
     <li>
       <h2>完成</h2>
@@ -69,7 +74,304 @@
 
   <p class="hint">如果你用的是 Edge，地址换成 edge://extensions；Brave 是 brave://extensions。</p>
 </div>
+<script>'use strict';
+// briffy, moving.
+//
+// The mark is two open arches with a face in the head (assets/brand/briffy.svg, where every number
+// was measured off the artwork). This file is that same drawing with springs on the face.
+//
+// **The arches never deform.** Their radii, centres and stroke widths are copied out of the svg and
+// are never touched -- whatever briffy is doing, freeze a frame and it is still the logo. What moves
+// is the face (two eyes and a mouth) and the whole mark as one rigid thing: it can be lifted, tilted,
+// or popped, the way you would move a drawing on a table, but it is never squashed or stretched.
+//
+// Why springs and not keyframes. A keyframed pose has to be authored for every pair of states you
+// might cut between; a spring only needs the destination, and getting interrupted halfway is free --
+// it just changes where it is heading, from wherever it currently is, at whatever speed it currently
+// has. briffy's states interrupt each other constantly (a capture lands while a recording is running,
+// an error arrives mid-save), so this is not a stylistic preference.
+//
+// **And springs stop.** That is the reason this can exist at all. The desktop window is transparent,
+// always on top and never closed, so every frame it asks for is an alpha composite that never ends;
+// pet.css has the measurement -- three `infinite` idle loops cost 11.4% of a core against 0.9% for a
+// still one, which is why the idle loops were deleted. A spring settles: when every variable is
+// within an epsilon of its target and has no velocity left, the loop snaps them exactly to target and
+// cancels the frame request. Between two states nothing is animating and nothing is composited. A
+// state change wakes it, the motion plays, it goes back to costing nothing.
+//
+// Plain numbers and one <svg>: no canvas, no dependency, no build step, so it can be `require`d by a
+// test under node and dropped into any page with a <script> tag.
+
+(() => {
+  // ---------- the mark, exactly as briffy.svg draws it ----------
+  // Changing anything in here changes the logo. The face keys are the resting pose, and `pose.idle`
+  // below is written from them, so briffy at rest is pixel-for-pixel the brand file.
+  const MARK = {
+    box: 638,
+    outer: { d: 'M156.5 638 V283.75 A161.75 161.75 0 0 1 480 283.75 V638', w: 46 },
+    inner: { d: 'M245.5 638 V493.5 A73 73 0 0 1 391.5 493.5 V638', w: 45 },
+    eyeL: 238, eyeR: 399, eyeY: 281, eyeR0: 27,
+    mouthX: 318.5, mouthY: 320, mouthHW: 27, mouthSag: 21.88, mouthW: 20,
+    pivotX: 318.25, pivotY: 638,          // the feet: it tilts and grows from where it stands
+    colour: '#2A6CF0',
+  };
+
+  // ---------- the solver ----------
+  // Damped harmonic motion, integrated at a fixed 120 Hz however long the real frame was, so a
+  // dropped frame changes nothing about how the motion looks.
+  const DT = 1 / 120;
+
+  function spring(x, freq, damp) { return { x, v: 0, t: x, freq, damp }; }
+
+  function step(s, dt) {
+    let left = dt;
+    while (left > 0) {
+      const h = Math.min(DT, left);
+      left -= h;
+      s.v += ((-2 * s.damp * s.freq * s.v) - (s.freq * s.freq * (s.x - s.t))) * h;
+      s.x += s.v * h;
+    }
+    // A spring that has gone to NaN never comes back and paints nothing for ever; put it on target.
+    if (!Number.isFinite(s.x) || !Number.isFinite(s.v)) { s.x = s.t; s.v = 0; }
+  }
+
+  // Rest is relative to how big the number is, so one rule covers a radius of 27 and a cross-fade
+  // of 0..1: within a fifth of a percent of target, and going nowhere.
+  function atRest(s) {
+    const eps = 0.002 * Math.max(1, Math.abs(s.t));
+    return Math.abs(s.x - s.t) < eps && Math.abs(s.v) < eps * 8;
+  }
+
+  // ---------- what can move ----------
+  // Four for the whole mark as one rigid object, seven for the face. That is the entire vocabulary;
+  // there is deliberately no way to say "make the outer arch wider".
+  const FIELDS = {
+    bx: [0, 16, 0.55],      // slide across  — a head shake
+    by: [0, 16, 0.5],       // lift          — a hop
+    rot: [0, 17, 0.5],      // tilt, degrees — a nod, a thinking lean
+    scale: [1, 19, 0.5],    // grow from the feet — a startle
+    ex: [0, 22, 0.85],      // both eyes across (look left / right)
+    ey: [0, 22, 0.85],      // both eyes up / down
+    erx: [MARK.eyeR0, 21, 0.8],
+    ery: [MARK.eyeR0, 21, 0.8],
+    earc: [0, 20, 0.9],     // 0 = round eyes, 1 = two happy arcs; a cross-fade, so it is continuous
+    mhw: [MARK.mouthHW, 20, 0.8],
+    msag: [MARK.mouthSag, 20, 0.8],   // signed: + smiles, 0 is a straight line, − frowns
+  };
+
+  // ---------- the six states ----------
+  // One entry per state pet.js already broadcasts, so nothing here needs a new event. `to` is where
+  // the springs are sent; `kick` is velocity handed to a spring at the moment of arrival, which is
+  // how a nod or a shake happens without a single keyframe -- you push it and let it ring down.
+  //
+  // Kicks are velocities, not distances, and the two are further apart than they look: a damped
+  // spring released at v0 only reaches about v0/(2·omega_d), so on a 638-unit box a kick of 90 buys
+  // a hop of 2.7 units -- a fifth of a pixel at the size the desktop pet is drawn. The numbers below
+  // are the ones that came back from dev/briffy-anim-test.js, which prints the peak each one reaches;
+  // change a kick and read that table again rather than reasoning about it.
+  const POSES = {
+    // At rest it is the logo, to the decimal.
+    idle: { to: {} },
+
+    // Listening. Attention has to be a *shape*, not a movement: recording runs for minutes and the
+    // springs are asleep for all but the first second of it, so whatever says "listening" has to still
+    // be saying it while nothing is moving. Narrow, tall, focused eyes and a mouth closed to a line.
+    // The first try -- eyes 6% bigger and a slightly smaller smile -- was indistinguishable from idle
+    // at the size this is actually drawn.
+    recording: { to: { erx: 21, ery: 33, ey: -4, mhw: 12, msag: 1, rot: -1.5 } },
+
+    // Thinking: looking up and away, mouth pursed, leaning on one leg.
+    processing: { to: { ex: 15, ey: -13, erx: 25, ery: 25, mhw: 13, msag: 3.5, rot: -5 } },
+
+    // The shutter: eyes blown round and wide, mouth a small deep o, and the whole mark pops off its
+    // feet. Round and huge against recording's narrow and tall -- the two states are next to each
+    // other in time (you record, you capture) so they must not resolve to the same face.
+    capturing: { to: { erx: 35, ery: 36, ey: -2, mhw: 9, msag: 17 }, kick: { scale: 2.6, by: -1000 } },
+
+    // Saved: two happy arcs and a wide smile, and a nod -- pushed on the tilt, so it swings and settles.
+    success: { to: { earc: 1, ery: 24, mhw: 34, msag: 27 }, kick: { rot: -320 } },
+
+    // Failed: eyes narrowed, mouth turned down, one shake across.
+    error: { to: { ery: 9, erx: 26, mhw: 24, msag: -13 }, kick: { bx: 780 } },
+  };
+
+  // ---------- drawing ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (name, attrs) => {
+    const n = document.createElementNS(NS, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  };
+
+  /**
+   * The mouth: an elliptical arc through two ends with a signed sagitta.
+   *
+   * Sagitta rather than a radius because a radius cannot pass through flat -- a smile becoming a
+   * frown would have to jump from one sweep flag to the other and back through infinity. The height
+   * of the bulge goes smoothly through zero, and the radius is derived from it; at zero it is simply
+   * a straight line, which is the shape a mouth has on the way from one to the other.
+   */
+  // Two decimals, trailing zeros dropped. Not tidiness: at the resting values this makes the mouth
+  // come out as the brand file's own string, character for character.
+  const n = (v) => +v.toFixed(2);
+
+  function mouthPath(cx, y, hw, sag) {
+    const x0 = n(cx - hw), x1 = n(cx + hw);
+    if (Math.abs(sag) < 0.4 || hw < 0.5) return `M${x0} ${n(y)} L${x1} ${n(y)}`;
+    const r = n(((sag * sag) + (hw * hw)) / (2 * Math.abs(sag)));
+    return `M${x0} ${n(y)} A${r} ${r} 0 0 ${sag > 0 ? 0 : 1} ${x1} ${n(y)}`;
+  }
+
+  /** A happy eye: one arc bulging upwards, sitting where the round eye sits. */
+  function archPath(cx, cy) {
+    const w = 23, h = 26;
+    return `M${n(cx - w)} ${n(cy + 7)} A${h} ${h} 0 0 1 ${n(cx + w)} ${n(cy + 7)}`;
+  }
+
+  /**
+   * @param {Element} host where to put it; it is emptied first
+   * @param {{colour?:string, plate?:boolean, title?:string}} [opts] `plate` paints the brand's white
+   *   square behind it (the app icon has one, the desktop pet does not -- it sits on its own paper)
+   */
+  function create(host, opts = {}) {
+    const colour = opts.colour || MARK.colour;
+    const svg = el('svg', { xmlns: NS, viewBox: `0 0 ${MARK.box} ${MARK.box}`, width: '100%', height: '100%' });
+    svg.setAttribute('aria-hidden', 'true');
+    if (opts.title) { const t = el('title'); t.textContent = opts.title; svg.appendChild(t); svg.removeAttribute('aria-hidden'); }
+    if (opts.plate) svg.appendChild(el('rect', { width: MARK.box, height: MARK.box, fill: '#fff' }));
+
+    const body = el('g', {});
+    const strokes = el('g', { fill: 'none', stroke: colour, 'stroke-linecap': 'round' });
+    strokes.appendChild(el('path', { d: MARK.outer.d, 'stroke-width': MARK.outer.w }));
+    strokes.appendChild(el('path', { d: MARK.inner.d, 'stroke-width': MARK.inner.w }));
+    const mouth = el('path', { 'stroke-width': MARK.mouthW });
+    const archL = el('path', { 'stroke-width': 17, opacity: 0 });
+    const archR = el('path', { 'stroke-width': 17, opacity: 0 });
+    strokes.appendChild(mouth); strokes.appendChild(archL); strokes.appendChild(archR);
+    const eyes = el('g', { fill: colour });
+    const eyeL = el('ellipse', {});
+    const eyeR = el('ellipse', {});
+    eyes.appendChild(eyeL); eyes.appendChild(eyeR);
+    body.appendChild(strokes); body.appendChild(eyes);
+    svg.appendChild(body);
+    host.textContent = '';
+    host.appendChild(svg);
+    return { svg, body, mouth, archL, archR, eyeL, eyeR };
+  }
+
+  // ---------- the character ----------
+  /**
+   * @param {Element} host an element to draw into
+   * @param {object} [opts] passed to create(); `reduce` forces the no-motion path
+   * @returns {{set:(name:string)=>void, poke:(name:string)=>void, pose:()=>string,
+   *            running:()=>boolean, destroy:()=>void, node:SVGElement}}
+   */
+  function attach(host, opts = {}) {
+    const parts = create(host, opts);
+    const S = {};
+    for (const k in FIELDS) S[k] = spring(FIELDS[k][0], FIELDS[k][1], FIELDS[k][2]);
+
+    // Someone who has asked their system for less movement gets the poses and none of the travel:
+    // every state still reads differently, it simply arrives there rather than springing there.
+    const still = () => opts.reduce
+      || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    let raf = 0;
+    let last = 0;
+    let current = 'idle';
+    let dead = false;
+
+    function paint() {
+      const { bx, by, rot, scale, ex, ey, erx, ery, earc, mhw, msag } = S;
+      const px = MARK.pivotX, py = MARK.pivotY;
+      parts.body.setAttribute('transform',
+        `translate(${(px + bx.x).toFixed(2)} ${(py + by.x).toFixed(2)}) `
+        + `rotate(${rot.x.toFixed(2)}) scale(${scale.x.toFixed(4)}) `
+        + `translate(${-px} ${-py})`);
+
+      const cyv = MARK.eyeY + ey.x;
+      const lx = MARK.eyeL + ex.x, rx = MARK.eyeR + ex.x;
+      const rxv = Math.max(0.5, erx.x), ryv = Math.max(0.5, ery.x);
+      const round = 1 - Math.min(1, Math.max(0, earc.x));
+      for (const [node, cx] of [[parts.eyeL, lx], [parts.eyeR, rx]]) {
+        node.setAttribute('cx', cx.toFixed(2));
+        node.setAttribute('cy', cyv.toFixed(2));
+        node.setAttribute('rx', rxv.toFixed(2));
+        node.setAttribute('ry', ryv.toFixed(2));
+        node.setAttribute('opacity', round.toFixed(3));
+      }
+      for (const [node, cx] of [[parts.archL, lx], [parts.archR, rx]]) {
+        node.setAttribute('opacity', (1 - round).toFixed(3));
+        if (round < 0.999) node.setAttribute('d', archPath(cx, cyv));
+      }
+      parts.mouth.setAttribute('d', mouthPath(MARK.mouthX, MARK.mouthY, Math.max(0, mhw.x), msag.x));
+    }
+
+    function settle() {                     // land exactly on target, then stop asking for frames
+      for (const k in S) { S[k].x = S[k].t; S[k].v = 0; }
+      paint();
+      raf = 0;
+    }
+
+    function frame(now) {
+      if (dead) return;
+      const dt = Math.min(0.05, last ? (now - last) / 1000 : DT);   // a backgrounded tab must not leap
+      last = now;
+      let moving = false;
+      for (const k in S) {
+        const s = S[k];
+        if (atRest(s)) { s.x = s.t; s.v = 0; continue; }
+        step(s, dt);
+        moving = true;
+      }
+      paint();
+      if (moving) raf = requestAnimationFrame(frame);
+      else settle();
+    }
+
+    function wake() {
+      if (dead || raf) return;
+      if (still()) { settle(); return; }
+      last = 0;
+      raf = requestAnimationFrame(frame);
+    }
+
+    /** Go to a state. Calling it with the state it is already in does nothing, kicks included. */
+    function set(name) {
+      const p = POSES[name] || POSES.idle;
+      if (name === current) return;
+      current = POSES[name] ? name : 'idle';
+      for (const k in FIELDS) S[k].t = (p.to && k in p.to) ? p.to[k] : FIELDS[k][0];
+      if (p.kick && !still()) for (const k in p.kick) if (S[k]) S[k].v += p.kick[k];
+      wake();
+    }
+
+    /** The same state again, on purpose: re-throw its kick. A second save should nod a second time. */
+    function poke(name) {
+      const p = POSES[name || current];
+      if (!p) return;
+      if ((name || current) !== current) { set(name); return; }
+      if (p.kick && !still()) { for (const k in p.kick) if (S[k]) S[k].v += p.kick[k]; wake(); }
+    }
+
+    paint();
+    return {
+      node: parts.svg,
+      set,
+      poke,
+      pose: () => current,
+      running: () => !!raf,
+      destroy() { dead = true; if (raf) cancelAnimationFrame(raf); raf = 0; host.textContent = ''; },
+    };
+  }
+
+  const API = { attach, create, mouthPath, archPath, spring, step, atRest, MARK, FIELDS, POSES, DT };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  if (typeof window !== 'undefined') window.briffyAnim = API;
+})();
+</script>
 <script>
+  const face = window.briffyAnim ? window.briffyAnim.attach(document.getElementById('mark')) : null;
   const COPIED = "已复制";
   const CONNECTED = "扩展已连接，可以关掉这个页面了";
   for (const b of document.querySelectorAll('button[data-copy]')) {
@@ -85,11 +387,12 @@
   }
   async function poll() {
     try {
-      const r = await fetch('/api/extension', { headers: { 'X-DailyLogs': '1' } });
+      const r = await fetch('/api/extension', { headers: { 'X-Briffy': '1' } });
       const j = await r.json();
       if (j.connected) {
         const s = document.getElementById('status');
         s.className = 'status ok';
+        if (face) face.poke('success');       // 它装上了，点个头
         document.getElementById('statusText').textContent = CONNECTED + (j.version ? ' (v' + j.version + ')' : '');
         return;
       }

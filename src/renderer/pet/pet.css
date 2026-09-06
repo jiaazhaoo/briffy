@@ -1,14 +1,24 @@
-/* The pet is one picture in a round frame (assets/pet/avatar.png, or the one picked in
-   Settings). The visible circle is --d wide; the window is --s, which leaves --m of
-   transparent room on every side so the ring, the shadow and every gesture stay inside
-   the window instead of being sliced off by its rectangular edge.
+/* 桌面形象是一张贴在屏幕角上的照片：拍立得——白框、底边更宽、直角、歪几度。
+   窗口宽 --s；卡片放在窗口里，四周都留出余地，好让影子、倾斜和每一个动作都待在窗口内，
+   而不被它的矩形边缘切掉。标准：.claude/skills/paper-ui/SKILL.md。
 
-   Two rules keep the circle a circle while things move (Chromium will otherwise let a
-   composited child escape a rounded overflow clip and show its square corners):
-     - nothing inside .frame gets a transform; the picture peeks by moving `top`
-     - everything inside .frame is itself border-radius: 50%
-   Motion is deliberately sparse: a slow breath, and every few seconds one small gesture. */
-:root { --s: 80px; --d: 54px; --m: 13px; }
+   它浮在**别人的桌面**上，所以影子比应用里的任何东西都重——那是层「贴在别人桌面上」。
+
+   分层，谁在动：
+     .pet          窗口的命中区；只带那个固定的倾斜，别的什么都不做
+     .float        整张卡片（::before 是白框）；每一个手势、hover、拖拽的 transform 都落在这里，
+                   所以白框和照片是作为同一个物件一起动的
+     .frame        照片的窗口，会裁切；照片靠改 top 在里面探头
+     .ring / .dots 卡片底边那条白边，拍立得就是写字的地方：REC，或者三个想事情的点
+
+   还有一条是关于「什么时候动」。一个正在跑的 CSS 动画，不管它的值有没有在变，代价是一样的；
+   而这个窗口是透明的、永远置顶、永远不关，所以它每要一帧，就是一次永不停止的 alpha 合成。
+   在 M2 Max 上量过：三个 `infinite` 的待机循环占掉一个核的 11.4%，完全静止的桌面形象是 0.9%——
+   而且跳一下和探头这两个动作，一个周期里大半时间是静止的，代价却和持续的呼吸差不多。
+   所以现在没有待机循环了。pet.js 只在一个手势持续的那段时间挂上 g- 类，然后摘掉；
+   两次之间什么都不动，什么都不合成。慢呼吸也是因此去掉的：它是唯一停不下来的动作。
+   仅剩的 `infinite` 都绑在会结束的状态上（录音、处理中）——能挂好几个小时的摘要角标是静止的。 */
+:root { --s: 80px; }
 
 html, body {
   margin: 0; padding: 0; width: var(--s); height: var(--s); overflow: hidden;
@@ -17,107 +27,103 @@ html, body {
 }
 body:active { cursor: grabbing; }
 
-.pet { position: relative; width: var(--s); height: var(--s); }
+.pet { position: relative; width: var(--s); height: var(--s); transform: rotate(-3deg); }
 
-/* --- idle: still, breathing; a small double hop every 7.5 s --- */
-.float { position: absolute; inset: 0; animation: hop-now-and-then 7.5s ease-in-out infinite; }
-@keyframes hop-now-and-then {
-  0%, 84%, 100% { transform: translateY(0); }
-  87% { transform: translateY(-4px); }
-  90% { transform: translateY(0); }
-  93% { transform: translateY(-2px); }
-  96% { transform: translateY(0); }
+/* --- 卡片 --- */
+.float { position: absolute; inset: 0; transform-origin: 50% 100%; transition: transform .2s ease; }
+.float::before {
+  content: ''; position: absolute; left: 10px; top: 6px; width: 60px; height: 68px;
+  background: #fff;
+  transition: box-shadow .15s;   /* 影子去掉了：贴在屏幕边上的一张纸，割裂感全来自那圈阴影 */
 }
+.frame { position: absolute; left: 15px; top: 11px; width: 50px; height: 50px; overflow: hidden; background: #fff; }
+.avatar { position: absolute; left: -5%; top: -5%; width: 110%; height: 110%; object-fit: cover; display: block; -webkit-user-drag: none; }
+/* 两个 .avatar 叠在同一个位置：一张图，一只会动的 briffy。默认形象用后者，
+   换成图库里别的标记就用前者——别人的标记不该被我们捏着做表情。
+   几何完全一样，所以「探头」那个手势推的是哪一个都无所谓。 */
+.live { display: none; padding: 9%; }
+.default-skin .live { display: block; }
+.default-skin .avatar:not(.live) { display: none; }
+.live svg { display: block; }
 
-.frame {
-  position: absolute; inset: var(--m); border-radius: 50%; overflow: hidden;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, .92), 0 2px 5px rgba(0, 0, 0, .32);
-  transform-origin: 50% 100%;   /* breathing grows upward from the base, like a chest */
-  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease;
-  animation: breathe 4.2s ease-in-out infinite;
+/* --- 待机：完全静止，直到 pet.js 叫一个手势 --- */
+.g-hop .float { animation: hop-once .9s ease-in-out 1; }
+@keyframes hop-once {
+  0%, 50%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-4px); }
+  75% { transform: translateY(-2px); }
 }
-@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025, 1.035); } }
+/* 抬头看一会儿：（画得比框大的）照片在框里往上滑。拆成三段是因为中间那段是「停住」——
+   停住不需要动画，而一个在跑的动画不管值动不动，代价一样。所以那一停是个静态的类 */
+.g-peek-up .avatar { animation: peek-up .7s ease-out 1 forwards; }
+.g-peek-hold .avatar { top: -10%; }
+.g-peek-down .avatar { animation: peek-down .7s ease-in 1; }
+@keyframes peek-up { from { top: -5%; } to { top: -10%; } }
+@keyframes peek-down { from { top: -10%; } to { top: -5%; } }
 
-.avatar {
-  position: absolute; left: -5%; top: -5%; width: 110%; height: 110%;
-  border-radius: 50%; object-fit: cover; display: block; -webkit-user-drag: none;
-  animation: peek 11s ease-in-out infinite;
-}
-/* looks up for a moment: the (oversized) picture slides up inside the frame */
-@keyframes peek { 0%, 70%, 100% { top: -5%; } 76%, 88% { top: -10%; } }
+/* hover / 拖拽：卡片抬起来一点；被拖着时它在手里歪着 */
+.pet:hover .float { animation: none; transform: scale(1.06); }
+.pet:hover .float::before { box-shadow: none; }
+.pet.dragging .float { animation: none; transform: scale(1.02) rotate(-4deg); }
 
-/* hover / drag: animation off so the authored transform can take over */
-.pet:hover .frame { animation: none; transform: scale(1.1); }
-.pet.dragging .frame { animation: none; transform: scale(1.04) rotate(-6deg); }
-
-/* --- recording: pulsing red ring, mic badge, the frame swells with the ring --- */
+/* --- 录音：写在卡片底边的白条上，印泥色，点在闪 --- */
 .ring {
-  position: absolute; inset: calc(var(--m) - 3px); border-radius: 50%; pointer-events: none; opacity: 0;
-  border: 2px solid rgba(229, 72, 77, .85);
-}
-.state-recording .ring { opacity: 1; animation: pulse 1.5s ease-out infinite; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, .5); } 100% { box-shadow: 0 0 0 6px rgba(229, 72, 77, 0); } }
-.state-recording .frame { animation: listen 1.5s ease-out infinite; }
-@keyframes listen { 0% { transform: scale(1.04); } 60%, 100% { transform: scale(1); } }
-
-.mic {
-  position: absolute; right: calc(var(--m) - 5px); bottom: calc(var(--m) - 4px); width: 19px; height: 19px;
-  opacity: 0; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .3));
-  transition: opacity .15s ease;
-}
-.state-recording .mic { opacity: 1; }
-
-/* --- processing / capturing: thinking dots above, head tilted and held, eyes up --- */
-.dots {
-  position: absolute; top: calc(var(--m) - 7px); left: 0; right: 0; display: flex; justify-content: center; gap: 3px;
+  position: absolute; left: 15px; top: 63px; width: 50px; height: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 3px;
   opacity: 0; pointer-events: none;
+  font: 700 7px/1 var(--sans); letter-spacing: .1em; color: var(--stamp);
 }
-.dots span {
-  width: 5px; height: 5px; border-radius: 50%; background: #ff9f43;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .35); animation: hop 1s ease-in-out infinite;
-}
+.ring::before { content: ''; width: 5px; height: 5px; background: var(--stamp); }
+.ring::after { content: 'REC'; }
+.state-recording .ring { opacity: 1; }
+.state-recording .ring::before { animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.mic { display: none; }
+
+/* --- 处理中 / 截图中：底边上三个想事情的点，头歪着停住，眼睛往上 --- */
+.dots { position: absolute; left: 15px; top: 65px; width: 50px; display: flex; justify-content: center; gap: 4px; opacity: 0; pointer-events: none; }
+.dots span { width: 4px; height: 4px; background: #1b1a18; }
+.state-processing .dots, .state-capturing .dots { opacity: 1; }
+/* opacity: 0 不会让动画停下来，所以只在它们真的在屏幕上时才给动画 */
+.state-processing .dots span, .state-capturing .dots span { animation: hop 1s ease-in-out infinite; }
 .dots span:nth-child(2) { animation-delay: .15s; }
 .dots span:nth-child(3) { animation-delay: .3s; }
-.state-processing .dots, .state-capturing .dots { opacity: 1; }
-@keyframes hop { 0%, 100% { transform: translateY(0); opacity: .45; } 50% { transform: translateY(-3px); opacity: 1; } }
-.state-processing .frame { animation: think 3s ease-in-out infinite; }
-@keyframes think { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(-6deg); } }
+@keyframes hop { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-2px); opacity: 1; } }
+.state-processing .float { animation: think 3s ease-in-out infinite; }
+@keyframes think { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(-5deg); } }
 .state-processing .avatar { animation: look-up 3s ease-in-out infinite; }
 @keyframes look-up { 0%, 100% { top: -5%; } 25%, 75% { top: -11%; } }
 
-/* --- capturing: shutter flash inside the frame, a startled jump --- */
-.flash { position: absolute; inset: 0; border-radius: 50%; background: #fff; opacity: 0; pointer-events: none; }
+/* --- 截图中：框里闪一下快门，吓一跳 --- */
+.flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
 .state-capturing .flash { animation: flash .5s ease-out 1; }
 @keyframes flash { 0% { opacity: .9; } 100% { opacity: 0; } }
-.state-capturing .frame { animation: startle .5s ease-out 1; }
-@keyframes startle { 0% { transform: scale(1); } 30% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.state-capturing .float { animation: startle .5s ease-out 1; }
+@keyframes startle { 0% { transform: scale(1); } 30% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
-/* --- success / error --- */
-.state-success .frame { animation: hooray .7s ease-out 1; }
+/* --- 成功 / 出错 --- */
+.state-success .float { animation: hooray .7s ease-out 1; }
 @keyframes hooray {
   0% { transform: rotate(0) scale(1); }
-  25% { transform: rotate(-8deg) scale(1.08); }
-  60% { transform: rotate(8deg) scale(1.08); }
+  25% { transform: rotate(-6deg) scale(1.06); }
+  60% { transform: rotate(6deg) scale(1.06); }
   100% { transform: rotate(0) scale(1); }
 }
-.state-error .frame { animation: shake .5s ease-in-out 1; }
+.state-error .float { animation: shake .5s ease-in-out 1; }
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
   75% { transform: translateX(3px); }
 }
 
-/* --- drop target --- */
-.pet.dropping .frame {
-  animation: none; transform: scale(1.1);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 6px 2px rgba(255, 159, 67, .95);
-}
+/* --- 可以往上拖东西：白框镶一圈蓝墨 --- */
+.pet.dropping .float { animation: none; transform: scale(1.06); }
+.pet.dropping .float::before { box-shadow: 0 0 0 2px var(--accent); }
 
-/* --- summary badge, on the circle's upper-right shoulder --- */
+/* --- 摘要角标：卡片右上角一枚蓝墨贴纸。静止：它可能挂好几个小时 --- */
 .badge {
-  position: absolute; top: var(--m); right: var(--m); width: 10px; height: 10px; border-radius: 50%;
-  background: #8b5cf6; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  position: absolute; right: 7px; top: 2px; width: 10px; height: 10px;
+  background: var(--accent); border: 2px solid #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .4);
   opacity: 0; pointer-events: none;
 }
-.has-badge .badge { opacity: 1; animation: pulse-badge 1.6s ease-in-out infinite; }
-@keyframes pulse-badge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
+.has-badge .badge { opacity: 1; }

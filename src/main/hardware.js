@@ -209,6 +209,30 @@ function ocrModel(info) {
     : { model: 'v6-small', reason: 'headroom', ramGB, cores, cpuProbeMs };
 }
 
+/**
+ * Every model we offer, each with the one judgement that decides whether to download six gigabytes:
+ * will it run on this machine. `needGB` is working memory, which is what actually runs out -- the
+ * download size only decides how long the wait is.
+ * @returns {Array<{model:string, sizeGB:number, needGB:number, fit:'easy'|'ok'|'tight'|'no', recommended:boolean, vision:boolean}>}
+ */
+function catalogue(info) {
+  const rec = recommend(info);
+  const ram = (info || cached || {}).ramGB || os.totalmem() / 2 ** 30;
+  const budget = rec.budgetGB || 0;
+  const verdict = (needGB) => {
+    if (needGB <= budget * 0.7) return 'easy';
+    if (needGB <= budget) return 'ok';
+    if (needGB <= ram) return 'tight';
+    return 'no';
+  };
+  return [...QWEN, GEMMA_ALT].map((m) => ({
+    ...m,
+    fit: verdict(m.needGB),
+    recommended: m.model === rec.model,
+    vision: /gemma/.test(m.model),
+  }));
+}
+
 function pickByBudget(gb) {
   let best = QWEN[0];
   for (const m of QWEN) if (m.needGB <= gb) best = m;
@@ -269,4 +293,5 @@ function recommend(info) {
   };
 }
 
-module.exports = { detect, detectCached, getCached, recommend, ocrModel, quickProfile, cpuProbe, QWEN };
+module.exports = {
+  catalogue, detect, detectCached, getCached, recommend, ocrModel, quickProfile, cpuProbe, QWEN };

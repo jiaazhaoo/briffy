@@ -3,7 +3,7 @@
 // Uses the global fetch of Electron's Node; no SDK needed.
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-const OPENROUTER_HEADERS = { 'HTTP-Referer': 'https://github.com/dailylogs/dailylogs', 'X-Title': 'DailyLogs' };
+const OPENROUTER_HEADERS = { 'HTTP-Referer': 'https://github.com/jiaazhaoo/briffy', 'X-Title': 'briffy' };
 
 function stripThinking(s) {
   return String(s || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();

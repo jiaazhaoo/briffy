@@ -1,44 +1,47 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh-Hans">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
-  <title>DailyLogs Bubble</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self' file:" />
+  <title>briffy Bubble</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
   <style>
-    /* A comic-strip speech balloon: white, inked outline, hard offset shadow, and a tail
+    /* A comic-strip speech balloon: white paper, inked outline, hard offset shadow, and a tail
        that leans down-right onto the pet. Every message the app has goes through here
        (windows.setPetState with a message), so it is the app's one voice. Kept white in
-       dark mode too - that is what a balloon looks like. */
-    :root { --paper: #ffffff; --ink: #1b1d22; --dot: #f97316; }
+       dark mode too - that is what a balloon looks like. Square corners, a square marker:
+       .claude/skills/paper-ui/SKILL.md. */
+    :root { --paper: #ffffff; --balloon-ink: #1b1a18; --dot: #2a6cf0; --sans: "Source Sans 3", "Noto Sans SC", -apple-system, "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
     html, body { margin: 0; padding: 0; width: 320px; height: 100px; overflow: hidden; background: transparent; user-select: none; pointer-events: none; }
     body { position: relative; }   /* balloon and tail are placed against the 320x100 body, not the viewport */
     .wrap { position: absolute; left: 0; right: 0; top: 6px; bottom: 20px; display: flex; align-items: flex-end; justify-content: flex-end; }
     .below .wrap { top: 20px; bottom: 6px; align-items: flex-start; }
     .balloon {
       position: relative; max-width: 296px; margin-right: 10px; padding: 8px 13px 8px 12px;
-      background: var(--paper); color: var(--ink); border: 2.5px solid var(--ink); border-radius: 16px;
-      box-shadow: 3px 3px 0 rgba(27, 29, 34, .22);
-      font: 600 13px/1.4 -apple-system, "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-      display: flex; align-items: flex-start; gap: 8px; animation: pop .22s cubic-bezier(.34, 1.56, .64, 1) 1;
+      background: var(--paper); color: var(--balloon-ink); border: 2.5px solid var(--balloon-ink);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, .26), 0 10px 24px rgba(0, 0, 0, .22);
+      font: 600 13px/1.4 var(--sans); text-autospace: normal; line-break: strict;
+      display: flex; align-items: flex-start; gap: 8px; animation: pop .22s ease-out 1;
     }
-    .balloon i { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--dot); border: 2px solid var(--ink); margin-top: 4px; }
+    .balloon i { flex: none; width: 9px; height: 9px; background: var(--dot); border: 2px solid var(--balloon-ink); margin-top: 4px; }
     .balloon span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-    @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.9); } to { opacity: 1; transform: none; } }
+    @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
     /* the tail: a white wedge that covers the balloon's bottom border where it meets it,
        plus an inked stroke on its two slanted sides only */
     .tail { position: absolute; bottom: 5px; width: 30px; height: 20px; overflow: visible; }
     .tail .fill { fill: var(--paper); }
-    .tail .line { fill: none; stroke: var(--ink); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-    .tail .shadow { fill: rgba(27, 29, 34, .22); }
+    .tail .line { fill: none; stroke: var(--balloon-ink); stroke-width: 2.5; stroke-linejoin: miter; stroke-linecap: square; }
+    .tail .shadow { display: none; }
     .below .tail { bottom: auto; top: 5px; transform: scaleY(-1); }
     .below .tail .shadow { display: none; }
 
-    .state-recording { --dot: #e5484d; }
-    .state-error { --dot: #f59e0b; }
-    .state-success { --dot: #22c55e; }
-    .state-summary { --dot: #8b5cf6; }
-    .state-processing, .state-capturing { --dot: #3b82f6; }
+    .state-recording { --dot: #c8372d; }   /* 印泥 */
+    .state-error { --dot: #c8372d; }
+    .state-success { --dot: #1f7a3e; }
+    .state-summary { --dot: #2a6cf0; }
+    .state-processing, .state-capturing { --dot: #2a6cf0; }
     .state-recording .balloon i, .state-processing .balloon i { animation: blink 1.2s ease-in-out infinite; }
     @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
   </style>
@@ -54,16 +57,23 @@
     const textEl = document.getElementById('text');
     const tailEl = document.getElementById('tail');
     const balloonEl = document.querySelector('.balloon');
-    window.bubble.onText(({ text, state }) => {
-      textEl.textContent = text || '';
-      document.body.className = `${document.body.classList.contains('below') ? 'below ' : ''}state-${state || 'idle'}`;
-      balloonEl.style.animation = 'none'; void balloonEl.offsetWidth; balloonEl.style.animation = '';
-    });
-    window.bubble.onLayout(({ below, tail }) => {
+    // the tail's tip (x=20 of 30) lands on the pet's centre
+    function applyLayout(below, tail) {
       document.body.classList.toggle('below', !!below);
-      // the tail's tip (x=20 of 30) lands on the pet's centre
-      tailEl.style.left = `${(tail || 280) - 20}px`;
+      if (tail !== undefined) tailEl.style.left = `${(tail || 280) - 20}px`;
+    }
+    // main keeps this window hidden until we answer, so the balloon is never seen holding the
+    // previous message: text, tail and pop animation are all in place before it appears.
+    window.bubble.onText(({ text, state, below, tail, pop }) => {
+      textEl.textContent = text || '';
+      applyLayout(below, tail);
+      document.body.className = `${below ? 'below ' : ''}state-${state || 'idle'}`;
+      // Only replay the entrance when the balloon is actually arriving. A recording timer rewrites this
+      // text several times a second, and popping each time reads as a flicker.
+      if (pop !== false) { balloonEl.style.animation = 'none'; void balloonEl.offsetWidth; balloonEl.style.animation = ''; }
+      requestAnimationFrame(() => requestAnimationFrame(() => window.bubble.painted()));
     });
+    window.bubble.onLayout(({ below, tail }) => applyLayout(below, tail));
   </script>
 </body>
 </html>

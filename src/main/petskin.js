@@ -40,6 +40,10 @@ function file(store) {
   return store.getSettings().petAvatar && fs.existsSync(picked) ? picked : BUILTIN;
 }
 
+// The pet only draws itself when it is itself. Pick a logo out of the catalogue and it goes back to
+// being a picture in a frame -- animating someone else's mark would be putting words in its mouth.
+function isBuiltin(store) { return file(store) === BUILTIN; }
+
 function url(store) {
   const f = file(store);
   let stamp = 0;
@@ -84,4 +88,4 @@ function reset(store) {
   store.updateSettings({ petAvatar: '' });
 }
 
-module.exports = { catalogue, apply, reset, url, file };
+module.exports = { catalogue, apply, reset, url, file, isBuiltin };

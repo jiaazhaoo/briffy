@@ -47,7 +47,7 @@ async function fetchUrl(url, { timeoutMs = 20000 } = {}) {
       signal: ctrl.signal,
       redirect: 'follow',
       headers: {
-        'user-agent': 'Mozilla/5.0 (compatible; DailyLogs/0.1; +https://example.invalid)',
+        'user-agent': 'Mozilla/5.0 (compatible; briffy/0.1; +https://example.invalid)',
         accept: 'text/html,application/xhtml+xml,application/pdf,text/plain;q=0.9,*/*;q=0.5',
       },
     });

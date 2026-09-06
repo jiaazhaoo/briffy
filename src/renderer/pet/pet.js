@@ -3,7 +3,14 @@
 (() => {
   const api = window.pet;
   const el = document.getElementById('pet');
-  const avatarEl = el.querySelector('.avatar');
+  const avatarEl = el.querySelector('.avatar:not(.live)');
+  // briffy drawing itself. Only when the frame still holds briffy: pick a logo out of the catalogue
+  // and it goes back to being a picture, because making someone else's mark pull faces is not ours
+  // to do. The springs settle and cancel their own frame request, so between two states this costs
+  // exactly what the still pet costs -- which is the whole reason the idle CSS loops could go.
+  const faceEl = el.querySelector('.live');
+  const face = (window.briffyAnim && faceEl) ? window.briffyAnim.attach(faceEl) : null;
+  let builtin = true;
   const DRAG_THRESHOLD = 5;
   const DBL_MS = 320;
   const LONG_PRESS_MS = 550;
@@ -14,18 +21,80 @@
   let recording = false;
   let config = { micDeviceId: '' };
 
+  // ---------- idle gestures ----------
+  // A CSS animation costs the same whether or not its value is changing, and this window is
+  // transparent, always on top and never closed. Three `infinite` idle loops measured 11.4% of a core
+  // around the clock against 0.9% for a still pet -- and the hop and the peek, at rest for most of
+  // their cycle, cost nearly as much as the continuous breath did. So an idle gesture now exists only
+  // while it is actually moving: the class goes on, one animation runs, the class comes off, and the
+  // window goes quiet. (The slow breath is gone with them: it is the one motion that cannot stop.)
+  // A gesture is a sequence of phases. Only the phases that carry an animation cost anything, so the
+  // long held middle of the peek is a static class and the window stays quiet right through it.
+  const GESTURES = [
+    { every: 7500, phases: [['g-hop', 900]] },
+    { every: 11000, phases: [['g-peek-up', 700], ['g-peek-hold', 1300], ['g-peek-down', 700]] },
+  ];
+  const playing = new Set();
+  const gestureTimers = [];
+
+  // set imperatively elsewhere (drag, drop target, long press); render() rebuilds the whole class list
+  // on every gesture edge now, so they have to be carried across it
+  const IMPERATIVE = ['dragging', 'dropping', 'held'];
   function render() {
-    el.className = `pet state-${recording ? 'recording' : state}${badge ? ' has-badge' : ''}`;
+    const kept = IMPERATIVE.filter((c) => el.classList.contains(c));
+    const extra = [...playing, ...kept];
+    el.className = `pet state-${recording ? 'recording' : state}${badge ? ' has-badge' : ''}`
+      + `${builtin ? ' default-skin' : ''}${extra.length ? ` ${extra.join(' ')}` : ''}`;
+    // The face follows the same word the class does. `set` is a no-op when it is already there, so
+    // this can be called on every gesture edge without waking anything.
+    if (face && builtin) face.set(recording ? 'recording' : state);
   }
-  api.onState((s) => { state = s.state || 'idle'; badge = !!s.badge; render(); });
+
+  function playGesture(g) {
+    if (state !== 'idle' || recording) return;
+    if (g.phases.some(([cls]) => playing.has(cls))) return;                                // still going
+    if (el.classList.contains('dragging') || el.classList.contains('dropping')) return;    // being handled
+    let i = 0;
+    const step = () => {
+      if (i > 0) playing.delete(g.phases[i - 1][0]);
+      if (i >= g.phases.length || state !== 'idle' || recording) { render(); return; }
+      const [cls, ms] = g.phases[i++];
+      playing.add(cls);
+      render();
+      setTimeout(step, ms);
+    };
+    step();
+  }
+  function startGestures() {
+    if (gestureTimers.length) return;
+    for (const g of GESTURES) gestureTimers.push(setInterval(() => playGesture(g), g.every));
+  }
+  function stopGestures() {
+    for (const t of gestureTimers) clearInterval(t);
+    gestureTimers.length = 0;
+    playing.clear();
+  }
+  startGestures();   // main confirms the state right after load, but do not wait on it to come alive
+
+  api.onState((s) => {
+    state = s.state || 'idle';
+    badge = !!s.badge;
+    // the other states draw their own feedback; idle is the only one that has to invent something to do
+    if (state === 'idle' && !recording) startGestures(); else stopGestures();
+    render();
+  });
   // the picture in the round frame lives in userData once one is picked in the settings,
   // so main hands us its file:// url instead of the bundled default in the markup
-  function setAvatar(url) { if (url) avatarEl.src = url; }
-  api.getConfig().then((c) => { config = { ...config, ...(c || {}) }; setAvatar(config.avatarUrl); }).catch(() => {});
+  function setAvatar(url, isBuiltin) {
+    if (url) avatarEl.src = url;
+    if (typeof isBuiltin === 'boolean') builtin = isBuiltin;
+    render();
+  }
+  api.getConfig().then((c) => { config = { ...config, ...(c || {}) }; setAvatar(config.avatarUrl, config.avatarBuiltin); }).catch(() => {});
   api.onCommand((c) => {
     if (!c) return;
     if (c.cmd === 'toggle-recording') toggleRecording();
-    else if (c.cmd === 'config') { config = { ...config, ...c, cmd: undefined }; setAvatar(c.avatarUrl); }
+    else if (c.cmd === 'config') { config = { ...config, ...c, cmd: undefined }; setAvatar(c.avatarUrl, c.avatarBuiltin); }
     else if (c.cmd === 'list-mics') listMics();
     else if (c.cmd === 'mic-test') micTest(c);
   });
@@ -104,6 +173,23 @@
   let holdTimer = null;
   let heldFired = false;
 
+  // mousemove fires far faster than the screen redraws (120 Hz trackpads, more with a mouse), and every
+  // one of them was an IPC hop plus a setPosition on the pet and the bubble. Coalesce to one per frame:
+  // the extra events could never have been seen anyway, and the drag stops feeling like it is catching up.
+  let pendingMove = null;
+  let moveQueued = false;
+  function sendMove(screenX, screenY) {
+    pendingMove = { screenX, screenY };
+    if (moveQueued) return;
+    moveQueued = true;
+    requestAnimationFrame(() => {
+      moveQueued = false;
+      const m = pendingMove;
+      pendingMove = null;
+      if (m && dragging) api.dragMove(m);
+    });
+  }
+
   el.addEventListener('mousedown', (e) => {
     if (e.button === 1) { e.preventDefault(); toggleRecording(); return; }
     if (e.button !== 0) return;
@@ -124,7 +210,7 @@
       el.classList.add('dragging');
       api.dragStart({ screenX: down.x, screenY: down.y });
     }
-    if (dragging) api.dragMove({ screenX: e.screenX, screenY: e.screenY });
+    if (dragging) sendMove(e.screenX, e.screenY);
   });
   window.addEventListener('mouseup', (e) => {
     if (!down || e.button !== 0) return;
@@ -132,7 +218,7 @@
     down = null; dragging = false;
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     if (heldFired) { heldFired = false; el.classList.remove('held'); return; }   // the hold already acted
-    if (wasDragging) { el.classList.remove('dragging'); api.dragEnd(); return; }
+    if (wasDragging) { pendingMove = null; el.classList.remove('dragging'); api.dragEnd(); return; }
     const now = Date.now();
     if (now - lastClick < DBL_MS) {
       lastClick = 0;
@@ -144,6 +230,10 @@
     }
   });
   window.addEventListener('blur', () => { if (dragging) { dragging = false; down = null; el.classList.remove('dragging'); api.dragEnd(); } });
+  // Resting on the character slides out the shelf of recent records; the main process owns the timing, so
+  // that crossing the gap between the character and the panel does not close it (see windows.hoverPet).
+  el.addEventListener('mouseenter', () => { if (!dragging) api.hover(true); });
+  el.addEventListener('mouseleave', () => api.hover(false));
   el.addEventListener('contextmenu', (e) => { e.preventDefault(); api.contextMenu(); });
 
   // one click: whole screen · two clicks: drag a box · middle click or long press: voice
@@ -209,6 +299,7 @@
     recorder.start(1000);
     startedAt = Date.now();
     recording = true;
+    stopGestures();
     render();
     api.recordingState({ recording: true, seconds: 0, level: 0, peak: 0, mic: micLabel });
     let level = 0;
@@ -242,6 +333,7 @@
     const type = (recorder && recorder.mimeType) || 'audio/webm';
     recorder = null;
     recording = false;
+    if (state === 'idle') startGestures();
     render();
     const peak = meter ? meter.peak : undefined;
     if (meter) { meter.close(); meter = null; }

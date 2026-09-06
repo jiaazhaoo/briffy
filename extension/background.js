@@ -1,36 +1,54 @@
 'use strict';
 // Service worker: (1) sniffs media responses per tab so streamed videos (mp4 / m3u8) show up even when the DOM
-// only has a blob: URL; (2) transfers the items the user picked to the DailyLogs app on 127.0.0.1.
+// only has a blob: URL; (2) transfers the items the user picked to the briffy app on 127.0.0.1.
 
 const DEFAULT_PORT = 47831;
 const MAX_PER_TAB = 400;
 const sniffed = new Map(); // tabId -> Map(url -> item)
+// Segments are counted per directory rather than listed. If we never caught the playlist, the count is
+// still proof there is a video here, and the shared directory is the one useful thing to show for it.
+const fragments = new Map(); // tabId -> Map(dir -> { n, sample, at })
+// Requests a service worker made on the page's behalf arrive with tabId -1, which used to drop them
+// entirely. They are kept by origin and handed to whichever tab is sitting on that origin.
+const orphans = new Map(); // origin -> Map(url -> item)
+const mseTabs = new Set();  // tabs seen attaching a MediaSource to a <video>
+const MAX_ORPHAN_ORIGINS = 20;
+
+function originOf(url) { try { return new URL(url).origin; } catch (_) { return ''; } }
+function dirOf(url) { try { const u = new URL(url); return u.origin + u.pathname.replace(/[^/]*$/, ''); } catch (_) { return ''; } }
+
+function noteFragment(tabId, url, size) {
+  const dir = dirOf(url);
+  if (!dir) return;
+  if (!fragments.has(tabId)) fragments.set(tabId, new Map());
+  const map = fragments.get(tabId);
+  const cur = map.get(dir) || { n: 0, sample: url, bytes: 0, at: Date.now() };
+  cur.n++;
+  cur.bytes += size || 0;
+  cur.at = Date.now();
+  map.set(dir, cur);
+  if (map.size > 40) map.delete(map.keys().next().value);
+}
+
+// A directory that produced several segments but never a playlist we recognised. Surfaced so the panel
+// can say "there is a stream here" instead of showing nothing at all.
+function fragmentHints(tabId, have) {
+  const map = fragments.get(tabId);
+  if (!map) return [];
+  const out = [];
+  for (const [dir, f] of map) {
+    if (f.n < 3) continue;
+    if ([...have].some((u) => u.startsWith(dir))) continue;   // the playlist for it did turn up
+    out.push({
+      url: dir, kind: 'stream', format: 'fragments', fragments: f.n, size: f.bytes,
+      sample: f.sample, mime: 'application/vnd.apple.mpegurl', hint: true, at: f.at,
+    });
+  }
+  return out;
+}
 let flushTimer = null;
 
-// ---------- classification ----------
-function header(headers, name) {
-  const h = (headers || []).find((x) => x.name.toLowerCase() === name);
-  return h ? String(h.value || '') : '';
-}
-function classify(url, headers) {
-  const ct = header(headers, 'content-type').split(';')[0].trim().toLowerCase();
-  const len = Number(header(headers, 'content-length')) || 0;
-  const path = url.split(/[?#]/)[0].toLowerCase();
-  const ext = (path.match(/\.([a-z0-9]{2,5})$/) || [])[1] || '';
-  if (ct === 'application/vnd.apple.mpegurl' || ct === 'application/x-mpegurl' || ext === 'm3u8') return { kind: 'stream', mime: 'application/vnd.apple.mpegurl', size: len };
-  if (ct === 'application/dash+xml' || ext === 'mpd') return { kind: 'stream', mime: 'application/dash+xml', size: len };
-  if (ct.startsWith('video/') || ['mp4', 'webm', 'mov', 'mkv', 'm4v'].includes(ext)) {
-    if (ext === 'ts' || ext === 'm4s') return null; // segments – the playlist is what we want
-    return { kind: 'video', mime: ct.startsWith('video/') ? ct : `video/${ext === 'mov' ? 'quicktime' : ext}`, size: len };
-  }
-  if (ct.startsWith('audio/') || ['mp3', 'm4a', 'aac', 'flac', 'wav', 'ogg'].includes(ext)) return { kind: 'audio', mime: ct.startsWith('audio/') ? ct : 'audio/mpeg', size: len };
-  if (ct.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'].includes(ext)) {
-    if (ct === 'image/svg+xml' || ext === 'svg' || ct === 'image/x-icon' || ext === 'ico') return null;
-    if (len && len < 4096) return null; // tracking pixels, tiny icons
-    return { kind: 'image', mime: ct.startsWith('image/') ? ct : `image/${ext === 'jpg' ? 'jpeg' : ext}`, size: len };
-  }
-  return null;
-}
+importScripts('./classify.js');   // classify() / classifyUrl(): see extension/classify.js
 
 // ---------- per-tab storage (survives service-worker restarts via storage.session) ----------
 async function loadTab(tabId) {
@@ -59,17 +77,34 @@ async function addSniffed(tabId, item) {
 }
 function clearTab(tabId) {
   sniffed.set(tabId, new Map());
+  fragments.delete(tabId);
+  mseTabs.delete(tabId);
   chrome.storage.session.remove(`tab:${tabId}`).catch(() => {});
 }
 
 chrome.webRequest.onHeadersReceived.addListener((d) => {
-  if (d.tabId < 0 || d.statusCode >= 400) return;
+  if (d.statusCode >= 400) return;
   const c = classify(d.url, d.responseHeaders);
-  if (c) addSniffed(d.tabId, { url: d.url, ...c });
+  if (!c) return;
+  if (d.tabId < 0) {
+    // a service worker fetched it; remember it against its origin for whichever tab is on that site
+    if (c.kind === 'segment') return;
+    const origin = originOf(d.initiator || d.url);
+    if (!origin) return;
+    if (!orphans.has(origin)) {
+      if (orphans.size >= MAX_ORPHAN_ORIGINS) orphans.delete(orphans.keys().next().value);
+      orphans.set(origin, new Map());
+    }
+    const map = orphans.get(origin);
+    if (map.size < MAX_PER_TAB) map.set(d.url, { url: d.url, ...c, viaWorker: true, at: Date.now() });
+    return;
+  }
+  if (c.kind === 'segment') { noteFragment(d.tabId, d.url, c.size); return; }
+  addSniffed(d.tabId, { url: d.url, ...c });
 }, { urls: ['<all_urls>'], types: ['image', 'media', 'xmlhttprequest', 'other', 'object'] }, ['responseHeaders']);
 
 chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.status === 'loading' && info.url) clearTab(tabId); });
-chrome.tabs.onRemoved.addListener((tabId) => { sniffed.delete(tabId); chrome.storage.session.remove(`tab:${tabId}`).catch(() => {}); });
+chrome.tabs.onRemoved.addListener((tabId) => { sniffed.delete(tabId); fragments.delete(tabId); mseTabs.delete(tabId); chrome.storage.session.remove(`tab:${tabId}`).catch(() => {}); });
 
 // ---------- talking to the app ----------
 async function apiBase() {
@@ -79,21 +114,77 @@ async function apiBase() {
 async function ping() {
   try {
     const res = await fetch(`${await apiBase()}/api/ping`, {
-      headers: { 'X-DailyLogs': '1', 'X-DailyLogs-Ext': chrome.runtime.getManifest().version },
+      headers: { 'X-Briffy': '1', 'X-Briffy-Ext': chrome.runtime.getManifest().version },
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
-    return { ok: true, ...(await res.json()) };
+    const body = await res.json();
+    wantTab = !!body.wantTab;
+    return { ok: true, ...body };
   } catch (e) {
     return { ok: false, error: e.message };
   }
 }
 
+// ---------- which page is on screen ----------
+//
+// So that a screenshot or a copy taken while the browser is in front can name the page it came from.
+// The app asks for this (`wantTab` in the ping reply) and stops asking the moment the user turns
+// "record where it came from" off; nothing is sent otherwise. Only the tab the user is looking at is
+// reported, one at a time, and the app keeps it in memory for half a minute -- this is not history.
+let wantTab = false;
+let lastSent = '';
+
+async function reportTab(tab) {
+  if (!wantTab) return;
+  if (!tab || !tab.active || !/^https?:/i.test(tab.url || '')) return;
+  if (tab.incognito) return;                       // a private window is not something to hand over
+  const key = `${tab.url}|${tab.title || ''}`;
+  if (key === lastSent) return;
+  lastSent = key;
+  try {
+    const res = await fetch(`${await apiBase()}/api/tab`, {
+      method: 'POST',
+      headers: { 'X-Briffy': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: tab.url, title: tab.title || '' }),
+    });
+    if (res.ok) wantTab = !!(await res.json()).wantTab;
+  } catch (_) { /* the app is not running */ }
+}
+
+async function reportActiveTab() {
+  if (!wantTab) return;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab) reportTab(tab);
+  } catch (_) { /* no window */ }
+}
+
+chrome.tabs.onActivated.addListener(() => reportActiveTab());
+chrome.tabs.onUpdated.addListener((_id, info, tab) => { if (info.status === 'complete' || info.title) reportTab(tab); });
+chrome.windows.onFocusChanged.addListener((id) => { if (id !== chrome.windows.WINDOW_ID_NONE) reportActiveTab(); });
+
 // Heartbeat: lets the app show "extension connected" without the user opening the popup first.
-const HEARTBEAT = 'dailylogs-heartbeat';
-chrome.runtime.onInstalled.addListener(() => { ping(); chrome.alarms.create(HEARTBEAT, { periodInMinutes: 5 }); });
-chrome.runtime.onStartup.addListener(() => { ping(); chrome.alarms.create(HEARTBEAT, { periodInMinutes: 5 }); });
-chrome.alarms.onAlarm.addListener((a) => { if (a.name === HEARTBEAT) ping(); });
-ping();   // also on every service-worker wake-up
+// Reloading the extension does not reach tabs that are already open: content scripts are injected when
+// a page loads, so every tab from before the reload keeps running nothing until it happens to navigate.
+// That is indistinguishable from a broken feature -- you click save, and there is simply no listener.
+// So catch them up once. The scripts each guard against being injected twice.
+async function injectIntoOpenTabs() {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] }); } catch (_) { return; }
+  for (const tab of tabs) {
+    if (!tab.id) continue;
+    const put = (opts) => chrome.scripting.executeScript(opts).catch(() => { /* chrome:// and the web store refuse */ });
+    put({ target: { tabId: tab.id }, files: ['extract.js', 'savedetect.js', 'bookmark.js'] });
+    put({ target: { tabId: tab.id, allFrames: true }, world: 'MAIN', files: ['hook.js'] });
+    put({ target: { tabId: tab.id, allFrames: true }, files: ['bridge.js'] });
+  }
+}
+
+const HEARTBEAT = 'briffy-heartbeat';
+chrome.runtime.onInstalled.addListener(() => { ping(); injectIntoOpenTabs(); chrome.alarms.create(HEARTBEAT, { periodInMinutes: 5 }); });
+chrome.runtime.onStartup.addListener(() => { ping(); injectIntoOpenTabs(); chrome.alarms.create(HEARTBEAT, { periodInMinutes: 5 }); });
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === HEARTBEAT) ping().then(reportActiveTab); });
+ping().then(reportActiveTab);   // also on every service-worker wake-up
 
 // Sets the Referer for our own fetch of one URL (hotlink-protected CDNs) via a temporary session rule.
 async function withReferer(url, referer, fn) {
@@ -118,7 +209,7 @@ async function withReferer(url, referer, fn) {
 async function postItem(base, meta, body) {
   const res = await fetch(`${base}/api/media/item`, {
     method: 'POST',
-    headers: { 'X-DailyLogs': '1', 'Content-Type': 'application/octet-stream', 'X-DailyLogs-Meta': btoa(unescape(encodeURIComponent(JSON.stringify(meta)))) },
+    headers: { 'X-Briffy': '1', 'Content-Type': 'application/octet-stream', 'X-Briffy-Meta': btoa(unescape(encodeURIComponent(JSON.stringify(meta)))) },
     body: body || new Uint8Array(0),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -133,6 +224,29 @@ function report(extra) {
   chrome.action.setBadgeText({ text: job && job.done < job.total ? `${job.done}/${job.total}` : '' }).catch(() => {});
 }
 
+// One bookmarked page. Small enough to just post as JSON, and it must not disturb a media transfer
+// that happens to be running.
+async function sendBookmark(page) {
+  try {
+    const base = await apiBase();
+    const res = await fetch(`${base}/api/page`, {
+      method: 'POST',
+      headers: { 'X-Briffy': '1', 'Content-Type': 'application/json' },
+      body: JSON.stringify(page),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const out = await res.json();
+    if (out && out.id) {
+      chrome.action.setBadgeBackgroundColor({ color: '#22c55e' }).catch(() => {});
+      chrome.action.setBadgeText({ text: '\u2713' }).catch(() => {});
+      setTimeout(() => chrome.action.setBadgeText({ text: '' }).catch(() => {}), 2500);
+    }
+    return out;
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 async function sendItems({ pageUrl, pageTitle, items, downloadVideos }) {
   if (job && job.done < job.total) return { ok: false, error: 'busy' };
   const base = await apiBase();
@@ -144,9 +258,11 @@ async function sendItems({ pageUrl, pageTitle, items, downloadVideos }) {
   for (const it of items) {
     job.current = it.url;
     report();
-    const meta = { url: it.url, kind: it.kind, mime: it.mime || '', width: it.width || 0, height: it.height || 0, filename: it.filename || '', pageUrl, pageTitle, downloadVideos: !!downloadVideos, alt: it.alt || '' };
+    const meta = { url: it.url, kind: it.kind, mime: it.mime || '', width: it.width || 0, height: it.height || 0, filename: it.filename || '', title: it.name || '', pageUrl, pageTitle, downloadVideos: !!downloadVideos, alt: it.alt || '' };
     try {
       let body = null;
+      // A stream is a playlist, not a file: fetching it here would save a few kilobytes of text. The
+      // app has ffmpeg and assembles it from the manifest instead, so we only hand over the address.
       const wantBytes = it.kind === 'image' || ((it.kind === 'video' || it.kind === 'audio') && downloadVideos);
       if (wantBytes && !/^(data|blob):/.test(it.url)) {
         body = await withReferer(it.url, pageUrl, async () => {
@@ -173,16 +289,49 @@ async function sendItems({ pageUrl, pageTitle, items, downloadVideos }) {
     report();
   }
   try {
-    await fetch(`${base}/api/media/done`, { method: 'POST', headers: { 'X-DailyLogs': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ pageUrl, pageTitle, count: job.total, failed: job.failed }) });
+    await fetch(`${base}/api/media/done`, { method: 'POST', headers: { 'X-Briffy': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ pageUrl, pageTitle, count: job.total, failed: job.failed }) });
   } catch (_) { /* ignore */ }
   job.current = '';
   report({ finishedAt: Date.now() });
   return { ok: true, done: job.done, failed: job.failed, errors: job.errors };
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+// hook.js sees the page's own fetch/XHR; bridge.js forwards them here with a real tab attached.
+async function addHooked(tabId, items) {
+  for (const it of items || []) {
+    if (it.mse) { mseTabs.add(tabId); continue; }
+    const c = classifyUrl(it.url);
+    if (!c) continue;
+    if (c.kind === 'segment') { noteFragment(tabId, it.url, 0); continue; }
+    await addSniffed(tabId, { url: it.url, ...c, hooked: it.how || 'page' });
+  }
+}
+
+// Everything known about a tab: what the sniffer saw, what the page's own code asked for, what a
+// service worker fetched for this origin, and any stream we only know about through its segments.
+async function collect(tabId, pageUrl) {
+  const map = await loadTab(tabId);
+  const items = [...map.values()];
+  const have = new Set(items.map((i) => i.url));
+  const origin = originOf(pageUrl || '');
+  for (const [o, m] of orphans) {
+    if (origin && o !== origin) continue;
+    for (const it of m.values()) if (!have.has(it.url)) { items.push(it); have.add(it.url); }
+  }
+  for (const h of fragmentHints(tabId, have)) items.push(h);
+  return { items, mse: mseTabs.has(tabId) };
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   (async () => {
-    if (msg.type === 'getSniffed') return [...(await loadTab(msg.tabId)).values()];
+    if (msg.type === 'hooked') {
+      const tabId = sender.tab && sender.tab.id;
+      if (typeof tabId === 'number' && tabId >= 0) await addHooked(tabId, msg.items);
+      return { ok: true };
+    }
+    if (msg.type === 'bookmarked') return sendBookmark(msg.page);
+    if (msg.type === 'collect') return collect(msg.tabId, msg.pageUrl);
+    if (msg.type === 'getSniffed') return (await collect(msg.tabId, msg.pageUrl)).items;
     if (msg.type === 'ping') return ping();
     if (msg.type === 'send') return sendItems(msg);
     if (msg.type === 'job') return job;

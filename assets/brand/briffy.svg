@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 638 638" width="638" height="638">
+  <!--
+    briffy — the mark.
+
+    A paperclip drawn as one open arch with a smaller one nested inside it, both running off the
+    bottom edge, with a face in the head. Every number below was measured off the artwork it was
+    traced from (scripts/gen-brand.js documents how), so it is the same drawing, not an impression
+    of it: outer arch centre (318.25, 283.75) r 161.75 stroke 46, inner (318.5, 493.5) r 73 stroke 45.
+    Vector, so the app icon, the tray icon and the pet's avatar all come from this one file.
+  -->
+  <rect width="638" height="638" fill="#FFFFFF"/>
+  <g fill="none" stroke="#2A6CF0" stroke-linecap="round">
+    <!-- outer arch: up the left leg, over the head, down the right leg, both legs off the bottom -->
+    <path d="M156.5 638 V283.75 A161.75 161.75 0 0 1 480 283.75 V638" stroke-width="46"/>
+    <!-- inner arch -->
+    <path d="M245.5 638 V493.5 A73 73 0 0 1 391.5 493.5 V638" stroke-width="45"/>
+    <!-- the smile: an arc opening upwards, its lowest point at y 342 -->
+    <path d="M291.5 320 A27.6 27.6 0 0 0 345.5 320" stroke-width="20"/>
+  </g>
+  <g fill="#2A6CF0">
+    <circle cx="238" cy="281" r="27"/>
+    <circle cx="399" cy="281" r="27"/>
+  </g>
+</svg>

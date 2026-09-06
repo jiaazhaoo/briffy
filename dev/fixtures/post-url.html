@@ -1,0 +1,112 @@
+<!doctype html><meta charset="utf-8"><title>post url fixture</title>
+<!-- Which address a save actually keeps, on each site the extension knows.
+     `npx electron dev/preview/serve.js` then open /dev/fixtures/post-url.html and call window.runCases().
+     The bug behind it: bookmarking a tweet from its own page kept .../status/123/analytics -- the
+     "Views" counter, a page only its author can open. Every site here can make the same mistake. -->
+<body>
+<!-- Saving from a list: which card the click was inside decides which post is kept. bilibili had no
+     rule at all, so this used to keep the list's own address -- an uploader's page, not the video. -->
+<div id="bili-list">
+  <div class="bili-video-card">
+    <a href="//www.bilibili.com/video/BV1first/?spm_id_from=333.999" title="第一个视频">封面</a>
+    <span class="bili-video-card__info--tit" title="第一个视频">第一个视频</span>
+    <button id="fav1" class="video-fav">收藏</button>
+  </div>
+  <div class="bili-video-card">
+    <a href="//www.bilibili.com/video/BV2second/?spm_id_from=333.999" title="第二个视频">封面</a>
+    <span class="bili-video-card__info--tit" title="第二个视频">第二个视频</span>
+    <button id="fav2" class="video-fav">收藏</button>
+  </div>
+</div>
+<div id="zhihu-feed">
+  <div class="ContentItem">
+    <meta itemprop="url" content="https://www.zhihu.com/question/111/answer/222">
+    <h2 class="ContentItem-title">某个问题</h2>
+    <div class="RichContent">这是第一个回答的正文，够长以便被当成正文提取出来使用。</div>
+    <button id="zfav1" aria-label="收藏">收藏</button>
+  </div>
+</div>
+<script src="../../extension/extract.js"></script>
+<script>
+const E = window.BriffyExtract;
+
+// Stand in for the address bar, which a fixture cannot change.
+function at(href, fn) {
+  const real = E.postUrl;
+  const spy = { href };
+  // postUrl reads location.href; drive asPostUrl/tidyUrl directly instead, which is the same decision
+  const is = E.postPattern(new URL(href).hostname);
+  return fn({ is, here: E.asPostUrl(href, is) });
+}
+
+const CASES = [
+  // [what happened, page you are on, link dug out of the markup, what should be kept]
+  ['x: bookmarking from the tweet’s own page (the counter is the only /status/ link)',
+   'https://x.com/andrew/status/2095890279865721217',
+   'https://x.com/andrew/status/2095890279865721217/analytics',
+   'https://x.com/andrew/status/2095890279865721217'],
+  ['x: from the feed, the markup decides which tweet',
+   'https://x.com/home',
+   'https://x.com/second/status/222?s=20',
+   'https://x.com/second/status/222'],
+  ['x: standing on the analytics page itself still keeps the tweet',
+   'https://x.com/andrew/status/123/analytics',
+   '',
+   'https://x.com/andrew/status/123'],
+  ['x: a photo of the tweet is not the tweet',
+   'https://x.com/a/status/9/photo/1', '', 'https://x.com/a/status/9'],
+  ['reddit: the post page wins over any /comments/ link nearby',
+   'https://www.reddit.com/r/rust/comments/abc123/some_title/',
+   'https://www.reddit.com/r/rust/comments/abc123/some_title/def456/',
+   'https://www.reddit.com/r/rust/comments/abc123/some_title'],
+  ['reddit: from the feed, the markup decides',
+   'https://www.reddit.com/r/rust/',
+   'https://www.reddit.com/r/rust/comments/abc123/some_title/?utm_source=share',
+   'https://www.reddit.com/r/rust/comments/abc123/some_title'],
+  ['xiaohongshu: xsec_token is load-bearing and must survive',
+   'https://www.xiaohongshu.com/explore/6a9ac633000000002b01c03d?xsec_token=AB2O3h&xsec_source=pc_feed',
+   '',
+   'https://www.xiaohongshu.com/explore/6a9ac633000000002b01c03d?xsec_token=AB2O3h&xsec_source=pc_feed'],
+  ['xiaohongshu: from the feed, keep the note’s own token',
+   'https://www.xiaohongshu.com/explore',
+   'https://www.xiaohongshu.com/explore/abc123?xsec_token=TOK&xhsshare=CopyLink',
+   'https://www.xiaohongshu.com/explore/abc123?xsec_token=TOK'],
+  ['zhihu: an answer keeps its question',
+   'https://www.zhihu.com/question/534512626/answer/2512345678?utm_campaign=x',
+   '', 'https://www.zhihu.com/question/534512626/answer/2512345678'],
+  ['zhihu: a column post',
+   'https://zhuanlan.zhihu.com/p/143544871', '', 'https://zhuanlan.zhihu.com/p/143544871'],
+  ['bilibili: the tracking a video link collects comes off',
+   'https://www.bilibili.com/video/BV1HDuq6KEWv/?spm_id_from=333.1007.tianma&vd_source=bd59517996',
+   '', 'https://www.bilibili.com/video/BV1HDuq6KEWv'],
+  ['bilibili: an uploader’s page is not a post, so the address stands as it is',
+   'https://space.bilibili.com/628018266?spm_id_from=333.788', '',
+   'https://space.bilibili.com/628018266'],
+];
+
+// Saving from a list is a different question: not "clean this address" but "which card was it".
+window.runPickCases = () => {
+  const out = [];
+  const cases = [
+    ['bilibili: the second card in a list keeps the second video', 'fav2', 'bilibili.com', '/video/BV2second'],
+    ['bilibili: the first card keeps the first', 'fav1', 'bilibili.com', '/video/BV1first'],
+    ['zhihu: an answer in a feed keeps its own address', 'zfav1', 'zhihu.com', '/question/111/answer/222'],
+  ];
+  for (const [name, id, host, want] of cases) {
+    const r = E.extract(document, document.getElementById(id), host);
+    out.push({ ok: r.url.includes(want), name, got: r.url, want });
+  }
+  return out;
+};
+
+window.runCases = () => {
+  const out = [];
+  for (const [name, here, markup, want] of CASES) {
+    const host = new URL(here).hostname;
+    const is = E.postPattern(host);
+    const got = E.asPostUrl(here, is) || E.asPostUrl(markup, is) || E.tidyUrl(markup || here);
+    out.push({ ok: got === want, name, got, want });
+  }
+  return out;
+};
+</script>

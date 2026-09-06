@@ -77,11 +77,18 @@ async function run(deps, opts = {}) {
 
     // 3. speech model
     setStep('stt', 'run');
-    let sttName = s.sttModel;
+    // Same rule as the OCR step above: the language packs decide, because a model that cannot represent
+    // the language is not a smaller choice, it is a wrong one.
+    const sttPick = stt.modelForLanguages(s.languages, s.sttModel);
+    if (sttPick.upgraded) {
+      store.updateSettings({ sttModel: sttPick.model });
+      log(`speech model ${s.sttModel} cannot handle "${sttPick.needed}" — using ${sttPick.model}`);
+    }
+    let sttName = sttPick.model;
     try {
-      await stt.prepare({ model: s.sttModel, cacheDir: store.paths().models, mirror: s.hfMirror }, (stage, p, file) => {
+      await stt.prepare({ model: sttPick.model, cacheDir: store.paths().models, mirror: s.hfMirror }, (stage, p, file) => {
         if (stage === 'download') sub(lastReport.percent, t('setupSttDownloading', { pct: Math.round(p * 100) }));
-        if (stage === 'ready') log(`speech model ${file || s.sttModel} ready`);
+        if (stage === 'ready') log(`speech model ${file || sttPick.model} ready`);
       });
       summary.push(t('setupSumStt', { name: sttName }));
       setStep('stt', 'done', sttName);

@@ -83,8 +83,40 @@ async function startServer(host, { timeoutMs = 25000 } = {}) {
  * Installs Ollama with the platform's package manager. Progress lines are streamed to `onLine`.
  * Returns { ok, method } or { ok: false, manual: true, url } when no package manager is available.
  */
+// Package managers do not report progress in any structured way, so it is read back out of what they
+// print. The phase is the useful part -- "downloading" then "installing" -- and a percentage only
+// shows up while something is actually being fetched. Anything we cannot read stays out of the way in
+// the log rather than being shown to someone who did not ask for a terminal.
+function installPhase(line) {
+  const t = String(line || '').toLowerCase();
+  if (/downloading|fetching|下载/.test(t)) return 'downloading';
+  if (/installing|linking|pouring|正在安装/.test(t)) return 'installing';
+  if (/verify|checksum/.test(t)) return 'verifying';
+  if (/successfully installed|installation complete|已安装|🍺/.test(t)) return 'done';
+  return '';
+}
+function installPercent(line) {
+  const m = String(line || '').match(/(\d{1,3}(?:\.\d+)?)\s*%/g);
+  if (!m || !m.length) return undefined;
+  const n = parseFloat(m[m.length - 1]);
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n) : undefined;
+}
+
+/**
+ * @param {(p:{line:string, phase?:string, percent?:number})=>void} [onLine]
+ */
 async function install(onLine) {
-  const say = (s) => { if (onLine && s) onLine(String(s).replace(/\r/g, '').trim()); };
+  let phase = '';
+  const say = (raw) => {
+    const text = String(raw || '').replace(/\r/g, '\n');
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const next = installPhase(trimmed);
+      if (next) phase = next;
+      if (onLine) onLine({ line: trimmed, phase, percent: installPercent(trimmed) });
+    }
+  };
   let cmd = null;
   if (process.platform === 'win32' && await which('winget')) {
     cmd = { file: 'winget', args: ['install', '--id', 'Ollama.Ollama', '-e', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'], method: 'winget' };
@@ -158,6 +190,19 @@ async function pull(host, model, onProgress, { signal } = {}) {
   const decoder = new TextDecoder();
   let buf = '';
   let last = null;
+  // Ollama reports a pull layer by layer, each with its own completed/total, so a naive percentage
+  // snaps back to zero several times on the way down. Keep every layer we have been told about and
+  // report the sum, which is the number a person actually wants: how much of the model is here.
+  const layers = new Map();   // digest -> { completed, total }
+  const phaseOf = (status) => {
+    const t = String(status || '').toLowerCase();
+    if (t.startsWith('pulling manifest') || t.includes('manifest')) return 'preparing';
+    if (t.startsWith('pulling') || t.includes('download')) return 'downloading';
+    if (t.includes('verify')) return 'verifying';
+    if (t.includes('writing') || t.includes('extract')) return 'finishing';
+    if (t.includes('success')) return 'done';
+    return 'working';
+  };
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -171,7 +216,18 @@ async function pull(host, model, onProgress, { signal } = {}) {
       try { j = JSON.parse(line); } catch (_) { continue; }
       if (j.error) throw new Error(j.error);
       last = j;
-      if (onProgress) onProgress({ status: j.status || '', completed: j.completed, total: j.total, percent: j.total ? Math.round((j.completed || 0) / j.total * 100) : undefined });
+      if (j.digest && j.total) layers.set(j.digest, { completed: j.completed || 0, total: j.total });
+      let received = 0; let size = 0;
+      for (const l of layers.values()) { received += l.completed; size += l.total; }
+      if (onProgress) {
+        onProgress({
+          status: j.status || '',
+          phase: phaseOf(j.status),
+          receivedBytes: received,
+          totalBytes: size,
+          percent: size ? Math.min(100, Math.round((received / size) * 100)) : undefined,
+        });
+      }
     }
   }
   return last;
@@ -230,4 +286,15 @@ async function chat(client, req) {
   throw new Error('Ollama request failed after retries');
 }
 
-module.exports = { status, pull, chat, findBinary, startServer, install, DEFAULT_HOST, DOWNLOAD_URL, VISION_MODELS };
+/** Deletes a downloaded model. Ollama keeps the blobs; this is what frees the disk. */
+async function remove(host, model) {
+  const res = await fetch(`${host || DEFAULT_HOST}/api/delete`, {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name: model }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
+  return { ok: true };
+}
+
+module.exports = { status, pull, remove, chat, findBinary, startServer, install, installPhase, installPercent, DEFAULT_HOST, DOWNLOAD_URL, VISION_MODELS };

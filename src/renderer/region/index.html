@@ -1,14 +1,18 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh-Hans">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
-  <title>DailyLogs region</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' file:" />
+  <title>briffy region</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
   <link rel="stylesheet" href="region.css" />
 </head>
 <body>
   <img id="frozen" alt="" draggable="false" />
   <div id="shade"></div>
+  <div id="snap" class="hidden"></div>
+  <div id="snapLabel" class="chip hidden"></div>
   <div id="box" class="hidden">
     <div class="handle nw"></div><div class="handle ne"></div><div class="handle sw"></div><div class="handle se"></div>
   </div>
@@ -16,8 +20,10 @@
   <div id="hint" class="hint"><span id="hintText"></span></div>
   <div id="toolbar" class="toolbar hidden">
     <button id="btnCancel" class="tool"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span id="labelCancel"></span></button>
+    <button id="btnLong" class="tool"><svg viewBox="0 0 24 24"><path d="M6 3h12M6 8h12M6 13h12"/><path d="M12 16v5M9 18l3 3 3-3"/></svg><span id="labelLong"></span></button>
     <button id="btnOk" class="tool primary"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span id="labelOk"></span></button>
   </div>
+  <script src="boxes.js"></script>
   <script src="region.js"></script>
 </body>
 </html>

@@ -1,29 +1,29 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh-Hans">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; img-src 'self' file: data:;" />
-  <title>DailyLogs Pet</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; img-src 'self' file: data:; font-src 'self' file:" />
+  <title>briffy Pet</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
   <link rel="stylesheet" href="pet.css" />
 </head>
 <body>
-  <div id="pet" class="pet state-idle" title="点击截图 · 双击录音 · 拖入文件存入工作区 · 右键菜单">
+  <div id="pet" class="pet state-idle" title="单击截图 · 双击框选 · 中键或长按录音 · 拖入文件存入工作区 · 右键菜单">
     <div class="float">
       <div class="frame">
         <img class="avatar" src="../../../assets/pet/avatar.png" alt="" draggable="false" />
+        <!-- briffy drawing itself, when the frame still holds briffy. Same box as the <img>, so the
+             peek gesture moves either one. See assets/brand/briffy-anim.js -->
+        <div class="avatar live"></div>
         <div class="flash"></div>
       </div>
       <div class="ring"></div>
       <div class="dots"><span></span><span></span><span></span></div>
       <div class="badge"></div>
-      <svg class="mic" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="12" cy="12" r="11" fill="#fff" stroke="#e5484d" stroke-width="2" />
-        <rect x="9.5" y="5.5" width="5" height="8" rx="2.5" fill="#e5484d" />
-        <path d="M7.5 12a4.5 4.5 0 0 0 9 0" fill="none" stroke="#e5484d" stroke-width="1.8" stroke-linecap="round" />
-        <path d="M12 16.5v2" stroke="#e5484d" stroke-width="1.8" stroke-linecap="round" />
-      </svg>
     </div>
   </div>
+  <script src="../../../assets/brand/briffy-anim.js"></script>
   <script src="pet.js"></script>
 </body>
 </html>

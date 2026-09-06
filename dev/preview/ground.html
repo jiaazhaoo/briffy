@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>briffy · 底板对照</title>
+<link rel="stylesheet" href="/assets/fonts/fonts.css" />
+<style>
+/* 底板的四条路，同一批卡片摆在上面。2026-09-05 调研：
+   Steidl / Teenage Engineering / Cosmos 都是白底；are.na 是近黑底 + 描边。
+   没有一个用中灰——中灰是设计工具画布的颜色，读起来是水泥。 */
+:root { --sans: "Source Sans 3", "Noto Sans SC", -apple-system, "PingFang SC", sans-serif;
+  --slip:#fbf9f8; --slip-2:#f0eeed; --ink:#32302f; --ink-2:#52504f; --ink-3:#747271;
+  --evid:#494746; --p-note:#fbf6dc; --p-note-2:#ece2b4;
+  --e1: 0 1px 1px rgba(0,0,0,.09), 0 4px 10px rgba(0,0,0,.09); }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 30px; background: #9e9c99; color: #14140f;
+  font: 400 13px/1.6 var(--sans); -webkit-font-smoothing: antialiased; text-autospace: normal; }
+h1 { font: 600 21px/1.3 var(--sans); margin: 0 0 4px; }
+.lede { color: #3a3833; margin: 0 0 24px; max-width: 62em; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.g { padding: 24px; }
+.g h2 { font: 600 13px/1.4 var(--sans); margin: 0 0 4px; }
+.g p { margin: 0 0 18px; font-size: 11px; line-height: 1.7; opacity: .72; max-width: 34em; }
+
+/* A 近白：纸摞在纸上。Steidl / TE / Cosmos 走的这条 */
+.g-white { background: #f4f2f0; color: #32302f; }
+.g-white .c { box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 6px 16px rgba(0,0,0,.10); }
+/* B 近白 + 顶光：真实的桌面有光，一块平色是色板不是面 */
+.g-lit { background: linear-gradient(#f7f5f3, #eceae7); color: #32302f; }
+.g-lit .c { box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 6px 16px rgba(0,0,0,.10); }
+/* C 深板：深色桌垫，白纸跳出来。经典拟物和 are.na 走的这条 */
+.g-dark { background: #2b2a27; color: #e8e6e3; }
+.g-dark h2, .g-dark p { color: #e8e6e3; }
+.g-dark .c { box-shadow: 0 2px 4px rgba(0,0,0,.4), 0 12px 30px rgba(0,0,0,.4); }
+/* D 深板 + 顶光 */
+.g-deeplit { background: linear-gradient(#34322e, #232220); color: #e8e6e3; }
+.g-deeplit h2, .g-deeplit p { color: #e8e6e3; }
+.g-deeplit .c { box-shadow: 0 2px 4px rgba(0,0,0,.4), 0 12px 30px rgba(0,0,0,.4); }
+/* E 现在这套，做参照 */
+.g-now { background: #d3d1d0; color: #32302f; }
+.g-now .c { box-shadow: var(--e1); }
+
+/* ---- 六种卡片（简化，但物证和墨色都照真的来） ---- */
+.cards { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.c { position: relative; background: var(--slip); box-shadow: var(--e1); }
+.tm { color: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.c-voice { width: 250px; height: 118px; padding: 14px; }
+.c-voice .said { position: absolute; left: 14px; right: 14px; top: 34px; bottom: 38px; color: var(--ink-2);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.c-voice .tape { position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: var(--evid); }
+.c-voice .tape::before, .c-voice .tape::after { content: ''; position: absolute; top: 10px; width: 10px; height: 10px; background: var(--slip); }
+.c-voice .tape::before { left: 16px; } .c-voice .tape::after { left: 34px; }
+.c-voice .dur { position: absolute; right: 14px; bottom: 8px; color: var(--slip); opacity: .85; font-size: 11px; }
+
+.c-shot { width: 150px; height: 118px; padding: 8px 8px 0; }
+.c-shot .pic { position: absolute; left: 8px; top: 8px; width: calc(100% - 16px); height: calc(100% - 38px);
+  background: var(--slip-2); box-shadow: inset 0 0 0 1px rgba(0,0,0,.07); }
+.c-shot .tm { position: absolute; left: 10px; bottom: 8px; }
+
+.c-note { width: 118px; height: 118px; padding: 18px; background: var(--p-note); }
+.c-note .said { font-size: 15px; line-height: 1.7; color: var(--ink);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.c-note .tm { position: absolute; left: 18px; bottom: 16px; }
+.c-note .fold { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; background: var(--p-note-2);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%); filter: drop-shadow(-1px -1px 1.5px rgba(0,0,0,.16)); }
+
+.c-mark { width: 210px; height: 118px; padding: 14px 14px 14px 38px; display: flex; flex-direction: column; justify-content: center; }
+.c-mark .ribbon { position: absolute; left: 14px; top: 0; width: 13px; height: 58%;
+  background: var(--evid); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%); }
+.c-mark .ttl { font: 600 15px/1.45 var(--sans); color: var(--ink); }
+.c-mark .host { margin-top: 3px; color: var(--ink-3); font-size: 11px; }
+.c-mark .tm { position: absolute; right: 14px; top: 14px; }
+
+.c-clip { width: 140px; height: 118px; padding: 22px 10px 26px; background: var(--slip); box-shadow: none;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.10)) drop-shadow(0 4px 10px rgba(0,0,0,.10));
+  clip-path: polygon(0 9px, 5% 1px, 9% 7px, 16% 11px, 22% 2px, 27% 5px, 34% 12px, 39% 3px, 46% 8px, 51% 1px, 57% 10px,
+    63% 4px, 70% 12px, 75% 2px, 81% 6px, 88% 11px, 94% 3px, 100% 8px,
+    100% calc(100% - 4px), 95% calc(100% - 11px), 89% calc(100% - 2px), 83% calc(100% - 7px), 77% calc(100% - 12px),
+    71% calc(100% - 3px), 64% calc(100% - 9px), 58% calc(100% - 1px), 52% calc(100% - 11px), 46% calc(100% - 5px),
+    39% calc(100% - 12px), 33% calc(100% - 2px), 27% calc(100% - 8px), 20% calc(100% - 11px), 14% calc(100% - 3px),
+    8% calc(100% - 9px), 3% calc(100% - 1px), 0 calc(100% - 7px)); }
+.c-clip .q { color: var(--ink-2); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.c-clip .tm { position: absolute; right: 10px; bottom: 6px; }
+
+.c-file { width: 175px; height: 118px; padding: 14px 14px 14px 28px; }
+.c-file::before, .c-file::after { content: ''; position: absolute; left: 8px; width: 12px; height: 12px;
+  background: var(--page); box-shadow: inset 0 1px 1px rgba(0,0,0,.16); }
+.c-file::before { top: 30%; } .c-file::after { bottom: 30%; }
+.c-file b { display: block; font-weight: 600; color: var(--ink); }
+.c-file .host { color: var(--ink-3); font-size: 11px; }
+
+
+</style>
+</head>
+<body>
+<h1>底板的四条路</h1>
+<p class="lede">同一批卡片，同一套墨色，只换底板。调研里量到的：Steidl <code>#fff</code>、Teenage Engineering <code>#fff</code>、
+Cosmos 纯白、are.na <code>#1a1a1a</code> + 1px 描边——顶级的拟物/纸感设计要么走近白，要么走深板，没有一个停在中灰。</p>
+<div class="grid" id="grid"></div>
+<script>
+const CARDS = `
+  <div class="cards">
+    <article class="c c-voice"><span class="tm">10:03</span>
+      <div class="said">你好，这是一段测试录音。明天上午记得把项目预算发给张老师。</div>
+      <div class="tape"></div><span class="dur">1′04″</span></article>
+    <article class="c c-shot"><span class="pic"></span><span class="tm">09:12</span></article>
+    <article class="c c-note"><div class="said">明天上午十点和产品团队开会</div><span class="tm">15:02</span><span class="fold"></span></article>
+    <article class="c c-mark"><span class="ribbon"></span><span class="tm">11:25</span>
+      <div class="ttl">为什么 SQLite 不需要服务器</div><div class="host">example.com</div></article>
+    <article class="c c-clip"><div class="q">“后端联调排在本周四，前端先按 mock 走。”</div><span class="tm">12:15</span></article>
+    <article class="c c-file"><span class="tm">13:40</span><b>第三季度预算.pdf</b><span class="host">files/q3.pdf</span></article>
+  </div>`;
+
+
+const OPTS = [
+  ['g-now', 'E · 现在这套（中灰 L*84）', '设计工具画布的那种灰。卡片和底板差 14 L*，但整块底读起来是水泥、是"还没做完"——你说难看的就是它。'],
+  ['g-white', 'A · 近白 L*95', '纸摞在纸上。Steidl / Teenage Engineering / Cosmos 都是这条。卡片和底只差 3 L*，边界完全交给影子，所以影子要比现在重一档。'],
+  ['g-lit', 'B · 近白 + 顶光', '同 A，但底板从上到下有 3 L* 的渐变。真实的桌面有光；一块绝对平的色是色板，不是面。这一条可以叠加在任何一条上。'],
+  ['g-dark', 'C · 深板 L*18', '深色桌垫，白纸跳出来。经典拟物（皮革/毛毡桌面）和 are.na 走的这条。对比最强，整屏最重。'],
+  ['g-deeplit', 'D · 深板 + 顶光', '同 C，加顶光。深底最容易显得死板，一道光就活了。'],
+];
+const grid = document.getElementById('grid');
+for (const [cls, title, note] of OPTS) {
+  const el = document.createElement('div');
+  el.className = 'g ' + cls;
+  el.innerHTML = `<h2>${title}</h2><p>${note}</p>` + CARDS;
+  grid.appendChild(el);
+}
+</script>
+</body>
+</html>

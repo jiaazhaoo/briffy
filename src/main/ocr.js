@@ -59,6 +59,22 @@ function modelForLanguages(codes, preferred) {
   return 'v6-small'; // best general model; unknown scripts degrade rather than fail
 }
 
+// Did OCR actually read anything, or is this the noise a photograph leaves behind?
+//
+// It matters because "no text" is what routes a picture to the local image classifier, and OCR
+// almost never answers with nothing at all: a photograph of a dog came back as "N\nN\nM\nX\n2 2"
+// and one of a circuit board as "2 2\n2 2 2 3 2 2 2 2", both non-empty, both meaningless. Across
+// this workspace the two populations do not overlap even slightly -- every noise result has zero
+// words of two letters or more and zero CJK characters, while the thinnest real one has eleven words
+// and eight CJK characters -- so a low bar separates them with room to spare.
+const WORD_RE = /[A-Za-z\u00c0-\u024f]{2,}/g;
+const CJK_RE = /[\u4e00-\u9fff\u3040-\u30ff]/g;
+
+function hasWords(text) {
+  const t = String(text || '');
+  return (t.match(WORD_RE) || []).length >= 2 || (t.match(CJK_RE) || []).length >= 4;
+}
+
 function cleanText(text) {
   if (!text) return '';
   const cjk = '[぀-ヿ㐀-䶿一-鿿]';
@@ -161,7 +177,9 @@ async function getService(modelKey, cacheDir, onProgress) {
  * @param {Buffer|string} image   PNG/JPEG buffer or file path
  * @param {{languages?:string[], model?:string, cacheDir:string}} cfg
  * @param {(p:{stage:string, percent:number, file?:string, part?:number, parts?:number})=>void} [onProgress]
- * @returns {Promise<{text:string, engine:string, model:string, confidence?:number}>}
+ * @returns {Promise<{text:string, engine:string, model:string, confidence?:number, lines?:Array}>}
+ *   `lines` are the recognised items grouped by line, each with its box in the picture's own pixel
+ *   coordinates -- the detection pass produced them anyway, and ocr-boxes.js keeps them.
  */
 async function recognize(image, cfg, onProgress) {
   const run = async () => {
@@ -178,7 +196,7 @@ async function recognize(image, cfg, onProgress) {
     recordRun(modelKey, ms);
     touchIdle();
     if (onProgress) onProgress({ stage: 'recognize', percent: 100 });
-    return { text: cleanText(result && result.text), confidence: result && result.confidence, engine: 'paddle', model: modelKey, ms };
+    return { text: cleanText(result && result.text), confidence: result && result.confidence, lines: (result && result.lines) || null, engine: 'paddle', model: modelKey, ms };
   };
   const p = chain.then(run, run);
   chain = p.catch(() => {});
@@ -222,6 +240,6 @@ async function terminate() {
 }
 
 module.exports = {
-  recognize, prepare, terminate, cleanText, modelForLanguages, bundledDir, runtimeOptions,
+  recognize, prepare, terminate, cleanText, hasWords, modelForLanguages, bundledDir, runtimeOptions,
   tooSlow, forgetRuns, recordRun, PADDLE_MODELS, DEFAULT_PADDLE_MODEL,
 };

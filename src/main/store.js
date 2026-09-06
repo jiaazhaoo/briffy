@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const EventEmitter = require('events');
 
 const DEFAULT_SETTINGS = {
-  languages: ['zh-Hans', 'en'],   // exactly two language packs, first one drives the UI language
+  languages: ['en', 'zh-Hans'],   // exactly two language packs; the first drives the interface and the daily summary
   // three shortcuts, one per action (Electron accelerator syntax)
   hotkeyRegion: process.platform === 'darwin' ? 'Cmd+Shift+A' : 'Ctrl+Alt+A',   // drag a box, like other screenshot tools
   hotkeyScreen: process.platform === 'darwin' ? 'Cmd+Shift+S' : 'Ctrl+Alt+S',   // whole screen
@@ -15,20 +15,37 @@ const DEFAULT_SETTINGS = {
   captureToClipboard: true,       // a capture also lands on the system clipboard, ready to paste
   model: 'claude-opus-5',         // Claude model used for tagging + daily summaries
   sttModel: 'Xenova/whisper-tiny.en',  // English model bundled with the app; others download on demand
-  sttLanguage: 'auto',            // 'auto' | a language code from settings.languages
+  // 'packs' = decide between the two chosen language packs, 'auto' = all 99 Whisper languages, or a
+  // fixed code. Choosing between two is the reliable one, and two is what the user actually picked.
+  sttLanguage: 'packs',
   summaryTime: '08:00',           // when the daily summary for yesterday is produced
   workspaceDir: '',               // '' => <userData>/workspace
   hfMirror: '',                   // e.g. https://hf-mirror.com/ when huggingface.co is unreachable
   petPosition: null,              // {x, y} remembered after dragging
   petHidden: false,
+  theme: 'system',                // 'system' | 'light' | 'dark'
   petAvatar: '',                  // catalog key of the picked logo; '' => the bundled avatar
   ocrDroppedImages: true,
   ocrModel: '',                   // '' => decided by the machine probe + language pair
   ocrModelAuto: '',               // the model the app settled on for this machine
   setupDone: false,               // the one-click setup wizard has run at least once
+  // Let a small local embedding model choose which of an entry's own words describe it. Off means the
+  // words come from counting alone, which is faster but noisier.
   normalizeChineseScript: true,   // unify Whisper's random simplified/traditional output to the selected pack
   micDeviceId: '',                // '' => system default microphone
   micLabel: '',
+  // Stamp every record with the app / window / page the user was on when they saved it. Read at save
+  // time only -- briffy never watches what is in front of you, see foreground.js.
+  recordContext: true,
+  // Hold the microphone and file a recording whenever anyone talks. The one thing briffy does
+  // without being asked, so it is off until it is turned on. See src/main/listen.js.
+  autoRecord: false,
+  // 24 小时占着麦克风的东西（系统语音服务、常驻录音器）不算「有人在用麦克风」，
+  // 否则自动录音会退回成一直录——正是它要避免的那件事。名字可改。
+  autoRecordIgnore: ['corespeechd', 'screenpipe'],
+  // Tell voices apart in a recording, and remember them between recordings. Off by default: it fetches
+  // about 35 MB of models the first time. See src/main/diarize.js.
+  diarize: false,
   clipboardWatch: true,           // record everything copied to the clipboard
   clipboardMinChars: 12,          // ignore text shorter than this
   localApi: true,                 // local endpoint the browser extension talks to
@@ -39,6 +56,9 @@ const DEFAULT_SETTINGS = {
   openrouterModel: 'anthropic/claude-opus-5',
   ollamaHost: 'http://127.0.0.1:11434',
   ollamaModel: '',                // '' => use the hardware recommendation
+  // A pull that was cut off (the app quit, the machine slept). Ollama keeps the blobs it already has
+  // and resumes, but nothing said so, and a half-downloaded model was simply invisible.
+  pendingPull: null,              // { model, receivedBytes, totalBytes, at }
   customBaseUrl: 'http://127.0.0.1:1234/v1',   // LM Studio default
   customModel: '',
   // secrets: base64 of safeStorage-encrypted value, or plain text when safeStorage is unavailable
@@ -65,6 +85,19 @@ function addDays(dateKey, n) {
   const [y, m, d] = dateKey.split('-').map(Number);
   const dt = new Date(y, m - 1, d + n);
   return localDateKey(dt);
+}
+
+// Which capture route an entry came in through. `type` alone cannot say it: a clipboard copy can be
+// text, an image or files, and a page grab arrives as images too -- what differs is where it came from.
+const SOURCES = ['screenshot', 'clipboard', 'bookmark', 'browser', 'voice', 'other'];
+function entrySource(e) {
+  if (!e) return 'other';
+  if (e.origin === 'clipboard') return 'clipboard';
+  if (e.origin === 'bookmark') return 'bookmark';
+  if (e.origin === 'browser') return 'browser';
+  if (e.type === 'screenshot') return 'screenshot';
+  if (e.type === 'audio') return 'voice';
+  return 'other';
 }
 
 function readJson(file, fallback) {
@@ -110,6 +143,8 @@ class Store extends EventEmitter {
       files: path.join(w, 'files'),
       audio: path.join(w, 'audio'),
       summaries: path.join(w, 'summaries'),
+      ocr: path.join(w, 'ocr'),          // where each line of recognised text sits, one file per picture
+      uptime: path.join(w, 'uptime'),    // which five-minute slots briffy was awake in, one file per day
       models: path.join(this.userData, 'models'),
       ocrModels: path.join(this.userData, 'ocr-models'),
     };
@@ -187,14 +222,17 @@ class Store extends EventEmitter {
   // ---------- entries ----------
   dayFile(dateKey) { return path.join(this.paths().entries, `${dateKey}.json`); }
 
+  // Days on disk plus days only in memory. A new day's file is not written until the save debounce
+  // fires, so reading the directory alone loses the first entries of every day -- including, for a
+  // few hundred milliseconds, the one that was just added.
   listDates() {
+    const keys = new Set(this.days.keys());
     try {
-      return fs.readdirSync(this.paths().entries)
-        .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
-        .map((f) => f.slice(0, 10))
-        .sort()
-        .reverse();
-    } catch (_) { return []; }
+      for (const f of fs.readdirSync(this.paths().entries)) {
+        if (/^\d{4}-\d{2}-\d{2}\.json$/.test(f)) keys.add(f.slice(0, 10));
+      }
+    } catch (_) { /* no workspace yet */ }
+    return [...keys].sort().reverse();
   }
 
   loadDay(dateKey) {
@@ -278,20 +316,28 @@ class Store extends EventEmitter {
         if (rel && !entry.linked) { try { fs.rmSync(this.absPath(rel), { force: true }); } catch (_) { /* ignore */ } }
       }
     }
+    // The sidecar holding where each line of text sits goes with it, deleted or not.
+    if (entry.ocrBoxes) {
+      try { fs.rmSync(path.join(this.paths().ocr, entry.dateKey, `${entry.id}.json`), { force: true }); } catch (_) { /* ignore */ }
+    }
     this.emit('entry', entry, 'delete');
     return true;
   }
 
   entriesForDate(dateKey) { return [...this.loadDay(dateKey)]; }
 
-  listEntries({ query = '', dates = null, limit = 500 } = {}) {
+  listEntries({ query = '', dates = null, source = '', sources = null, pinned = false, limit = 500 } = {}) {
+    const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
     const keys = dates || this.listDates();
     const q = query.trim().toLowerCase();
     const out = [];
     for (const key of keys) {
       for (const e of this.loadDay(key)) {
+        // filter before the limit, so asking for one source cannot be crowded out by the others
+        if (want && !want.has(entrySource(e))) continue;
+        if (pinned && !e.pinned) continue;
         if (q) {
-          const hay = `${e.title} ${e.tags.join(' ')} ${e.text} ${e.summary} ${e.path}`.toLowerCase();
+          const hay = `${e.title} ${e.tags.join(' ')} ${e.visionLabels || ''} ${e.text} ${e.summary} ${e.path} ${e.note || ''} ${e.context ? `${e.context.app || ''} ${e.context.window || ''} ${e.context.url || ''}` : ''}`.toLowerCase();
           if (!hay.includes(q)) continue;
         }
         out.push(e);
@@ -301,11 +347,24 @@ class Store extends EventEmitter {
     return out;
   }
 
+  /** Everything the user has pinned, newest first. */
+  pinnedEntries({ limit = 100 } = {}) {
+    const out = [];
+    for (const key of this.listDates()) {
+      for (const e of this.loadDay(key)) { if (e.pinned) out.push(e); if (out.length >= limit) return out; }
+    }
+    return out;
+  }
+
   stats() {
     let total = 0;
-    for (const key of this.listDates()) total += this.loadDay(key).length;
-    return { days: this.listDates().length, entries: total };
+    let pinned = 0;
+    const bySource = Object.fromEntries(SOURCES.map((s) => [s, 0]));
+    for (const key of this.listDates()) {
+      for (const e of this.loadDay(key)) { total++; if (e.pinned) pinned++; bySource[entrySource(e)]++; }
+    }
+    return { days: this.listDates().length, entries: total, pinned, bySource };
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
+module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };

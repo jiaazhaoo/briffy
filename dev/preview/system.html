@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>briffy · 层级</title>
+<link rel="stylesheet" href="/assets/fonts/fonts.css" />
+<style>
+/* The design hierarchy, as opposed to the information hierarchy on lang.html.
+   In a paper language there are only four kinds of hierarchy, and every one of them is a ladder:
+
+     层  how far off the page a thing is           (0 - 4, and only real objects climb it)
+     墨  how dark a thing is written               (5 steps, one accent, one stamp)
+     空  how much air sits around a thing          (6 steps -- the only "divider" this language has)
+     字  how big and how heavy                     (6 ranks, already set on lang.html)
+
+   This sheet obeys the language it documents: one typeface, one accent, no rules, no boxes. */
+
+:root {
+  --sans: "Source Sans 3", "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --page: #cbc7be;                  /* 层 0 · the page itself */
+  --slip: #fbfaf6;                  /* the paper every object is cut from */
+  --ink: #1b1a18; --ink-2: #6d6a63; --ink-3: #918e86;
+  --accent: #2a6cf0; --stamp: #c8372d; --marker: #f7edb4;
+
+  /* 层 · the elevation ladder. Each step is a contact shadow (how tightly it touches) plus a cast
+     shadow (how far it is off the surface). Light is above, so both fall downward. */
+  --e1: 0 1px 1px rgba(0,0,0,.10), 0 4px 10px rgba(0,0,0,.10);
+  --e2: 0 2px 3px rgba(0,0,0,.12), 0 10px 22px rgba(0,0,0,.13);
+  --e3: 0 4px 8px rgba(0,0,0,.14), 0 20px 42px rgba(0,0,0,.18);
+  --e4: 0 8px 20px rgba(0,0,0,.20), 0 40px 90px rgba(0,0,0,.22);
+
+  --fs-day: 21px; --fs-t: 13px; --fs-b: 13px; --fs-s: 12px; --fs-m: 11px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 400 13px/1.6 var(--sans); -webkit-font-smoothing: antialiased;
+  text-autospace: normal; text-spacing-trim: space-first; line-break: strict;
+  padding: 54px 60px 100px;
+}
+
+h1 { font: 600 var(--fs-day)/1.2 var(--sans); letter-spacing: -.01em; margin: 0 0 6px; }
+.lede { color: var(--ink-2); max-width: 46em; margin: 0 0 58px; }
+h2 { font: 600 var(--fs-day)/1.2 var(--sans); letter-spacing: -.01em; margin: 0 0 4px; }
+h2 + p { color: var(--ink-2); max-width: 46em; margin: 0 0 26px; }
+section { margin-bottom: 76px; }
+.cap { font-size: var(--fs-m); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ---------- 层 ---------- */
+.ladder { display: flex; flex-wrap: wrap; gap: 34px 26px; align-items: flex-start; }
+.ladder .l4 { width: 100%; margin-top: 26px; }
+.ladder .l4 .demo { width: 232px; }
+.ladder .l4 .lbl { margin-top: 30px; }
+.step { width: 232px; }
+.step .demo { background: var(--slip); padding: 13px 15px 15px; }
+.step .demo .t { font-weight: 600; }
+.step .demo .m { margin-top: 6px; font-size: var(--fs-m); color: var(--ink-3); }
+.step .lbl { margin-top: 14px; font-weight: 600; }
+.step .lbl em { font-style: normal; color: var(--ink-3); font-weight: 400; margin-left: 6px; font-size: var(--fs-m); }
+.step .use { margin-top: 2px; color: var(--ink-2); font-size: var(--fs-s); }
+
+.l0 .demo { background: none; padding: 13px 0 15px; }            /* printed on the page: no plane of its own */
+.l1 .demo { box-shadow: var(--e1); }
+.l2 .demo { box-shadow: var(--e2); transform: translateY(-2px); }
+.l3 .demo { box-shadow: var(--e3); transform: translateY(-4px) rotate(-1deg); }
+.l4 .demo { box-shadow: var(--e4); transform: translateY(-6px); }
+
+/* the ground under 层 4 dims, because a sheet held up throws the page into shade */
+.l4 { position: relative; }
+.l4::before { content: ''; position: absolute; left: -18px; top: -18px; width: 268px; height: 118px; background: rgba(20,20,18,.16); }
+.l4 .demo, .l4 .lbl, .l4 .use { position: relative; }
+
+/* ---------- 状态 ---------- */
+/* One slip, five states, so the ladder can be read as motion rather than as five separate cards. */
+.states { display: flex; flex-wrap: wrap; gap: 30px 24px; align-items: flex-start; }
+.st { width: 210px; }
+.st .slip { background: var(--slip); padding: 12px 14px 14px; box-shadow: var(--e1); }
+.st .slip .t { font-weight: 600; }
+.st .slip .m { margin-top: 6px; font-size: var(--fs-m); color: var(--ink-3); }
+.st.hover .slip { box-shadow: var(--e2); transform: translateY(-2px); }
+.st.picked .slip { background: var(--marker); }                       /* a mark, not a lift */
+.st.drag .slip { box-shadow: var(--e3); transform: translateY(-4px) rotate(-1.5deg); }
+.st.busy .slip .m { color: var(--accent); }
+.st .lbl { margin-top: 13px; font-weight: 600; }
+.st .use { margin-top: 2px; color: var(--ink-2); font-size: var(--fs-s); }
+
+/* ---------- 墨 ---------- */
+.inks { display: flex; flex-direction: column; gap: 0; max-width: 720px; }
+.ink-row { display: grid; grid-template-columns: 128px 92px 1fr; gap: 18px; align-items: baseline; padding: 9px 0; }
+.ink-row .sw { height: 15px; }
+.ink-row .nm { font-weight: 600; }
+.ink-row .use { color: var(--ink-2); font-size: var(--fs-s); }
+
+/* ---------- 空 ---------- */
+.airs { display: flex; flex-direction: column; gap: 0; max-width: 720px; }
+.air-row { display: grid; grid-template-columns: 128px 92px 1fr; gap: 18px; align-items: center; padding: 7px 0; }
+.air-row .bar { background: var(--ink); height: 8px; }
+.air-row .nm { font-weight: 600; }
+.air-row .use { color: var(--ink-2); font-size: var(--fs-s); }
+
+/* ---------- 不参与层级的 ---------- */
+.flat { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.btn { background: rgba(0,0,0,.06); color: var(--ink); border: 0; padding: 7px 13px; font: 600 var(--fs-s)/1 var(--sans); cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--slip); }
+.field { border: 0; border-bottom: 1px solid rgba(0,0,0,.18); background: none; font: inherit; outline: none; padding: 0 0 4px; width: 190px; }
+.navdemo { display: flex; gap: 16px; font-size: var(--fs-t); color: var(--ink-3); }
+.navdemo .on { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>层级</h1>
+<p class="lede">
+  纸质语言里只有四种层级，每一种都是一把梯子：<b>层</b>（离纸面多远）、<b>墨</b>（写得多黑）、<b>空</b>（周围留多少气）、<b>字</b>（多大多重）。
+  没有第五种——线、框、底纹都不是层级手段。这一页记的是前三把；第四把（字）在 lang.html 上。
+</p>
+
+<!-- ================= 层 ================= -->
+<section>
+  <h2>层 · 离纸面多远</h2>
+  <p>
+    只有<b>真实物件</b>才爬这把梯子：记录（一张便签）、被抬起的便签、摊开的详情。
+    按钮、导航、筛选、输入框永远在第 0 层——它们是<b>印在</b>纸上的，印刷品不会浮起来。
+    每一级 = 一道贴合影（贴得多紧）＋ 一道投影（离多远），光都在上方，所以影子都向下落。
+  </p>
+  <div class="ladder">
+    <div class="step l0">
+      <div class="demo"><div class="t">今天 · 9月5日</div><div class="m">日期 · 导航 · 筛选 · 按钮</div></div>
+      <div class="lbl">层 0 · 印在纸上<em>无影</em></div>
+      <div class="use">底纸本身，和一切印刷元素。永远不动。</div>
+    </div>
+    <div class="step l1">
+      <div class="demo"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div>
+      <div class="lbl">层 1 · 躺着<em>--e1</em></div>
+      <div class="use">一条记录的常态。一张便签放在纸上，纸厚约一毫米。</div>
+    </div>
+    <div class="step l2">
+      <div class="demo"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div>
+      <div class="lbl">层 2 · 抬起<em>--e2 · 上移 2px</em></div>
+      <div class="use">鼠标经过。仅仅是"手指伸到它下面"，不是选中。</div>
+    </div>
+    <div class="step l3">
+      <div class="demo"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div>
+      <div class="lbl">层 3 · 拿在手上<em>--e3 · 上移 4px · 偏 1.5°</em></div>
+      <div class="use">拖拽中。手拿纸一定会歪，所以这是全应用唯一允许旋转的时刻。</div>
+    </div>
+    <div class="step l4">
+      <div class="demo"><div class="t">第三季度预算与路线图会议.pdf</div><div class="m">13:40 · 6 页</div></div>
+      <div class="lbl">层 4 · 摊在眼前<em>--e4 · 底下压暗</em></div>
+      <div class="use">详情窗。举到眼前，整张底纸落进它的影子里。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 状态 ================= -->
+<section>
+  <h2>状态 · 同一张便签的五种样子</h2>
+  <p>
+    要紧的一条：<b>选中不是层级</b>。选中是在纸上划一道记号，纸没有动。
+    把"选中"做成抬起，会和"鼠标经过"撞车，也会让一屏里选了六条时浮起一片——那是最容易乱的地方。
+  </p>
+  <div class="states">
+    <div class="st"><div class="slip"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div><div class="lbl">静止</div><div class="use">层 1</div></div>
+    <div class="st hover"><div class="slip"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div><div class="lbl">经过</div><div class="use">层 2 · 只抬 2px</div></div>
+    <div class="st picked"><div class="slip"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div><div class="lbl">选中</div><div class="use">层 1 不变 · 荧光笔划过</div></div>
+    <div class="st drag"><div class="slip"><div class="t">语音 10:03</div><div class="m">10:03 · 0:42</div></div><div class="lbl">拖起</div><div class="use">层 3 · 唯一会歪的时刻</div></div>
+    <div class="st busy"><div class="slip"><div class="t">语音 10:03</div><div class="m">识别文字中 40%</div></div><div class="lbl">处理中</div><div class="use">层 1 不变 · 只换一行墨色</div></div>
+  </div>
+</section>
+
+<!-- ================= 墨 ================= -->
+<section>
+  <h2>墨 · 写得多黑</h2>
+  <p>五级黑墨，加两瓶有颜色的墨。有颜色的两瓶各自只干一件事，干完就收起来——一屏里通常一滴都不出现。</p>
+  <div class="inks">
+    <div class="ink-row"><div class="nm">墨</div><div class="sw" style="background:#1b1a18"></div><div class="use">日期 · 记录标题 · 记录正文 · 当前所在页</div></div>
+    <div class="ink-row"><div class="nm">淡墨</div><div class="sw" style="background:#6d6a63"></div><div class="use">摘要 · 工具 · 说明文字</div></div>
+    <div class="ink-row"><div class="nm">铅笔</div><div class="sw" style="background:#918e86"></div><div class="use">时间 · 来源 · 标签 · 未选中的导航 · placeholder</div></div>
+    <div class="ink-row"><div class="nm">发丝</div><div class="sw" style="background:rgba(27,26,24,.18)"></div><div class="use">全应用仅剩的一条线：输入框底下那道。</div></div>
+    <div class="ink-row"><div class="nm">荧光笔</div><div class="sw" style="background:#f7edb4"></div><div class="use">选中。不是层级，是记号。</div></div>
+    <div class="ink-row"><div class="nm">蓝墨</div><div class="sw" style="background:#2a6cf0"></div><div class="use">只给「正在发生」：识别中 · 下载中 · 链接。</div></div>
+    <div class="ink-row"><div class="nm">印泥</div><div class="sw" style="background:#c8372d"></div><div class="use">只给三件事：录音 · 出错 · 删除。</div></div>
+  </div>
+</section>
+
+<!-- ================= 空 ================= -->
+<section>
+  <h2>空 · 周围留多少气</h2>
+  <p>这是这套语言里<b>唯一的分隔手段</b>。没有线、没有框，所以「谁和谁是一组」全靠这把梯子说。六级，逐级翻倍。</p>
+  <div class="airs">
+    <div class="air-row"><div class="nm">4</div><div class="bar" style="width:4px"></div><div class="use">同一行字之间（标题和正文）</div></div>
+    <div class="air-row"><div class="nm">8</div><div class="bar" style="width:8px"></div><div class="use">便签里正文和元数据之间</div></div>
+    <div class="air-row"><div class="nm">14</div><div class="bar" style="width:14px"></div><div class="use">便签的内边距</div></div>
+    <div class="air-row"><div class="nm">26</div><div class="bar" style="width:26px"></div><div class="use">便签与便签之间；侧栏里两组之间</div></div>
+    <div class="air-row"><div class="nm">54</div><div class="bar" style="width:54px"></div><div class="use">一天和下一天之间</div></div>
+    <div class="air-row"><div class="nm">40 / 60</div><div class="bar" style="width:60px"></div><div class="use">页边（窗口小 40，宽屏 60）</div></div>
+  </div>
+</section>
+
+<!-- ================= 不爬梯子的 ================= -->
+<section>
+  <h2>不参与层级的</h2>
+  <p>
+    这些永远在层 0，没有影子、不抬起、不歪斜。它们是印刷元素，不是物件——
+    如果按钮也浮起来，那"便签是真实的纸"这件事就不成立了。
+  </p>
+  <div class="flat">
+    <button class="btn primary">截图并识别</button>
+    <button class="btn">添加文件</button>
+    <input class="field" placeholder="搜索" />
+    <div class="navdemo"><span class="on">记录</span><span>问</span><span>每日摘要</span><span>设置</span></div>
+    <div class="navdemo" style="font-size:12px"><span class="on" style="text-decoration:underline;text-underline-offset:4px">全部 12</span><span>截图 2</span><span>语音 2</span></div>
+  </div>
+</section>
+
+</body>
+</html>

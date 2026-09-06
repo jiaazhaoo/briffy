@@ -12,16 +12,16 @@ localApi.start({
   onExtension: (e) => console.log('  [event] extension connected:', e.id, e.version),
 });
 
-const BROWSER = { 'X-DailyLogs': '1', 'X-DailyLogs-Ext': '0.1.0', Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'cross-site' };
+const BROWSER = { 'X-Briffy': '1', 'X-Briffy-Ext': '0.1.0', Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'cross-site' };
 const state = async () => (await (await fetch(`${BASE}/api/extension`)).json()).connected;
 
 (async () => {
   await new Promise((r) => setTimeout(r, 300));
   const cases = [
     ['fresh start', null, false],
-    ['plain curl-style ping (header only)', { 'X-DailyLogs': '1', 'X-DailyLogs-Ext': '9.9.9' }, false],
-    ['fake origin, no browser fetch headers', { 'X-DailyLogs': '1', 'X-DailyLogs-Ext': '9.9.9', Origin: 'chrome-extension://fake' }, false],
-    ['page origin (not an extension)', { 'X-DailyLogs': '1', 'X-DailyLogs-Ext': '9.9.9', Origin: 'http://127.0.0.1:47899', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' }, false],
+    ['plain curl-style ping (header only)', { 'X-Briffy': '1', 'X-Briffy-Ext': '9.9.9' }, false],
+    ['fake origin, no browser fetch headers', { 'X-Briffy': '1', 'X-Briffy-Ext': '9.9.9', Origin: 'chrome-extension://fake' }, false],
+    ['page origin (not an extension)', { 'X-Briffy': '1', 'X-Briffy-Ext': '9.9.9', Origin: 'http://127.0.0.1:47899', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Site': 'same-origin' }, false],
     ['real browser extension', BROWSER, true],
   ];
   let pass = 0;

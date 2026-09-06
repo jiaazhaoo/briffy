@@ -1,25 +1,38 @@
 'use strict';
 // Application entry point: lifecycle, tray, global shortcut and every IPC handler.
 const {
-  app, Tray, Menu, nativeImage, globalShortcut, ipcMain, dialog, shell, Notification, session, systemPreferences,
+  app, Tray, Menu, nativeImage, globalShortcut, ipcMain, dialog, shell, Notification, session, systemPreferences, clipboard, ClipboardItem, nativeTheme,
 } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { Store, localDateKey, addDays } = require('./store');
+const { Store, entrySource, localDateKey, addDays } = require('./store');
 const windows = require('./windows');
 const petskin = require('./petskin');
 const workspace = require('./workspace');
 const summary = require('./summary');
+const ask = require('./ask');
 const ai = require('./ai');
 const llm = require('./llm');
 const hardware = require('./hardware');
 const ollama = require('./ollama');
+const ollamaLibrary = require('./ollama-library');
+const modelQuality = require('./model-quality');
+const ffmpegTool = require('./ffmpeg');
 const oai = require('./openai-compat');
 const orAuth = require('./openrouter-auth');
 const clipboardWatch = require('./clipboard-watch');
 const localApi = require('./local-api');
+const foreground = require('./foreground');
+const uptime = require('./uptime');
+const deeplink = require('./deeplink');
+const longshot = require('./longshot');
+const listen = require('./listen');
+const diarize = require('./diarize');
+const dayStats = require('./day-stats');
+const ocrBoxes = require('./ocr-boxes');
 const region = require('./region');
 const setup = require('./setup');
+const permissions = require('./permissions');
 const { installPage } = require('./install-page');
 const stt = require('./stt');
 const ocr = require('./ocr');
@@ -37,11 +50,55 @@ let registeredHotkeys = [];
 let hotkeyError = '';
 const assetPath = (name) => path.join(__dirname, '..', '..', 'assets', name);
 
+// Electron names the settings folder after the app, and the app used to be called DailyLogs. Renaming
+// it without moving the folder would leave every record, every setting and the whole workspace behind
+// in a directory nothing reads any more -- the app would open looking brand new. So the old folder is
+// moved once, before anything has had a chance to read or create the new one.
+function migrateUserData() {
+  const appData = app.getPath('appData');
+  const from = path.join(appData, 'DailyLogs');
+  const to = path.join(appData, 'briffy');
+  if (!fs.existsSync(from) || fs.existsSync(to)) return;
+  try {
+    fs.renameSync(from, to);
+    console.log(`[migrate] ${from} -> ${to}`);
+  } catch (e) {
+    // Cross-device, or no permission: keep reading the old folder rather than start empty.
+    console.error('[migrate] could not move the settings folder, using the old one:', e.message);
+    app.setPath('userData', from);
+  }
+}
+migrateUserData();
+
+// Set before anything else so app.getName() is right from the first line, and so Windows and Linux
+// name their windows and taskbar entries properly.
+//
+// It does NOT change what macOS writes under the Dock tile or at the head of the menu bar. Measured:
+// both of those read CFBundleName out of the surrounding app bundle, so during development -- where
+// the code runs inside Electron's own Electron.app -- they say "Electron" whatever this is set to.
+// A packaged build carries productName ("briffy") and gets both right. The one part of the Dock we
+// can fix either way is the picture, via app.dock.setIcon below.
+app.setName('briffy');
+
+// macOS delivers a briffy:// link as an event, Windows and Linux as an argument to a second launch.
+// Both can arrive before the app is ready, so deeplink.js holds the first one until it is.
+app.on('open-url', (event, url) => { event.preventDefault(); deeplink.handle(url); });
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => windows.openWorkspace());
-  app.whenReady().then(main).catch((e) => { console.error(e); dialog.showErrorBox('DailyLogs', String(e && e.stack || e)); });
+  app.on('second-instance', (_e, argv) => {
+    const link = deeplink.fromArgv(argv);
+    if (link) deeplink.handle(link); else windows.openWorkspace();
+  });
+  app.whenReady().then(main).catch((e) => { console.error(e); dialog.showErrorBox('briffy', String(e && e.stack || e)); });
+}
+
+// Light or dark is Electron's own switch: setting themeSource flips `prefers-color-scheme` inside every
+// window at once, so the workspace, the balloon, the shelf and the onboarding flow all follow without a
+// line of CSS. 'system' hands it back to the OS.
+function applyTheme(theme) {
+  nativeTheme.themeSource = theme === 'light' || theme === 'dark' ? theme : 'system';
 }
 
 // Everything the app has to say goes through the pet's speech balloon (windows.setPetState
@@ -57,7 +114,7 @@ function notify(title, body, onClick) {
 function publicEntry(entry) {
   if (!entry) return null;
   const abs = entry.path ? store.absPath(entry.path) : '';
-  const out = { ...entry, absPath: abs, fileUrl: abs ? pathToFileURL(abs).href : '' };
+  const out = { ...entry, source: entrySource(entry), absPath: abs, fileUrl: abs ? pathToFileURL(abs).href : '' };
   if (entry.wavPath) out.wavUrl = pathToFileURL(store.absPath(entry.wavPath)).href;
   return out;
 }
@@ -70,10 +127,37 @@ function mmss(seconds) {
 async function main() {
   store.init();
   i18n.setLanguage(uiLanguage(store.getSettings().languages));
-  windows.init({ store });
+  applyTheme(store.getSettings().theme);
+  windows.init({
+    store,
+    typeLabel: (type) => (i18n.t('types') || {})[type] || type,
+    shelfStrings: () => ({ open: i18n.t('shelfOpen'), copied: i18n.t('shelfCopied'), empty: i18n.t('shelfEmpty') }),
+  });
   workspace.init({ store, windows });
+  diarize.init({ store });   // main reads the remembered voices for the settings page
+  uptime.init({ store });
+  longshot.init();
+  listen.init({
+    store,
+    workspace,
+    onProblem: (kind) => windows.setPetState('error', { message: t(kind === 'denied' ? 'listenDenied' : 'listenFailed'), ms: 9000 }),
+  });
+  listen.register();
+  deeplink.init({ windows });
+  deeplink.register();
+  { const link = deeplink.fromArgv(process.argv); if (link) deeplink.handle(link); }
   summary.init({ store, windows, notify });
-  if (process.platform === 'win32') app.setAppUserModelId('com.dailylogs.app');
+  // Also on the way up, not only when the setting changes: the language may have been switched while
+  // the app was closed, and records saved before this existed still carry their English labels.
+  workspace.relabelVision(uiLanguage(store.getSettings().languages));
+  ask.init({ store });
+  // First launch: walk through languages, permissions and who reads the records, before the pet starts
+  // silently asking the OS for things.
+  if (!store.getSettings().setupDone && !process.env.DAILYLOGS_SMOKE) windows.openOnboarding();
+  if (process.platform === 'win32') app.setAppUserModelId('com.briffy.app');
+  // The Dock tile's picture is set in windows.syncDock, at the moment the tile appears -- setting it
+  // here, while briffy is still hidden from the Dock, looked right in the log and changed nothing on
+  // screen: macOS builds a fresh tile from the bundle each time it comes back.
   // Keep the default macOS application menu (Cmd+C/V/Q); Windows/Linux windows need no menu bar at all.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 
@@ -84,10 +168,14 @@ async function main() {
   region.init();
   windows.createBubbleWindow();
   windows.createPetWindow();
+  windows.createShelfWindow();     // hidden until the pointer rests on the pet
   createTray();
   registerHotkeys();
   setupIpc();
-  summary.start();
+  windows.syncDock();   // the character alone stays out of the Dock; the workspace puts it back
+  foreground.setEnabled(store.getSettings().recordContext);
+  uptime.start();      // so a quiet day can say whether it was quiet or unattended
+  listen.sync();       // automatic recording, if it was left on
   resolveAutoOcrModel(hardware.quickProfile());   // cheap probe, ready before the first capture
   hardware.detectCached().catch((e) => console.warn('[hardware]', e.message));
   syncClipboardWatch();
@@ -99,11 +187,16 @@ async function main() {
   store.on('entry', (entry, kind) => windows.broadcastToWorkspace('ws:entry', { entry: publicEntry(entry), kind }));
   store.on('settings', (after, before) => {
     const changed = Object.keys({ ...before, ...after }).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
-    if (!changed.length || changed.every((k) => k === 'petPosition')) return; // dragging the cat is not a settings change
+    if (!changed.length || changed.every((k) => k === 'petPosition')) return; // dragging the character is not a settings change
     i18n.setLanguage(uiLanguage(after.languages));
+    if (changed.includes('theme')) applyTheme(after.theme);
+    // The words on a picture are the app's, not the user's, so they follow the app's language.
+    if (changed.includes('languages')) workspace.relabelVision(uiLanguage(after.languages));
     if (changed.some((k) => k.startsWith('hotkey'))) { registerHotkeys(); rebuildTray(); }
     if (changed.includes('micDeviceId')) windows.sendPetCommand('config', { micDeviceId: after.micDeviceId || '' });
     if (changed.includes('clipboardWatch')) { syncClipboardWatch(); rebuildTray(); }
+    if (changed.includes('recordContext')) { foreground.setEnabled(after.recordContext); if (!after.recordContext) foreground.forgetTab(); }
+    if (changed.includes('autoRecord') || (after.autoRecord && changed.includes('micDeviceId'))) { listen.sync(); rebuildTray(); }
     if (changed.includes('localApi') || changed.includes('localApiPort')) syncLocalApi();
     if (changed.some((k) => ['languages', 'petHidden'].includes(k))) rebuildTray();
     windows.broadcastToWorkspace('ws:settings', store.getPublicSettings());
@@ -111,7 +204,7 @@ async function main() {
 
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
   app.on('activate', () => { if (!windows.getPetWindow()) windows.createPetWindow(); windows.openWorkspace('entries'); });
-  app.on('before-quit', () => { store.flushAll(); globalShortcut.unregisterAll(); clipboardWatch.stop(); localApi.stop(); });
+  app.on('before-quit', () => { store.flushAll(); uptime.stop(); listen.stop(); globalShortcut.unregisterAll(); clipboardWatch.stop(); localApi.stop(); });
   app.on('will-quit', () => { ocr.terminate().catch(() => {}); stt.dispose().catch(() => {}); });
 
   if (process.platform === 'darwin' && screenPermissionStatus() !== 'granted') {
@@ -129,6 +222,15 @@ async function smokeTest() {
   const { captureDisplayUnderCursor } = require('./capture');
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const mode = process.env.DAILYLOGS_SMOKE;
+  // The region overlays, the one for the primary display first (or DAILYLOGS_SMOKE_DISPLAY=<id>): a test
+  // rectangle is given in that display's coordinates, and driving whichever overlay was created first
+  // captured a different screen entirely.
+  const pickOverlays = () => {
+    const { BrowserWindow: BW, screen: scr } = require('electron');
+    const want = String(process.env.DAILYLOGS_SMOKE_DISPLAY || scr.getPrimaryDisplay().id);
+    const all = BW.getAllWindows().filter((w) => w.frozen);
+    return [...all.filter((w) => w.displayInfo && String(w.displayInfo.id) === want), ...all.filter((w) => !w.displayInfo || String(w.displayInfo.id) !== want)];
+  };
   windows.openWorkspace('entries');
   await sleep(3500);
   let entry;
@@ -187,7 +289,7 @@ async function smokeTest() {
     console.log(`SMOKE_BENCH overlay visible (warm) after ${warm2.shown} ms`);
     const p = warm2.p;
     // measure how long the renderer takes to lay out + paint one drag frame
-    const overlays = require('electron').BrowserWindow.getAllWindows().filter((w) => w.frozen);
+    const overlays = pickOverlays();
     if (overlays.length) {
       const r = await overlays[0].webContents.executeJavaScript(`(async () => {
         const fire = (type, x, y) => document.body.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true }));
@@ -216,7 +318,7 @@ async function smokeTest() {
     const rect = (process.env.DAILYLOGS_SMOKE_RECT || '200,150,700,420').split(',').map(Number);
     const p = workspace.captureRegion();
     await sleep(2500);
-    const overlays = require('electron').BrowserWindow.getAllWindows().filter((w) => w.frozen);
+    const overlays = pickOverlays();
     console.log('SMOKE_REGION overlays:', overlays.length);
     if (overlays.length) {
       await overlays[0].webContents.executeJavaScript(`(() => {
@@ -244,6 +346,77 @@ async function smokeTest() {
     } else {
       console.log('SMOKE_REGION clipboard has NO image');
     }
+  } else if (mode === 'shelf') {
+    // Opens the shelf the way resting on the pet does, reads back what the panel actually shows, and
+    // exercises both ways out of it: the clipboard, and a native drag of the file.
+    const { BrowserWindow: BW, clipboard: cb } = require('electron');
+    const { screen: scr2 } = require('electron');
+    const pet = windows.getPetWindow();
+    windows.hoverPet(true);
+    await sleep(900);
+    const shelf = windows.getShelfWindow();
+    console.log('SMOKE_SHELF window:', shelf ? `visible=${shelf.isVisible()} ${JSON.stringify(shelf.getBounds())}` : 'missing');
+    if (shelf && pet) {
+      // the two must not share a single pixel, and the panel must still reach the screen's right edge
+      const s0 = shelf.getBounds();
+      const p0 = pet.getBounds();
+      const overlap = s0.x < p0.x + p0.width && p0.x < s0.x + s0.width && s0.y < p0.y + p0.height && p0.y < s0.y + s0.height;
+      const wa = scr2.getDisplayMatching(p0).workArea;
+      console.log('SMOKE_SHELF pet:', JSON.stringify(p0), '| overlaps pet:', overlap, '| flush right:', s0.x + s0.width === wa.x + wa.width);
+      const panelLeft = await shelf.webContents.executeJavaScript("Math.round(document.querySelector('#panel').getBoundingClientRect().left)");
+      console.log('SMOKE_SHELF panel left in screen px:', s0.x + panelLeft, '| pet right edge:', p0.x + p0.width, '| panel clear of pet:', s0.x + panelLeft >= p0.x + p0.width || !overlap);
+      const anim = await shelf.webContents.executeJavaScript(`(() => {
+        const p = document.querySelector('#panel'); const cs = getComputedStyle(p);
+        return JSON.stringify({ inClass: document.body.classList.contains('in'), opacity: cs.opacity, transform: cs.transform, transition: cs.transitionDuration });
+      })()`);
+      console.log('SMOKE_SHELF settled:', anim);
+      // DAILYLOGS_SMOKE_HOLD=<ms> leaves the panel on screen, so it can be photographed from outside.
+      // capturePage() is no use here: on a transparent window it returns the desktop behind it.
+      const hold = Number(process.env.DAILYLOGS_SMOKE_HOLD || 0);
+      if (hold > 0) { console.log('SMOKE_SHELF holding open for', hold, 'ms'); await sleep(hold); }
+    }
+    if (shelf) {
+      const seen = await shelf.webContents.executeJavaScript(`(() => {
+        const cards = [...document.querySelectorAll('.card')];
+        return JSON.stringify({
+          shown: document.body.classList.contains('in'),
+          count: cards.length,
+          draggable: cards.filter((c) => c.getAttribute('draggable') === 'true').length,
+          withThumb: cards.filter((c) => c.querySelector('img')).length,
+          openLabel: document.querySelector('#openLabel').textContent,
+          first: cards.slice(0, 3).map((c) => c.querySelector('.t').textContent.trim().slice(0, 28) + ' | ' + c.querySelector('.m').textContent.trim()),
+          panelRight: Math.round(document.querySelector('#panel').getBoundingClientRect().right),
+        });
+      })()`);
+      console.log('SMOKE_SHELF panel:', seen);
+      const ids = await shelf.webContents.executeJavaScript("JSON.stringify([...document.querySelectorAll('.card')].map((c) => c.dataset.id))");
+      const list = JSON.parse(ids);
+      // clipboard.readText is async in this Electron, like the rest of its clipboard API
+      const readText = async () => { const v = await cb.readText(); return typeof v === 'string' ? v : ''; };
+      const target = list.map((id) => store.getEntry(id)).find((e) => e && (e.text || '').trim());
+      if (target) {
+        cb.writeText('smoke-placeholder');
+        const r = await shelf.webContents.executeJavaScript(`window.shelf.copy(${JSON.stringify(target.id)})`);
+        await sleep(250);
+        const now = await readText();
+        console.log('SMOKE_SHELF copy text:', JSON.stringify(r), '| changed:', now !== 'smoke-placeholder', '| matches entry:', now.trim() === (target.url || target.text.trim()));
+      }
+      const pic0 = list.map((id) => store.getEntry(id)).find((e) => e && (e.type === 'image' || e.type === 'screenshot') && e.path);
+      if (pic0) {
+        cb.writeText('smoke-placeholder');
+        const r = await shelf.webContents.executeJavaScript(`window.shelf.copy(${JSON.stringify(pic0.id)})`);
+        await sleep(250);
+        const items = await cb.read();
+        console.log('SMOKE_SHELF copy image:', JSON.stringify(r), '| clipboard has png:', items.flatMap((i) => i.types).includes('image/png'));
+      }
+      const pic = list.map((id) => store.getEntry(id)).find((e) => e && (e.type === 'image' || e.type === 'screenshot') && e.path);
+      console.log('SMOKE_SHELF draggable file:', pic ? `${pic.type} ${fs.existsSync(store.absPath(pic.path))}` : 'none');
+    }
+    windows.hideShelf({ now: true });
+    await sleep(140);
+    if (shelf) console.log('SMOKE_SHELF mid-slide, still on screen:', shelf.isVisible());
+    await sleep(600);
+    console.log('SMOKE_SHELF after hide, visible:', shelf ? shelf.isVisible() : 'n/a');
   } else if (mode === 'setup') {
     const r = await setup.run({ store, onProgress: (p) => { if (p.type === 'log') console.log('SMOKE_SETUP_LOG', p.line); else if (p.current) console.log('SMOKE_SETUP', p.percent + '%', p.current); } },
       { installOllama: process.env.DAILYLOGS_SMOKE_OLLAMA === '1' });
@@ -273,7 +446,7 @@ async function smokeTest() {
     console.log('SMOKE_RESULT', JSON.stringify({ ...cur, text: (cur.text || '').slice(0, 600) }));
     const tab = process.env.DAILYLOGS_SMOKE_TAB;
     windows.openWorkspace(tab || 'entries', tab ? undefined : cur.id);
-  } else if (!['summary', 'bench-region'].includes(mode)) {
+  } else if (!['summary', 'bench-region', 'shelf'].includes(mode)) {
     throw new Error('smoke: nothing ingested');
   }
   await sleep(2000);
@@ -290,14 +463,11 @@ async function smokeTest() {
 function syncClipboardWatch() {
   const on = store.getSettings().clipboardWatch !== false;
   if (on && !clipboardWatch.isRunning()) {
-    clipboardWatch.start({
-      store, workspace,
-      onCapture: (kind, payload) => {
-        if (kind === 'text') windows.setPetState('success', { message: t('clipSavedText', { text: String(payload).replace(/\s+/g, ' ').slice(0, 40) }), ms: 2500 });
-        else if (kind === 'image') windows.setPetState('success', { message: t('clipSavedImage'), ms: 2500 });
-        else if (kind === 'files') windows.setPetState('success', { message: t('clipSavedFiles', { n: payload.length }), ms: 2500 });
-      },
-    });
+    // Nothing is announced. Copying happens dozens of times an hour without meaning to file anything,
+    // and a balloon for each one turns the pet into a nuisance -- the same rule the end of the pipeline
+    // already follows (see the clipboard exemption in workspace.js processEntry). The record still
+    // lands, and the shelf under the pet is where it shows up.
+    clipboardWatch.start({ store, workspace });
   } else if (!on && clipboardWatch.isRunning()) {
     clipboardWatch.stop();
   }
@@ -319,11 +489,13 @@ async function autoSetup() {
       onProgress: (p) => {
         if (p.type === 'log') { console.log('[setup]', p.line); return; }
         windows.broadcastToWorkspace('ws:setup-progress', p);
-        // only speak up when there is real work (a download), not for an already-ready machine
-        if (first && p.current && !announced) { announced = true; windows.setPetState('processing', { message: t('autoSetupRunning'), sticky: true }); }
+        // Preparing the engines is background work like any other: the settings panel shows every step,
+        // so the character only changes posture rather than narrating it.
+        if (first && p.current && !announced) { announced = true; windows.setPetState('processing'); }
       },
     }, { installOllama: false });
     if (announced && result && result.ok) {
+      // Worth one line: this is the app reporting it is ready, not a step along the way.
       windows.setPetState('success', { message: t('autoSetupDone', { summary: (result.summary || []).slice(1, 3).join(' · ') }), ms: 6000 });
     } else if (announced) {
       windows.setPetState('idle');
@@ -372,12 +544,21 @@ function syncLocalApi() {
   localApi.start({
     port: s.localApiPort || localApi.DEFAULT_PORT,
     version: app.getVersion(),
+    lastExtension: s.lastExtension || null,
+    // 只在换了一个扩展、或者距上次记下超过一小时时写盘：心跳是每 5 分钟一次，不该每次都落盘
+    rememberExtension: (ext) => {
+      const prev = store.getSettings().lastExtension;
+      if (prev && prev.id === ext.id && ext.lastSeen - (prev.lastSeen || 0) < 3600e3) return;
+      store.updateSettings({ lastExtension: ext });
+    },
     workspace,
     installPage: () => installPage({ lang: i18n.getLanguage(), extensionDir: extensionDir(), browser: defaultBrowser() }),
     onExtension: (ext) => {
       console.log(`[extension] connected, version ${ext.version}`);
       windows.broadcastToWorkspace('ws:extension', localApi.extensionStatus());
     },
+    onTab: (tab) => foreground.noteTab(tab),
+    wantsTab: () => foreground.isEnabled(),
     onDone: (info) => {
       const n = Math.max(0, (info.count || 0) - (info.failed || 0));
       if (n) windows.setPetState('success', { message: t('mediaReceived', { n, title: (info.pageTitle || '').slice(0, 30) }), ms: 4000 });
@@ -408,8 +589,10 @@ function menuTemplate({ includePetToggle = true } = {}) {
     { label: `${t('trayCapture')}  (${s.hotkeyScreen || ''})`, click: () => workspace.captureScreenshot().catch(() => {}) },
     { label: `${t('trayRecord')}  (${s.hotkeyVoice || ''})`, click: () => windows.sendPetCommand('toggle-recording') },
     { label: t('trayClipboard'), type: 'checkbox', checked: store.getSettings().clipboardWatch !== false, click: (item) => store.updateSettings({ clipboardWatch: item.checked }) },
+    // Reachable without opening the workspace: the one feature that runs on its own should be one
+    // click from off, wherever you are.
+    { label: t('trayAutoRecord'), type: 'checkbox', checked: store.getSettings().autoRecord === true, click: (item) => store.updateSettings({ autoRecord: item.checked }) },
     { label: t('menuAddFiles'), click: () => addFilesDialog() },
-    { label: t('traySummary'), click: () => summary.generate(addDays(localDateKey(), -1), { force: true }).then((r) => { if (r) windows.openWorkspace('summaries', r.dateKey); }).catch(() => {}) },
     { type: 'separator' },
     { label: t('traySettings'), click: () => windows.openWorkspace('settings') },
     { type: 'separator' },
@@ -420,7 +603,7 @@ function menuTemplate({ includePetToggle = true } = {}) {
 function createTray() {
   try {
     tray = new Tray(trayImage());
-    tray.setToolTip('DailyLogs');
+    tray.setToolTip('briffy');
     rebuildTray();
     tray.on('click', () => { if (process.platform !== 'darwin') windows.openWorkspace('entries'); });
   } catch (e) {
@@ -496,7 +679,7 @@ async function launchAnthropicLogin() {
   if (!cli) return { launched: false, cliInstalled: false, command };
   try {
     if (process.platform === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', '"DailyLogs – ant auth login"', 'cmd', '/k', command], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
+      spawn('cmd.exe', ['/c', 'start', '"briffy – ant auth login"', 'cmd', '/k', command], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
     } else if (process.platform === 'darwin') {
       spawn('osascript', ['-e', `tell application "Terminal" to do script "${command}"`, '-e', 'tell application "Terminal" to activate'], { detached: true, stdio: 'ignore' }).unref();
     } else {
@@ -524,6 +707,43 @@ async function openrouterModels(refresh = false) {
   return models;
 }
 
+// The five worth showing, out of the two hundred in Ollama's library. Live, cached for a day, and if
+// the network is not there, whatever was cached last -- or the built-in list, so a fresh offline
+// install still has something to choose from.
+async function modelCatalogue(hw, refresh) {
+  const dir = store.paths().models;
+  // budgetGB is worked out by recommend(), not carried on the raw detection result. Passing `hw`
+  // straight through silently fell back to an 8 GB default, so every machine was offered a small
+  // machine's models while the line above it recommended a 27B.
+  const withBudget = { ...hw, budgetGB: hardware.recommend(hw).budgetGB };
+  try {
+    const [lib, quality] = await Promise.all([
+      ollamaLibrary.fetchLibrary(dir, { refresh }),
+      modelQuality.fetchQuality(dir, { refresh }),
+    ]);
+    if (lib.models && lib.models.length) {
+      return {
+        tiers: ollamaLibrary.tiers(lib.models, withBudget, quality),
+        live: !lib.stale, at: lib.at,
+        scored: quality.scores.size, qualityStale: !!quality.stale,
+      };
+    }
+  } catch (e) {
+    console.warn('[library]', e.message);
+  }
+  // Offline on a fresh install: the built-in list, split the same three ways so the UI is unchanged.
+  const fallback = hardware.catalogue(withBudget);
+  const third = Math.ceil(fallback.length / 3) || 1;
+  return {
+    tiers: {
+      easy: fallback.slice(0, third).map((m) => ({ ...m, tier: 'easy' })),
+      medium: fallback.slice(third, third * 2).map((m) => ({ ...m, tier: 'medium', recommended: true })),
+      stretch: fallback.slice(third * 2).map((m) => ({ ...m, tier: 'stretch' })),
+    },
+    live: false, at: 0, scored: 0,
+  };
+}
+
 async function providerStatus(refresh = false) {
   const s = store.getSettings();
   const [hw, ol, anthropic] = await Promise.all([
@@ -535,6 +755,8 @@ async function providerStatus(refresh = false) {
   return {
     hardware: hw,
     recommendation: hardware.recommend(hw),
+    catalogue: await modelCatalogue(hw, refresh),
+    pendingPull: s.pendingPull || null,
     ollama: { host: s.ollamaHost || ollama.DEFAULT_HOST, ...ol },
     anthropic,
     configured: llm.isConfigured(cfg),
@@ -548,9 +770,9 @@ const pending = new Map();
 function askPet(key, cmd, payload, timeoutMs) {
   return new Promise((resolve, reject) => {
     if (pending.has(key)) pending.get(key).reject(new Error('superseded'));
-    const timer = setTimeout(() => { pending.delete(key); reject(new Error('The cat window did not answer in time')); }, timeoutMs);
+    const timer = setTimeout(() => { pending.delete(key); reject(new Error('The briffy window did not answer in time')); }, timeoutMs);
     pending.set(key, { resolve: (v) => { clearTimeout(timer); pending.delete(key); resolve(v); }, reject: (e) => { clearTimeout(timer); pending.delete(key); reject(e); } });
-    if (!windows.getPetWindow()) { pending.get(key).reject(new Error('The cat window is not open')); return; }
+    if (!windows.getPetWindow()) { pending.get(key).reject(new Error('The briffy window is not open')); return; }
     windows.sendPetCommand(cmd, payload);
   });
 }
@@ -560,10 +782,45 @@ function resolvePending(key, value) { const p = pending.get(key); if (p) p.resol
 function setupIpc() {
   // --- pet ---
   ipcMain.on('pet:region', () => { workspace.captureRegion().catch(() => {}); });
-  ipcMain.on('pet:click', () => {
-    if (windows.getState() === 'summary') windows.openWorkspace('summaries', addDays(localDateKey(), -1));
-    else workspace.captureScreenshot().catch(() => {});
+  ipcMain.on('pet:hover', (_e, on) => windows.hoverPet(on));
+
+  // ---------- the shelf ----------
+  // Click copies. What lands on the clipboard is what a person would expect to paste: a picture as a
+  // picture, a link as its address, anything with words as those words, and a file as its path.
+  ipcMain.handle('shelf:copy', async (_e, id) => {
+    const entry = store.getEntry(id);
+    if (!entry) return { ok: false };
+    const abs = entry.path ? store.absPath(entry.path) : '';
+    if ((entry.type === 'screenshot' || entry.type === 'image') && abs && fs.existsSync(abs)) {
+      const png = fs.readFileSync(abs);
+      // the same async W3C-style clipboard the capture path uses; there is no writeImage() here
+      clipboardWatch.ignoreNext(png);           // do not file what we just put on the clipboard
+      await clipboard.write([new ClipboardItem({ 'image/png': new Blob([png], { type: 'image/png' }) })]);
+      return { ok: true };
+    }
+    const text = entry.url || (entry.text || '').trim() || abs;
+    if (!text) return { ok: false };
+    clipboard.writeText(text);
+    return { ok: true };
   });
+
+  // Drag pulls the file out of the app entirely -- to the desktop, a chat, a browser upload box. Only
+  // the main process can start a drag that outlives the window, and it needs an icon or it throws.
+  ipcMain.on('shelf:drag-out', (event, id) => {
+    const entry = store.getEntry(id);
+    const abs = entry && entry.path ? store.absPath(entry.path) : '';
+    if (!abs || !fs.existsSync(abs)) return;
+    let icon = null;
+    if (entry.type === 'screenshot' || entry.type === 'image') {
+      const img = nativeImage.createFromPath(abs);
+      if (!img.isEmpty()) icon = img.resize({ width: 128, quality: 'good' });
+    }
+    if (!icon || icon.isEmpty()) icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'assets', 'icon.png')).resize({ width: 64 });
+    try { event.sender.startDrag({ file: abs, icon }); } catch (e) { console.warn('[shelf] drag failed:', e.message); }
+  });
+
+  ipcMain.on('shelf:open-workspace', () => { windows.hideShelf({ now: true }); windows.openWorkspace('entries'); });
+  ipcMain.on('pet:click', () => { workspace.captureScreenshot().catch(() => {}); });
   ipcMain.on('pet:drag-start', (_e, p) => windows.dragStart(p));
   ipcMain.on('pet:drag-move', (_e, p) => windows.dragMove(p));
   ipcMain.on('pet:drag-end', () => windows.dragEnd());
@@ -584,7 +841,7 @@ function setupIpc() {
     }
   });
   ipcMain.handle('pet:audio', (_e, payload) => workspace.ingestAudio(payload).then(publicEntry));
-  ipcMain.handle('pet:get-config', () => ({ micDeviceId: store.getSettings().micDeviceId || '', avatarUrl: petskin.url(store) }));
+  ipcMain.handle('pet:get-config', () => ({ micDeviceId: store.getSettings().micDeviceId || '', avatarUrl: petskin.url(store), avatarBuiltin: petskin.isBuiltin(store) }));
   ipcMain.on('pet:log', (_e, msg) => console.log('[pet]', msg));
   ipcMain.on('pet:mic-devices', (_e, devices) => resolvePending('mic-devices', devices));
   ipcMain.on('pet:mic-test-result', (_e, r) => resolvePending('mic-test', r));
@@ -609,6 +866,8 @@ function setupIpc() {
     workspaceDir: store.workspaceDir,
     stats: store.stats(),
     localApi: localApi.status(),
+    listen: listen.status(),
+    speakers: diarize.people(),
     extensionDir: extensionDir(),
     setup: setup.status(),
     ocrModels: Object.entries(ocr.PADDLE_MODELS).map(([id, m]) => ({ id, name: m.name, sizeMB: m.sizeMB, langs: m.langs, bundled: !!m.bundled })),
@@ -619,7 +878,7 @@ function setupIpc() {
     try {
       const picked = key ? await petskin.apply(store, key) : (petskin.reset(store), { key: '' });
       const avatarUrl = petskin.url(store);
-      windows.sendPetCommand('config', { avatarUrl });
+      windows.sendPetCommand('config', { avatarUrl, avatarBuiltin: petskin.isBuiltin(store) });
       return { ok: true, avatarUrl, ...picked };
     } catch (e) { return { ok: false, error: e.message }; }
   });
@@ -627,6 +886,7 @@ function setupIpc() {
     try { return await llm.testProvider(llm.config(store, override || {})); } catch (e) { return { ok: false, error: e.message }; }
   });
   ipcMain.handle('ws:provider-status', (_e, opts) => providerStatus(!!(opts && opts.refresh)));
+  ipcMain.handle('ws:forget-pending-pull', () => store.updateSettings({ pendingPull: null }));
   ipcMain.handle('ws:openrouter-models', async (_e, opts) => {
     try { return { ok: true, models: await openrouterModels(!!(opts && opts.refresh)) }; } catch (e) { return { ok: false, error: e.message, models: [] }; }
   });
@@ -647,7 +907,7 @@ function setupIpc() {
   ipcMain.handle('ws:export-extension', async () => {
     const r = await dialog.showOpenDialog(windows.getWorkspaceWindow() || undefined, { title: t('dialogChooseDir'), properties: ['openDirectory', 'createDirectory'] });
     if (r.canceled || !r.filePaths.length) return null;
-    const target = path.join(r.filePaths[0], 'dailylogs-extension');
+    const target = path.join(r.filePaths[0], 'briffy-extension');
     fs.rmSync(target, { recursive: true, force: true });
     fs.cpSync(extensionDir(), target, { recursive: true });
     shell.showItemInFolder(path.join(target, 'manifest.json'));
@@ -659,17 +919,33 @@ function setupIpc() {
   ));
   ipcMain.handle('ws:mic-devices', () => askPet('mic-devices', 'list-mics', {}, 10000));
   ipcMain.handle('ws:mic-test', (_e, deviceId) => askPet('mic-test', 'mic-test', { deviceId: deviceId || '', seconds: 2 }, 15000));
+  ipcMain.handle('ws:ollama-remove', async (_e, model) => {
+    const host = store.getSettings().ollamaHost || ollama.DEFAULT_HOST;
+    await ollama.remove(host, model);
+    return { ok: true, status: await ollama.status(host) };
+  });
   ipcMain.handle('ws:ollama-pull', async (_e, model) => {
     const host = store.getSettings().ollamaHost || ollama.DEFAULT_HOST;
     try {
-      await ollama.pull(host, model, (p) => windows.broadcastToWorkspace('ws:ollama-pull-progress', { model, ...p }));
+      // Remember an unfinished pull so a download that was cut off is still visible next launch.
+      store.updateSettings({ pendingPull: { model, receivedBytes: 0, totalBytes: 0, at: Date.now() } });
+      let lastWrite = 0;
+      await ollama.pull(host, model, (p) => {
+        windows.broadcastToWorkspace('ws:ollama-pull-progress', { model, ...p });
+        const now = Date.now();
+        if (p.totalBytes && now - lastWrite > 2000) {
+          lastWrite = now;
+          store.updateSettings({ pendingPull: { model, receivedBytes: p.receivedBytes, totalBytes: p.totalBytes, at: now } });
+        }
+      });
+      store.updateSettings({ pendingPull: null });
       return { ok: true, status: await ollama.status(host) };
     } catch (e) {
       return { ok: false, code: e.code || '', error: e.message };
     }
   });
   ipcMain.handle('ws:ollama-install', async () => {
-    const r = await ollama.install((line) => windows.broadcastToWorkspace('ws:ollama-install-progress', { line }));
+    const r = await ollama.install((p) => windows.broadcastToWorkspace('ws:ollama-install-progress', p));
     if (r.manual || !r.ok) return r;
     const host = store.getSettings().ollamaHost || ollama.DEFAULT_HOST;
     const started = await ollama.startServer(host);          // the Windows installer usually starts it already
@@ -680,6 +956,45 @@ function setupIpc() {
     const r = await ollama.startServer(host);
     return { ...r, status: await ollama.status(host) };
   });
+  // ffmpeg is what joins a segmented stream back into one file. Never bundled, never fetched as a loose
+  // binary: found on the machine, or installed through the platform's own package manager.
+  ipcMain.handle('ws:ffmpeg-status', async (_e, opts) => {
+    const found = await ffmpegTool.find({ refresh: !!(opts && opts.refresh) });
+    return { installed: !!found, ...(found || {}), url: ffmpegTool.DOWNLOAD_URL };
+  });
+  ipcMain.handle('ws:ffmpeg-install', () => ffmpegTool.install(
+    (line) => windows.broadcastToWorkspace('ws:ffmpeg-install-progress', { line }),
+  ));
+  // ---------- first run ----------
+  ipcMain.handle('ob:meta', () => {
+    const s = store.getSettings();
+    return {
+      ui: uiLanguage(s.languages),
+      languages: LANGUAGES,
+      languages0: s.languages[0],
+      languages1: s.languages[1],
+    };
+  });
+  ipcMain.handle('ob:permissions', () => permissions.status());
+  ipcMain.handle('ob:grant', (_e, which) => (which === 'mic' ? permissions.askMic() : permissions.askScreen()));
+  ipcMain.handle('ob:save', (_e, patch) => store.updateSettings(patch || {}));
+  ipcMain.handle('ob:run-setup', () => setup.run(
+    { store, onProgress: (p) => windows.broadcastToOnboarding('ob:setup-progress', p) },
+    {},
+  ));
+  ipcMain.handle('ob:summary', () => {
+    const cfg = llm.config(store);
+    return { configured: llm.isConfigured(cfg), label: llm.label(cfg) };
+  });
+  ipcMain.handle('ob:finish', (_e, provider) => {
+    store.updateSettings({ setupDone: true });
+    windows.closeOnboarding();
+    // Land wherever the answer to "who reads these" still needs finishing.
+    if (provider && provider !== 'ollama') windows.openWorkspace('settings');
+    else if (provider === 'ollama') windows.openWorkspace('settings');
+    return { ok: true };
+  });
+
   ipcMain.handle('ws:choose-dir', async () => {
     const r = await dialog.showOpenDialog(windows.getWorkspaceWindow() || undefined, { title: t('dialogChooseDir'), properties: ['openDirectory', 'createDirectory'] });
     return r.canceled ? null : r.filePaths[0];
@@ -691,8 +1006,11 @@ function setupIpc() {
   ipcMain.handle('ws:retry-entry', (_e, id) => workspace.retry(id));
   ipcMain.handle('ws:update-entry', (_e, id, patch) => {
     const allowed = {};
-    for (const k of ['title', 'tags', 'text', 'summary']) if (patch && k in patch) allowed[k] = patch[k];
-    if (Array.isArray(allowed.tags)) allowed.tags = allowed.tags.map((x) => String(x).trim()).filter(Boolean).slice(0, 5);
+    for (const k of ['title', 'text', 'summary']) if (patch && k in patch) allowed[k] = patch[k];
+    // Pinning and the one-line note are the user's own marks on a record: the only two fields nothing
+    // else in the app ever writes, so a reprocess or a language change cannot overwrite them.
+    if (patch && 'pinned' in patch) allowed.pinned = !!patch.pinned;
+    if (patch && 'note' in patch) allowed.note = String(patch.note || '').slice(0, 500);
     return publicEntry(store.updateEntry(id, allowed));
   });
   ipcMain.handle('ws:open-entry', (_e, id) => { const e = store.getEntry(id); return e && e.path ? shell.openPath(store.absPath(e.path)) : ''; });
@@ -707,5 +1025,19 @@ function setupIpc() {
   ipcMain.handle('ws:list-summaries', () => summary.list());
   ipcMain.handle('ws:get-summary', (_e, dateKey) => summary.get(dateKey));
   ipcMain.handle('ws:generate-summary', (_e, dateKey) => summary.generate(dateKey, { force: true, quiet: true }));
+  ipcMain.handle('ws:ask', async (_e, question) => {
+    const r = await ask.run(question);
+    return r ? { ...r, sources: r.sources.map(publicEntry) } : null;
+  });
   ipcMain.handle('ws:stats', () => store.stats());
+  // Where each line of recognised text sits on a picture; read only when a detail view opens.
+  ipcMain.handle('ws:entry-boxes', (_e, id) => ocrBoxes.load(store.getEntry(id)));
+  // What one day holds, by counting. Also says whether briffy was even running that day.
+  ipcMain.handle('ws:day-stats', (_e, dateKey) => {
+    const key = dateKey || require('./store').localDateKey();
+    return dayStats.stats(store.entriesForDate(key), { uptime: uptime.forDate(key) });
+  });
+  ipcMain.handle('ws:context-probe', () => foreground.probe());
+  ipcMain.handle('ws:entry-link', (_e, id) => (store.getEntry(id) ? deeplink.linkTo.entry(id) : ''));
+  ipcMain.handle('ws:name-speaker', (_e, id, name) => diarize.rename(id, name));
 }

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('pet', {
   click: () => ipcRenderer.send('pet:click'),
+  hover: (on) => ipcRenderer.send('pet:hover', !!on),
   regionCapture: () => ipcRenderer.send('pet:region'),
   dragStart: (p) => ipcRenderer.send('pet:drag-start', p),
   dragMove: (p) => ipcRenderer.send('pet:drag-move', p),

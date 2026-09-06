@@ -1,5 +1,5 @@
 const ocr = require('../src/main/ocr.js');
-const dir = process.argv[3] || 'C:/Users/User/AppData/Local/Temp/claude/C--local-project-dailylogs/d7a57167-5430-4877-91d0-45d59f75682c/scratchpad/ocr-models';
+const dir = process.argv[3] || 'C:/Users/User/AppData/Local/Temp/claude/C--local-project-briffy/d7a57167-5430-4877-91d0-45d59f75682c/scratchpad/ocr-models';
 (async () => {
   let last = '';
   const t0 = Date.now();
