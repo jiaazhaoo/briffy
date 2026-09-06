@@ -10,6 +10,8 @@
 // 以前这里是 store.listEntries({ limit: Infinity })：把工作区每一天都读进内存再打分。20 万条实测
 // 215MB 堆、707ms；按这个工作区的真实平均长度外推到 185 万条约 7GB——每问一次崩一次。现在只从索引
 // 里拿命中的那几十个 id，再按 id 取回那几条。
+const fs = require('fs');
+const path = require('path');
 const llm = require('./llm');
 const recall = require('./recall');
 const index = require('./index-db');
@@ -25,10 +27,20 @@ const SYNC_BUDGET_MS = 400;
 
 function entriesDir() { return store.paths().entries; }
 
-/** 打开索引并追平工作区。可以随便调，没变过的天不会被重读。 */
+/**
+ * 打开索引并追平工作区。可以随便调，没变过的天不会被重读。
+ *
+ * 读天文件走 fs，**不走 store.loadDay**：那个函数会把读过的每一天留在 store.days 里，而建索引要
+ * 把每一天都读一遍——等于一边建索引一边把整个工作区钉进内存，正是这个索引要消灭的那件事。
+ * 索引这边读完就扔，一天用完不留。
+ */
 function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   index.open(store.userData, store.workspaceDir);
-  return index.sync({ dir: entriesDir(), loadDay: (k) => store.loadDay(k) }, { budgetMs });
+  const dir = entriesDir();
+  const readDay = (k) => {
+    try { return JSON.parse(fs.readFileSync(path.join(dir, `${k}.json`), 'utf8')); } catch (_) { return []; }
+  };
+  return index.sync({ dir, loadDay: readDay }, { budgetMs });
 }
 
 /** 应用起来之后在后台把索引建完，这样第一次提问就已经是齐的。 */
