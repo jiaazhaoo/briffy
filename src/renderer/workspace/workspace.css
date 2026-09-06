@@ -178,8 +178,11 @@ input[type="checkbox"]:checked::after { opacity: 1; }
    托盘是真实物件，所以有影子——这是「只有记录才有影子」的唯一例外 */
 .dock { position: fixed; bottom: var(--tray-inset); z-index: 25; display: flex; align-items: center; gap: var(--a2);
   height: var(--tray-h); background: var(--slip); box-shadow: var(--e2); padding: 0 10px; }
-/* 上下正中间那两只是同一件东西的两头：一个问记录，一个搜记录 */
-.dock.d-mid { width: var(--tray-w); }
+/* 上下正中间那两只是同一件东西的两头：一个问记录，一个搜记录。
+   中间这只的宽度交给里面那行字：短句子就是一只小托盘，长句子先把托盘撑宽，撑到上限了才换行——
+   所以不是「输入框在托盘里滚」，是托盘跟着你写的东西长。 */
+.dock.d-mid { width: auto; min-width: var(--tray-w); max-width: min(760px, calc(100vw - 2 * var(--pad)));
+  align-items: flex-end; height: auto; min-height: var(--tray-h); padding-top: 6px; padding-bottom: 6px; }
 .d-left { left: var(--tray-inset); }
 .d-mid { left: 50%; transform: translateX(-50%); }
 .d-right { right: var(--tray-inset); }
@@ -188,13 +191,22 @@ input[type="checkbox"]:checked::after { opacity: 1; }
 .ico:hover { color: var(--ink); }
 .ico:active { transform: translateY(1px); }
 .ico svg { width: 18px; height: 18px; }
-/* 问：一个输入框、左边是桌面形象、右边是送出。输入框还是那道发丝线，它不是浮起来的面板 */
-.ask-bar { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--a2); }
+/* 问：一个输入框、左边是桌面形象、右边是送出。输入框还是那道发丝线，它不是浮起来的面板。
+   align-items: flex-end —— 输入框长高的时候，头像和送出留在底下那一行，不跟着被拉长。 */
+.ask-bar { min-width: 0; display: flex; align-items: flex-end; gap: var(--a2); }
 .ask-bar .pet { border: 0; background: transparent; padding: 0; cursor: pointer; flex: none; line-height: 0; }
 .ask-bar .pet img { width: 24px; height: 24px; object-fit: cover; display: block; transition: transform .12s; }
 .ask-bar .pet:hover img { transform: translateY(-2px); }
-.ask-bar input { flex: 1; min-width: 0; font-size: var(--fs-body); border-bottom-color: transparent; }
-.ask-bar input:focus { border-bottom-color: var(--ink); }
+/* field-sizing: content 让它按内容自己定尺寸——没有一行 JS 在量 scrollHeight。
+   宽度到上限之后开始换行，最多三行，第四行起自己滚。 */
+.ask-bar textarea { field-sizing: content; min-width: 15ch; max-width: 100%; max-height: calc(3lh);
+  font: inherit; font-size: var(--fs-body); line-height: 1.6; resize: none; overflow-y: auto;
+  border: 0; border-bottom: 1px solid transparent; background: transparent; color: inherit;
+  padding: 2px 0 3px; scrollbar-gutter: stable; }
+.ask-bar textarea:focus { outline: none; border-bottom-color: var(--ink); }
+.ask-bar textarea::placeholder { color: var(--ink-3); }
+/* 头像和送出各自占一行的高度，托盘长高时它们贴着底边 */
+.ask-bar .pet, .ask-bar .send { margin-bottom: 3px; }
 .ask-bar .send { border: 0; background: transparent; color: var(--ink-3); cursor: pointer; padding: 2px; flex: none; line-height: 0; }
 .ask-bar .send:hover { color: var(--ink); }
 .ask-bar .send svg { width: 16px; height: 16px; }
@@ -526,6 +538,16 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .md blockquote { margin: var(--a3) 0; padding-left: var(--a3); color: var(--ink-2); }
 .md code { background: var(--slip-2); padding: 1px 5px; font: 400 .92em/1 var(--mono); }
 .md .meta { display: block; margin-bottom: var(--a4); font-size: var(--fs-meta); color: var(--ink-3); }
+/* 模型写回来的那几样。段距走空的梯子，不用浏览器默认值。 */
+.md p { margin: var(--a3) 0; }
+.md p:first-child { margin-top: 0; }
+.md p:last-child { margin-bottom: 0; }
+/* 回答里的小标题就是一行加重的话——它不该另起一个字号档，一段回答不是一篇文章 */
+.md .mdh { font-weight: 600; color: var(--ink); margin: var(--a4) 0 var(--a2); }
+.md pre { margin: var(--a3) 0; padding: var(--a3); background: var(--slip-2); overflow-x: auto; }
+.md pre code { background: none; padding: 0; font-size: var(--fs-meta); line-height: 1.6; }
+.md a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.md a:hover { color: var(--accent); }
 
 /* ---------- 问 ---------- */
 .ask-split { grid-template-columns: minmax(380px, 1.3fr) minmax(300px, 1fr); }
