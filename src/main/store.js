@@ -4,6 +4,9 @@ const { app, safeStorage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+
+// 内存里最多留几天的记录。40 天覆盖得住翻看和搜索的实际范围，再往前的重新读一次文件也就几毫秒。
+const MAX_DAYS_CACHED = 40;
 const EventEmitter = require('events');
 
 const DEFAULT_SETTINGS = {
@@ -55,7 +58,9 @@ const DEFAULT_SETTINGS = {
 
   // Tell voices apart in a recording, and remember them between recordings. Off by default: it fetches
   // about 35 MB of models the first time. See src/main/diarize.js.
-  diarize: false,
+  // 默认开着：一段会议录音不分说话人就是一堵墙。它只在这一段录音里编号（说话人 1 / 2 / 3），
+  // 不记名字、不跨录音认人。
+  diarize: true,
   clipboardWatch: true,           // record everything copied to the clipboard
   clipboardMinChars: 12,          // ignore text shorter than this
   localApi: true,                 // local endpoint the browser extension talks to
@@ -124,7 +129,11 @@ class Store extends EventEmitter {
   constructor() {
     super();
     this.settings = null;
-    this.days = new Map();      // dateKey -> entries[]
+    // dateKey -> entries[]。**有上限**：这里装的是整条记录，一天几百条，几年就是整个工作区。
+    // 无上限的时候，只要有什么东西把每一天都读一遍（建索引、导出、统计），内存就等于把工作区
+    // 复制了一份进来——20 万条实测 215MB，按真实长度外推到 185 万条约 7GB。
+    // id -> dateKey 那张表（this.index）留着不动：它每条只有几十字节，而 getEntry 靠它。
+    this.days = new Map();
     this.index = new Map();     // entryId -> dateKey
     this.saveTimers = new Map();
   }
@@ -246,11 +255,28 @@ class Store extends EventEmitter {
   }
 
   loadDay(dateKey) {
-    if (this.days.has(dateKey)) return this.days.get(dateKey);
+    if (this.days.has(dateKey)) {
+      const hit = this.days.get(dateKey);
+      this.days.delete(dateKey); this.days.set(dateKey, hit);   // 用过的挪到末尾，淘汰最久没碰的
+      return hit;
+    }
     const arr = readJson(this.dayFile(dateKey), []);
     this.days.set(dateKey, arr);
     for (const e of arr) this.index.set(e.id, dateKey);
+    this.trimDays();
     return arr;
+  }
+
+  /** 只留最近用过的那些天。还有改动没落盘的一天不能扔，扔了就是丢数据。 */
+  trimDays() {
+    while (this.days.size > MAX_DAYS_CACHED) {
+      let dropped = false;
+      for (const key of this.days.keys()) {
+        if (this.saveTimers.has(key)) continue;       // 还没存，留着
+        this.days.delete(key); dropped = true; break;
+      }
+      if (!dropped) break;                            // 全都在等着存，那就先都留着
+    }
   }
 
   scheduleSave(dateKey) {
@@ -336,8 +362,11 @@ class Store extends EventEmitter {
 
   entriesForDate(dateKey) { return [...this.loadDay(dateKey)]; }
 
-  listEntries({ query = '', dates = null, source = '', sources = null, pinned = false, limit = 500 } = {}) {
+  listEntries({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false, limit = 500 } = {}) {
     const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
+    // `exclude` is how "everything" can still leave something out: the clipboard fills up on its own
+    // all day, and a page that is nine parts clipboard is not "everything", it is the clipboard.
+    const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
     const keys = dates || this.listDates();
     const q = query.trim().toLowerCase();
     const out = [];
@@ -345,6 +374,7 @@ class Store extends EventEmitter {
       for (const e of this.loadDay(key)) {
         // filter before the limit, so asking for one source cannot be crowded out by the others
         if (want && !want.has(entrySource(e))) continue;
+        if (!want && skip && skip.has(entrySource(e))) continue;
         if (pinned && !e.pinned) continue;
         if (q) {
           const hay = `${e.title} ${e.tags.join(' ')} ${e.visionLabels || ''} ${e.text} ${e.summary} ${e.path} ${e.note || ''} ${e.context ? `${e.context.app || ''} ${e.context.window || ''} ${e.context.url || ''}` : ''}`.toLowerCase();
