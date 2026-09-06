@@ -679,7 +679,7 @@ async function ingestDrop({ paths = [], urls = [], text = '' } = {}, opts = {}) 
 
 const SILENCE_PEAK = 0.004;
 
-async function ingestAudio({ webm, pcm, sampleRate = 16000, durationSec = 0, peak, mic = '', auto = false }) {
+async function ingestAudio({ webm, pcm, sampleRate = 16000, durationSec = 0, peak, mic = '', auto = false, because = '' }) {
   if (pcm && !(pcm instanceof Float32Array)) {
     // Int16 samples from the renderer (or any array-like of 16-bit values)
     const src = pcm; pcm = new Float32Array(src.length);
@@ -710,6 +710,9 @@ async function ingestAudio({ webm, pcm, sampleRate = 16000, durationSec = 0, pea
     durationSec: Math.round(durationSec || pcm.length / sampleRate),
     mic,
     auto,
+    // 哪个应用开着麦克风，才让这段被录下来。自动录音是唯一不用你动手的功能，它录了什么、为什么录，
+    // 事后必须查得出来。缺了这一条，「微信输入法把我口述的每句话都录了」只能靠时间戳去猜。
+    because,
   });
   attachContext(entry);                        // what was on screen while this was dictated
   // A silent capture (wrong microphone selected in the OS) is reported instead of transcribed.

@@ -14,11 +14,11 @@
       askNoEntries: '工作区里还没有记录，先存点东西进来。',
       askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
       askFailed: 'AI 服务出错：{err}。下面仍然是匹配到的记录。',
-      srcAll: '全部', srcScreenshot: '截图', srcClipboard: '剪贴板', srcBookmark: '收藏', srcBrowser: '网页', srcVoice: '语音', srcOther: '文件 / 链接 / 笔记',
+      srcAll: '全部', srcScreenshot: '截图', srcClipboard: '剪贴板', srcBookmark: '书签', srcBrowser: '网页', srcVoice: '语音', srcOther: '文件 / 链接 / 笔记',
       srcNote: '随手记', srcFile: '文件',
-      srcPinned: '置顶', srcMore: '更多…', srcLess: '收起', actMore: '更多…', actLess: '收起',
-      dropHere: '松手就存进来', dropped: '存进来 {n} 条', fromApp: '来自', pin: '置顶', unpin: '取消置顶', pinnedMark: '已置顶',
-      noteLabel: '我的备注', notePlaceholder: '给以后的自己留一句话', noteSaved: '备注已存',
+      srcPinned: '收藏', srcMore: '更多…', srcLess: '收起', actMore: '更多…', actLess: '收起',
+      dropHere: '松手就存进来', dropped: '存进来 {n} 条', fromApp: '来自', pin: '收藏', unpin: '取消收藏', pinnedMark: '已收藏',
+      noteLabel: '我的备注', notePlaceholder: '添加备注', noteSaved: '备注已存',
       copyLink: '复制链接', linkCopied: '链接已复制',
       showBoxes: '文字位置', hideBoxes: '收起文字位置', copyLine: '点一行复制这行文字', lineCopied: '这行已复制',
       dayWasOff: '这一天 briffy 没有运行，所以什么都没能记下。', dayWasIdle: 'briffy 运行了约 {min} 分钟，这一天你没有存下东西。',
@@ -26,6 +26,8 @@
       sContextHint: '只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。',
       sContextTest: '看看现在能读到什么',
       sAutoRecord: '自动录音', sAutoRecordOn: '别的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
+      sAutoRecordAllow: '白名单', sAutoRecordAllowPh: '留空＝除排除的以外都跟着录',
+      autoNowUsing: '用过麦克风的（点一下加进白名单）：', autoNowNobody: '这次开机后还没有别的软件用过麦克风',
       autoWaiting: '等着——没有别的软件在用麦克风', autoBecause: '因为 {who} 正在用麦克风',
       sAutoRecordHint: '不是一直听着房间——briffy 平时不碰麦克风，只有当**别的软件打开了麦克风**（开会、通话、录音）时才跟着录一段，对方一关，它也关。所以手机上的游戏、屋里的电视不会被录进来。常驻只是每 5 秒问一次系统「现在谁在用麦克风」，实测一次 10 毫秒。会录到通话里对方的声音，很多地方这需要对方同意。',
       autoOff: '未开启', autoIdle: '在听（{mic}）', autoSpeech: '正在录…', autoDenied: '没有麦克风权限', autoFailed: '启动失败',
@@ -42,7 +44,7 @@
       types: { screenshot: '截图', image: '图片', audio: '语音', pdf: 'PDF', text: '文本', url: '链接', note: '笔记', file: '文件' },
       processing: '处理中', error: '出错', done: '完成',
       seen: '画面内容', summary: '摘要', text: '识别文字', transcript: '转写文字', content: '内容',
-      open: '打开原文件', reveal: '在文件夹中显示', openLink: '打开链接', retry: '重新处理', edit: '编辑', delete: '删除', cancel: '取消', copy: '复制文字', copied: '已复制',
+      open: '打开原文件', reveal: '在文件夹中显示', openLink: '打开链接', retry: '重新处理', edit: '编辑', delete: '删除', cancel: '取消', copy: '复制', copied: '已复制', copyFailed: '复制失败',
       confirmDelete: '删除这条记录（及其文件副本）？', title: '标题', textField: '文字', duration: '时长',
       sPet: '形象', sPetHint: '来自 ipaslogo.com 的 3448 个免费形象（可免费商用），每个都套上同一个圆框。点一个就换成它。',
       sPetSearch: '搜索（cat、owl、fox……）', sPetReset: '恢复默认', sPetCount: '{n} 个', sPetNone: '没有匹配的形象',
@@ -133,9 +135,9 @@
       ffmpegFound: 'ffmpeg {version} ready ({path})', ffmpegMissing: 'ffmpeg not found — segmented streams can be found but not joined', ffmpegInstalling: 'Installing…', ffmpegManual: 'No package manager available here; install it yourself: {url}',
       srcAll: 'All', srcScreenshot: 'Screenshots', srcClipboard: 'Clipboard', srcBookmark: 'Bookmarks', srcBrowser: 'Web', srcVoice: 'Voice', srcOther: 'Files / links / notes',
       srcNote: 'Note', srcFile: 'File',
-      srcPinned: 'Pinned', srcMore: 'More…', srcLess: 'Less', actMore: 'More…', actLess: 'Less',
-      dropHere: 'Drop to keep it', dropped: '{n} added', fromApp: 'From', pin: 'Pin', unpin: 'Unpin', pinnedMark: 'Pinned',
-      noteLabel: 'My note', notePlaceholder: 'A line to your future self', noteSaved: 'Note saved',
+      srcPinned: 'Favourites', srcMore: 'More…', srcLess: 'Less', actMore: 'More…', actLess: 'Less',
+      dropHere: 'Drop to keep it', dropped: '{n} added', fromApp: 'From', pin: 'Favourite', unpin: 'Remove from favourites', pinnedMark: 'Favourite',
+      noteLabel: 'My note', notePlaceholder: 'Add a note', noteSaved: 'Note saved',
       copyLink: 'Copy link', linkCopied: 'Link copied',
       showBoxes: 'Text regions', hideBoxes: 'Hide text regions', copyLine: 'Click a line to copy it', lineCopied: 'Line copied',
       dayWasOff: 'briffy was not running on this day, so nothing could be saved.', dayWasIdle: 'briffy ran for about {min} minutes; you saved nothing on this day.',
@@ -143,6 +145,8 @@
       sContextHint: 'Asked once, at the instant you save something -- briffy never watches your screen. The window title needs Accessibility permission; the page address comes from the browser extension, and turning this off stops asking for both.',
       sContextTest: 'See what it can read now',
       sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along whenever another app uses the microphone', sAutoRecordState: 'State',
+      sAutoRecordAllow: 'Only these', sAutoRecordAllowPh: 'empty = follow anything not excluded',
+      autoNowUsing: 'have used the microphone (click to add):', autoNowNobody: 'nothing else has used the microphone since briffy started',
       autoWaiting: 'Waiting — nothing else is using the microphone', autoBecause: 'because {who} is using the microphone',
       sAutoRecordHint: 'Not an open microphone on the room: briffy does not touch the mic until **another app opens it** (a meeting, a call, a recording), records alongside it, and lets go when that app does. A game on your phone or a TV in the room will not be recorded. All it runs is a 10 ms question to the system every 5 seconds: who is using the microphone. It will capture the other side of a call, which in many places needs their consent.',
       autoOff: 'off', autoIdle: 'listening ({mic})', autoSpeech: 'recording…', autoDenied: 'no microphone permission', autoFailed: 'could not start',
@@ -159,7 +163,7 @@
       types: { screenshot: 'Screenshot', image: 'Image', audio: 'Voice', pdf: 'PDF', text: 'Text', url: 'Link', note: 'Note', file: 'File' },
       processing: 'Processing', error: 'Error', done: 'Done',
       seen: 'In the picture', summary: 'Summary', text: 'Recognized text', transcript: 'Transcript', content: 'Content',
-      open: 'Open file', reveal: 'Show in folder', openLink: 'Open link', retry: 'Reprocess', edit: 'Edit', delete: 'Delete', cancel: 'Cancel', copy: 'Copy text', copied: 'Copied',
+      open: 'Open file', reveal: 'Show in folder', openLink: 'Open link', retry: 'Reprocess', edit: 'Edit', delete: 'Delete', cancel: 'Cancel', copy: 'Copy', copied: 'Copied', copyFailed: 'Could not copy',
       confirmDelete: 'Delete this entry (and its stored copy)?', title: 'Title', textField: 'Text', duration: 'Duration',
       sPet: 'Its face', sPetHint: '3448 free characters from ipaslogo.com (free for commercial use), each in the same round frame. Click one to wear it.',
       sPetSearch: 'Search (cat, owl, fox…)', sPetReset: 'Back to default', sPetCount: '{n} found', sPetNone: 'Nothing matches',
@@ -985,36 +989,83 @@
       : e.status === 'error' ? `<div class="status-line"><span class="pill error">${esc(t('error'))}</span> ${esc(e.error || '')}</div>`
         : e.error ? `<div class="status-line muted">⚠ ${esc(e.error)}</div>` : '';
 
+    // 一条记录摊开来看：左边是东西本身，右边是关于它的字。
+    // 顺序是「东西 → 你写的 → 机器写的 → 动作」——备注是整个面板上唯一属于你的东西，
+    // 所以它紧跟在东西后面，不该被一排按钮和一段机器转写压到下面去。
+    const meta = [
+      `${fmtDate(e.dateKey)} ${fmtTime(e.createdAt)}`,
+      t('types')[e.type] || e.type,
+      e.origin === 'clipboard' ? t('fromClipboard') : '',
+      e.origin === 'browser' ? t('fromBrowser') : '',
+      ctxLong(e) ? `${t('fromApp')} ${ctxLong(e)}` : '',
+      e.sttLanguage || '',
+      e.model || '',
+    ].filter(Boolean).map(esc);
+    // 来源那一行原本单独占一行，两行 11px 灰字叠在一起谁也读不出来，并成一行
+    const ctxUrl = ctxOf(e) && ctxOf(e).url
+      ? ` · <a href="#" data-action="openContextUrl">${esc(ctxHost(e))}</a>` : '';
+    // 一条记录摊开来看，一列走完：头（标题 · 日期 · 主题）→ 东西 → 机器写的。
+    // 动作全部收到右上角，和标题一行——它们和那个关闭叉是同一级的东西，所以站在一起。
+    const inModal = !!(box.closest && box.closest('.modal-card'));
+    const sec = (label, body, tool = '') => (body
+      ? `<section class="dt-sec"><div class="dt-sec-head"><h3>${esc(label)}</h3>${tool}</div>${body}</section>` : '');
+    const copyWord = `<button type="button" class="mini" data-action="copy">${esc(t('copy'))}</button>`;
+    const machine = [
+      sec(t('summary'), e.summary ? `<p class="summary-text">${esc(e.summary)}</p>` : ''),
+      sec(t('seen'), e.visionLabels ? `<p class="summary-text">${esc(e.visionLabels)}</p>` : ''),
+      sec(textLabel, e.text ? `<div class="text-block">${esc(e.text)}</div>` : '', copyWord),
+    ].filter(Boolean).join('');
+
     box.innerHTML = `
-      <div class="detail-head"><span class="tile t-${esc(e.type)}">${ICONS[e.type] || ICONS.file}</span><h2>${esc(e.title || e.path || e.url || '')}</h2></div>
-      <div class="time">${esc(fmtDate(e.dateKey))} ${fmtTime(e.createdAt)} · ${esc(t('types')[e.type] || e.type)}${e.origin === 'clipboard' ? ` · ${esc(t('fromClipboard'))}` : ''}${e.origin === 'browser' ? ` · ${esc(t('fromBrowser'))}` : ''}${e.sttLanguage ? ` · ${esc(e.sttLanguage)}` : ''}${e.model ? ` · ${esc(e.model)}` : ''}</div>
-      ${ctxLong(e) ? `<div class="time from">${esc(t('fromApp'))} ${esc(ctxLong(e))}${ctxOf(e).url ? ` · <a href="#" data-action="openContextUrl">${esc(ctxHost(e))}</a>` : ''}</div>` : ''}
-      <div class="preview">${preview}</div>
-      ${statusLine}
-      ${e.ocrBoxes ? `<div class="box-tools"><button type="button" class="btn" data-action="boxes">${esc(t(state.boxesOn ? 'hideBoxes' : 'showBoxes'))}</button>${state.boxesOn ? `<span class="st">${esc(t('copyLine'))}</span>` : ''}</div>` : ''}
-      ${e.visionLabels ? `<h3>${esc(t('seen'))}</h3><p class="summary-text">${esc(e.visionLabels)}</p>` : ''}
-      <h3>${esc(t('noteLabel'))}</h3>
-      <textarea class="note-field" id="noteField" rows="2" placeholder="${esc(t('notePlaceholder'))}">${esc(e.note || '')}</textarea>
-      ${e.summary ? `<h3>${esc(t('summary'))}</h3><p class="summary-text">${esc(e.summary)}</p>` : ''}
-      <div class="actions">
-        ${e.path ? `<button class="btn" data-action="open">${esc(t('open'))}</button>` : ''}
-        <button class="btn" data-action="edit">${esc(t('edit'))}</button>
-        ${e.text ? `<button class="btn" data-action="copy">${esc(t('copy'))}</button>` : ''}
-        ${state.moreActions ? `
-        ${e.path ? `<button class="btn" data-action="reveal">${esc(t('reveal'))}</button>` : ''}
-        ${e.url ? `<button class="btn" data-action="openLink">${esc(t('openLink'))}</button>` : ''}
-        <button class="btn${e.pinned ? ' primary' : ''}" data-action="pin">${esc(t(e.pinned ? 'unpin' : 'pin'))}</button>
-        <button class="btn" data-action="retry">${esc(t('retry'))}</button>
-        <button class="btn" data-action="copyLink">${esc(t('copyLink'))}</button>` : ''}
-        <button class="btn quiet" data-action="moreActions">${esc(t(state.moreActions ? 'actLess' : 'actMore'))}</button>
-      </div>
-      ${e.text ? `<h3>${esc(textLabel)}</h3><div class="text-block">${esc(e.text)}</div>` : ''}
-      <div class="danger-row"><button class="btn danger" data-action="delete">${esc(t('delete'))}</button></div>`;
+      <div class="dt${(!isPicture(e) && e.type !== 'audio') ? ' bare' : ''}">
+        <header class="dt-head">
+          <div class="dt-name">
+            <h2>${esc(e.title || e.path || e.url || '')}</h2>
+            <div class="time">${meta.join(' · ')}${ctxUrl}</div>
+          </div>
+          <div class="dt-acts">
+            <button type="button" class="act${e.pinned ? ' on' : ''}" data-action="pin"
+              title="${esc(t(e.pinned ? 'unpin' : 'pin'))}">${esc(t('pin'))}</button>
+            <button type="button" class="act danger" data-action="delete">${esc(t('delete'))}</button>
+            ${inModal ? `<button type="button" class="act act-close" data-close aria-label="Close">
+              <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>` : ''}
+          </div>
+          <!-- 你写的那一句：还是那张便利贴的黄，只是一行高。点一下才交出光标。
+               它横跨整张纸，所以是头里的第三行，不是挤在标题那一列里 -->
+          <div class="dt-note">
+            <input id="noteField" class="note-line" readonly value="${esc(e.note || '')}"
+              placeholder="${esc(t('notePlaceholder'))}" aria-label="${esc(t('noteLabel'))}" />
+          </div>
+        </header>
+        <div class="dt-media">
+          <div class="preview">${preview}${(isPicture(e) || e.ocrBoxes) ? `<div class="pic-tools">
+            ${isPicture(e) ? `<button type="button" class="pic-btn" data-action="copy">${esc(t('copy'))}</button>` : ''}
+            ${e.ocrBoxes ? `<button type="button" class="pic-btn${state.boxesOn ? ' on' : ''}" data-action="boxes">${esc(t(state.boxesOn ? 'hideBoxes' : 'showBoxes'))}</button>` : ''}
+          </div>` : ''}</div>
+          ${state.boxesOn && e.ocrBoxes ? `<p class="st">${esc(t('copyLine'))}</p>` : ''}
+          ${statusLine}
+        </div>
+        ${machine ? `<div class="dt-machine">${machine}</div>` : ''}
+      </div>`;
 
     // The note is the user's own line and nothing else writes it, so it saves itself when they leave it.
+    // 一行主题。默认是只读的一句说明，点一下才交出光标——省得一打开详情就有个输入框在等你打字。
     const note = box.querySelector('#noteField');
     if (note) {
+      const edit = () => {
+        if (!note.readOnly) return;
+        note.readOnly = false;
+        note.focus();
+        note.setSelectionRange(note.value.length, note.value.length);
+      };
+      note.addEventListener('click', edit);
+      note.addEventListener('keydown', (ev) => {
+        if (note.readOnly && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); edit(); return; }
+        if (ev.key === 'Enter') { ev.preventDefault(); note.blur(); }
+        if (ev.key === 'Escape') { ev.preventDefault(); note.value = e.note || ''; note.blur(); }
+      });
       note.addEventListener('blur', async () => {
+        note.readOnly = true;
         const value = note.value.trim();
         if (value === (e.note || '')) return;
         const updated = await ws.updateEntry(e.id, { note: value });
@@ -1121,7 +1172,13 @@
       case 'edit': state.editing = true; renderDetail(); break;
       case 'moreActions': state.moreActions = !state.moreActions; renderDetail(); break;
       case 'cancelEdit': state.editing = false; renderDetail(); break;
-      case 'copy': await navigator.clipboard.writeText(e.text || ''); toast(t('copied')); break;
+      // 一张图该复制的是那张图，不是它被认出来的字
+      case 'copy': {
+        if (isPicture(e)) { const r = await ws.copyEntry(e.id); toast(t(r && r.ok ? 'copied' : 'copyFailed')); break; }
+        await navigator.clipboard.writeText(e.text || '');
+        toast(t('copied'));
+        break;
+      }
       case 'openContextUrl': await ws.openExternal(ctxOf(e) ? ctxOf(e).url : ''); break;
       case 'pin': {
         const updated = await ws.updateEntry(e.id, { pinned: !e.pinned });
@@ -1277,10 +1334,39 @@
     if (!st.on) { el.textContent = t('autoOff'); return; }
     if (st.state === 'denied') { el.textContent = t('autoDenied'); return; }
     if (st.state === 'failed') { el.textContent = t('autoFailed'); return; }
-    // 谁开着麦克风，直接写出来——这个功能整个建立在这件事上
-    const who = (st.holders || []).map((h) => h.name).join('、');
+    // 谁开着麦克风，直接写出来——这个功能整个建立在这件事上。写系统里那个名字（「微信输入法」），
+    // 不是可执行文件名（WeType）：后者没法让人判断该不该录。
+    const who = (st.holders || []).map((h) => h.app || h.name).join('、');
     if (!st.inUse) { el.textContent = t('autoWaiting'); return; }
     el.textContent = `${st.state === 'speech' ? t('autoSpeech') : t('autoIdle', { mic: st.mic || '' })} · ${t('autoBecause', { who })}`;
+  }
+
+  // 现在有谁在用麦克风，每个都能点一下加进白名单。
+  //
+  // 列的是 `seen` 而不是 `holders`：holders 已经过了白名单，一旦白名单非空，别的应用就再也不出现，
+  // 也就没办法被加进去——那样这个输入框只能靠手打进程名，等于没有。
+  function renderMicNow(info) {
+    const el = $('#autoRecordNow');
+    if (!el) return;
+    // 这次运行里用过麦克风的，新的在前；没有就退回成此刻占着的
+    const list = ((info && info.recent) || []).length ? info.recent : ((info && info.seen) || []);
+    if (!list.length) { el.textContent = t('autoNowNobody'); return; }
+    el.textContent = t('autoNowUsing') + ' ';
+    for (const h of list) {
+      const b = document.createElement('span');
+      b.className = 'chip add-app';
+      b.textContent = h.app || h.name;
+      // 写进名单的是进程名，不是显示名：「微信输入法」这五个字在 exe 路径里一个也找不到。
+      b.title = h.name;
+      b.addEventListener('click', () => {
+        const box = $('#autoRecordAllow');
+        const now = box.value.split(/[、,，;；\n]+/).map((x) => x.trim()).filter(Boolean);
+        if (!now.some((x) => x.toLowerCase() === h.name.toLowerCase())) now.push(h.name);
+        box.value = now.join('、');
+        queueSave();
+      });
+      el.appendChild(b);
+    }
   }
 
   // Everyone briffy has heard, and a box to name them in. A name is the whole point: it turns
@@ -1333,9 +1419,11 @@
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
     $('#recordContext').checked = s.recordContext !== false;
     $('#autoRecord').checked = s.autoRecord === true;
+    $('#autoRecordAllow').value = (s.autoRecordAllow || []).join('、');
     $('#diarize').checked = s.diarize === true;
     renderSpeakers(m.speakers);
     renderAutoRecord(m.listen);
+    renderMicNow(m.listen);
     $('#clipboardWatch').checked = s.clipboardWatch !== false;
     $('#clipboardMinChars').value = s.clipboardMinChars ?? 12;
     $('#localApi').checked = s.localApi !== false;
@@ -1419,6 +1507,8 @@
       normalizeChineseScript: $('#normalizeChineseScript').checked,
       recordContext: $('#recordContext').checked,
       autoRecord: $('#autoRecord').checked,
+      // 顿号、逗号、分号都当分隔符：这栏是给人打字的，不该要求他记住用哪一个
+      autoRecordAllow: $('#autoRecordAllow').value.split(/[、,，;；\n]+/).map((x) => x.trim()).filter(Boolean),
       diarize: $('#diarize').checked,
       clipboardWatch: $('#clipboardWatch').checked,
       clipboardMinChars: Math.max(1, Number($('#clipboardMinChars').value) || 12),

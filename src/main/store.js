@@ -43,6 +43,8 @@ const DEFAULT_SETTINGS = {
   // 24 小时占着麦克风的东西（系统语音服务、常驻录音器）不算「有人在用麦克风」，
   // 否则自动录音会退回成一直录——正是它要避免的那件事。名字可改。
   autoRecordIgnore: ['corespeechd', 'screenpipe'],
+  // 空 = 除了排除的以外都跟着录；非空 = 只跟着名单里的应用录。见 src/main/micwatch.js
+  autoRecordAllow: [],
   // Tell voices apart in a recording, and remember them between recordings. Off by default: it fetches
   // about 35 MB of models the first time. See src/main/diarize.js.
   diarize: false,

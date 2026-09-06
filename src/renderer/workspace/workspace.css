@@ -23,7 +23,7 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width:
 .hidden { display: none !important; }
 .hint { align-self: center; max-width: 520px; }
 /* emoji 是贴纸；印在纸上，它是灰的 */
-.sg-ico, .h-ico, .empty-art, .thumb:not(:has(img)), .lv-row .th:not(:has(img)), .detail-head .tile { filter: grayscale(1); opacity: .75; }
+.sg-ico, .h-ico, .empty-art, .thumb:not(:has(img)), .lv-row .th:not(:has(img)) { filter: grayscale(1); opacity: .75; }
 
 input:not([type="checkbox"]), select, textarea, .input {
   width: 100%; border: 0; border-bottom: 1px solid var(--hair); background: transparent; color: var(--ink);
@@ -227,6 +227,9 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .split { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.15fr); }
 .list { overflow: auto; padding: var(--pad) var(--a4) var(--a5); }
 .detail { overflow: auto; padding: var(--pad) var(--pad) var(--a5) var(--a4); }
+/* .lv 已经整体让开了顶栏那 112px，所以这里不能再让一次；头钉在这半张纸自己的顶上 */
+.lv-prev .detail { padding: 0 var(--pad) 92px var(--a4); }
+.lv-prev .dt-head { padding: 0 0 var(--a4); }
 .empty { color: var(--ink-3); text-align: center; padding: 90px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .empty-art { font-size: 38px; }
 
@@ -326,7 +329,7 @@ body:not([data-tab="entries"]) .axis { display: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lv-prev { overflow: auto; scrollbar-width: none; }
 /* 旁边那半张纸让开同样的一条顶栏 */
-.lv-prev .detail { padding: 0 var(--pad) 92px var(--a4); }
+
 @media (max-width: 900px) { .lv { grid-template-columns: 1fr; } .lv-prev { display: none; } }
 
 /* ---------- 多选：一张浮在底纸上的纸条 ---------- */
@@ -347,11 +350,8 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .modal-backdrop { position: absolute; inset: 0; background: var(--scrim); animation: modal-fade .14s ease-out; }
 .modal-card { position: relative; width: min(760px, 100%); max-height: min(86vh, 900px); display: flex; flex-direction: column;
   background: var(--slip); box-shadow: var(--e4); overflow: hidden; animation: modal-rise .16s ease-out; }
-.modal-card .detail { flex: 1; min-height: 0; padding: 30px 36px 40px; }
-.modal-close { position: absolute; top: 12px; right: 12px; z-index: 3; width: 26px; height: 26px; border: 0; background: transparent;
-  color: var(--ink-3); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.modal-close:hover { color: var(--ink); background: var(--tone); }
-.modal-close svg { width: 12px; height: 12px; stroke-width: 1.8; }
+.modal-card .detail { flex: 1; min-height: 0; padding: 0 36px 40px; }
+.modal-card .dt-head { padding: 30px 0 var(--a4); }
 @keyframes modal-fade { from { opacity: 0; } }
 @keyframes modal-rise { from { opacity: 0; transform: translateY(8px); } }
 
@@ -377,22 +377,94 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .pill.local { color: var(--ink-3); }
 
 /* ---------- 详情 ---------- */
-.detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: var(--a1); }
-.detail-head .tile { width: 34px; height: 34px; font-size: 18px; }
-.detail h2 { margin: 0; font-size: var(--fs-h2); font-weight: 600; line-height: 1.35; word-break: break-word; }
-.detail .time { display: block; margin: var(--a1) 0 var(--a4); font-size: var(--fs-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.preview { margin: 0 0 var(--a4); }
-.preview img { display: block; width: 100%; max-height: 380px; object-fit: contain; background: var(--slip-2); cursor: zoom-in; }
+/* 标题旁边不再挂类型图标：那是个 34px 的 emoji，灰度压到 75% 之后读起来像张碎图，
+   而下面那行元信息已经把「图片 · 剪贴板」写清楚了 */
+/* 详情窗的主语是这一条记录，所以标题吃字阶最高的那一档。
+   上一版它是 16/600，而三个段标题是 12/600——四行同粗同墨的字排下来，
+   读起来就是四个平级的东西，那正是「没有层级」的来源。 */
+.detail h2 { margin: 0; font: var(--w-day) var(--fs-day)/1.25 var(--sans); letter-spacing: -.01em;
+  color: var(--ink); word-break: break-word; text-wrap: balance; }
+.lv-prev .detail h2 { font-size: var(--fs-h2); }   /* 420px 的窄面板放不下 21px */
+.detail .time { display: block; margin: 0; font-size: var(--fs-meta); color: var(--ink-3);
+  font-variant-numeric: tabular-nums; line-height: 1.7; }
+
+/* ---------- 摊开一条记录：左边东西，右边字 ---------- */
+/* 单栏是默认（列表页右侧那半张纸只有 340–420px 宽）；两栏只发生在详情窗里，
+   而且只给图片和录音——一个文件图标或一条链接撑不起一整列 */
+/* 一列，从上往下走完：头带 → 东西 → 你写的 → 机器写的 → 动作。
+   两栏做过，被否了：左右两条阅读线互相抢，眼睛不知道从哪进。一列只有一条线。 */
+.dt { display: flex; flex-direction: column; gap: var(--a5); }
+.dt-media { display: flex; flex-direction: column; gap: var(--a2); min-width: 0; }
+/* 头：左边是它是什么（标题 · 日期 · 主题），右边一排动作。
+   动作和那个关闭叉是同一级的东西——都是「对这条记录做点什么」——所以站在一起，
+   和标题一条水平线上。别的动作（打开 / 编辑 / 更多…）删了。 */
+/* 网格而不是 flex：标题和动作分列左右，便利贴横跨两列。
+   塞在标题那一列里的话，它会被右边那排托盘挤短一截，看着像被裁掉了。
+   这一块**钉在滚动区顶上**：这条记录是什么、你给它写了什么、能对它做什么——
+   翻到哪儿都得在手边。所以它自带底色和上边距，滚动容器的 padding-top 让给它。 */
+.dt-head { display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--a4); row-gap: var(--a3); align-items: start;
+  position: sticky; top: 0; z-index: 3; background: var(--slip); }
+.dt-name { grid-column: 1; display: flex; flex-direction: column; gap: var(--a2); min-width: 0; }
+.dt-acts { grid-column: 2; }
+.dt-note { grid-column: 1 / -1; }
+/* 四个动作是同一种东西，所以是同一种托盘：--slip 的底 + --e2 的影，等高、直角。
+   这是「只有记录才有影子」的第二个例外——和底部那三只一样，它们确实是东西。
+   叉叉是正方的（里面是个图标），三个词的按托盘宽度自己撑开。 */
+.dt-acts { display: flex; align-items: center; gap: var(--a2); flex: none; }
+.act { flex: none; height: 28px; padding: 0 11px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 0; cursor: pointer; background: var(--slip); box-shadow: var(--e2);
+  font: 600 var(--fs-act)/1 var(--sans); color: var(--ink-2); }
+.act:hover { color: var(--ink); }
+.act:active { transform: translateY(1px); }
+.act.on { background: var(--ink); color: var(--page); }   /* 收藏了＝实心，和扩展状态那个图标同一条规矩 */
+.act.danger { color: var(--stamp); }
+.act-close { width: 28px; padding: 0; }
+.act-close svg { width: 12px; height: 12px; stroke-width: 1.8; }
+
+/* 你写的那一句：还是便利贴的黄，只是一行高。
+   默认只读——一打开详情就有个光标在等你打字是不对的；点一下才交出光标。
+   选择器要写成 `.dt-note .note-line`：通用那条 `input:not([type="checkbox"])` 是 0-1-1，
+   光一个类名压不过它，那道发丝线会一直挂在黄纸上 */
+.dt-note { background: var(--p-note); padding: 9px var(--a3); display: flex; align-items: center; min-width: 0; }
+.dt-note .note-line { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: transparent; font: 400 var(--fs-body)/1.6 var(--content); color: var(--ink); }
+.dt-note .note-line[readonly] { cursor: pointer; text-overflow: ellipsis; }
+.dt-note .note-line::placeholder { color: var(--ink-3); }
+.dt-note .note-line:focus { outline: none; }
+/* 机器写的那几段坐进一块浅底：白纸上摞白纸是分不出段的。
+   三种材质各说各的——白纸是这条记录本身，黄纸是你写的那一句，浅灰是机器写的。
+   `--slip-2` 本来就是「便签上再深一点」那个色，用在这里不是新发明一层。 */
+.dt-machine { background: var(--slip-2); padding: var(--a3) var(--a4);
+  display: flex; flex-direction: column; gap: var(--a4); min-width: 0; }
+.dt-sec { display: flex; flex-direction: column; gap: var(--a2); min-width: 0; }
+.dt-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--a3); }
+/* 小动作：一个词，站在层 0（它不是托盘——托盘是右上角那四个「对整条记录动手」的东西） */
+.mini { border: 0; background: none; padding: 0; cursor: pointer;
+  font: 400 var(--fs-meta)/1.4 var(--sans); color: var(--ink-3); }
+.mini:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+/* 段标题是标签，不是标题：11px 铅笔色，比它下面的正文还轻。
+   分段靠的是留白和材质，不是把四个东西都加粗——加粗只会让它们互相打架。 */
+.detail h3, .dt-sec h3 { margin: 0; font: 400 var(--fs-meta)/1.4 var(--sans); color: var(--ink-3); }
+
+.preview { margin: 0; }
+/* 高度由图自己的比例说了算，只在太高的时候才封顶——原来死封 380px 又补一块灰底，
+   一张宽截图就被压成中间一条、两边两块灰 */
+.preview img { display: block; width: 100%; height: auto; max-height: 46vh; object-fit: contain; cursor: zoom-in; }
+/* 一条笔记没有「东西」可看，只有它存在哪儿。那就写成一行，别摆成一整块居中的灰板 */
+.dt.bare .preview .file { display: flex; align-items: center; gap: var(--a3); padding: var(--a3);
+  text-align: left; font-size: 20px; }
+.dt.bare .preview .file small { margin-top: 0; }
 .preview audio { width: 100%; display: block; padding: 4px 0; }
 .preview .file { padding: 26px; text-align: center; font-size: 32px; background: var(--slip-2); }
 .preview .file small { display: block; font-size: var(--fs-meta); color: var(--ink-3); margin-top: var(--a2); word-break: break-all; }
 .preview a { color: var(--accent); word-break: break-all; text-decoration: none; }
 .preview .link { padding: var(--a3); background: var(--slip-2); }
-.summary-text { margin: var(--a2) 0 var(--a3); line-height: 1.7; }
-.actions { display: flex; gap: var(--a2); flex-wrap: wrap; margin: var(--a3) 0 var(--a1); }
-.detail h3 { margin: var(--a4) 0 var(--a2); font: 400 var(--fs-meta)/1.4 var(--sans); color: var(--ink-3); }
+.summary-text { margin: 0; line-height: 1.7; color: var(--ink-2); }
+.actions { display: flex; gap: var(--a2); flex-wrap: wrap; margin: 0; }
 /* 记录自己的字，用内容字体，直接印在纸上 */
-.text-block { white-space: pre-wrap; word-break: break-word; font: 400 var(--fs-body)/1.75 var(--content); max-height: 420px; overflow: auto; }
+/* 不给它自己的滚动条：面板已经有一条了，一张卡里两条滚动条谁也不知道该滚哪个 */
+.text-block { white-space: pre-wrap; word-break: break-word; font: 400 var(--fs-body)/1.75 var(--content); }
 
 /* ---------- 来自哪里 · 置顶 · 文字位置 ---------- */
 /* 都是「记录自己的一部分」，不是新层级：置顶是一个墨点，来源是一行铅笔字，
@@ -407,20 +479,21 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .row-pin { margin-right: 6px; vertical-align: 2px; }
 
 /* 详情里「来自 微信 · 图片和视频」，紧跟在时间下面，同一档铅笔字 */
-.detail .time:has(+ .time.from) { margin-bottom: 0; }
-.detail .time.from { margin: 2px 0 var(--a4); }
-.detail .time.from a { color: var(--accent); text-decoration: none; }
+.detail .time a { color: var(--accent); text-decoration: none; }
 
-/* 我的备注：和别的输入框一样，只有底下一道发丝线 */
-.note-field { display: block; width: 100%; margin: var(--a2) 0 0; padding: 0 0 6px; resize: vertical;
-  border: 0; border-bottom: 1px solid var(--hair); border-radius: 0; background: transparent;
-  font: 400 var(--fs-body)/1.7 var(--content); color: var(--ink); }
-.note-field:focus { outline: none; border-bottom-color: var(--ink); }
-.note-field::placeholder { color: var(--ink-3); }
 
 /* 文字位置：一排工具，站在层 0 */
-.box-tools { display: flex; align-items: center; gap: var(--a2); margin: var(--a2) 0 0; }
-.box-tools .st { font-size: var(--fs-meta); color: var(--ink-3); }
+/* 图上那两个按钮（复制这张图 / 文字位置）都是「看这张图、拿这张图」的事，
+   所以待在图上、右上角，而不是图底下孤零零几个按钮。停上去才现，别挡着画面 */
+.pic-tools { position: absolute; right: var(--a2); top: var(--a2); z-index: 2;
+  display: flex; gap: var(--a1); opacity: 0; transition: opacity .12s; }
+.preview:hover .pic-tools, .pic-tools:focus-within { opacity: 1; }
+.preview:has(.pic-btn.on) .pic-tools { opacity: 1; }
+.pic-btn { border: 0; font: 600 var(--fs-act)/1 var(--sans); color: var(--ink);
+  background: var(--slip); padding: 7px 10px; cursor: pointer; }
+.pic-btn:active { transform: translateY(1px); }
+.pic-btn.on { background: var(--ink); color: var(--page); }
+.dt-media .st { margin: 0; font-size: var(--fs-meta); color: var(--ink-3); }
 
 /* 识别出的每一行文字在原图上的位置。平时看不见，鼠标经过才用荧光笔标出来 */
 .preview { position: relative; }
@@ -755,10 +828,14 @@ body.picking .d-left, body.picking .d-mid { display: none; }
   user-select: none; -webkit-user-select: none;
 }
 /* 但凡是让你读的地方，字还是能选的 */
-.detail, .md, .text-block, .summary-text, input, textarea, .note-field {
+.detail, .md, .text-block, .summary-text, input, textarea {
   user-select: text; -webkit-user-select: text;
 }
 
 /* 拉框：一个正在发生的动作，不是一件物件，所以没有影子。一条墨线 + 一层极淡的底 */
 .marquee { position: fixed; z-index: 30; pointer-events: none;
   border: 1px solid var(--ink); background: var(--tone); }
+
+/* 当前占用麦克风的应用，点一下加进白名单。是词不是按钮——按钮会浮起来，而这里是印在纸上的字。 */
+.st .add-app { cursor: pointer; margin-right: var(--a2); }
+.st .add-app:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

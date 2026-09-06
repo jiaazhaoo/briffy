@@ -14,21 +14,37 @@
 //
 // 实测 `pmset -g assertions` 一次 10 ms，每 5 秒问一次的开销可以忽略，而且不需要任何权限。
 //
-// 两类要排除的：
+// 三类要排除的：
 //   自己          ——— 我们一开麦，自己也会出现在这张表里，不排除就永远停不下来
 //   常驻录音器    ——— corespeechd（macOS 的语音服务）和 screenpipe 这类东西 24 小时占着麦克风，
 //                     把它们算进来，这个功能就退回成"一直录"，正是要避免的那件事。
 //                     名单可以改（设置 autoRecordIgnore），而且设置页会把当前占用者列出来，
 //                     所以这不是一份藏起来的判断。
+//   输入法        ——— 按**路径**排除，不是靠名字。微信输入法（/Library/Input Methods/WeType.app）
+//                     一按语音输入就占麦克风，于是用它口述的每一句话都被存成了录音。这不是漏了一个
+//                     名字，是类别错了：输入法采集麦克风的产物是**文字**，它会直接打进你正在写的
+//                     地方，再存一份音频既没用又是你没打算留下的东西。macOS 的输入法只会装在
+//                     /Library/Input Methods 或 /System/Library/Input Methods 下，所以这条按目录判断，
+//                     对没见过的输入法同样成立。
+//
+// 白名单（设置 autoRecordAllow）：留空时按上面三条排除，其余都跟着录；一旦填了，就只跟着名单里的
+// 应用录。想要"只录会议"的人填上会议软件即可，其余一律不碰——这比不断往排除名单里补名字可靠。
 const { execFile } = require('child_process');
 const path = require('path');
 
 const POLL_MS = 5000;
 const DEFAULT_IGNORE = ['corespeechd', 'screenpipe'];
+// macOS 只在这两处装输入法，第三方的也一样（微信输入法、搜狗、微软拼音都在 /Library/Input Methods）
+const INPUT_METHOD_DIRS = ['/Library/Input Methods/', '/System/Library/Input Methods/'];
 
 let timer = null;
 let deps = null;
-let holders = [];        // [{ pid, name }] 现在开着麦克风的（已排除自己和忽略名单）
+let holders = [];        // [{ pid, name, exe, app }] 现在开着麦克风、且 briffy 会跟着录的
+let seen = [];           // 同上，但**不过白名单**——设置页要能列出可以加进白名单的应用
+// 最近用过麦克风的应用（不过白名单），设置页拿它当候选。只记当前占用者是不够的：会开完了才想起来去
+// 填白名单，打开设置一看空空如也，就只能靠手打进程名——而进程名恰恰是用户不知道的那个东西。
+const recent = new Map();   // exe -> { name, exe, app, at }
+const RECENT_MAX = 12;
 let inUse = false;
 
 const run = (cmd, args) => new Promise((resolve) => {
@@ -63,21 +79,72 @@ async function namesOf(pids) {
 // 我们自己的进程都住在同一个目录下（主进程、渲染进程、各种 helper）
 const ownDir = path.dirname(process.execPath);
 const isOwn = (exe) => exe.startsWith(ownDir);
+const isInputMethod = (exe) => INPUT_METHOD_DIRS.some((d) => exe.startsWith(d));
+
+// 进程名不是给人看的东西。占着麦克风的那个叫 WeType，而你在系统里、在这台电脑上看到的名字是
+// 「微信输入法」——要人从一列 unix 进程名里挑出该录哪个，等于没给他判断的依据。
+// Info.plist 里只有 WeType（CFBundleDisplayName 根本没有），本地化的名字要问 Spotlight。
+const appNames = new Map();
+async function appNameOf(exe) {
+  if (!exe) return '';
+  const at = exe.lastIndexOf('.app/');
+  if (at < 0) return '';
+  const bundle = exe.slice(0, at + 4);
+  if (appNames.has(bundle)) return appNames.get(bundle);
+  const name = (await run('/usr/bin/mdls', ['-name', 'kMDItemDisplayName', '-raw', bundle])).trim();
+  const clean = (!name || name === '(null)') ? '' : name.replace(/\.app$/, '');
+  appNames.set(bundle, clean);
+  return clean;
+}
+
+/** 名单项既可以写进程名（WeType），也可以写路径的一段（/Applications/zoom.us.app）。 */
+function listed(list, exe, base) {
+  return (list || []).some((n) => {
+    const t = String(n || '').trim().toLowerCase();
+    if (!t) return false;
+    return base.toLowerCase().includes(t) || exe.toLowerCase().includes(t);
+  });
+}
+
+/**
+ * 这一批占着麦克风的进程里，哪些该让 briffy 跟着录。
+ *
+ * 单独拎出来是因为这是整个自动录音里唯一"决定录什么"的判断，其余都是管道。
+ * @param {Array<{pid:number, exe:string}>} found
+ * @param {{allow?:string[], ignore?:string[]}} rules
+ */
+function follow(found, { allow = [], ignore = DEFAULT_IGNORE } = {}) {
+  const out = [];
+  for (const { pid, exe } of found) {
+    if (!exe || isOwn(exe) || isInputMethod(exe)) continue;
+    const base = exe.split('/').pop();
+    if (listed(ignore, exe, base)) continue;
+    if ((allow || []).length && !listed(allow, exe, base)) continue;
+    out.push({ pid, name: base, exe });
+  }
+  return out;
+}
 
 async function poll() {
   if (!deps) return;
-  const ignore = deps.store.getSettings().autoRecordIgnore || DEFAULT_IGNORE;
+  const s = deps.store.getSettings();
   const pids = pidsFrom(await run('/usr/bin/pmset', ['-g', 'assertions']));
   const names = await namesOf(pids);
-  const next = [];
-  for (const pid of pids) {
-    const exe = names.get(pid) || '';
-    if (!exe || isOwn(exe)) continue;
-    const base = exe.split('/').pop();
-    if (ignore.some((n) => base.toLowerCase().includes(String(n).toLowerCase()))) continue;
-    next.push({ pid, name: base });
+  const found = pids.map((pid) => ({ pid, exe: names.get(pid) || '' }));
+  const ignore = s.autoRecordIgnore || DEFAULT_IGNORE;
+  // 两份：一份是会跟着录的，一份是**不看白名单**时会跟着录的。后者是设置页列出来给你挑的候选——
+  // 只报前者的话，白名单一填，别的应用就再也不出现，你也就没办法把它加进名单，这个设置项等于一次性的。
+  const candidates = follow(found, { ignore, allow: [] });
+  const next = follow(found, { ignore, allow: s.autoRecordAllow || [] });
+  for (const h of candidates) h.app = await appNameOf(h.exe);
+  const byPid = new Map(candidates.map((h) => [h.pid, h]));
+  for (const h of next) h.app = (byPid.get(h.pid) || {}).app || '';
+  for (const h of candidates) {
+    recent.set(h.exe, { name: h.name, exe: h.exe, app: h.app, at: Date.now() });
   }
+  while (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value);
   const was = inUse;
+  seen = candidates;
   holders = next;
   inUse = next.length > 0;
   if (inUse !== was && deps.onChange) deps.onChange(inUse, holders.slice());
@@ -96,10 +163,22 @@ function stop() {
   if (timer) clearInterval(timer);
   timer = null;
   holders = [];
+  seen = [];
   inUse = false;
 }
 
-/** 给设置页看的：现在是谁开着麦克风。 */
-function status() { return { inUse, holders: holders.slice() }; }
+/**
+ * 给设置页看的。
+ * @returns {{inUse:boolean, holders:Array, seen:Array, recent:Array}} holders 是会跟着录的，
+ *   seen 是此刻占着麦克风、不看白名单的话会被录的，recent 是这次运行里用过麦克风的（新的在前）。
+ */
+function status() {
+  return {
+    inUse,
+    holders: holders.slice(),
+    seen: seen.slice(),
+    recent: [...recent.values()].sort((a, b) => b.at - a.at),
+  };
+}
 
-module.exports = { start, stop, status, DEFAULT_IGNORE, _pidsFrom: pidsFrom };
+module.exports = { start, stop, status, follow, appNameOf, DEFAULT_IGNORE, INPUT_METHOD_DIRS, _pidsFrom: pidsFrom };

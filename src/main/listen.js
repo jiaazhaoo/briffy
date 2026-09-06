@@ -88,10 +88,14 @@ function stop() {
   win = null; ready = false; state = 'off';
 }
 
-/** @returns {{on:boolean, state:string, lastAt:number, inUse:boolean, holders:Array}} for the settings page. */
+/**
+ * @returns {{on:boolean, state:string, lastAt:number, inUse:boolean, holders:Array, seen:Array}} for the
+ *   settings page. `holders` is what briffy is following; `seen` is everything it could follow if the
+ *   allow list said so, which is what the settings page offers you to add.
+ */
 function status() {
   const w = micwatch.status();
-  return { on: wanted, state, lastAt, inUse: w.inUse, holders: w.holders };
+  return { on: wanted, state, lastAt, inUse: w.inUse, holders: w.holders, seen: w.seen || [], recent: w.recent || [] };
 }
 
 function register() {
@@ -125,6 +129,8 @@ function register() {
         peak: seg.peak,
         mic: seg.mic || '',
         auto: true,
+        // 谁开着麦克风才有了这一段。见 workspace.ingestAudio 里的注释。
+        because: micwatch.status().holders.map((h) => h.app || h.name).join('、'),
       });
     } catch (e) {
       console.error('[listen] could not file a segment', e);
