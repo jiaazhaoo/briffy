@@ -152,6 +152,7 @@ async function main() {
   // the app was closed, and records saved before this existed still carry their English labels.
   workspace.relabelVision(uiLanguage(store.getSettings().languages));
   ask.init({ store });
+  ask.warm();                      // 后台把磁盘索引追平，第一次提问就不用等
   // First launch: walk through languages, permissions and who reads the records, before the pet starts
   // silently asking the OS for things.
   if (!store.getSettings().setupDone && !process.env.DAILYLOGS_SMOKE) windows.openOnboarding();

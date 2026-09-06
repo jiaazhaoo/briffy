@@ -128,31 +128,42 @@ function dayIsStale(dayKey, stamp) {
 
 /**
  * 把工作区里所有变过的天重新索引一遍。
+ *
+ * `budgetMs` 是为了第一次：一个已经用了几年的工作区，从零建索引要好几分钟（20 万条实测 40 秒，
+ * 大头是 ICU 分词）。第一次提问不能卡在那里，所以给一个时限，做多少算多少，剩下的下一次接着做——
+ * 天是从新到旧排的，所以先建起来的正好是最可能被问到的那几天。
+ *
  * @param {{dir:string, loadDay:function}} src 工作区的目录，和读一天的函数
- * @returns {{days:number, entries:number, ms:number}} 这次动了多少
+ * @param {{budgetMs?:number}} opts
+ * @returns {{days:number, entries:number, ms:number, done:boolean}} 这次动了多少，以及是不是追平了
  */
-function sync(src) {
+function sync(src, { budgetMs = Infinity } = {}) {
   const t0 = Date.now();
   let days = 0; let entries = 0;
   let files = [];
-  try { files = fs.readdirSync(src.dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)); } catch (_) { return { days: 0, entries: 0, ms: 0 }; }
+  try { files = fs.readdirSync(src.dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)); } catch (_) { return { days: 0, entries: 0, ms: 0, done: true }; }
   const seen = new Set();
-  for (const f of files.sort()) {
+  let ranOut = false;
+  // 新的先建：先补上的就是最可能被问到的那几天
+  for (const f of files.sort().reverse()) {
     const dayKey = f.slice(0, 10);
     seen.add(dayKey);
     let st;
     try { st = fs.statSync(path.join(src.dir, f)); } catch (_) { continue; }
     const stamp = `${st.mtimeMs}:${st.size}`;
     if (!dayIsStale(dayKey, stamp)) continue;
+    if (Date.now() - t0 > budgetMs) { ranOut = true; break; }
     const list = src.loadDay(dayKey) || [];
     putDay(dayKey, list, stamp);
     days++; entries += list.length;
   }
-  // 天文件被删掉了，索引也得跟着掉
-  for (const r of db.prepare('SELECT day FROM days').all()) {
-    if (!seen.has(r.day)) { putDay(r.day, [], ''); db.prepare('DELETE FROM days WHERE day=?').run(r.day); }
+  // 天文件被删掉了，索引也得跟着掉。没做完时先不清，否则会把还没轮到的那些当成删了。
+  if (!ranOut) {
+    for (const r of db.prepare('SELECT day FROM days').all()) {
+      if (!seen.has(r.day)) { putDay(r.day, [], ''); db.prepare('DELETE FROM days WHERE day=?').run(r.day); }
+    }
   }
-  return { days, entries, ms: Date.now() - t0 };
+  return { days, entries, ms: Date.now() - t0, done: !ranOut };
 }
 
 // ---------- 读 ----------
@@ -212,8 +223,21 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
     const ids = db.prepare(sql).all(...args, limit).map((r) => r.id);
     return { ids, scored: false, ms: Date.now() - t0 };
   }
-  // 先 AND：几个词都得出现，命中少、排得快也准。全落空了再退回 OR。
-  for (const expr of [terms.join(' AND '), terms.join(' OR ')]) {
+  // 由紧到松试两次，第一个有结果的就是答案：
+  //   1  几个短语都要有 —— 最准，也最快（命中少，ORDER BY rank 就便宜）
+  //   2  拆开、仍然都要有 —— 「麦克风白名单」这种连写的长词，整串相邻找不到，拆开找得到
+  //
+  // 没有第三级的 OR。试过，它把两件事一起弄坏了：「今天做了什么」本该退回成「把今天给我」，
+  // 却因为「做了」OR 到了几条弱匹配而变成三条不相干的记录；「麦克风白名单」则捞回十七条噪音。
+  // 交白卷是有意义的答案——上层看到空手才知道该退回时间范围。
+  //
+  // 拆开时丢掉单个汉字：「麦克 风 白 名单」里的 风 和 白 到处都是，AND 上它们只会把命中拖回噪音。
+  const loose = [...new Set(terms.flatMap((t) => t.replace(/^"|"$/g, '').split(' ')))]
+    .filter((w) => w.length > 1)
+    .map((w) => `"${w}"`);
+  const tries = [terms.join(' AND ')];
+  if (loose.length && loose.length !== terms.length) tries.push(loose.join(' AND '));
+  for (const expr of tries) {
     const sql = `SELECT e.id FROM fts f JOIN entries e ON e.rowid = f.rowid
       WHERE f.fts MATCH ? ${where.length ? `AND ${where.join(' AND ')}` : ''}
       ORDER BY rank LIMIT ?`;

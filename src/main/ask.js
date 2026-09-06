@@ -1,16 +1,45 @@
 'use strict';
-// "Ask my log". recall.js picks the entries a question is about; the configured model then answers over
-// only those and cites them by number. The recalled entries are returned either way — with no AI service
-// configured, or when the call fails, a ranked list of the right records is still most of the answer.
+// 「问我的记录」。索引挑出这个问题说的是哪些记录，模型只把它们写成一句回答，并按编号引用。
+//
+// 挑记录这一步**完全不经过模型**。这不是省事，是这个功能能成立的前提：
+//
+//   换掉 OpenRouter 换成本地 Ollama，索引不受影响；断网也照样定位得到。
+//   没配任何 AI 服务时，返回的仍然是一份排好序的、正确的记录清单——那本来就是答案的大半。
+//   延迟是确定的，不取决于对方的网络，也不取决于模型聪不聪明。
+//
+// 以前这里是 store.listEntries({ limit: Infinity })：把工作区每一天都读进内存再打分。20 万条实测
+// 215MB 堆、707ms；按这个工作区的真实平均长度外推到 185 万条约 7GB——每问一次崩一次。现在只从索引
+// 里拿命中的那几十个 id，再按 id 取回那几条。
 const llm = require('./llm');
 const recall = require('./recall');
+const index = require('./index-db');
 const { localDateKey } = require('./store');
-const { uiLanguage } = require('./languages');
 
 let store;
 function init(deps) { store = deps.store; }
 
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
+// 第一次提问不该卡在建索引上。一个用了几年的工作区从零建要好几分钟，所以每次只做这么久，
+// 剩下的下一次接着做；天是从新到旧建的，先补上的正好是最可能被问到的。
+const SYNC_BUDGET_MS = 400;
+
+function entriesDir() { return store.paths().entries; }
+
+/** 打开索引并追平工作区。可以随便调，没变过的天不会被重读。 */
+function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
+  index.open(store.userData, store.workspaceDir);
+  return index.sync({ dir: entriesDir(), loadDay: (k) => store.loadDay(k) }, { budgetMs });
+}
+
+/** 应用起来之后在后台把索引建完，这样第一次提问就已经是齐的。 */
+function warm() {
+  const step = () => {
+    let r;
+    try { r = refresh({ budgetMs: 1500 }); } catch (e) { console.warn('[ask] 索引建不起来', e.message); return; }
+    if (!r.done) setTimeout(step, 800);          // 留出空档，别把启动那几秒占满
+  };
+  setTimeout(step, 3000);
+}
 
 /**
  * @param {string} question
@@ -20,23 +49,40 @@ const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably ho
 async function run(question, { limit = MAX_ITEMS } = {}) {
   const q = String(question || '').trim();
   if (!q) return null;
-  const all = store.listEntries({ limit: Infinity });
-  const hit = recall.recall(all, q, { today: localDateKey(), limit, lang: uiLanguage(store.getSettings().languages) });
+  const today = localDateKey();
+  try { refresh(); } catch (e) { console.warn('[ask] 索引没能追平', e.message); }
+
+  // 时间词归 recall.js 管——那一套有测试盯着，也是这里唯一需要「懂中文」的地方。
+  // 它挑完之后要把那些词从查询里去掉，否则索引会去找正文里真的写着「上周」的记录。
+  const found = recall.parseRange(q, today);
+  let rest = q;
+  if (found) for (const m of found.matches) rest = rest.split(m).join(' ');
+
+  const from = found ? found.from : '';
+  const to = found ? found.to : '';
+  let hit = index.search({ query: rest, from, to, limit });
+  // 问了一段时间却一条也没匹配上，就把那段时间整个给他——他问的就是那段时间。
+  // 「今天做了什么」曾经返回 0 条：日期词拿走之后剩下的「做了」成了一个内容词，正文里一次也没出现。
+  // 补停用词治不了「今天弄了些啥」，所以钉的是结果。recall.js 里有同一条规则和它的测试，
+  // 那条路现在只负责解析时间，所以这里要自己再写一遍。
+  if (!hit.ids.length && found) hit = index.search({ from, to, limit });
+  const entries = hit.ids.map((id) => store.getEntry(id)).filter(Boolean);
+
   const base = {
     question: q, answer: '', used: [], model: '',
-    sources: hit.entries, range: hit.range, scored: hit.scored,
-    noProvider: false, error: '', total: all.length,
+    sources: entries, range: found ? { from: found.from, to: found.to } : null,
+    scored: hit.scored, noProvider: false, error: '', total: index.stats().entries,
   };
-  if (!hit.entries.length) return base;
+  if (!entries.length) return base;
 
   const cfg = llm.config(store);
   if (!llm.isConfigured(cfg)) return { ...base, noProvider: true };
   try {
-    const r = await llm.answerQuestion(cfg, { question: q, entries: hit.entries });
+    const r = await llm.answerQuestion(cfg, { question: q, entries });
     return { ...base, answer: r.answer, used: r.used, model: r.model };
   } catch (e) {
     return { ...base, error: e.message || String(e) };
   }
 }
 
-module.exports = { init, run, MAX_ITEMS };
+module.exports = { init, run, warm, refresh, MAX_ITEMS };
