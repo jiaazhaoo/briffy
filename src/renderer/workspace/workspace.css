@@ -666,8 +666,6 @@ body.picking .d-left, body.picking .d-mid { display: none; }
   padding: 8px 14px; font-size: var(--fs-act); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
   z-index: 10; max-width: 80vw; box-shadow: var(--e3); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.lightbox { position: fixed; inset: 0; background: rgba(16, 16, 14, .9); display: flex; align-items: center; justify-content: center; z-index: 20; cursor: zoom-out; }
-.lightbox img { max-width: 94vw; max-height: 94vh; object-fit: contain; box-shadow: var(--e4); }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--tone-2); border: 3px solid transparent; background-clip: padding-box; }
@@ -846,9 +844,12 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .chips .chip { margin-right: var(--a2); color: var(--ink-2); font-size: var(--fs-act); }
 .chips .chip.zero { color: var(--ink-3); }
 /* 点一下去掉——悬停变印泥色，那是这一屏里"删除"的颜色，而且只在鼠标停上去时才出现 */
+/* 站点和应用是两种东西，但都在同一排里——站点退半档墨，不另起一行也不加框 */
+.chips .chip.is-site { color: var(--ink-3); }
 .drop-app { cursor: pointer; }
 .drop-app:hover { color: var(--stamp); text-decoration: line-through; }
 #autoRecordAllowAdd { width: 96px; }
+#autoRecordBrowsers { display: block; }
 /* 用过麦克风的应用，点一下加进白名单 */
 .st .add-app { cursor: pointer; margin-right: var(--a2); }
 .st .add-app:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

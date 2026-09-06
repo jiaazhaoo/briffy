@@ -26,6 +26,7 @@ const foreground = require('./foreground');
 const uptime = require('./uptime');
 const deeplink = require('./deeplink');
 const longshot = require('./longshot');
+const apps = require('./apps');
 const listen = require('./listen');
 const diarize = require('./diarize');
 const dayStats = require('./day-stats');
@@ -867,6 +868,11 @@ function setupIpc() {
     stats: store.stats(),
     localApi: localApi.status(),
     listen: listen.status(),
+    // 白名单里的每一项此刻对应这台电脑上的哪个软件，以及装了哪些浏览器（它们按站点放行，见 apps.js）
+    apps: {
+      browsers: apps.detect().browsers.map((b) => b.name),
+      allow: apps.describe(store.getSettings().autoRecordAllow || apps.defaultAllow()),
+    },
     speakers: diarize.people(),
     extensionDir: extensionDir(),
     setup: setup.status(),

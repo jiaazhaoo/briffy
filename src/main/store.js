@@ -43,23 +43,16 @@ const DEFAULT_SETTINGS = {
   // 24 小时占着麦克风的东西（系统语音服务、常驻录音器）不算「有人在用麦克风」，
   // 否则自动录音会退回成一直录——正是它要避免的那件事。名字可改。
   autoRecordIgnore: ['corespeechd', 'screenpipe'],
-  // 只有这些开着麦克风，才跟着录。空 = 除了排除的以外都跟着录。见 src/main/micwatch.js
+  // 只有这些开着麦克风，才跟着录。
   //
-  // 默认不是空的，因为空的那条规则（"别人开了我就跟着录"）在真实的电脑上录到的多半不是对话：
-  // 输入法的语音输入、网页里的语音搜索、随手按一下的语音消息。选进来的标准是**你事后会想回看的对话**：
+  //   null  没设置过 —— 用这台电脑上**真的装了**的会议软件，加上会议网站。见 src/main/apps.js
+  //   []    自己清空了 —— 除了排除的以外都跟着录
+  //   非空  就这些
   //
-  //   会议和通话的桌面应用 —— 它们打开麦克风就只有一个意思
-  //   会议网站           —— 只在浏览器**停在这一页**时才算。整个浏览器是不能放进来的：那等于把
-  //                        网页里的语音输入也一起放行，和输入法那件事一模一样
-  //
-  // 有意没放进来的：QuickTime、语音备忘录这类录音软件（它们本来就在录，再录一份是重复）；
-  // 微信和 QQ（语音消息不是会议，放进来又会变成刷屏——要的人自己加一行）。
-  autoRecordAllow: [
-    'zoom.us', 'TencentMeeting', 'wemeetapp', 'Microsoft Teams', 'Webex',
-    'FaceTime', 'Skype', 'Discord', 'Slack', 'Lark', 'Feishu', 'DingTalk',
-    'meet.google.com', 'teams.microsoft.com', 'teams.live.com',
-    'meeting.tencent.com', 'webex.com', 'whereby.com',
-  ],
+  // 默认不是一串写死的名字，因为那份名单是别人的：对着一台只装了 Zoom 和微信的电脑，Teams、Webex、
+  // Slack、飞书、钉钉那十几项永远不会命中，打开设置看到的是一堆没见过的字符串。装了什么就列什么。
+  autoRecordAllow: null,
+
   // Tell voices apart in a recording, and remember them between recordings. Off by default: it fetches
   // about 35 MB of models the first time. See src/main/diarize.js.
   diarize: false,

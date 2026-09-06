@@ -130,19 +130,61 @@ ok('排除名单不看站点：占着麦克风就是占着，跟在哪一页无�
     names(micwatch.follow(found(SPEECHD), { ignore: ['corespeechd'], tabUrl: 'https://meet.google.com/x' })), []);
 });
 
-// ---------- 默认名单 ----------
-ok('默认名单认得出常见的会议软件', () => {
+// ---------- 默认名单是这台电脑上装了的东西 ----------
+const apps = require('../src/main/apps');
+
+ok('没设置过时，用的是探测出来的那份，不是写死的', () => {
   const { DEFAULT_SETTINGS } = require('../src/main/store');
-  const allow = DEFAULT_SETTINGS.autoRecordAllow;
-  assert.ok(allow.length > 6, `默认只有 ${allow.length} 项`);
-  assert.deepStrictEqual(names(micwatch.follow(found(ZOOM, MEETING), { allow })), ['zoom.us', 'TencentMeeting']);
+  assert.strictEqual(DEFAULT_SETTINGS.autoRecordAllow, null, '写死的名单是别人的电脑的');
+  assert.ok(apps.defaultAllow().length >= apps.SITES.length, '至少该有那几个会议网站');
 });
 
-ok('默认名单不会把输入法或随便一个应用放进来', () => {
-  const { DEFAULT_SETTINGS } = require('../src/main/store');
-  const allow = DEFAULT_SETTINGS.autoRecordAllow;
+ok('默认名单里没有重复项', () => {
+  const list = apps.defaultAllow().map((x) => x.toLowerCase());
+  assert.strictEqual(new Set(list).size, list.length, list.join('、'));
+});
+
+ok('默认名单不会放行输入法，也不会放行随便一个应用', () => {
+  const allow = apps.defaultAllow();
   const RANDOM = '/Applications/Preview.app/Contents/MacOS/Preview';
   assert.deepStrictEqual(names(micwatch.follow(found(WETYPE, RANDOM), { allow })), []);
+});
+
+ok('装了的会议软件会进默认名单', () => {
+  // 这台机器上装了什么不归测试管，所以查的是「探测到的每一个，都在默认名单里」
+  const { meeting } = apps.detect();
+  const allow = apps.defaultAllow().map((x) => x.toLowerCase());
+  for (const m of meeting) assert.ok(allow.includes(m.binary.toLowerCase()), `${m.name} 没进名单`);
+});
+
+ok('探测到的每个应用都能说出它的可执行文件名', () => {
+  const { meeting, browsers } = apps.detect();
+  for (const a of [...meeting, ...browsers]) {
+    assert.ok(a.binary && !a.binary.includes('/'), `${a.name} -> ${JSON.stringify(a.binary)}`);
+    assert.ok(a.name && a.path.endsWith('.app'), JSON.stringify(a));
+  }
+});
+
+ok('名单里的一项能翻回这台电脑上那个软件的名字', () => {
+  const { meeting } = apps.detect();
+  if (!meeting.length) return;                       // 一台没装会议软件的机器，这条无从检查
+  const [m] = meeting;
+  const [d] = apps.describe([m.binary]);
+  assert.strictEqual(d.kind, 'app');
+  assert.strictEqual(d.label, m.name);
+  assert.strictEqual(d.entry, m.binary);
+});
+
+ok('站点认得出来，没装的软件不会被说成装了', () => {
+  assert.deepStrictEqual(apps.describe(['meet.google.com'])[0].kind, 'site');
+  assert.deepStrictEqual(apps.describe(['SomeThingNobodyHas'])[0].kind, 'unknown');
+});
+
+ok('浏览器不进默认名单——它是按站点放行的', () => {
+  const allow = apps.defaultAllow().map((x) => x.toLowerCase());
+  for (const b of apps.detect().browsers) {
+    assert.ok(!allow.includes(b.binary.toLowerCase()), `${b.name} 不该整个被放行`);
+  }
 });
 
 // ---------- pmset 的输出 ----------

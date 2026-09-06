@@ -28,6 +28,7 @@
       sAutoRecord: '自动录音', sAutoRecordOn: '白名单里的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
       sAutoRecordAllow: '白名单', sAutoRecordAllowPh: '再加一个…',
       autoAllowEmpty: '空的——除排除的以外都跟着录', autoAllowDrop: '点一下去掉',
+      autoAllowSite: '会议网站', autoBrowsers: '装了的浏览器只在上面这些网站时才算：',
       autoNowUsing: '用过麦克风的（点一下加进白名单）：', autoNowNobody: '这次开机后还没有别的软件用过麦克风',
       autoWaiting: '等着——没有别的软件在用麦克风', autoBecause: '因为 {who} 正在用麦克风',
       sAutoRecordHint: '不是一直听着房间——briffy 平时不碰麦克风，只有当**白名单里的软件打开了麦克风**时才跟着录一段，对方一关，它也关。所以手机上的游戏、屋里的电视不会被录进来。默认名单是会议和通话软件；输入法永远不算，它的语音输入产出的是文字，那些字已经打在你要写的地方了。浏览器按**站点**放行（meet.google.com 这样），不是整个浏览器——否则网页里的语音输入也会被录。名单留空＝除排除的以外都跟着录。常驻只是每 5 秒问一次系统「现在谁在用麦克风」，实测一次 10 毫秒。会录到通话里对方的声音，很多地方这需要对方同意。',
@@ -148,6 +149,7 @@
       sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along when an app on the list uses the microphone', sAutoRecordState: 'State',
       sAutoRecordAllow: 'Only these', sAutoRecordAllowPh: 'add one…',
       autoAllowEmpty: 'empty — follows anything not excluded', autoAllowDrop: 'click to remove',
+      autoAllowSite: 'meeting site', autoBrowsers: 'the browsers you have count only while on those sites:',
       autoNowUsing: 'have used the microphone (click to add):', autoNowNobody: 'nothing else has used the microphone since briffy started',
       autoWaiting: 'Waiting — nothing else is using the microphone', autoBecause: 'because {who} is using the microphone',
       sAutoRecordHint: 'Not an open microphone on the room: briffy does not touch the mic until **an app on the list opens it**, records alongside it, and lets go when that app does. A game on your phone or a TV in the room will not be recorded. The list starts as meeting and call apps. An input method never counts — what its voice input produces is text, already typed where you wanted it. Browsers are allowed by **site** (meet.google.com), not as a whole, or voice typing on any web page would be recorded too. An empty list means: follow anything not excluded. All it runs is a 10 ms question to the system every 5 seconds: who is using the microphone. It will capture the other side of a call, which in many places needs their consent.',
@@ -1077,14 +1079,6 @@
     if (state.boxesOn && e.ocrBoxes) drawBoxes(box, e);
   }
 
-  // 点一下详情里那张图，它去自己的窗口里被看——图是用来看的，看图和读它的说明是两件事
-  document.addEventListener('click', (ev) => {
-    const img = ev.target.closest('#previewImg');
-    if (!img) return;
-    const e = currentEntry();
-    if (e && ws.openViewer) ws.openViewer(e.id);
-  });
-
   // ---------- where the words are ----------
   //
   // PP-OCR reported a box for every line it read and briffy kept them (see src/main/ocr-boxes.js).
@@ -1354,6 +1348,9 @@
   // 白名单本身。一个 240px 的输入框装不下十八项用顿号连起来的名字——那串有 180 个字符，读不了也改不了。
   // 所以名单是一排词，点一下去掉一个；旁边一个小框加新的。
   let allowList = [];
+  // 名单里存的是进程名（TencentMeeting），要显示的是这台电脑上那个软件叫什么（腾讯会议）。
+  // 主进程扫过应用目录才知道两者的对应关系，所以翻译是它给的，见 src/main/apps.js。
+  let allowInfo = new Map();
   function renderAllow() {
     const box = $('#autoRecordAllowList');
     if (!box) return;
@@ -1366,10 +1363,11 @@
       return;
     }
     for (const name of allowList) {
+      const info = allowInfo.get(name) || {};
       const c = document.createElement('span');
-      c.className = 'chip drop-app';
-      c.textContent = name;
-      c.title = t('autoAllowDrop');
+      c.className = `chip drop-app${info.kind === 'site' ? ' is-site' : ''}`;
+      c.textContent = info.label || name;
+      c.title = info.kind === 'site' ? `${t('autoAllowSite')} · ${t('autoAllowDrop')}` : `${name} · ${t('autoAllowDrop')}`;
       c.addEventListener('click', () => {
         allowList = allowList.filter((x) => x !== name);
         renderAllow(); renderMicNow(lastListen); queueSave();
@@ -1382,6 +1380,14 @@
     if (!t2 || allowList.some((x) => x.toLowerCase() === t2.toLowerCase())) return;
     allowList = allowList.concat(t2);
     renderAllow(); renderMicNow(lastListen); queueSave();
+  }
+
+  // 装了哪些浏览器。列出来是因为「浏览器也在白名单里」这件事本来看不见——名单里只有站点，
+  // 而用户想知道的是「我的 Chrome 算不算」。答案是：停在上面那些网站时算，别的时候不算。
+  function renderBrowsers(list) {
+    const el = $('#autoRecordBrowsers');
+    if (!el) return;
+    el.textContent = list.length ? `${t('autoBrowsers')} ${list.join('、')}` : '';
   }
 
   // 现在有谁在用麦克风，每个都能点一下加进白名单。
@@ -1460,8 +1466,11 @@
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
     $('#recordContext').checked = s.recordContext !== false;
     $('#autoRecord').checked = s.autoRecord === true;
-    allowList = (s.autoRecordAllow || []).slice();
+    const described = (m.apps && m.apps.allow) || [];
+    allowInfo = new Map(described.map((x) => [x.entry, x]));
+    allowList = described.length ? described.map((x) => x.entry) : (s.autoRecordAllow || []).slice();
     renderAllow();
+    renderBrowsers((m.apps && m.apps.browsers) || []);
     $('#diarize').checked = s.diarize === true;
     renderSpeakers(m.speakers);
     renderAutoRecord(m.listen);
@@ -2151,8 +2160,15 @@
     // Rows are measured against the width, so a resized window has to be dealt again.
     window.addEventListener('resize', () => { if (state.view === 'grid' && state.tab === 'entries') scheduleGrid(); });
     function detailClick(e) {
-      const img = e.target.closest('#previewImg');
-      if (img) { const lb = document.createElement('div'); lb.className = 'lightbox'; lb.innerHTML = `<img src="${esc(img.src)}" alt="" />`; lb.addEventListener('click', () => lb.remove()); document.body.appendChild(lb); return; }
+      // 点一下那张图，它去自己的窗口里被看——图是用来看的，看图和读它的说明是两件事
+      if (e.target.closest('#previewImg')) {
+        const cur = currentEntry();
+        if (cur && ws.openViewer) ws.openViewer(cur.id);
+        return;
+      }
+      // 这里原来还会往 body 上贴一张全屏的 .lightbox。图片窗口把它取代了，但那段一开始没删，
+      // 于是点一下同时发生两件事：开窗口，再贴一张 z-index:20 的大图——它盖住整个主页，
+      // 又压在 z-index:60 的详情窗底下，看着正是「详情卡片后面的主页变成了图片」。
       const btn = e.target.closest('[data-action]');
       if (btn) { e.preventDefault(); detailAction(btn.dataset.action); }
     }

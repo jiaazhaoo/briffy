@@ -38,6 +38,7 @@
 const { execFile } = require('child_process');
 const path = require('path');
 const foreground = require('./foreground');
+const apps = require('./apps');
 
 const POLL_MS = 5000;
 const DEFAULT_IGNORE = ['corespeechd', 'screenpipe'];
@@ -159,8 +160,10 @@ async function poll() {
   // 只报前者的话，白名单一填，别的应用就再也不出现，你也就没办法把它加进名单，这个设置项等于一次性的。
   const tab = foreground.currentTab();
   const tabUrl = (tab && tab.url) || '';
+  // 没设置过（null）就用这台电脑上装了的会议软件；自己清空成 [] 是另一回事，那是「都跟着录」
+  const allow = s.autoRecordAllow || apps.defaultAllow();
   const candidates = follow(found, { ignore, allow: [], tabUrl });
-  const next = follow(found, { ignore, allow: s.autoRecordAllow || [], tabUrl });
+  const next = follow(found, { ignore, allow, tabUrl });
   for (const h of candidates) h.app = await appNameOf(h.exe);
   const byPid = new Map(candidates.map((h) => [h.pid, h]));
   for (const h of next) h.app = (byPid.get(h.pid) || {}).app || '';
