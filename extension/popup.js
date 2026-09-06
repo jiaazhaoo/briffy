@@ -2,7 +2,6 @@
 (async () => {
   const $ = (s) => document.querySelector(s);
   const state = { items: [], selected: new Set(), kind: 'all', minSize: 150, tab: null, pageTitle: '', mse: false, players: [] };
-  const KIND_ICON = { image: '🖼️', video: '🎬', audio: '🎵', stream: '📺', blob: '🎬' };
   const KIND_LABEL = { image: '图片', video: '视频', audio: '音频', stream: '流媒体', blob: '页内播放' };
 
   // ---------- app connectivity ----------
@@ -100,11 +99,13 @@
     grid.innerHTML = list.map((it) => {
       const on = state.selected.has(it.id) ? ' on' : '';
       const thumbSrc = it.kind === 'image' ? it.url : it.poster;
-      const thumb = thumbSrc ? `<img src="${thumbSrc.replace(/"/g, '&quot;')}" loading="lazy" alt="" />` : (KIND_ICON[it.kind] || '📎');
+      // 没有图就不放图。以前这里放一个 🎬 或 🎵，可右上角的标签已经写着「视频」「音频」——
+      // 同一件事说两遍，还要为它留出 92px 的空方框。没有图的卡片直接矮下来。
+      const thumb = thumbSrc ? `<img src="${thumbSrc.replace(/"/g, '&quot;')}" loading="lazy" alt="" />` : '';
       const dims = it.hint ? `${it.fragments} 个分片` : it.width && it.height ? `${it.width}×${it.height}` : fmtSize(it.size) || KIND_LABEL[it.kind];
-      return `<div class="item${on}" data-id="${it.id}" title="${it.url.replace(/"/g, '&quot;')}">
+      return `<div class="item${on}${thumb ? '' : ' flat'}" data-id="${it.id}" title="${it.url.replace(/"/g, '&quot;')}">
         <div class="th">${thumb}</div><span class="chk"></span><span class="tag">${KIND_LABEL[it.kind] || it.kind}</span>
-        <div class="cap"><b>${escapeHtml(it.name)}</b><br>${dims}${it.sniffed ? ' · 网络' : ''}</div></div>`;
+        <div class="cap"><b>${escapeHtml(it.name)}</b>${dims}${it.sniffed ? ' · 网络' : ''}</div></div>`;
     }).join('');
     // learn real sizes from the loaded thumbnails
     for (const img of grid.querySelectorAll('img')) {
@@ -113,10 +114,11 @@
         const it = state.items.find((x) => x.id === id);
         if (it && it.kind === 'image' && (!it.width || !it.height)) {
           it.width = img.naturalWidth; it.height = img.naturalHeight;
-          img.closest('.item').querySelector('.cap').innerHTML = `<b>${escapeHtml(it.name)}</b><br>${it.width}×${it.height}${it.sniffed ? ' · 网络' : ''}`;
+          img.closest('.item').querySelector('.cap').innerHTML = `<b>${escapeHtml(it.name)}</b>${it.width}×${it.height}${it.sniffed ? ' · 网络' : ''}`;
         }
       }, { once: true });
-      img.addEventListener('error', () => { img.replaceWith(document.createTextNode('🖼️')); }, { once: true });
+      // 图取不到就当没有图：把那块空方框收掉，而不是在里面摆一个占位符号
+      img.addEventListener('error', () => { const card = img.closest('.item'); img.remove(); card.classList.add('flat'); }, { once: true });
     }
     updateSummary();
   }

@@ -3,7 +3,9 @@
    字体也一样：按名字要，要不到就退回系统字。 */
 :root { font-family: var(--sans); }
 * { box-sizing: border-box; }
-body { margin: 0; width: 720px; height: 560px; display: flex; flex-direction: column;
+/* 800x600 是 Chrome 给弹窗的上限，之前只用了 720x560——白让出去一整行卡片。
+   留 20px 是因为有些系统会把边框算进去，顶到上限反而会出滚动条。 */
+body { margin: 0; width: 780px; height: 596px; display: flex; flex-direction: column;
   background: var(--page); color: var(--ink); font: 400 var(--fs-body)/1.6 var(--sans);
   -webkit-font-smoothing: antialiased; text-autospace: normal; line-break: strict; }
 button, input { font: inherit; color: inherit; }
@@ -15,10 +17,10 @@ button, input { font: inherit; color: inherit; }
 .title { flex: 1; min-width: 0; }
 .title b { display: block; font: 700 var(--fs-brand)/1.3 var(--sans); color: var(--ink-3); letter-spacing: .02em; }
 .title small { display: block; color: var(--ink-2); font-size: var(--fs-act); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.status { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--ink-3); white-space: nowrap; }
-.status i { width: 5px; height: 5px; background: var(--ink-3); }
-.status.ok i { background: var(--ok); }
-.status.bad i { background: var(--stamp); }
+/* 连上没有，用墨色说，不点一颗彩灯。一屏一个彩色的额度不该花在一个常驻的绿点上——它一直亮着，
+   等于永远在说「有事发生」。连上了是安静的一行字；没连上才是印泥色，那正是出错该有的颜色。 */
+.status { font-size: var(--fs-meta); color: var(--ink-3); white-space: nowrap; }
+.status.bad { color: var(--stamp); }
 
 /* 筛选：一排词，选中的加粗，底下一道钢笔线 */
 .filters { display: flex; align-items: center; gap: var(--a4); padding: 0 var(--a4) var(--a3); }
@@ -30,10 +32,13 @@ button, input { font: inherit; color: inherit; }
 .min { display: flex; align-items: center; gap: var(--a2); color: var(--ink-3); font-size: var(--fs-meta); flex: 1; }
 .min input { flex: 1; max-width: 150px; accent-color: var(--ink); }
 .sel { display: flex; gap: var(--a3); }
-.link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; font-size: var(--fs-act); font-weight: 600; }
-.link:hover { color: var(--ink); }
+/* 「全选 / 清空」是动作，不是「正在发生」——蓝墨只给后者。和筛选一样，是印在纸上的词。 */
+.link { border: 0; background: none; color: var(--ink-3); cursor: pointer; padding: 0; font-size: var(--fs-act); }
+.link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
 
-/* 每一项是一张躺在纸上的便签：图印在便签上，标题写在下面 */
+/* 每一项是一张躺在纸上的便签：图印在便签上，标题写在下面。
+   视频和音频没有图，原本在这块 92px 里放一个 emoji——右上角的标签已经写着「视频」，那是同一件事说了
+   两遍，而且那个方框大半是空的。所以没有图的就不留这块地方，卡片自己变矮，一屏能多看一行。 */
 .grid { flex: 1; overflow: auto; padding: 0 var(--a4) var(--a4); display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   gap: var(--a3); align-content: start; }
 .empty { grid-column: 1 / -1; text-align: center; color: var(--ink-3); padding: 60px 0; }
@@ -41,9 +46,13 @@ button, input { font: inherit; color: inherit; }
   transition: transform .12s, box-shadow .12s, background .12s; }
 .item:hover { transform: translateY(-2px); box-shadow: var(--e2); }
 .item.on { background: var(--marker); }
-.item .th { width: 100%; height: 92px; display: flex; align-items: center; justify-content: center; background: var(--slip-2); font-size: 28px; overflow: hidden; }
-.item .th:not(:has(img)) { filter: grayscale(1); opacity: .75; background: transparent; }
-.item .th img { width: 100%; height: 100%; object-fit: cover; }
+.item .th { width: 100%; height: 92px; background: var(--slip-2); overflow: hidden; }
+.item .th:empty { display: none; }
+.item .th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* 没有图的那种：卡片矮下来，右上角的标签负责说它是什么。
+   顶上那条 30px 是留给勾选框和标签的——它们是绝对定位的，不留就会压在标题上（量过：标题和勾选框
+   在 130–132 那两像素里重叠，还钻到标签底下，只是碰巧看不出来）。 */
+.item.flat { padding-top: 30px; }
 .item .cap { padding-top: var(--a2); font-size: var(--fs-meta); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-variant-numeric: tabular-nums; }
 .item .cap b { display: block; color: var(--ink); font-weight: var(--w-title); font-size: var(--fs-act); }
@@ -55,10 +64,13 @@ button, input { font: inherit; color: inherit; }
 .item .tag { position: absolute; top: 15px; right: 15px; background: var(--ink); color: var(--slip);
   font: 400 var(--fs-meta)/1.5 var(--sans); padding: 0 5px; }
 
-.bottom { padding: 0 var(--a4) var(--a4); display: flex; flex-direction: column; gap: var(--a2); }
-.check { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--ink-3); }
+/* 一行，不是三行。原来复选框、计数和按钮各占一行，底下再挂一个「设置」折叠块——
+   四行页脚吃掉了这扇 560px 窗口的五分之一，而它们说的事都很短。 */
+.bottom { padding: var(--a2) var(--a4) var(--a3); display: flex; flex-direction: column; gap: var(--a2); }
+.check { display: flex; align-items: center; gap: 6px; font-size: var(--fs-meta); color: var(--ink-3); white-space: nowrap; }
 .check input { accent-color: var(--ink); }
-.row { display: flex; align-items: center; justify-content: space-between; gap: var(--a3); }
+.row { display: flex; align-items: center; gap: var(--a4); }
+.row #summary { margin-left: auto; }
 .primary { background: var(--ink); color: var(--page); border: 0; padding: 8px 16px; font: 600 var(--fs-act)/1.3 var(--sans); cursor: pointer; }
 .primary:hover { background: var(--ink-2); }
 .primary:active { transform: translateY(1px); }
@@ -66,7 +78,14 @@ button, input { font: inherit; color: inherit; }
 .progress { display: flex; align-items: center; gap: var(--a3); font-size: var(--fs-meta); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .progress .bar { flex: 1; height: 4px; background: var(--tone-2); overflow: hidden; }
 .progress .bar i { display: block; height: 100%; background: var(--ink); width: 0; transition: width .2s; }
-.settings summary { cursor: pointer; color: var(--ink-3); font-size: var(--fs-meta); }
+.settings { position: relative; }
+.settings summary { cursor: pointer; color: var(--ink-3); font-size: var(--fs-meta); white-space: nowrap; }
+/* 展开时浮在上方，而不是把页脚顶高——它是偶尔要看一眼的东西，不该常年占着位置。
+   里面的东西必须包在一个 .pane 里：绝对定位打在每个子元素上，端口输入框和说明就会叠在同一处，
+   后者把前者整个盖住。 */
+.settings .pane { position: absolute; bottom: 22px; left: 0; width: 300px; background: var(--slip);
+  box-shadow: var(--e2); padding: var(--a3); z-index: 2; }
+.settings .pane p { margin: var(--a2) 0 0; }
 .settings label { display: flex; align-items: center; gap: var(--a2); margin-top: var(--a2); font-size: var(--fs-meta); }
 .settings input { width: 84px; padding: 0 0 4px; border: 0; border-bottom: 1px solid var(--hair); background: transparent; }
 .settings input:focus { outline: none; border-bottom-color: var(--ink); }

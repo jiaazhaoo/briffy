@@ -135,6 +135,11 @@ async function main() {
   for (const [file, size] of [['assets/trayTemplate.png', 22], ['assets/trayTemplate@2x.png', 44]]) {
     await write(file, await sharp(Buffer.from(TEMPLATE)).resize(size, size).png().toBuffer());
   }
+  // 浏览器扩展的图标。以前不在这里，于是它一直停在 2026-09-04 那只橙色的猫——品牌在第二天就定成了
+  // 蓝色回形针，应用里每一处都换了，只有最对外的那一处没换。图标从同一个 svg 出来，就不会再走散。
+  for (const size of [16, 32, 48, 128]) {
+    await write(`extension/icons/${size}.png`, await sharp(svg).resize(size, size).png().toBuffer());
+  }
   console.log(out.join('\n'));
 }
 if (require.main === module) main().catch((e) => { console.error('[brand]', e.message); process.exit(1); });
