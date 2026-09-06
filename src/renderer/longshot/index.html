@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; font-src 'self' file:" />
+  <title>briffy long shot</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
+  <link rel="stylesheet" href="longshot.css" />
+</head>
+<body>
+  <div class="bar">
+    <div class="row">
+      <span id="state" class="state"></span>
+      <span id="count" class="count"></span>
+    </div>
+    <div class="track"><span id="fill" class="fill"></span></div>
+    <div class="row actions">
+      <button id="btnCancel" class="tool"><span id="labelCancel"></span></button>
+      <button id="btnDone" class="tool primary"><span id="labelDone"></span></button>
+    </div>
+  </div>
+  <script src="stitch.js"></script>
+  <script src="longshot.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+/* 长截图的控制条：浮在别人的桌面上，所以和气泡、书架一样是一张墨色的纸条，影子重。
+   它对屏幕采集是隐形的（主进程 setContentProtection），所以可以压在被截的区域上。
+   直角照旧。标准：.claude/skills/paper-ui/SKILL.md */
+html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+  background: transparent; user-select: none; -webkit-user-select: none; font-family: var(--sans); }
+
+.bar { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px; background: #1b1a18; color: #fbfaf6;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .5), 0 22px 54px rgba(0, 0, 0, .4); }
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.state { font: 400 12px/1.4 var(--sans); text-autospace: normal; }
+.count { font: 600 12px/1.4 var(--sans); font-variant-numeric: tabular-nums; opacity: .75; white-space: nowrap; }
+
+/* 拼到哪儿了。不是百分比——长图没有总长——所以它只是随着高度往前爬，到头就折回 */
+.track { height: 2px; background: rgba(255, 255, 255, .16); }
+.fill { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+
+.actions { margin-top: auto; }
+.tool { flex: 1; border: 0; color: #fbfaf6; background: rgba(255, 255, 255, .14);
+  padding: 7px 12px; cursor: pointer; font: 600 12px/1 var(--sans); }
+.tool:hover { background: rgba(255, 255, 255, .26); }
+.tool:active { transform: translateY(1px); }
+.tool.primary { background: #fbfaf6; color: #1b1a18; }
+.tool.primary:hover { background: #fff; }
+.tool[disabled] { opacity: .45; cursor: default; }
