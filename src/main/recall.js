@@ -250,6 +250,15 @@ function recall(entries, question, { today = dateKeyOf(new Date()), limit = 40, 
     scored.push({ e: pool[i], score, matched });
   }
   scored.sort((a, b) => b.score - a.score || byNewest(a.e, b.e));
+  // 问了一段时间，却一条也没打分出来，就把那段时间整个给他。
+  //
+  // 「今天做了什么」原本返回 0 条：日期词被当成范围拿走之后，剩下的「做了」变成了一个内容词，而它在
+  // 正文里一次也没出现，于是一条都不剩。而这恰恰是日志类产品最该答对的问题。
+  // 往停用词表里补「做了」能治这一句，治不了「今天弄了些啥」「今天搞了什么」——那是一张拼不完的表。
+  // 结构性的答案是：他问的是一段时间，那段时间本身就是答案，打分没结果不该把它一起丢掉。
+  if (!scored.length && range) {
+    return { entries: [...pool].sort(byNewest).slice(0, limit), range, terms, scored: false };
+  }
   return { entries: scored.slice(0, limit).map((s) => s.e), range, terms, scored: true };
 }
 

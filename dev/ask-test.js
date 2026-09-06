@@ -45,6 +45,31 @@ const ENTRIES = [
   }),
 ];
 
+// ---------- 问一段时间，别因为多打了两个字就什么都没有 ----------
+// 「今天做了什么」曾经返回 0 条：日期词做完范围过滤后被拿走，剩下的「做了」成了一个内容词，正文里
+// 一次也没出现，于是全军覆没。而「今天」「这周干了些什么」是好的——差别只在有没有一个没被停用词
+// 收进去的动词。这类问法是无穷的，所以钉的是结果，不是某一个词。
+{
+  const days = [
+    { id: 'a', createdAt: `${TODAY}T09:00:00.000Z`, dateKey: TODAY, title: '早上的截图', text: '一些界面文字', summary: '', tags: [] },
+    { id: 'b', createdAt: `${TODAY}T15:00:00.000Z`, dateKey: TODAY, title: '下午的笔记', text: '别的东西', summary: '', tags: [] },
+    { id: 'c', createdAt: '2026-09-01T10:00:00.000Z', dateKey: '2026-09-01', title: '上个月的', text: '不该出现', summary: '', tags: [] },
+  ];
+  for (const q of ['今天做了什么', '今天弄了些啥', '今天我都搞了什么']) {
+    const r = recall(days, q, { today: TODAY, lang: 'zh-Hans' });
+    check(`「${q}」给出这一天，而不是空的`, r.entries.length === 2 && r.entries.every((e) => e.dateKey === TODAY),
+      `${r.entries.length} 条, scored=${r.scored}`);
+  }
+  // 这条不能被上面那条顺手放宽：问题里有真正的内容词、而且确实找得到时，仍然要按相关度给
+  const hit = recall(days, '今天的截图', { today: TODAY, lang: 'zh-Hans' });
+  check('有内容词又命中时，仍然是按相关度排的', hit.scored === true && hit.entries[0].id === 'a',
+    `scored=${hit.scored} first=${hit.entries[0] && hit.entries[0].id}`);
+  // 没有时间词、又什么都没命中，那就是真的没有——不能凭空把整库倒出来
+  const none = recall(days, '量子色动力学', { today: TODAY, lang: 'zh-Hans' });
+  check('没时间词又没命中时，老老实实返回空', none.entries.length === 0, `${none.entries.length} 条`);
+}
+
+
 console.log('date expressions (today = 2026-09-04, a Friday)');
 const R = (q) => { const r = parseRange(q, TODAY); return r ? `${r.from}~${r.to}` : null; };
 check('今天', R('今天存了什么') === '2026-09-04~2026-09-04', R('今天存了什么'));
