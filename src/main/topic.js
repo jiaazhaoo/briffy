@@ -62,13 +62,42 @@ function cluster(rows, { join = JOIN } = {}) {
   return leaders.map((l) => ({ leader: l.leader, members: l.members }));
 }
 
+// briffy 自己生成的标题：它们只说了这是什么格式、什么时候存的，说不出这堆是关于什么的。
+const AUTO_TITLE = /^(截图|剪贴板图片|语音|Screenshot|Clipboard image)\s*[\d:：]*$|^[\p{Extended_Pictographic}\uFE0F\s]+$|^[0-9a-f]{16,}\.\w+$/u;
+
 /**
- * 不靠模型给一堆起名：这个词在这堆里出现得多、在整个工作区里出现得少。
+ * 不靠模型给一堆起名：**取离堆中心最近、而且标题是真标题的那一条**。
  *
- * 说清楚它的水平——**这一步是兜底，不是答案**。实测从正文抽会得到 spm_id_from、vd_source、
- * v0.18.0、blessonism（URL 参数、版本号、用户名）；只从标题抽，模型那一组变好了
- * （qwen3.5 · 地址 · ollama），B 站那一组直接起不出名字，报名那一组变成 britain · english
- * · great——网页自己的外壳。所以有模型的时候用模型（llm.topicName），没有的时候用这个。
+ * 抽词那条路试过两轮都不能看：从正文抽得到 spm_id_from、vd_source、v0.18.0、blessonism
+ * （URL 参数、版本号、用户名）；只从标题抽，B 站那一组直接起不出名字，报名那一组变成
+ * britain · english · great——网页自己的语言选择条。
+ *
+ * 而"最中心那条的标题"本来就是这堆的描述，实测 23ms、零模型、20 个堆里 14 个有名字，
+ * 剩下 6 个是整堆都没有真标题的剪贴板图——那种连模型也只能起出「剪贴板图片」这种格式名。
+ * 所以：有模型时用模型（llm.topicName，多给两三个明显更好的），没有时用这个，抽词只当最后一档。
+ */
+function centreName(members, getEntry, vectors) {
+  const vs = members.map((id) => vectors.get(id)).filter(Boolean);
+  if (!vs.length) return '';
+  const dim = vs[0].length;
+  const c = new Float32Array(dim);
+  for (const v of vs) for (let i = 0; i < dim; i++) c[i] += v[i];
+  let n = 0; for (let i = 0; i < dim; i++) n += c[i] * c[i];
+  n = Math.sqrt(n) || 1;
+  for (let i = 0; i < dim; i++) c[i] /= n;
+  const ranked = members
+    .filter((id) => vectors.get(id))
+    .map((id) => [id, dot(c, vectors.get(id))])
+    .sort((a, b) => b[1] - a[1]);
+  for (const [id] of ranked) {
+    const t = String((getEntry(id) || {}).title || '').trim();
+    if (t && !AUTO_TITLE.test(t)) return t.slice(0, 40);
+  }
+  return '';
+}
+
+/**
+ * 最后一档：这个词在这堆里出现得多、在整个工作区里出现得少。质量见上面那段。
  */
 function words(members, getEntry, index) {
   const inDf = new Map();
@@ -102,9 +131,14 @@ function build(index, getEntry, { join = JOIN, min = MIN_SIZE } = {}) {
       const A = getEntry(a.id); const B = getEntry(b.id);
       return String(A.createdAt || '').localeCompare(String(B.createdAt || ''));
     });
+  const vectors = new Map(rows.map((r) => [r.id, r.v]));
   return cluster(rows, { join })
     .filter((g) => g.members.length >= min)
-    .map((g) => ({ ...g, words: words(g.members, getEntry, index) }))
+    .map((g) => ({
+      ...g,
+      // 没有模型时界面显示的就是这个。中心那条的真标题优先，抽词垫底。
+      words: centreName(g.members, getEntry, vectors) || words(g.members, getEntry, index).join(' · '),
+    }))
     .sort((a, b) => b.members.length - a.members.length);
 }
 

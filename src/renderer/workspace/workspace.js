@@ -496,15 +496,18 @@
     // 「那场挑战里的图片」要求两个条件同时成立。
     let ids = null;
     if (state.f.topic) { try { ids = (await ws.topicEntries(state.f.topic)).map((e) => e.id); } catch (_) { ids = []; } }
-    // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了，
-    // 那就是剪贴板。要看它，去「来源」里点那一格。
+    // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了。
+    // 但这条只管**没筛没搜**的那一屏——你点了一个主题、一个类型，或者打了字去搜，
+    // 那就是你明确要的东西，这条规矩不该盖过它。实测踩过：「泰晤士河步道超级马拉松挑战赛」
+    // 那个主题下面五条记录全是剪贴板存的，点进去一条都看不见。
+    const asked = state.query || state.f.type || state.f.origin || state.f.topic;
     state.entries = await ws.listEntries({
       query: state.query,
       dates: state.date ? [state.date] : null,
       type: state.f.type,
       origin: state.f.origin,
       ids,
-      exclude: state.f.origin ? null : ['clipboard'],
+      exclude: asked ? null : ['clipboard'],
     });
     ws.stats().then((st) => { state.counts = st; state.pinnedCount = st.pinned || 0; renderDims(); }).catch(() => {});
     renderDateFilter();

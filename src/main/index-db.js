@@ -465,7 +465,8 @@ function putTopics(groups) {
     const now = new Date().toISOString();
     for (const g of groups) {
       // 名字留着：同一个代表的堆重算之后还是它，名字不用再花一次模型调用
-      ins.run(g.leader, keep.get(g.leader) || '', (g.words || []).join(' '), g.members.length, now);
+      // words 是「没有模型时显示什么」，已经是一句话了（topic.js 的 centreName），别再拆再拼
+      ins.run(g.leader, keep.get(g.leader) || '', String(g.words || ''), g.members.length, now);
       for (const m of g.members) insOf.run(m, g.leader);
     }
     db.exec('COMMIT');

@@ -160,7 +160,9 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
 
 /** 记录页上那一行主题。空手是正常的：向量还没补齐、或者这个工作区还没有成堆的东西。 */
 function topicList() {
-  try { return index.topics().map((t) => ({ ...t, name: t.name || (t.words || '').split(' ').filter(Boolean).join(' · ') })); }
+  // name 是模型起的，words 是没有模型时的那一份（离堆中心最近的那条的标题）。
+  // 后者已经是一句完整的话，按空格拆开会把 "GitHub - blessonism/grok-icon-study" 拆散。
+  try { return index.topics().map((t) => ({ ...t, name: t.name || t.words || '' })); }
   catch (_) { return []; }
 }
 function topicEntries(id) {
