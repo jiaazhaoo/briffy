@@ -42,6 +42,7 @@
   const settings = {
     languages: ['zh-Hans', 'en'], hotkey: 'Alt+S', model: 'claude-opus-5', sttModel: 'Xenova/whisper-small', sttLanguage: 'auto', summaryTime: '08:00',
     workspaceDir: '', hfMirror: '', tessLangPath: '', petHidden: false, ocrDroppedImages: true, normalizeChineseScript: true, micDeviceId: '', micLabel: '',
+    recordTrail: true,          // 预览里开着，好看见「路过」那一页
     ocrEngine: 'paddle', ocrModel: '', clipboardWatch: true, clipboardMinChars: 12, localApi: true, localApiPort: 47831,
     provider: 'ollama', anthropicAuth: 'apiKey', openrouterModel: 'anthropic/claude-opus-5', ollamaHost: 'http://127.0.0.1:11434', ollamaModel: '',
     customBaseUrl: 'http://127.0.0.1:1234/v1', customModel: '', hasApiKey: false, apiKeyHint: '', hasOpenrouterKey: true, openrouterKeyHint: 'sk-or-v1…a1b2', hasCustomKey: false, customKeyHint: '',
@@ -126,6 +127,28 @@
     },
     openExtensionGuide: async () => ({ ok: true, url: 'http://127.0.0.1:47831/install' }),
     onExtension: on('ws:extension'),
+    // 「路过」：从真实的一天量出来的形状——一天七百多段，够三分钟的七十来段
+    trailDays: async () => ['2026-09-06'],
+    trailSessions: async () => {
+      const mk = (h, m, mins, app, w, pages = []) => ({
+        from: `2026-09-06T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`,
+        to: new Date(Date.UTC(2026, 8, 6, h, m + mins)).toISOString(),
+        secs: mins * 60, app, window: w, url: '', pages,
+      });
+      return [
+        mk(1, 1, 8, 'Google Chrome', 'Dell S2725QC 还值得买吗 - Claude', [
+          { at: '', url: 'https://claude.ai/x', title: 'Dell S2725QC 还值得买吗', text: '这块屏物理密度 296 PPI，LoDPI 的软化被高密度掩盖了大半——跟 Dell 上那种 110 PPI 完全不是一回事。面板本身很可能是 8bit+FRC。' },
+        ]),
+        mk(1, 9, 50, 'WeChat', '微信'),
+        mk(2, 6, 35, 'Terminal', 'jia — 主显示器文字模糊 — Claude'),
+        mk(3, 4, 65, 'Google Chrome', '【4K】机械质感巅峰传承｜英雄内战：钢铁侠战甲合集_哔哩哔哩', [
+          { at: '', url: 'https://bilibili.com/v', title: '钢铁侠战甲合集欣赏', text: '本期视频整理了历代战甲的机械结构演示…' },
+        ]),
+        mk(11, 46, 91, 'Claude', 'Claude'),
+        mk(13, 6, 8, 'Finder', 'Downloads'),
+        mk(15, 20, 2, 'Telegram', 'Telegram @ jia'),
+      ];
+    },
     // 主题：讲同一件事的记录归成的堆
     topics: async () => ([
       { id: 't1', name: '泰晤士河步道超级马拉松挑战赛', words: '', n: 5 },

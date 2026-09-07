@@ -29,6 +29,11 @@
           <button type="button" data-view="list" data-i18n-title="viewList" aria-label="list">
             <svg viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h16M4 17.5h16" /></svg>
           </button>
+          <!-- 路过：同一天的另一种看法。记录是你留下的，路过是你走过的——所以它是这一页的
+               第三个视图，不是第四个标签页：同一个日期、同一条时间轴。 -->
+          <button type="button" data-view="trail" data-i18n-title="viewTrail" aria-label="trail">
+            <svg viewBox="0 0 24 24"><path d="M7 3.5v17M7 6.5h11M7 12h7M7 17.5h13" /></svg>
+          </button>
         </div>
         <button type="button" id="selectToggle" class="ico sm" data-i18n-title="selectMode" aria-label="select">
           <svg viewBox="0 0 24 24"><path d="M3.5 3.5h17v17h-17z" /><path d="M8 12l3 3 5-6" /></svg>
@@ -47,6 +52,9 @@
       <section id="tab-entries" class="tab active">
         <div id="entryGrid" class="jg">
           <div class="jg-scroll" id="jgScroll"></div>
+        </div>
+        <div id="entryTrail" class="lv tv" hidden>
+          <div class="lv-rows" id="tvRows"></div>
         </div>
         <div id="entryList" class="lv" hidden>
           <div class="lv-rows" id="lvRows"></div>
