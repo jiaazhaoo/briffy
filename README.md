@@ -1,7 +1,8 @@
 # briffy 🐱
 
 > **briffy 桌面端。** briffy 是这一系列产品的统称，核心只有一件事：**把你一天里看到的、听到的、收到的东西记下来**。
-> 本仓库当前存放桌面端（Windows / macOS，Electron，MIT）。移动端（iOS / Android）和更早的版本另行保管。
+> 本仓库当前存放桌面端（Windows / macOS，Electron）。移动端（iOS / Android）和更早的版本另行保管。
+> 源码公开，个人与非营利用途自由使用，**禁止商用**——见 [许可](#许可)。
 
 一只常驻在屏幕右下角的小猫，帮你把一天里看到的、听到的、收到的东西自动记进工作区：
 
@@ -321,3 +322,22 @@ $env:DAILYLOGS_SMOKE='1'; $env:DAILYLOGS_SMOKE_OUT='.\smoke.png'; npm start
 `DAILYLOGS_SMOKE_TAB=entries|summaries|settings` 决定退出前停在哪个页面，`DAILYLOGS_SMOKE_OUT` 会把最终屏幕截图存成 PNG。
 
 开发时终端里会出现一行 tesseract 的 `Failed loading language '…'` 提示，是 tesseract.js 7 同时加载两个语言包时的已知噪音，不影响识别结果。
+
+## 许可
+
+**[PolyForm Noncommercial License 1.0.0](LICENSE)** — 源码公开，但禁止商业使用。
+
+| | |
+| --- | --- |
+| **可以** | 个人使用、学习、研究、业余项目、修改、再分发（须随附 [LICENSE](LICENSE) 全文和里面的 `Required Notice:` 一行）；慈善机构、学校、公立研究机构、政府机构等非营利组织使用 |
+| **不可以**（须先取得书面授权） | 任何商业用途——公司内部经营使用、以它或它的衍生作品提供付费服务、打包出售、嵌入收费产品 |
+| **商业授权** | <zhaojia789456@gmail.com> |
+
+需要说清楚的两件事：
+
+1. **这不是 OSI 定义的「开源」。** 开源的定义（OSI 第 6 条、自由软件第 0 条）要求不得歧视任何使用领域，商业也在内；带商用限制的许可因此不算开源，GitHub 侧栏会把它显示成 “Other”，一些发行版和公司的合规流程会直接排除它。准确的说法是**源码公开 / source-available**。本文档和 [LICENSE](LICENSE) 都按这个口径写。
+2. **限制只落在 briffy 自己的代码上。** 用到的依赖、模型、字体、素材各自沿用上游许可（多数是 MIT / Apache-2.0 / BSD / OFL，允许商用），清单和唯一一处 copyleft（libvips，LGPL，动态链接）见 [THIRD-PARTY.md](THIRD-PARTY.md)。
+
+"briffy" 这个名字和小猫形象不在代码许可范围内；fork 请换个名字发布，别让人误以为是官方版本。
+
+隐私说明见 [docs/PRIVACY.md](docs/PRIVACY.md)，安全问题的报告方式见 [SECURITY.md](SECURITY.md)，参与方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。

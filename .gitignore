@@ -1,11 +1,25 @@
 node_modules/
 release/
+site-dist/
+
+# fetched by scripts, not source
+bundled-models/
+assets/fonts/
+assets/pet/raw/
+assets/pet/candidates.png
+
+# logs and scratch
 npm-install.log
+build-*.log
 smoke*.log
+smoke*.log*
+smoke*.png
 *.tmp
 dev/preview/sample.png
-bundled-models/
-build-*.log
-assets/pet/raw/
-smoke*.log*
-assets/fonts/
+
+# never commit these
+.env
+.env.*
+*.p12
+*.mobileprovision
+.DS_Store

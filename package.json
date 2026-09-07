@@ -5,7 +5,10 @@
   "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
   "main": "src/main/main.js",
   "private": true,
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "author": {
     "name": "Jia Zhao",
     "email": "zhaojia789456@gmail.com"
@@ -44,6 +47,7 @@
     "opencc-js": "^1.4.2",
     "pdf-parse": "^2.4.5",
     "ppu-paddle-ocr": "^6.4.3",
+    "sharp": "^0.34.5",
     "sherpa-onnx-node": "^1.13.7"
   },
   "devDependencies": {
@@ -132,7 +136,6 @@
           ]
         }
       ],
-      "identity": "jia zhao (5B88JH77HT)",
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
