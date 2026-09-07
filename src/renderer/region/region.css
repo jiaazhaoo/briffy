@@ -8,6 +8,18 @@ html, body {
 }
 .hidden { display: none !important; }
 
+/* 画的先后：桌面 → 压暗 → 选区 → 读数 → 要按的东西。
+   **这一层梯子非写不可。** 压暗那四块是 region.js 运行时塞进 body 末尾的，而这一屏上每样东西
+   都是 position:fixed、都没有 z-index——同一层里「后来的盖先来的」，于是那四块反过来蒙住了
+   工具带、提示、尺寸读数和选区框，每样都罩着 50% 的黑。点还是点得动（.shade-part 是
+   pointer-events:none），所以它不像坏了，只是整片暗一档。 */
+#frozen { z-index: 0; }
+#shade, .shade-part { z-index: 1; }
+#snap { z-index: 2; }
+#box { z-index: 3; }
+.chip, .hint { z-index: 4; }
+.toolbar { z-index: 5; }
+
 /* 冻住的桌面，1:1 显示 */
 #frozen { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: fill; -webkit-user-drag: none; }
 
