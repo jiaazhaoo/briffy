@@ -10,7 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', related: '相关', graph: '图谱',
+      near: '相近', related: '相关', graph: '图谱', untitled: '无标题',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
       chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
@@ -147,7 +147,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', related: 'Related', graph: 'Graph',
+      near: 'related', related: 'Related', graph: 'Graph', untitled: 'Untitled',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
       chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
@@ -1243,10 +1243,14 @@
   // 布局是**算出来的，不是模拟出来的**：节点少（实测中位 4 张、最多 10 张），一圈一圈摆开就够，
   // 而力导向那种要跑物理、每帧重画、位置还每次都不一样——同一条记录两次打开长得不该不一样。
   // 中心在正中，一跳一圈，二跳外面一圈，各自贴着自己的来处。
-  function graphSvg(g, centreId) {
-    const W = 680; const H = 420; const cx = W / 2; const cy = H / 2;
-    // 半径要让最外一圈也留在画布里：cy - r2 * SQUASH 得大于上下的余量，否则节点会跑出去。
-    const R1 = 130; const R2 = 218; const SQUASH = 0.66;
+  // 节点大小：中心和一跳是完整的一张便签（缩略图 + 标题 + 时间），二跳只留标题——
+  // 越往外越小，一是外圈周长有限（十张卡的极端情况下并排会打架），二是远的那几张
+  // 本来就只需要认出「哦是那件事」，不需要读。
+  const G = { R1: 182, R2: 330, SQUASH: 0.80, w1: 160, h1: 46, w2: 126, h2: 32 };
+
+  function graphMap(g, centreId) {
+    const { R1, R2, SQUASH } = G;
+    const cx = 0; const cy = 0;   // 先在以中心为原点的坐标里摆，最后按实际占的范围平移
     const pos = new Map([[centreId, [cx, cy]]]);
     const ang = new Map([[centreId, -Math.PI / 2]]);
     const put = (id, a, r) => {
@@ -1276,18 +1280,54 @@
       list.forEach((n, i) => put(n.id, base + (i - (list.length - 1) / 2) * 0.42, R2));
     }
 
-    const at = (id) => pos.get(id) || [cx, cy];
-    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b))
-      .map(([a, b]) => `<line class="gr-edge" x1="${at(a)[0].toFixed(1)}" y1="${at(a)[1].toFixed(1)}" x2="${at(b)[0].toFixed(1)}" y2="${at(b)[1].toFixed(1)}" />`).join('');
-    // 节点最后画，压在线上面：线从方块中心出发，不遮住字
-    const nodes = g.nodes.map((n) => {
-      const [x, y] = at(n.id);
-      const label = String(cardTitle(n) || '').slice(0, 14);
-      const w = Math.max(58, label.length * 9 + 18);
-      return `<g class="gr-node h${n.hop}" data-rel="${esc(n.id)}" transform="translate(${(x - w / 2).toFixed(1)},${(y - 12).toFixed(1)})">`
-        + `<rect width="${w}" height="24" /><text x="${(w / 2).toFixed(1)}" y="16" text-anchor="middle">${esc(label)}</text></g>`;
+    // 圈是按最坏情况（十张卡）撑开的，真正画出来的常常只有四五张，于是下面空一大片。
+    // 所以最后按卡片实际占的范围把画布收紧——图有多大就多大，不留白撑场面。
+    const M = 10;
+    const box = g.nodes.map((n) => {
+      const w = n.hop === 2 ? G.w2 : G.w1; const h = n.hop === 2 ? G.h2 : G.h1;
+      const [x, y] = pos.get(n.id) || [cx, cy];
+      return { id: n.id, x, y, w, h };
+    });
+    const lo = (k, d) => Math.min(...box.map((b) => b[k] - b[d] / 2));
+    const hi = (k, d) => Math.max(...box.map((b) => b[k] + b[d] / 2));
+    const dx = M - lo('x', 'w'); const dy = M - lo('y', 'h');
+    const mapW = Math.round(hi('x', 'w') - lo('x', 'w') + M * 2);
+    const mapH = Math.round(hi('y', 'h') - lo('y', 'h') + M * 2);
+    const at = (id) => { const [x, y] = pos.get(id) || [cx, cy]; return [x + dx, y + dy]; };
+
+    // 线画到卡片的边上就停，不画到卡片中心：中心连中心的那一段被卡片自己盖住，
+    // 两张挨得近的卡片之间就什么也看不见——而这张图要说的正是「这两张连着」。
+    const size = new Map(box.map((b) => [b.id, [b.w / 2, b.h / 2]]));
+    const rim = (id, tx, ty) => {
+      const [x, y] = at(id);
+      const [hw, hh] = size.get(id) || [0, 0];
+      const dx = tx - x; const dy = ty - y;
+      const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+      return t >= 1 || !Number.isFinite(t) ? [x, y] : [x + dx * t, y + dy * t];
+    };
+    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b)).map(([a, b]) => {
+      const [ax, ay] = at(a); const [bx, by] = at(b);
+      const [x1, y1] = rim(a, bx, by);
+      const [x2, y2] = rim(b, ax, ay);
+      return `<line class="gr-edge" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`;
     }).join('');
-    return `<svg viewBox="0 0 ${W} ${H}" role="img">${edges}${nodes}</svg>`;
+    // 卡片是 HTML 压在这层线上面的：一张记录在图里也该长成它在网格里的样子——
+    // 缩略图认得出来、标题能读、时间在下面。画成 <rect> 的时候，一个 24px 高的灰方块里
+    // 塞十四个字符，截出来的是「English (Great」这种谁也认不出的东西。
+    const cards = g.nodes.map((n) => {
+      const far = n.hop === 2;
+      const w = far ? G.w2 : G.w1; const h = far ? G.h2 : G.h1;
+      const [x, y] = at(n.id);
+      const title = cardTitle(n) || t('untitled');
+      const thumb = (n.type === 'screenshot' || n.type === 'image') && n.fileUrl
+        ? `<img src="${esc(n.fileUrl)}" loading="lazy" alt="" />` : (ICONS[n.type] || ICONS.file);
+      return `<button type="button" class="gr-card h${n.hop}${n.id === centreId ? ' on' : ''}" data-rel="${esc(n.id)}"`
+        + ` title="${esc(title)}" style="left:${(x - w / 2).toFixed(1)}px;top:${(y - h / 2).toFixed(1)}px;width:${w}px;height:${h}px">`
+        + (far ? '' : `<span class="ct">${thumb}</span>`)
+        + `<span class="cb"><b>${esc(title)}</b>${far ? '' : `<span>${esc(fmtTime(n.createdAt))}</span>`}</span></button>`;
+    }).join('');
+    return `<div class="gr-map" style="width:${mapW}px;height:${mapH}px">`
+      + `<svg class="gr-lines" viewBox="0 0 ${mapW} ${mapH}" width="${mapW}" height="${mapH}" aria-hidden="true">${edges}</svg>${cards}</div>`;
   }
 
   async function openGraph(id) {
@@ -1303,7 +1343,7 @@
     const centre = g.nodes.find((n) => n.hop === 0);
     $('#graphTitle').textContent = centre ? cardTitle(centre) : (e ? cardTitle(e) : t('graph'));
     $('#graphBody').innerHTML = g.nodes.length > 1
-      ? graphSvg(g, id)
+      ? graphMap(g, id)
       : `<div class="gr-note">${esc(t('graphEmpty'))}</div>`;
   }
 
@@ -2521,7 +2561,7 @@
 $('#graphModal').addEventListener('click', (ev) => {
       // 点背景或叉都关；点一个节点是把图移过去，不是打开那条记录——图谱的用处就是走链
       if (ev.target.closest('[data-graph-close]') || ev.target === $('#graphModal')) { $('#graphModal').hidden = true; return; }
-      const n = ev.target.closest('.gr-node');
+      const n = ev.target.closest('.gr-card');
       if (n && n.dataset.rel) openGraph(n.dataset.rel);
     });
         document.addEventListener('click', (ev) => {
