@@ -258,16 +258,49 @@ const EV_STOP = new Set(('the a an and or of to in on at for with from by is are
  * 在两百多条里只出现两三次，于是它们通过任何 df 筛，把毫不相干的两晚焊在一起（实测抓到过：
  * 「Windsor Road ↕ hour ↕ 我半小时后到家」）。df 量的是这个工作区里的罕见，不是这个词有没有意思。
  */
+// briffy 自己给的标题词，不是证据：「语音」「截图」「剪贴板图片」说的是格式，不是内容。
+// 站点后缀同理（_bilibili）——它说的是你在哪个站，不是这条讲什么。
+const EV_LABEL = new Set(['语音', '截图', '剪贴板', '剪贴板图片', '图片', 'screenshot', 'clipboard', 'audio', 'voice']);
+
+/** 一条记录的抬头（标题 + 窗口标题 + 网址）里的词。@returns {Set<string>} */
+function headWords(entry) {
+  const e = entry || {};
+  const c = e.context || {};
+  const out = new Set();
+  for (const t of segment([e.title, c.window, c.url, e.url].filter(Boolean).join(' '), '')) {
+    if (t.wordLike) out.add(String(t.w).toLowerCase());
+  }
+  return out;
+}
+
 function evWords(entry, stripped) {
   const e = entry || {};
   const c = e.context || {};
-  const raw = [e.title, String(stripped === undefined ? (e.text || '') : stripped).slice(0, 1500),
-    c.window, c.url, e.url].filter(Boolean).join(' ');
+  // 标题和窗口标题是这条记录**关于什么**，正文只是它**说了什么**。两者分开取，因为
+  // 一个词值不值钱主要看它长在哪：「热血 · 万字 · 拆解」写在窗口标题上（那条视频叫什么），
+  // 而「青年 · 所有 · 出来」是语音转写里飘出来的常用二字词——后者靠 df 拦不住，
+  // 它们在这个工作区里确实只出现几次，于是一段 B 站转写和一张报名页被焊在了一起。
+  const head = [e.title, c.window, c.url, e.url].filter(Boolean).join(' ');
+  const body = String(stripped === undefined ? (e.text || '') : stripped).slice(0, 1500);
+  const raw = `${head} ${body}`;
+  const inHead = new Set();
+  for (const t of segment(head, '')) if (t.wordLike) inHead.add(String(t.w).toLowerCase());
+  // titled：**整个工作区里，有没有哪一条把这个词写在标题上。**
+  //
+  // 这是「工作区自己就是那本词典」的第三次用法（前两次是网址↔标题的别名、和家具的跨记录重复）。
+  // 只看这一条自己的抬头是不够的：一张截图的内容全在 OCR 正文里，「车站」对它来说只在正文，
+  // 于是「停 Staines 车站」和那几张截图之间的边会断掉。而「青年 / 所有 / 出来 / 了一」
+  // 在两百多条记录里一次都没被谁写进标题——那才是它们和「车站」的真正区别，不是罕见程度。
+  const titled = (this && this.titled) || null;
   const out = new Set();
   for (const t of segment(raw, '')) {
     if (!t.wordLike) continue;
     const w = String(t.w).toLowerCase();
     if (w.length < 2 || /^\d+$/.test(w) || EV_STOP.has(w)) continue;
+    // 只在正文里出现的汉字词，得有三个字才算证据。两个字的中文词太廉价——
+    // 「了一」甚至不是个词，是「当了一大批」被切出来的。抬头里的不受这条限制。
+    if (EV_LABEL.has(w) || w.startsWith('_')) continue;
+    if (CJK_RE.test(w) && w.length < 3 && !inHead.has(w) && !(titled && titled.has(w))) continue;
     if (/^[a-z]/.test(w)) {
       // 拉丁词只认专名（原文里首字母大写）和带数字的（TW18、0AE、50km）
       const proper = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, '').test(raw)
@@ -287,11 +320,16 @@ function evWords(entry, stripped) {
  * @returns {{post:Map<string,string[]>, df:Map<string,number>, words:Map<string,Set<string>>}}
  */
 function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
+  // 先过一遍抬头：这个工作区里，哪些词曾经被谁写在标题上
+  const titled = new Set();
+  for (const e of entries || []) for (const w of headWords(e)) titled.add(w);
+  const ctx = { titled };
+
   const raw = new Map();
   const df = new Map();
   for (const e of entries || []) {
     if (!e || !e.id) continue;
-    const s = evWords(e, stripOf ? stripOf(e) : undefined);
+    const s = evWords.call(ctx, e, stripOf ? stripOf(e) : undefined);
     raw.set(e.id, s);
     for (const w of s) df.set(w, (df.get(w) || 0) + 1);
   }
@@ -363,6 +401,6 @@ function chainOf(runIds, g, getEntry) {
 
 module.exports = {
   build, linksOf, chainOf, pageKeysOf, pageIdentityOf, normUrl, titleKey,
-  evWords, evidenceIndex, evidenceFor, EV_MAXDF, EV_NEEDDF, EV_KEEP,
+  evWords, headWords, evidenceIndex, evidenceFor, EV_MAXDF, EV_NEEDDF, EV_KEEP,
   RUN_GAP_MS, MIN_KEY, MAX_CLIPS, SHELLS,
 };
