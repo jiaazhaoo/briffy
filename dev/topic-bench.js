@@ -71,7 +71,7 @@ async function main() {
     let byModel = '';
     try { byModel = await llm.topicName(cfg, { items }); } catch (e) { byModel = `（失败：${e.message}）`; }
     console.log(`  ${String(g.members.length).padStart(3)} 条`);
-    console.log(`      抽词：${g.words.join(' · ') || '（起不出来）'}`);
+    console.log(`      抽词：${g.words || '（起不出来）'}`);
     console.log(`      模型：${byModel || '（空）'}`);
     console.log(`      里面是：${g.members.slice(0, 3).map((id) => String((getEntry(id) || {}).title || '').replace(/\s+/g, ' ').slice(0, 34)).join(' / ')}`);
     console.log('');
