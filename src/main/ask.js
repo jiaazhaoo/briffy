@@ -171,8 +171,14 @@ function relatedTo(id) {
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
+/** 一条记录周围两跳的那张图。节点带 hop（离中心几步），边是节点之间真的够近的那些。 */
+function graphOf(id) {
+  try { refresh(); } catch (_) { /* 用已经建好的那部分 */ }
+  try { return vector.graph(index, String(id || '')); } catch (_) { return { nodes: [], edges: [] }; }
+}
+
 function topicEntries(id) {
   try { return index.topicMembers(String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, graphOf, MAX_ITEMS };

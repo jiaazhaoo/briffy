@@ -152,6 +152,16 @@
     // 主题：讲同一件事的记录归成的堆
     // 「相关」：讲同一件事的那几条，当场算出来的
     related: async (id) => entries.filter((e) => e.id !== id).slice(0, 3).map(pub),
+    graph: async (id) => {
+      const c = entries.find((e) => e.id === id) || entries[0];
+      const one = entries.filter((e) => e.id !== c.id).slice(0, 3);
+      const two = entries.filter((e) => e.id !== c.id && !one.includes(e)).slice(0, 2);
+      const nodes = [{ ...pub(c), hop: 0 }, ...one.map((e) => ({ ...pub(e), hop: 1 })), ...two.map((e) => ({ ...pub(e), hop: 2 }))];
+      const edges = one.map((e) => [c.id, e.id]);
+      edges.push([one[0].id, one[1].id]);
+      two.forEach((e, i) => edges.push([one[i % one.length].id, e.id]));
+      return { nodes, edges };
+    },
     topics: async () => ([
       { id: 't1', name: '泰晤士河步道超级马拉松挑战赛', words: '', n: 5 },
       { id: 't2', name: 'Ollama 模型推荐与配置', words: '', n: 6 },

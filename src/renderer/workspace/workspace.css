@@ -326,6 +326,25 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 行自己带 12px 内边距，所以这里减掉，字才真的落在 --pad 上、和顶栏对齐 */
 /* 滚动条也是一条线，而这里不许有线（网格早就 scrollbar-width: none 了，列表漏了，
    于是两栏中间和窗口右边各挂着一道灰杠） */
+/* ---------- 图谱 ---------- */
+/* 一条记录周围两跳。三条规矩和别处一样：全直角（所以节点是方块不是圆）、
+   没有颜色（远近只用墨色深浅）、线只有发丝那一档——这里的线是内容不是装饰，所以它能出现。 */
+.graph-card { width: min(720px, 92vw); height: auto; max-height: 86vh; overflow: auto; }
+.graph-body { padding: var(--a3) var(--a4) var(--a5); }
+.graph-body svg { width: 100%; height: auto; display: block; }
+.gr-edge { stroke: var(--hair); stroke-width: 1; fill: none; }
+/* 节点是纸上的一块，不是浮起来的东西——所以只有底色，没有影子也没有描边。
+   一跳和二跳同一个底色，远近全靠字的墨色说。 */
+.gr-node rect { fill: var(--slip-2, #f0efec); stroke: none; }
+.gr-node.h0 rect { fill: var(--ink); }
+.gr-node.h0 text { fill: var(--slip); font-weight: 600; }
+.gr-node text { font: 400 var(--fs-meta)/1 var(--sans); fill: var(--ink-2); }
+.gr-node.h2 text { fill: var(--ink-3); }
+.gr-node { cursor: pointer; }
+.gr-node:hover text { fill: var(--ink); }
+.gr-node.h0:hover text { fill: var(--slip); }
+.gr-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a5) 0; text-align: center; }
+
 /* ---------- 相关 ---------- */
 /* 详情页最底下一小块：讲同一件事的那几条。一条一行，日期在前、标题在后，
    和「路过」那一页同一种读法。没有框、没有线——它是这一页的脚注，不是另一个卡片。 */
