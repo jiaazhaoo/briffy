@@ -46,7 +46,7 @@
   const anim = window.briffyAnim;
   const marks = {};
   if (anim) {
-    for (const [name, sel] of [['small', '#markSmall'], ['hero', '#markSlot'], ['ges', '#markGes'], ['foot', '#markFoot']]) {
+    for (const [name, sel] of [['small', '#markSmall'], ['hero', '#markSlot'], ['foot', '#markFoot']]) {
       const host = $(sel);
       if (host) marks[name] = anim.attach(host, { colour: 'currentColor' });
     }
@@ -54,7 +54,6 @@
   // 标记本身是 #2A6CF0；顶栏和页脚那两只小的跟着墨色走，一屏一个彩色的额度留给链接。
   for (const sel of ['#markSmall', '#markFoot']) { const n = $(sel); if (n) n.style.color = 'var(--ink)'; }
   const heroHost = $('#markSlot'); if (heroHost) heroHost.style.color = '#2A6CF0';
-  const gesHost = $('#markGes'); if (gesHost) gesHost.style.color = '#2A6CF0';
 
   // 头一屏那只：点一下走一遍真实的流程——快门、存好了、回到静止。
   const heroBtn = $('#mark');
@@ -68,31 +67,6 @@
       t2 = setTimeout(() => marks.hero.set('idle'), 2000);
     });
   }
-
-  /* ── 手势那一列：停在哪一行，它就做哪个表情 ──────────────────────────── */
-  const STATE_TEXT = {
-    idle:       { zh: '静止', en: 'at rest' },
-    capturing:  { zh: '快门', en: 'shutter' },
-    recording:  { zh: '在听', en: 'listening' },
-    processing: { zh: '在想', en: 'thinking' },
-    success:    { zh: '存好了', en: 'saved' },
-    error:      { zh: '出错了', en: 'went wrong' },
-  };
-  const gesLabel = $('#gesState');
-  function showState(name) {
-    if (marks.ges) { if (marks.ges.pose() === name) marks.ges.poke(name); else marks.ges.set(name); }
-    if (gesLabel) gesLabel.textContent = (STATE_TEXT[name] || STATE_TEXT.idle)[lang()];
-  }
-  const gesRows = $$('#input .row');
-  for (const row of gesRows) {
-    const name = row.dataset.state || 'idle';
-    row.addEventListener('mouseenter', () => showState(name));
-    row.addEventListener('focusin', () => showState(name));
-    row.addEventListener('pointerdown', () => showState(name));   // 手机上没有 hover
-  }
-  const gesList = $('#input .rows');
-  if (gesList) gesList.addEventListener('mouseleave', () => showState('idle'));
-  if (gesLabel) gesLabel.textContent = '';
 
   /* ── 3 · 波形 ─────────────────────────────────────────────────────────── */
   for (const w of $$('.wave')) {

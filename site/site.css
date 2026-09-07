@@ -115,34 +115,23 @@ html[lang="zh-Hans"] h2 { letter-spacing: 0; line-height: 1.35; }
 h3 { margin: 0 0 var(--a2); font: 600 var(--t-h3)/1.4 var(--sans); }
 h4 { margin: var(--a5) 0 var(--a4); font: 600 var(--t-h3)/1.4 var(--sans); }
 
-/* ══ 一天 ══════════════════════════════════════════════════════════════════
-   产品的主语是「一天」。一串时刻，你一个都没经手——这是"无感"最短的证明，
-   所以它自己占一段，前后什么都不放。 */
-#day { padding-top: clamp(46px, 6vw, 82px); }
-.times { display: flex; flex-wrap: wrap; justify-content: space-between; margin: 0;
-  max-width: 900px; gap: var(--a2) clamp(14px, 2.2vw, 34px);
-  color: var(--ink-3); font-size: var(--t-body); font-variant-numeric: tabular-nums;
-  letter-spacing: .02em; }
-.times-note { margin: var(--a4) 0 0; color: var(--ink); font-size: var(--t-lede); }
-
-/* ══ 手势：左边一只 briffy，右边一列动作 ══════════════════════════════════ */
-.ges { display: grid; grid-template-columns: 168px 1fr; gap: clamp(30px, 5vw, 64px); align-items: start; }
-.ges-mark { position: sticky; top: 40px; }
-.ges-mark .mark-slot { width: 112px; height: 112px; }
-.ges-state { display: block; margin-top: var(--a2); color: var(--ink-3);
-  font-size: var(--fs-meta); font-variant-numeric: tabular-nums; min-height: 1.5em; }
+/* ══ 收 ══════════════════════════════════════════════════════════════════
+   六件事，两栏。没有框、没有底、没有图标——它们靠留白分开，和这一页别的地方一样。
+   （这里原来是一列手势，每行还牵着一只会做表情的回形针。删了：
+     手势是操作说明，写在官网上像说明书的第 3 页。） */
+.what { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: clamp(30px, 4vw, 52px) clamp(34px, 5vw, 72px); max-width: 1000px; }
+.it h3 { margin: 0 0 6px; font: 600 var(--t-h3)/1.4 var(--sans); }
+.it p { margin: 0; color: var(--ink-2); font-size: var(--t-fine); line-height: 1.7;
+  text-wrap: pretty; }
+.it p b { color: var(--ink); }
 
 .rows { margin: 0; }
-/* 两栏都只有一两个词，让它们靠在一起——摊到整页宽只会把一对词拉散 */
-.ges .rows { max-width: 42em; }
 .row { display: grid; grid-template-columns: 9.5em 1fr; gap: var(--a3) var(--a4);
   padding: var(--a3) 0; }
 .row + .row { margin-top: 2px; }
 .rows dt { margin: 0; font-weight: 600; color: var(--ink); }
 .rows dd { margin: 0; color: var(--ink-2); text-wrap: pretty; }
-/* 悬停不加底、不加框、不抬起——它是印在纸上的一行字，只是墨深了一点 */
-.ges .row { transition: none; }
-.ges .row:hover dd, .ges .row:focus-within dd { color: var(--ink); }
 .rows.tight .row { padding: var(--a2) 0; grid-template-columns: 11.5em 1fr; }
 .rows.nums .row { grid-template-columns: 1fr auto; }
 .rows.nums dd { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -278,10 +267,6 @@ html[lang="en"] .q::after { content: "”"; }
 
 /* ══ 窄屏 ══════════════════════════════════════════════════════════════════ */
 @media (max-width: 860px) {
-  .ges { grid-template-columns: 1fr; }
-  .ges-mark { position: static; display: flex; align-items: baseline; gap: var(--a3); }
-  .ges-mark .mark-slot { width: 76px; height: 76px; }
-  .ges-state { margin-top: 0; }
   .ask { grid-template-columns: 1fr; }
   .ask-r { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--a4); align-items: start; }
