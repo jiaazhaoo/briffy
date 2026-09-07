@@ -124,6 +124,13 @@ ok('没有可信身份的记录，一条边都不给', () => {
   assert.deepStrictEqual(l.clips, []);
 });
 
+ok('同一程按「离这一条多远」排，不按那一段的先后', () => {
+  const g = links.build(DAY);
+  const l = links.linksOf('p4', g);          // 22:19 那条，在这一段的末尾
+  assert.strictEqual(l.run.pages[0].name, '赛程分前后半程 - Claude', '最近的那一页该在最前面');
+  assert.ok(l.run.pages.length <= 6, '要收口：一段操作十几页，全列出来就成噪音了');
+});
+
 ok('空工作区不炸', () => {
   const g = links.build([]);
   assert.strictEqual(g.pages.size, 0);

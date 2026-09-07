@@ -185,8 +185,9 @@ function linksOf(id) {
     const l = links.linksOf(me, g);
     out.source = l.source;
     out.clips = l.clips;
-    // 同一程给的是「那几页」，不是那一段里的每一条记录：一段 50 条的操作两两相连没有意义
-    out.run = l.run.pages.map((p) => p.page).filter(Boolean);
+    // 同一程给的是「那几页」，不是那一段里的每一条记录：一段 50 条的操作两两相连没有意义。
+    // 页面名字照给，代表那一条用来点开——那一页本身多半没存过。
+    out.run = l.run.pages.filter((p) => p.first).map((p) => ({ name: p.name, id: p.first }));
   } catch (_) { /* 边是加分项，没有也不该让详情打不开 */ }
   out.near = relatedTo(me);
   return out;
@@ -237,9 +238,10 @@ function graphOf(id) {
     // 同一程连的是页面，不是那一段里的每一条记录——一段五十条两两相连没有意义
     const from = (l.source && l.source.page) || me;
     for (const p of l.run.pages.slice(0, 4)) {
-      if (!p.page || p.page === from) continue;
-      add(p.page, 2);
-      edges.push([from, p.page, 'run']);
+      const to = p.first;
+      if (!to || to === from || to === me) continue;
+      add(to, 2);
+      edges.push([from, to, 'run']);
     }
   } catch (_) { /* 边是加分项：语义那张图照样出得来 */ }
 

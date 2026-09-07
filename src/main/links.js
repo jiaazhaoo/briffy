@@ -184,7 +184,7 @@ function build(entries, { gapMs = RUN_GAP_MS, maxClips = MAX_CLIPS } = {}) {
  *            run:{ids:string[], pages:{key:string,name:string,page:string}[]}}}
  *   source 反向：这条是从哪一页摘的 · clips 正向：这一页上摘了哪几条 · run：同一段操作里还有什么
  */
-function linksOf(id, g) {
+function linksOf(id, g, { runLimit = 6 } = {}) {
   const me = String(id || '');
   const out = { source: null, clips: [], run: { ids: [], pages: [] } };
 
@@ -199,14 +199,21 @@ function linksOf(id, g) {
   const run = g.runs.find((r) => r.includes(me));
   if (run) {
     out.run.ids = run.filter((x) => x !== me);
-    const seen = new Set();
-    for (const rid of run) {
-      const k = g.pageOf.get(rid) || g.keyOf.get(rid);
+    const mine = run.indexOf(me);
+    const seen = new Map();
+    for (let i = 0; i < run.length; i++) {
+      const k = g.pageOf.get(run[i]) || g.keyOf.get(run[i]);
       if (!k || seen.has(k) || !g.pages.has(k)) continue;
-      seen.add(k);
       const p = g.pages.get(k);
-      if (p.page !== me && k !== (g.keyOf.get(me) || '')) out.run.pages.push({ key: p.key, name: p.name, page: p.page });
+      if (p.page === me || k === (g.keyOf.get(me) || '')) continue;
+      // first：那一页你多半**没有存下来**（实测 24 页里只有 1 页存了），所以还得给一条它上面的
+      // 摘录当代表——不然「同一程」永远是空的，一个永远空着的分组等于没有这条边。
+      seen.set(k, { key: p.key, name: p.name, page: p.page, first: p.page || p.clips[0] || '', d: Math.abs(i - mine) });
     }
+    // 按「离这一条多远」排，不按那一段的先后：一段操作有五十条、十几页，从头列起给你的是
+    // 那一小时的开头，而你想知道的是**紧挨着这条的前后**你在干什么。
+    out.run.pages = [...seen.values()].sort((a, b) => a.d - b.d).slice(0, runLimit)
+      .map(({ d, ...p }) => p);
   }
   return out;
 }

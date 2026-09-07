@@ -1398,7 +1398,13 @@
           : `<div class="rel flat"><span class="ti">${esc(l.source.name)}</span><span class="tm">${esc(t('notSaved'))}</span></div>`);
     }
     html += group('clippedHere', l.clips);
-    html += group('sameRun', l.run);
+    // 同一程列的是**页面的名字**，点开的是那一页上的一条记录——那一页本身多半没被存下来
+    if (l.run && l.run.length) {
+      html += `<h3>${esc(t('sameRun'))}</h3>`
+        + l.run.map((p) => `<button type="button" class="rel" data-rel="${esc(p.entry.id)}">`
+          + `<span class="tm">${esc(fmtTime(p.entry.createdAt))}</span>`
+          + `<span class="ti">${esc(p.name)}</span></button>`).join('');
+    }
     html += group('related', l.near);
     if (!html) { slot.hidden = true; slot.innerHTML = ''; return; }
     slot.hidden = false;

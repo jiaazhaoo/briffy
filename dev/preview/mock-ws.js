@@ -175,7 +175,7 @@
       return {
         source: { key: 'https://claude.ai/chat/abc', name: '赛程分前后半程 - Claude', page: rest[0].id, entry: pub(rest[0]) },
         clips: rest.slice(1, 4).map(pub),
-        run: rest.slice(4, 6).map(pub),
+        run: rest.slice(4, 6).map((e, i) => ({ name: ['Runnymede District to Staines Train Station', 'Parking on Buckingham Court, Staines'][i], entry: pub(e) })),
         near: rest.slice(6, 8).map(pub),
       };
     },
