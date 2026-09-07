@@ -180,6 +180,29 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   return ids.filter((id) => !skip.has(id)).slice(0, limit);
 }
 
+/**
+ * 和这一条有关的记录，**一条按远近排好的清单**，每条都说得出为什么。
+ *
+ * 之前这里是四组分开列的边（摘自 / 从这一页摘的 / 同一程 / 同一个词），外加一张图谱。
+ * 图谱做不成：十四张卡片、四十多条线，线上还写着字，实测就是一团乱麻，读不出任何东西。
+ * 而分四组也不对——**你要的是「和这条最近的是哪几条」，不是「按证据种类分类的四张小表」**。
+ *
+ * 所以合成一条清单，用 story.grow 排：它本来就是按分数排好的，而且每条都带着
+ * 它是被哪条边、哪一对词放进来的。左边写理由，右边写标题。
+ * @returns {{related:{id:string, score:number, why:object}[]}}
+ */
+function linksOf(id) {
+  const me = String(id || '');
+  try {
+    const s = story.grow(me, storyCtx(), { max: 14 });
+    return {
+      related: s.members
+        .filter((m) => m.id !== me)
+        .map((m) => ({ id: m.id, score: m.score, why: m.via || null })),
+    };
+  } catch (_) { return { related: [] }; }
+}
+
 /** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
 function relatedTo(id) {
   try { refresh(); } catch (_) { /* 索引没追平也照样能用已经建好的那部分 */ }
