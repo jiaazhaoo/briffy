@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>briffy — 你照常用电脑，它把这一天记下来</title>
+<meta name="description" content="你照常用电脑，briffy 把这一天记下来。不用新建，不用起名，不用打标签，不用打开它——复制、截图、收藏，你已经在做的事就是录入。识别都在本机。macOS / Windows，MIT。" />
+
+<!-- 两种语言的标题与描述。scripts/build-site.js 按语言挑一份写进真正的 <title> / description /
+     og:*，然后把这四行删掉——所以站点的每一个字都只有这一份源文件里有。 -->
+<meta name="x-title-zh" content="briffy — 你照常用电脑，它把这一天记下来" />
+<meta name="x-title-en" content="briffy — use your computer as usual, it writes the day down" />
+<meta name="x-desc-zh" content="你照常用电脑，briffy 把这一天记下来。不用新建，不用起名，不用打标签，不用打开它——复制、截图、收藏，你已经在做的事就是录入。识别都在本机。macOS / Windows，MIT。" />
+<meta name="x-desc-en" content="Use your computer as usual and briffy writes the day down. Nothing to create, name, tag or open — copying, capturing and saving are already the input. Recognition runs on your own machine. macOS / Windows, MIT." />
+<meta name="theme-color" content="#f3f1f0" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1b1918" media="(prefers-color-scheme: dark)" />
+<link rel="canonical" href="https://briffy.app/" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="briffy — 你照常用电脑，它把这一天记下来" />
+<meta property="og:description" content="不用新建，不用起名，不用打标签，不用打开它。你已经在做的事，就是录入。" />
+<meta property="og:image" content="og.png" />
+<meta name="twitter:card" content="summary" />
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="og.png" />
+
+<!-- 应用把字体随包带走、不联网取字；网页没有这条约束，所以这里直接取同样的三个 OFL 字面，
+     好让站点和应用是同一副面孔。取不到时 tokens.css 的字体栈会退回系统字。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Source+Sans+3:wght@400;600&family=Noto+Sans+SC:wght@400;600&display=swap" />
+
+<link rel="stylesheet" href="paper/tokens.css" />
+<link rel="stylesheet" href="site.css" />
+
+<!-- 自动判断中英文。
+     只有入口那一页（/）替人做决定；/en/ 是有人明确要的英文，分享出去的链接不该被弹走。
+     跟着语言链接过来的（?lang=）就是他自己挑的，记下来，以后不再判断——
+     不然从英文页点「中文」会被立刻弹回英文，那个开关就等于没有。
+     放在 css 后面、</head> 前面同步跑：样式表本来就挡着首屏，所以这一跳在画之前就发生了。
+     不带 JS 的访客留在中文页，两页的 hreflang 都在上面，各自都进得了索引。 -->
+<script>
+(function () {
+  var root = document.documentElement;
+  if (!root.hasAttribute('data-fixed-lang')) return;   // 本地那份双语预览不参与
+  var KEY = 'briffy.site.lang';
+  var save = function (v) { try { localStorage.setItem(KEY, v); } catch (e) { /* 隐私窗口 */ } };
+  var read = function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+
+  var picked = /[?&]lang=(zh|en)\b/.exec(location.search);
+  if (picked) {
+    save(picked[1]);
+    history.replaceState(null, '', location.pathname);
+    return;
+  }
+  if (root.lang === 'en') return;                      // 英文页不判断
+
+  var want = read();
+  if (!want) {
+    var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+    want = /^zh\b/i.test(first) ? 'zh' : 'en';         // 看第一顺位：列表里还有 zh 不代表他想读中文
+  }
+  if (want === 'en') location.replace('en/');
+})();
+</script>
+</head>
+<body>
+<a class="skip" href="#main"><span class="zh">跳到正文</span><span class="en">Skip to content</span></a>
+
+<!-- 顶上没有托盘，只有纸上的两个词（paper-ui：顶部是印刷元素，永不浮起来），所以它跟着页面滚。 -->
+<header class="top">
+  <a class="brand" href="#top">
+    <span class="brand-mark" id="markSmall" aria-hidden="true"></span>
+    <span>briffy</span>
+  </a>
+  <nav class="topnav">
+    <a href="#input"><span class="zh">录入</span><span class="en">Input</span></a>
+    <a href="#papers"><span class="zh">整理</span><span class="en">Filing</span></a>
+    <a href="#ask"><span class="zh">找</span><span class="en">Finding</span></a>
+    <a href="#private"><span class="zh">隐私</span><span class="en">Privacy</span></a>
+    <a href="#get"><span class="zh">装它</span><span class="en">Install</span></a>
+    <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
+    <button type="button" id="langBtn" class="lang" aria-label="Switch language">
+      <span class="zh">EN</span><span class="en">中文</span>
+    </button>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- ══ 头一屏 ══════════════════════════════════════════════════════════════ -->
+<section class="hero" id="top">
+  <div class="hero-mark">
+    <button type="button" class="mark-host" id="mark" aria-label="briffy">
+      <span class="mark-slot" id="markSlot" aria-hidden="true"></span>
+    </button>
+    <span class="mark-hint"><span class="zh">点它</span><span class="en">poke it</span></span>
+  </div>
+
+  <h1 class="zh">你照常用电脑，<br />它把这一天记下来。</h1>
+  <h1 class="en">Use your computer as usual.<br />It writes the day down.</h1>
+
+  <p class="lede zh">不用新建，不用起名，不用打标签，不用打开它。</p>
+  <p class="lede en">Nothing to create, name, tag, or open.</p>
+
+  <p class="acts">
+    <a class="btn primary" href="#get"><span class="zh">装它</span><span class="en">Install</span></a>
+    <a class="btn" href="https://github.com/jiaazhaoo/briffy">GitHub</a>
+  </p>
+
+  <p class="fine zh">macOS · Windows · 识别都在本机 · MIT</p>
+  <p class="fine en">macOS · Windows · recognition runs locally · MIT</p>
+</section>
+
+<!-- ══ 一天 ════════════════════════════════════════════════════════════════
+     整个产品的主语是「一天」。这条时间带是它最短的证明：一串时刻，你一个都没经手。 -->
+<section class="sec" id="day">
+  <p class="times" aria-hidden="true">
+    <span>08:40</span><span>09:12</span><span>10:03</span><span>11:25</span><span>12:15</span><span>13:33</span><span>15:02</span><span>18:37</span><span>18:45</span>
+  </p>
+  <p class="times-note zh">这一天你没有为其中任何一条动过手。</p>
+  <p class="times-note en">You did not lift a finger for any of these.</p>
+</section>
+
+<!-- ══ 录入 ════════════════════════════════════════════════════════════════ -->
+<section class="sec" id="input">
+  <div class="sec-head">
+    <h2 class="zh">你已经在做的事，就是录入</h2>
+    <h2 class="en">What you already do is the input</h2>
+    <p class="sub zh">没有「新建记录」这个按钮。</p>
+    <p class="sub en">There is no “new entry” button.</p>
+  </div>
+
+  <div class="ges">
+    <div class="ges-mark">
+      <span class="mark-slot" id="markGes" aria-hidden="true"></span>
+      <span class="ges-state" id="gesState"></span>
+    </div>
+
+    <dl class="rows">
+      <div class="row" data-state="success">
+        <dt><span class="zh">复制</span><span class="en">Copy</span> <kbd>Ctrl</kbd><kbd>C</kbd></dt>
+        <dd><span class="zh">文字、图片、文件，落下来就是一条。同一次复制只算一条。</span><span class="en">Text, images, files — each copy lands as one entry. One copy, one record.</span></dd>
+      </div>
+      <div class="row" data-state="success">
+        <dt><span class="zh">收藏</span><span class="en">Save</span></dt>
+        <dd><span class="zh">X、Reddit、小红书，或 <kbd>Ctrl</kbd><kbd>D</kbd>。标题、正文、网址一起存档。</span><span class="en">X, Reddit, or <kbd>Ctrl</kbd><kbd>D</kbd>. Title, body and URL are archived together.</span></dd>
+      </div>
+      <div class="row" data-state="capturing">
+        <dt><span class="zh">截图</span><span class="en">Capture</span></dt>
+        <dd><span class="zh">照常截，照常粘贴。它顺手留一份，不会因此记两遍。</span><span class="en">Screenshot the way you already do, paste the way you already do. A copy is kept — and not recorded twice.</span></dd>
+      </div>
+      <div class="row" data-state="recording">
+        <dt><span class="zh">说一句</span><span class="en">Say something</span></dt>
+        <dd><span class="zh">中键，或长按。转写在本机。</span><span class="en">Middle-click, or hold. Transcribed on your machine.</span></dd>
+      </div>
+      <div class="row" data-state="processing">
+        <dt><span class="zh">拖进来</span><span class="en">Drop</span></dt>
+        <dd><span class="zh">图片、文件、链接、PDF、网页。</span><span class="en">Images, files, links, PDFs, pages.</span></dd>
+      </div>
+    </dl>
+  </div>
+
+  <p class="keys">
+    <span class="zh"><kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> 框选 · <kbd>S</kbd> 整屏 · <kbd>V</kbd> 录音（macOS 上 <kbd>Cmd</kbd><kbd>Shift</kbd>）</span>
+    <span class="en"><kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> region · <kbd>S</kbd> full screen · <kbd>V</kbd> record (<kbd>Cmd</kbd><kbd>Shift</kbd> on macOS)</span>
+  </p>
+</section>
+
+<!-- ══ 整理 ════════════════════════════════════════════════════════════════ -->
+<section class="sec" id="papers">
+  <div class="sec-head">
+    <h2 class="zh">也不用整理</h2>
+    <h2 class="en">And nothing to file</h2>
+    <p class="sub zh">标题、一句话摘要、归到哪一天，软件自己写。你只管往里扔。</p>
+    <p class="sub en">The title, the one-line summary, which day it belongs to — written for you. You just let things land.</p>
+  </div>
+
+  <div class="mix" id="mix">
+    <article class="c c-shot" data-span="1">
+      <img class="pic" src="shot.svg" alt="" />
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 3.5h2.2l1-1.5h3.6l1 1.5H11v6.5H1z"/><path d="M4.3 6.7h3.4v-2H4.3z"/></svg><span>09:12</span></div>
+    </article>
+
+    <article class="c c-note" data-span="1">
+      <p class="said"><span class="zh">买牛奶、修自行车的闸线。</span><span class="en">Milk. Fix the brake cable.</span></p>
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1.5h5.5L10 4v6.5H2z"/><path d="M7.3 1.6V4H10"/><path d="M4 6.4h4M4 8.3h2.6"/></svg><span>08:40</span></div>
+      <span class="fold"></span>
+    </article>
+
+    <article class="c c-voice" data-span="2">
+      <div class="lab">
+        <span class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 1.2h3v5h-3z"/><path d="M2.5 5.5v.8a3.5 3.5 0 0 0 7 0v-.8"/><path d="M6 9.8v1.2"/></svg><span>10:03</span></span>
+        <span class="said"><span class="zh">路上想到的：把识别和摘要分成两步。</span><span class="en">Thought of on the way in: split reading from summarising.</span></span>
+        <span class="dur">0′22″</span>
+      </div>
+      <div class="wave" data-seed="23" data-n="92"></div>
+    </article>
+
+    <article class="c c-mark" data-span="2">
+      <span class="ribbon"></span>
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.5h6v9L6 8.2 3 10.5z"/></svg><span>11:25</span></div>
+      <p class="ttl"><span class="zh">为什么 SQLite 不需要服务器</span><span class="en">Why SQLite doesn't need a server</span></p>
+      <span class="host">example.com</span>
+    </article>
+
+    <article class="c c-clip" data-span="1">
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5h7v8h-7z"/><path d="M4.5 1h3v2h-3z"/><path d="M4.5 5.5h3.5M4.5 7.5h2"/></svg><span>12:15</span></div>
+      <p class="said"><span class="zh">“后端联调排在本周四，前端先按 mock 走。”</span><span class="en">“Back-end integration is Thursday. Front-end runs on mocks.”</span></p>
+      <span class="from"><span class="zh">从 Slack</span><span class="en">from Slack</span></span>
+    </article>
+
+    <article class="c c-note" data-span="1">
+      <p class="said"><span class="zh">明天十点和产品团队开会，第三季度预算和路线图。</span><span class="en">10am with product tomorrow — Q3 budget and roadmap.</span></p>
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1.5h5.5L10 4v6.5H2z"/><path d="M7.3 1.6V4H10"/><path d="M4 6.4h4M4 8.3h2.6"/></svg><span>15:02</span></div>
+      <span class="fold"></span>
+    </article>
+
+    <article class="c c-shot" data-span="1">
+      <img class="pic" src="shot.svg" alt="" />
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 3.5h2.2l1-1.5h3.6l1 1.5H11v6.5H1z"/><path d="M4.3 6.7h3.4v-2H4.3z"/></svg><span>13:33</span></div>
+    </article>
+
+    <article class="c c-clip" data-span="1">
+      <div class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 2.5h7v8h-7z"/><path d="M4.5 1h3v2h-3z"/><path d="M4.5 5.5h3.5M4.5 7.5h2"/></svg><span>18:37</span></div>
+      <p class="said">“Dell ultrawide monitor p3425we”</p>
+      <span class="from"><span class="zh">从 Chrome</span><span class="en">from Chrome</span></span>
+    </article>
+
+    <article class="c c-voice" data-span="2">
+      <div class="lab">
+        <span class="k"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 1.2h3v5h-3z"/><path d="M2.5 5.5v.8a3.5 3.5 0 0 0 7 0v-.8"/><path d="M6 9.8v1.2"/></svg><span>18:45</span></span>
+        <span class="said"><span class="zh">记得把预算发给张老师，下午三点开会。</span><span class="en">Send the budget to Zhang; meeting at three.</span></span>
+        <span class="dur">1′04″</span>
+      </div>
+      <div class="wave" data-seed="7" data-n="92"></div>
+    </article>
+  </div>
+
+  <ul class="legend">
+    <li><span class="zh">录音 · 磁带</span><span class="en">Voice · tape</span></li>
+    <li><span class="zh">截图 · 拍立得</span><span class="en">Capture · Polaroid</span></li>
+    <li><span class="zh">随手记 · 便利贴</span><span class="en">Note · sticky</span></li>
+    <li><span class="zh">收藏 · 索引卡</span><span class="en">Saved · index card</span></li>
+    <li><span class="zh">剪贴板 · 撕下来的碎片</span><span class="en">Clipboard · torn scrap</span></li>
+  </ul>
+
+  <p class="keys zh">每天 08:00，昨天的摘要自己写好，弹一句通知。</p>
+  <p class="keys en">At 08:00 each day, yesterday's summary has written itself.</p>
+</section>
+
+<!-- ══ 找 ══════════════════════════════════════════════════════════════════ -->
+<section class="sec" id="ask">
+  <div class="sec-head">
+    <h2 class="zh">也不用找</h2>
+    <h2 class="en">And nothing to search</h2>
+    <p class="sub zh">一句话问它。答案标着依据的第几条。</p>
+    <p class="sub en">Ask in a sentence. Every claim carries the record it came from.</p>
+  </div>
+
+  <div class="ask">
+    <div class="ask-l">
+      <p class="q"><span class="zh">上周那个 Postgres 报错是怎么回事？</span><span class="en">What was that Postgres error last week?</span></p>
+      <p class="a zh">9 月 2 日你截到 <code>duplicate key value violates unique constraint</code><a class="cite" href="#ask">①</a>，当晚说要把迁移脚本回滚重跑<a class="cite" href="#ask">②</a>。第二天剪贴板里出现了 <code>ON CONFLICT DO NOTHING</code><a class="cite" href="#ask">③</a>。</p>
+      <p class="a en">On 2 September you captured <code>duplicate key value violates unique constraint</code><a class="cite" href="#ask">①</a>, and that evening said you'd roll the migration back<a class="cite" href="#ask">②</a>. The next day <code>ON CONFLICT DO NOTHING</code> came through your clipboard<a class="cite" href="#ask">③</a>.</p>
+      <p class="note zh">检索在本地。不联网，不用模型。</p>
+      <p class="note en">Retrieval is local. No network, no model.</p>
+    </div>
+
+    <div class="ask-r">
+      <p class="ask-r-h"><span class="zh">依据</span><span class="en">Cited</span></p>
+      <article class="c c-shot ev"><span class="no">①</span>
+        <img class="pic" src="shot.svg" alt="" />
+        <div class="k"><span>09/02 14:20</span></div>
+      </article>
+      <article class="c c-voice ev"><span class="no">②</span>
+        <div class="lab"><span class="k"><span>09/02 22:10</span></span><span class="dur">0′48″</span></div>
+        <div class="wave" data-seed="11" data-n="46"></div>
+      </article>
+      <article class="c c-clip ev"><span class="no">③</span>
+        <div class="k"><span>09/03 12:41</span></div>
+        <p class="said">“ON CONFLICT DO NOTHING”</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 隐私 ════════════════════════════════════════════════════════════════
+     "记一切"必须自己回答"那你是不是在监视我"。不回答，上面所有话都立不住。 -->
+<section class="sec" id="private">
+  <div class="sec-head">
+    <h2 class="zh">记一切，不是盯着你</h2>
+    <h2 class="en">Everything, but not surveillance</h2>
+    <p class="sub zh">它只在你动手的那一下记：复制、截图、收藏、说话、拖进来。别的时候它什么都不做。</p>
+    <p class="sub en">It records at the moment you act — a copy, a capture, a save, a sentence, a drop. The rest of the time it does nothing.</p>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <h3><span class="zh">不监视浏览</span><span class="en">It doesn't watch you browse</span></h3>
+      <p class="zh">浏览器扩展平时什么都不做，只有一次保存手势发生之后才去读页面。</p>
+      <p class="en">The extension does nothing until a save gesture has actually happened; only then does it read the page.</p>
+    </div>
+    <div class="col">
+      <h3><span class="zh">识别在本机</span><span class="en">Recognition is local</span></h3>
+      <p class="zh">文字识别和语音转写都是本地引擎，装完断网也能用。一张 2560×1440 的截图约 0.8 秒。</p>
+      <p class="en">Text and speech recognition are local engines; unplug the network and they still run. About 0.8 s for a 2560×1440 screenshot.</p>
+    </div>
+    <div class="col">
+      <h3><span class="zh">东西在你自己的硬盘上</span><span class="en">It lives on your own disk</span></h3>
+      <p class="zh">一天一个索引文件，原图、原音、原文件在旁边。没有云，没有账号。</p>
+      <p class="en">One index file per day, with the original images, audio and files beside it. No cloud, no account.</p>
+    </div>
+  </div>
+
+  <div class="honest">
+    <h3><span class="zh">会离开这台电脑的</span><span class="en">What does leave</span></h3>
+    <p class="zh">只有软件替你写的字：标题、摘要、问的作答。交给你选的 AI 服务。<b>不配也能用。</b></p>
+    <p class="en">Only the words written for you: titles, summaries, answers — sent to the AI service you pick. <b>Configure nothing and it still runs.</b></p>
+    <p class="fine zh">Claude · OpenRouter · Ollama 本地 · 任何 OpenAI 兼容接口</p>
+    <p class="fine en">Claude · OpenRouter · Ollama locally · any OpenAI-compatible endpoint</p>
+  </div>
+</section>
+
+<!-- ══ 装它 ════════════════════════════════════════════════════════════════ -->
+<section class="sec" id="get">
+  <div class="sec-head">
+    <h2 class="zh">装它</h2>
+    <h2 class="en">Install</h2>
+    <p class="sub zh">还没有安装包。从源码跑：</p>
+    <p class="sub en">No installer yet. From source:</p>
+  </div>
+
+  <div class="two">
+    <div class="col">
+      <pre class="code"><code>git clone https://github.com/jiaazhaoo/briffy.git
+cd briffy
+npm install
+npm start</code></pre>
+      <p class="acts">
+        <a class="btn primary" href="https://github.com/jiaazhaoo/briffy"><span class="zh">仓库</span><span class="en">Repository</span></a>
+        <a class="btn" href="https://github.com/jiaazhaoo/briffy/releases"><span class="zh">发布页</span><span class="en">Releases</span></a>
+      </p>
+    </div>
+
+    <div class="col">
+      <dl class="rows tight nums">
+        <div class="row"><dt><span class="zh">安装包</span><span class="en">Installer</span></dt><dd>171 MB</dd></div>
+        <div class="row"><dt><span class="zh">装完</span><span class="en">Installed</span></dt><dd>562 MB</dd></div>
+      </dl>
+      <p class="fine zh">英文语音和中英文字识别已内置，断网可用。macOS 需要屏幕录制和麦克风权限。</p>
+      <p class="fine en">English speech and Chinese/English text recognition are bundled; works offline. macOS needs Screen Recording and Microphone.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-l">
+    <span class="brand-mark" id="markFoot" aria-hidden="true"></span>
+    <div>
+      <p class="zh"><b>briffy</b>　把你一天里看到的、听到的、收到的记下来。</p>
+      <p class="en"><b>briffy</b>　Writing down what you saw, heard and were handed.</p>
+      <p class="fine">MIT · © 2026 Jia Zhao</p>
+    </div>
+  </div>
+  <nav class="foot-r">
+    <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
+    <a href="https://github.com/jiaazhaoo/briffy/releases"><span class="zh">发布</span><span class="en">Releases</span></a>
+    <a href="https://github.com/jiaazhaoo/briffy/blob/main/LICENSE">MIT</a>
+    <button type="button" class="lang" data-lang-toggle><span class="zh">English</span><span class="en">中文</span></button>
+  </nav>
+</footer>
+
+<script src="briffy-anim.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

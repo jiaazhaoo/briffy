@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; font-src 'self' file:" />
+  <title>briffy</title>
+  <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
+  <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
+  <link rel="stylesheet" href="viewer.css" />
+</head>
+<body>
+  <!-- 无边框窗口自己的拖拽带；关闭是右上角一只正方托盘，和详情窗同一种东西 -->
+  <div class="winbar">
+    <button type="button" id="vClose" class="tray sq" data-i18n-title="close" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="canvasWrap" id="wrap">
+      <img id="pic" alt="" draggable="false" />
+      <canvas id="ink"></canvas>
+      <textarea id="typing" class="typing" hidden spellcheck="false"></textarea>
+    </div>
+  </div>
+  <!-- 框选留在 .canvasWrap 外面：那一层带 transform，而带 transform 的祖先会成为
+       position: fixed 的包含块——框画在里面就永远对不上鼠标 -->
+  <div id="marquee" class="marq" hidden></div>
+
+  <!-- 展开：briffy 里所有的图，一张网格贴在右边 -->
+  <aside class="grid" id="grid" hidden><div class="grid-in" id="gridIn"></div></aside>
+
+  <!-- 翻译出来的字：压在图上一张纸，不是另开一个窗 -->
+  <aside class="trans" id="trans" hidden>
+    <div class="trans-head"><span id="transTitle"></span><button type="button" class="mini" id="transClose">×</button></div>
+    <div class="trans-body" id="transBody"></div>
+  </aside>
+
+  <footer class="bar" id="bar">
+    <div class="grp left">
+      <button type="button" class="tray" id="tGrid" data-i18n-title="vGrid" aria-label="grid">
+        <svg viewBox="0 0 24 24"><path d="M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z" /></svg>
+      </button>
+      <button type="button" class="tray" id="tOut" data-i18n-title="vZoomOut" aria-label="zoom out">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.6-3.6M8 11h6" /></svg>
+      </button>
+      <button type="button" class="tray" id="tIn" data-i18n-title="vZoomIn" aria-label="zoom in">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.6-3.6M8 11h6M11 8v6" /></svg>
+      </button>
+      <button type="button" class="tray word" id="tFit" data-i18n-title="vFit">1:1</button>
+      <button type="button" class="tray" id="tRot" data-i18n-title="vRotate" aria-label="rotate">
+        <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.6" /><path d="M20 4v7h-7" /></svg>
+      </button>
+    </div>
+
+    <div class="grp mid">
+      <button type="button" class="tray tool" data-tool="rect" data-i18n-title="vRect" aria-label="rectangle">
+        <svg viewBox="0 0 24 24"><path d="M4 5.5h16v13H4z" /></svg>
+      </button>
+      <button type="button" class="tray tool" data-tool="ellipse" data-i18n-title="vEllipse" aria-label="ellipse">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5" /></svg>
+      </button>
+      <button type="button" class="tray tool" data-tool="pen" data-i18n-title="vPen" aria-label="pen">
+        <svg viewBox="0 0 24 24"><path d="M4 19.5l3-1 11-11-2-2-11 11z" /><path d="M15 4.5l2-2 2 2-2 2" /></svg>
+      </button>
+      <button type="button" class="tray tool" data-tool="mosaic" data-i18n-title="vMosaic" aria-label="mosaic">
+        <svg viewBox="0 0 24 24"><path d="M4 4.5h5v5H4zM14 4.5h5v5h-5zM9 9.5h5v5H9zM19 9.5h1v5h-1zM4 14.5h5v5H4zM14 14.5h5v5h-5z" /></svg>
+      </button>
+      <button type="button" class="tray tool" data-tool="text" data-i18n-title="vText" aria-label="text">
+        <svg viewBox="0 0 24 24"><path d="M5 6V4.5h14V6M12 4.5v15M8.5 19.5h7" /></svg>
+      </button>
+      <button type="button" class="tray tool" data-tool="crop" data-i18n-title="vCrop" aria-label="crop">
+        <svg viewBox="0 0 24 24"><path d="M7 2.5v14.5h14.5M2.5 7H17v14.5" /></svg>
+      </button>
+      <button type="button" class="tray" id="tUndo" data-i18n-title="vUndo" aria-label="undo">
+        <svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 1 1 2.3 5.6" /><path d="M4 6v7h7" /></svg>
+      </button>
+    </div>
+
+    <div class="grp right">
+      <button type="button" class="tray" id="tTrans" data-i18n-title="vTranslate" aria-label="translate">
+        <svg viewBox="0 0 24 24"><path d="M3.5 5.5h9M8 3.5v2M10.5 5.5c0 4-3 7.5-7 8.5M5.5 9c1.4 2.4 3.6 4.2 6 5M12.5 20.5l4-11 4 11M14 17h5" /></svg>
+      </button>
+      <button type="button" class="tray" id="tCopy" data-i18n-title="vCopy" aria-label="copy">
+        <svg viewBox="0 0 24 24"><path d="M9 9.5h11v11H9zM4 14.5V3.5h11" /></svg>
+      </button>
+      <button type="button" class="tray" id="tPin" data-i18n-title="vPin" aria-label="pin">
+        <svg viewBox="0 0 24 24"><path d="M9 3.5h6l-1 6 4 3.5H6l4-3.5z" /><path d="M12 13v7.5" /></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- 画笔的设置：粗细 + 颜色，从工具上方升起来（参照 macOS 标注那一条） -->
+  <div class="pop" id="pop" hidden>
+    <div class="sizes" id="sizes"></div>
+    <div class="swatches" id="swatches"></div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="viewer.js"></script>
+</body>
+</html>

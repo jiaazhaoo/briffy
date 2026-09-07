@@ -5,7 +5,16 @@
   "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
   "main": "src/main/main.js",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "author": {
+    "name": "Jia Zhao",
+    "email": "zhaojia789456@gmail.com"
+  },
+  "homepage": "https://github.com/jiaazhaoo/briffy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jiaazhaoo/briffy.git"
+  },
   "scripts": {
     "postinstall": "install-electron && node scripts/fetch-fonts.js || echo fonts: skipped",
     "start": "electron .",
@@ -18,10 +27,14 @@
     "pet:orient": "node scripts/pet-orient.js",
     "fetch-models": "node scripts/fetch-bundled-models.js",
     "preview": "node dev/preview/serve.js",
+    "site": "node scripts/build-site.js",
+    "deploy": "npm run site && wrangler deploy",
     "pack": "npm run fetch-models && npm run fetch-fonts && electron-builder --dir",
     "dist": "npm run fetch-models && npm run fetch-fonts && electron-builder",
     "dist:win": "npm run fetch-models && npm run fetch-fonts && electron-builder --win",
     "dist:mac": "npm run fetch-models && npm run fetch-fonts && electron-builder --mac",
+    "release:mac": "node dev/mac-release-check.js --preflight && npm run dist:mac && npm run verify:mac",
+    "verify:mac": "node dev/mac-release-check.js",
     "fetch-fonts": "node scripts/fetch-fonts.js"
   },
   "dependencies": {
@@ -35,11 +48,13 @@
   },
   "devDependencies": {
     "electron": "^44.1.1",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "wrangler": "^4.129.0"
   },
   "build": {
     "appId": "com.briffy.app",
     "productName": "briffy",
+    "copyright": "Copyright © 2026 Jia Zhao",
     "directories": {
       "output": "release"
     },
@@ -73,6 +88,8 @@
       "node_modules/@img/**",
       "node_modules/@napi-rs/**",
       "node_modules/@techstark/**",
+      "node_modules/node-screenshots*/**",
+      "node_modules/sherpa-onnx*/**",
       "bundled-models/**",
       "extension/**"
     ],
@@ -100,25 +117,70 @@
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/icon-mac.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
       ],
+      "identity": "jia zhao (5B88JH77HT)",
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true,
       "files": [
         "!node_modules/onnxruntime-node/bin/napi-v6/win32/**",
         "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
         "!node_modules/@img/sharp-win32*/**",
         "!node_modules/@img/sharp-linux*/**",
         "!node_modules/@napi-rs/canvas-win32*/**",
-        "!node_modules/@napi-rs/canvas-linux*/**"
+        "!node_modules/@napi-rs/canvas-linux*/**",
+        "!node_modules/node-screenshots-win32*/**",
+        "!node_modules/node-screenshots-linux*/**",
+        "!node_modules/sherpa-onnx-win32*/**",
+        "!node_modules/sherpa-onnx-linux*/**"
       ],
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "briffy records voice notes and transcribes them locally.",
-        "NSScreenCaptureUsageDescription": "briffy captures your screen when you press the shortcut or click the cat."
+        "LSUIElement": true,
+        "LSMinimumSystemVersion": "13.0",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "briffy records a voice note when you start one, and transcribes it on this Mac. The recording and its transcript are written to your workspace folder and nowhere else.",
+        "NSScreenCaptureUsageDescription": "briffy takes a screenshot when you press the shortcut or click the cat, then reads the text in it on this Mac.",
+        "NSAppleEventsUsageDescription": "briffy asks macOS which window you were looking at, so a capture can say where it came from, and uses macOS's own image recogniser to describe pictures that contain no text.",
+        "NSDesktopFolderUsageDescription": "briffy copies a file you drop on the cat, or choose during a bulk import, into your workspace folder.",
+        "NSDocumentsFolderUsageDescription": "briffy copies a file you drop on the cat, or choose during a bulk import, into your workspace folder.",
+        "NSDownloadsFolderUsageDescription": "briffy copies a file you drop on the cat, or choose during a bulk import, into your workspace folder."
       }
+    },
+    "dmg": {
+      "title": "briffy ${version}",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 210,
+          "type": "file"
+        },
+        {
+          "x": 390,
+          "y": 210,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     },
     "protocols": [
       {

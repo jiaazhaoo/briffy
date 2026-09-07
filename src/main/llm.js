@@ -137,6 +137,45 @@ function parseJsonLoose(text) {
  *          pdf?:Buffer|string, pdfText?:string, text?:string, context?:string, filename?:string,
  *          url?:string}} input
  */
+/**
+ * 一键翻译：把一段已经认出来的字翻成界面语言。
+ *
+ * 走的是文字，不是图片——图片从不出这台电脑（workspace.js 里那条规矩），
+ * 而 OCR 早就把字读出来了，再把原图发一遍既慢又多余。
+ */
+async function translate(cfg, { text }) {
+  const limit = TAG_LIMIT[cfg.provider] || 12000;
+  const body = String(text || '').slice(0, limit);
+  const system = [
+    `Translate the user's text into ${cfg.languageName}.`,
+    'Return only the translation: no preface, no notes, no quotes around it.',
+    'Keep the line breaks and the order of the lines as they are.',
+    'Leave names, products, places, code, urls and technical terms in their original form.',
+    `If a line is already in ${cfg.languageName}, repeat it unchanged.`,
+  ].join(' ');
+  let raw;
+  switch (cfg.provider) {
+    case 'anthropic':
+      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text: body, maxTokens: 2000, effort: 'low' });
+      break;
+    case 'openrouter':
+      raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text: body, maxTokens: 2000 });
+      break;
+    case 'custom':
+      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text: body, maxTokens: 2000 });
+      break;
+    case 'ollama':
+      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text: body, maxTokens: 1600, numCtx: 8192 });
+      break;
+    default:
+      throw new Error(`Unknown provider ${cfg.provider}`);
+  }
+  return {
+    text: String(raw.text || '').trim(),
+    model: raw.model ? `${raw.model} (${providerName(cfg.provider)})` : label(cfg),
+  };
+}
+
 async function describe(cfg, input) {
   const limit = TAG_LIMIT[cfg.provider] || 12000;
   const image = input.kind === 'image' && input.image ? ai.prepareImage(input.image, input.imageMime) : null;
@@ -291,7 +330,6 @@ function buildNumbered(entries, maxChars, needles) {
     const e = entries[i];
     const perItem = Math.max(200, Math.min(2500, Math.floor((maxChars * weight(i)) / totalW)));
     const excerpt = windowAround((e.text || e.summary || '').replace(/\s+/g, ' '), needles, perItem);
-
     const line = `[${i + 1}] ${e.dateKey} ${fmtTime(e.createdAt)} (${e.type}) ${e.title || e.path || e.url || ''}`
       + `${e.visionLabels ? ` | in the picture: ${e.visionLabels}` : ''}`
       + `${e.summary ? ` | ${e.summary}` : ''}`
@@ -367,4 +405,4 @@ async function testProvider(cfg) {
   }
 }
 
-module.exports = { config, isConfigured, label, describe, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, _windowAround: windowAround, _buildNumbered: buildNumbered };
+module.exports = { config, isConfigured, label, describe, translate, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, _windowAround: windowAround, _buildNumbered: buildNumbered };

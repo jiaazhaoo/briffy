@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+  <!-- 样张里的占位截图：一扇窗，不带任何真实内容 -->
+  <rect width="320" height="200" fill="#f4f4f1"/>
+  <rect width="320" height="22" fill="#e7e7e3"/>
+  <rect x="10" y="8.5" width="5" height="5" fill="#cfcfc9"/><rect x="20" y="8.5" width="5" height="5" fill="#cfcfc9"/><rect x="30" y="8.5" width="5" height="5" fill="#cfcfc9"/>
+  <rect x="70" y="6" width="180" height="10" fill="#f4f4f1"/>
+  <rect x="0" y="22" width="86" height="178" fill="#ececea"/>
+  <g fill="#d3d3ce">
+    <rect x="12" y="38" width="52" height="6"/><rect x="12" y="54" width="44" height="6"/><rect x="12" y="70" width="58" height="6"/><rect x="12" y="86" width="38" height="6"/>
+  </g>
+  <g fill="#dededa">
+    <rect x="104" y="38" width="180" height="7"/><rect x="104" y="55" width="150" height="7"/><rect x="104" y="72" width="196" height="7"/><rect x="104" y="89" width="120" height="7"/>
+    <rect x="104" y="112" width="172" height="7"/><rect x="104" y="129" width="140" height="7"/><rect x="104" y="146" width="188" height="7"/><rect x="104" y="163" width="96" height="7"/>
+  </g>
+</svg>

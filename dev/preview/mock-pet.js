@@ -9,7 +9,7 @@
     click: () => { i = (i + 1) % states.length; stateCbs.forEach((cb) => cb({ state: states[i], badge: states[i] === 'summary' })); document.title = states[i]; },
     dragStart() {}, dragMove() {}, dragEnd() {}, contextMenu() {}, openWorkspace() {},
     drop: async () => [], pathForFile: () => '', recordingState() {}, submitAudio: async () => null,
-    requestMic: async () => true, micDenied() {}, getConfig: async () => ({ micDeviceId: '', avatarBuiltin: q.get('skin') !== 'logo' }), micDevices() {}, micTestResult() {}, log: (...a) => console.log(...a),
+    requestMic: async () => true, micDenied() {}, getConfig: async () => ({ micDeviceId: '' }), micDevices() {}, micTestResult() {}, log: (...a) => console.log(...a),
     onState: (cb) => stateCbs.push(cb), onCommand() {},
   };
   if (q.get('state')) setTimeout(() => stateCbs.forEach((cb) => cb({ state: q.get('state'), badge: q.get('badge') === '1' })), 50);

@@ -1,8 +1,9 @@
 'use strict';
-// Window management: the character on the desktop, its speech bubble (a click-through window) and the
+// Window management: the character on the desktop and the
 // workspace window.
 const { app, BrowserWindow, ipcMain, nativeImage, screen } = require('electron');
 const path = require('path');
+const { entrySource } = require('./store');   // 哪种纸：剪贴板 / 收藏要靠它分
 const { pathToFileURL } = require('url');
 
 // The pet window is larger than the 54px circle it shows (see pet.css --s / --d): the
@@ -10,28 +11,23 @@ const { pathToFileURL } = require('url');
 // so nothing is ever sliced off by the window's rectangular edge.
 const PET_W = 80;
 const PET_H = 80;
-const PET_CIRCLE = 54;
-const BUBBLE_W = 320;
-const BUBBLE_H = 100;
 const SHELF_W = 300;             // the window; the panel inside it is 268 wide, the rest is its shadow
 const SHELF_PAD = 32;            // that strip, in px -- the panel's left edge sits this far in
 const SHELF_MIN_H = 200;
 const SHELF_MAX_H = 640;
 const SHELF_GAP = 10;            // clearance kept between the panel and the pet
-const SHELF_CLOSE_MS = 320;      // long enough to cross the gap from the pet to the panel
+const SHELF_CLOSE_MS = 420;      // 从头像挪到面板的路上够走完；短了会走到一半就关
 const SHELF_FADE_MS = 300;       // the slide-out, if the renderer never reports it finished
 const MARGIN = 12;
-const TRANSIENT = { capturing: 4000, success: 4500, error: 7000, summary: 25000 };
+// 一个状态在脸上停多久。**存东西是一瞬间的事，动画就该是一瞬间**——
+// capturing 原来 4000ms，等于按下快门之后那只回形针要瞪四秒钟眼睛，读起来像它在犯难。
+// 这几个数现在都对着弹簧真正的时长来（briffy-anim.js 量过：点头 1.07s、摇头 1.14s、pop 0.42s）：
+// 演一遍，停住，回到待机。出错留长一点——气泡删掉之后，那张脸是唯一的错误信号了。
+const TRANSIENT = { capturing: 260, success: 1200, error: 3000, summary: 25000 };
 
 let store;
 let petWin = null;
-let bubbleWin = null;
 let wsWin = null;
-let bubbleTimer = null;
-let bubbleShowTimer = null;
-let wantBubbleShown = false;
-let bubbleState = '';      // the state the balloon is currently showing
-let bubbleAt = '';         // where it was last placed, so it is not re-positioned 4x a second
 let stateTimer = null;
 let state = 'idle';
 let badge = false;
@@ -63,24 +59,12 @@ function defaultPetPosition() {
   const { workArea } = screen.getPrimaryDisplay();
   return { x: workArea.x + workArea.width - PET_W - MARGIN, y: workArea.y + workArea.height - PET_H - MARGIN };
 }
-// 卡片在 80×80 的窗口里的位置（见 pet.css .float::before）：贴边时要把这圈余地补偿掉
-const PET_INSET = { left: 10, top: 6, right: 10, bottom: 6 };
+// 那枚回形针在 80×80 的窗口里占的位置（见 pet.css .body）：它是竖着的，两边留得多，
+// 底下那 14px 留给 REC 和三个点。书架靠这几个数把自己对到它身上。
+const PET_INSET = { left: 22, top: 2, right: 22, bottom: 14 };
 
-// 常驻头像永远贴着某一条屏幕边——离哪条近就贴哪条
-function snapToEdge(x, y) {
-  const wa = screen.getDisplayMatching({ x, y, width: PET_W, height: PET_H }).workArea;
-  const cx = Math.min(Math.max(x, wa.x), wa.x + wa.width - PET_W);
-  const cy = Math.min(Math.max(y, wa.y), wa.y + wa.height - PET_H);
-  const d = {
-    left: cx - wa.x, right: (wa.x + wa.width - PET_W) - cx,
-    top: cy - wa.y, bottom: (wa.y + wa.height - PET_H) - cy,
-  };
-  const near = Object.keys(d).reduce((a, k) => (d[k] < d[a] ? k : a), 'left');
-  if (near === 'left') return { x: Math.round(wa.x - PET_INSET.left), y: Math.round(cy) };
-  if (near === 'right') return { x: Math.round(wa.x + wa.width - PET_W + PET_INSET.right), y: Math.round(cy) };
-  if (near === 'top') return { x: Math.round(cx), y: Math.round(wa.y - PET_INSET.top) };
-  return { x: Math.round(cx), y: Math.round(wa.y + wa.height - PET_H + PET_INSET.bottom) };
-}
+// 贴边吸附去掉了（2026-09-06）：放哪儿是放的人说了算，松手就停在那儿。
+// 只剩下「别掉出屏幕」这一条（clampToDisplays）。
 
 function clampToDisplays(x, y) {
   const wa = screen.getDisplayMatching({ x, y, width: PET_W, height: PET_H }).workArea;
@@ -123,89 +107,10 @@ function createPetWindow() {
   return petWin;
 }
 
-function createBubbleWindow() {
-  bubbleWin = new BrowserWindow({
-    width: BUBBLE_W, height: BUBBLE_H,
-    frame: false, transparent: true, resizable: false, movable: false, focusable: false,
-    alwaysOnTop: true, skipTaskbar: true, hasShadow: false, roundedCorners: false, show: false,
-    hiddenInMissionControl: true,
-    title: 'briffy Bubble',
-    webPreferences: { preload: preloadPath('bubble.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
-  });
-  bubbleWin.setIgnoreMouseEvents(true);
-  bubbleWin.setContentProtection(EXCLUDE_FROM_CAPTURE);
-  bubbleWin.setAlwaysOnTop(true, 'floating', 2);
-  bubbleWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
-  bubbleWin.loadFile(rendererPath('bubble', 'index.html'));
-  bubbleWin.on('closed', () => { bubbleWin = null; });
-  return bubbleWin;
-}
-
-/** Places the balloon window against the pet and returns where its tail has to point. */
-function layoutBubble() {
-  if (!petWin || !bubbleWin) return null;
-  const [px, py] = petWin.getPosition();
-  const wa = screen.getDisplayMatching({ x: px, y: py, width: PET_W, height: PET_H }).workArea;
-  // the balloon sits up and to the left of the pet, its tail tip landing on the circle's
-  // top edge (the circle starts (PET_H - PET_CIRCLE) / 2 into the window)
-  const pad = (PET_H - PET_CIRCLE) / 2;
-  let x = px + PET_W - BUBBLE_W + 18;
-  let y = py + pad - BUBBLE_H + 9;
-  let below = false;
-  if (y < wa.y) { y = py + PET_H - pad - 9; below = true; }
-  if (x < wa.x) x = wa.x + 4;
-  if (x + BUBBLE_W > wa.x + wa.width) x = wa.x + wa.width - BUBBLE_W - 4;
-  const at = `${Math.round(x)},${Math.round(y)}`;
-  if (at !== bubbleAt) { bubbleWin.setPosition(Math.round(x), Math.round(y)); bubbleAt = at; }
-  const tail = Math.round(px + PET_W * 0.5 - x); // px from the balloon window's left edge to the pet's centre
-  return { below, tail: Math.min(Math.max(tail, 24), BUBBLE_W - 24) };
-}
-
-// Repositioning a balloon that is already on screen (the pet was dragged): no new text, no pop.
-function positionBubble() {
-  const layout = layoutBubble();
-  if (layout) bubbleWin.webContents.send('bubble:layout', layout);
-}
-
-// The balloon used to be put on screen in the same tick as the message was sent to it, so it appeared
-// still showing the previous message at the previous tail position and only snapped to the new one a
-// frame or two later -- read as a stutter every single time the character said anything. Now the window is
-// positioned and filled while it is still hidden, and only shown once the renderer says it has painted.
-function showBubble(text, { ms = 4000, sticky = false } = {}) {
-  if (!bubbleWin || !petWin) return;
-  const layout = layoutBubble() || {};
-  // While recording, the timer rewrites this text four times a second. Replaying the balloon's entrance
-  // on every one of those is what made it flicker, so it only plays when the balloon actually arrives
-  // or when the character has changed what it is doing.
-  const pop = !bubbleWin.isVisible() || state !== bubbleState;
-  bubbleState = state;
-  bubbleWin.webContents.send('bubble:text', { text, state, pop, ...layout });
-  const canShow = !hiddenForCapture && !petHidden && !hiddenForFullscreen;
-  if (canShow && !bubbleWin.isVisible()) {
-    wantBubbleShown = true;
-    if (bubbleShowTimer) clearTimeout(bubbleShowTimer);
-    // never let a renderer that fails to answer swallow the message entirely
-    bubbleShowTimer = setTimeout(revealBubble, 150);
-  }
-  if (bubbleTimer) { clearTimeout(bubbleTimer); bubbleTimer = null; }
-  if (!sticky) bubbleTimer = setTimeout(hideBubble, ms);
-}
-function revealBubble() {
-  if (bubbleShowTimer) { clearTimeout(bubbleShowTimer); bubbleShowTimer = null; }
-  if (!wantBubbleShown) return;
-  wantBubbleShown = false;
-  if (bubbleWin && !bubbleWin.isDestroyed() && !hiddenForCapture && !petHidden && !hiddenForFullscreen && !bubbleWin.isVisible()) {
-    bubbleWin.showInactive();
-  }
-}
-function hideBubble() {
-  if (bubbleTimer) { clearTimeout(bubbleTimer); bubbleTimer = null; }
-  if (bubbleShowTimer) { clearTimeout(bubbleShowTimer); bubbleShowTimer = null; }
-  wantBubbleShown = false;
-  bubbleState = '';
-  if (bubbleWin && bubbleWin.isVisible()) bubbleWin.hide();
-}
-ipcMain.on('bubble:painted', () => revealBubble());
+// 对话气泡删了（2026-09-06）：桌面上那只自己会换表情，底下还有 REC 和三个点，
+// 一个漂在旁边的框既遮它、又和书架抢地方。setPetState 仍然收 message，只是写进日志，
+// 不再弹窗——**代价：那些只出现在气泡里的错误文案（麦克风被拒、截图失败、快捷键冲突）
+// 现在只剩下一张出错的脸，没有字。**
 
 // ---------- the shelf ----------
 // Resting the pointer on the pet slides out a column of the last things saved, flush against the
@@ -250,11 +155,16 @@ function layoutShelf() {
   const right = px + PET_W - PET_INSET.right;
   const x = Math.round(Math.min(Math.max(right - SHELF_W, wa.x - SHELF_PAD), wa.x + wa.width - SHELF_W + SHELF_PAD));
   const top = wa.y + MARGIN;
-  const bottom = py + PET_INSET.top - SHELF_GAP;
+  // 窗口的下沿**正好压在头像窗口的上沿**，不多一个像素。
+  // 面板和头像之间那 10px 的空隙由 CSS 让出来（#panel 的 bottom），但那一段仍然属于这扇窗——
+  // 指针从头像挪到面板的路上不经过「谁也不在」的地带，于是不会走到一半就把面板关掉。
+  // **不能再往下探了**：这扇窗是 300px 宽、右边 262px 是不透明的面板，
+  // 只要它盖到头像窗口上，那枚回形针就被压在下面了（2026-09-06 踩过）。
+  const bottom = py;
   let h = Math.round(Math.max(SHELF_MIN_H, Math.min(SHELF_MAX_H, bottom - top)));
   let y = Math.round(bottom - h);
   if (bottom - top < SHELF_MIN_H) {                 // 头像贴在屏幕顶上，上面放不下，就落到它下面
-    y = Math.round(py + PET_H - PET_INSET.bottom + SHELF_GAP);
+    y = Math.round(py + PET_H + SHELF_GAP);
     h = Math.round(Math.max(SHELF_MIN_H, Math.min(SHELF_MAX_H, wa.y + wa.height - MARGIN - y)));
   }
   shelfWin.setBounds({ x, y, width: SHELF_W, height: h });
@@ -277,6 +187,7 @@ function shelfEntries() {
       createdAt: e.createdAt,
       type: e.type,
       kind: deps.typeLabel ? deps.typeLabel(e.type) : e.type,
+      source: entrySource(e),                          // 哪种纸要靠它分（剪贴板 / 收藏）
       thumb: picture ? pathToFileURL(abs).href : '',
       file: !!abs,
       pinned: !!e.pinned,
@@ -364,12 +275,7 @@ function setPetState(next, opts = {}) {
   if (typeof opts.badge === 'boolean') badge = opts.badge;
   sendState();
   if (stateTimer) { clearTimeout(stateTimer); stateTimer = null; }
-  const stickyDefault = next === 'processing' || next === 'recording';
-  if (opts.message) {
-    showBubble(opts.message, { sticky: opts.sticky !== undefined ? opts.sticky : stickyDefault, ms: opts.ms || TRANSIENT[next] || 4000 });
-  } else if (next === 'idle') {
-    hideBubble();
-  }
+  if (opts.message) console.log('[pet]', next, opts.message);   // 气泡没了，话留在日志里
   if (TRANSIENT[next]) {
     stateTimer = setTimeout(() => { if (state === next) setPetState('idle'); }, TRANSIENT[next]);
   }
@@ -413,7 +319,7 @@ function watchFullscreen() {
     hiddenForFullscreen = full;
     if (full) hideShelf({ now: true });
     if (!petWin || petWin.isDestroyed()) return;
-    if (full) { petWin.hide(); if (bubbleWin && bubbleWin.isVisible()) bubbleWin.hide(); }
+    if (full) petWin.hide();
     else if (!petHidden && !hiddenForCapture) petWin.showInactive();
   }, 2000);
 }
@@ -422,7 +328,6 @@ async function hideForCapture() {
   hiddenForCapture = true;
   hideShelf({ now: true });
   if (EXCLUDE_FROM_CAPTURE) return 0;            // nothing to hide: the windows are not captured anyway
-  if (bubbleWin && bubbleWin.isVisible()) bubbleWin.hide();
   if (petWin && petWin.isVisible()) petWin.hide();
   return 60;
 }
@@ -436,7 +341,7 @@ function setPetHidden(hidden) {
   if (hidden) hideShelf({ now: true });
   petHidden = !!hidden;
   store.updateSettings({ petHidden });
-  if (petHidden) { hideBubble(); if (petWin) petWin.hide(); } else if (petWin) petWin.showInactive();
+  if (petHidden) { if (petWin) petWin.hide(); } else if (petWin) petWin.showInactive();
 }
 function isPetHidden() { return petHidden; }
 
@@ -448,17 +353,15 @@ function dragStart({ screenX, screenY }) {
 function dragMove({ screenX, screenY }) {
   if (!drag || !petWin) return;
   petWin.setPosition(Math.round(screenX + drag.ox), Math.round(screenY + drag.oy));
-  if (bubbleWin && bubbleWin.isVisible()) positionBubble();
   if (shelfOpen) hideShelf({ now: true });          // the pet is being moved, not pointed at
 }
 function dragEnd() {
   if (!drag || !petWin) return;
   drag = null;
   const [x, y] = petWin.getPosition();
-  const c = snapToEdge(x, y);      // 松手就吸到最近的那条屏幕边
+  const c = clampToDisplays(x, y);   // 松手就停在原地，只保证它整个还在屏幕里
   petWin.setPosition(c.x, c.y);
   store.updateSettings({ petPosition: c });
-  positionBubble();
 }
 
 // ---------- first run ----------
@@ -586,7 +489,7 @@ function getWorkspaceWindow() { return wsWin; }
 module.exports = {
   syncDock,
   EXCLUDE_FROM_CAPTURE,
-  init, createPetWindow, createBubbleWindow, positionBubble, showBubble, hideBubble,
+  init, createPetWindow,
   openOnboarding, closeOnboarding, broadcastToOnboarding,
   setPetState, getState, sendPetCommand, hideForCapture, restoreAfterCapture, setPetHidden, isPetHidden,
   dragStart, dragMove, dragEnd, openWorkspace, broadcastToWorkspace, getPetWindow, getWorkspaceWindow,

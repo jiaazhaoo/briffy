@@ -67,7 +67,7 @@
         <!-- 六组，一排词，和记录页的筛选行同一个位置。改一项立刻生效，右端是那一声「已保存」 -->
         <nav class="sg-nav" id="settingsNav">
           <button type="button" class="sg-btn active" data-group="look"><span data-i18n="gLook">外观与语言</span></button>
-          <button type="button" class="sg-btn" data-group="pet"><span data-i18n="gPet">桌面形象</span></button>
+          <button type="button" class="sg-btn" data-group="pet"><span data-i18n="gPet">快捷键</span></button>
           <button type="button" class="sg-btn" data-group="capture"><span data-i18n="gCapture">自动采集</span></button>
           <button type="button" class="sg-btn" data-group="connect"><span data-i18n="sConnect">接进来</span></button>
           <button type="button" class="sg-btn" data-group="engines"><span data-i18n="gEngines">本机引擎</span></button>
@@ -89,6 +89,7 @@
                 <button type="button" data-theme="dark" data-i18n="sThemeDark">暗色</button>
               </div>
             </span></div>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="petHidden" /><span data-i18n="sPetHidden">隐藏桌面形象（可从托盘菜单恢复）</span></span></label>
             </div>
           </section>
           <section class="card-section">
@@ -102,31 +103,13 @@
 
         <!-- ================= 桌面形象 ================= -->
         <div class="sg-pane" data-group="pet">
-          <section class="card-section top">
-            <h2><span data-i18n="sPet">形象</span><span class="info"><i>i</i><span class="tip" data-i18n="sPetHint"></span></span></h2>
-            <div class="body">
-            <div class="pet-pick">
-              <div class="pet-now">
-                <img id="petCurrent" class="pet-avatar" src="../../../assets/pet/avatar.png" alt="" />
-                <div class="pet-now-text">
-                  <b id="petCurrentName"></b>
-                  <span class="muted" id="petStatus"></span>
-                </div>
-                <button type="button" class="btn" id="petReset" data-i18n="sPetReset">恢复默认</button>
-              </div>
-              <div class="fc"><input id="petSearch" type="search" data-i18n-placeholder="sPetSearch" /><span class="st" id="petCount"></span></div>
-              <div id="petGrid" class="pet-grid"></div>
-            </div>
-            <label class="f check wide"><span class="fc"><input type="checkbox" id="petHidden" /><span data-i18n="sPetHidden">隐藏桌面形象（可从托盘菜单恢复）</span></span></label>
-            </div>
-          </section>
           <section class="card-section">
-            <h2><span data-i18n="sShortcut">截图快捷键</span><span class="info"><i>i</i><span class="tip" data-i18n="sGestureHint">桌面形象身上：单击 = 整屏截图，双击 = 框选截图，中键点击或长按 = 开始 / 结束录音。</span></span></h2>
+            <h2><span data-i18n="sShortcut">截图快捷键</span><span class="info"><i>i</i><span class="tip" data-i18n="sGestureHint">点击输入框后按下组合键，改完立刻生效。桌面形象身上：单击 = 整屏截图，双击 = 框选截图，中键点击或长按 = 开始 / 结束录音。</span></span></h2>
             <div class="body">
             <label class="f"><span class="fl" data-i18n="sHotkeyRegion">框选截图</span><span class="fc"><input id="hotkeyRegion" data-i18n-placeholder="sHotkeyPlaceholder" /></span></label>
             <label class="f"><span class="fl" data-i18n="sHotkeyScreen">整屏截图</span><span class="fc"><input id="hotkeyScreen" data-i18n-placeholder="sHotkeyPlaceholder" /></span></label>
             <label class="f"><span class="fl" data-i18n="sHotkeyVoice">开始 / 结束录音</span><span class="fc"><input id="hotkeyVoice" data-i18n-placeholder="sHotkeyPlaceholder" /></span></label>
-            <div class="f wide"><span class="fc"><span class="st" id="hotkeyHint" data-i18n="sHotkeyHint">点击输入框后按下组合键。修改后立即生效。</span><span class="st warn" id="hotkeyError"></span></span></div>
+            <div class="f wide"><span class="fc"><span class="st warn" id="hotkeyError"></span></span></div>
             <label class="f check wide"><span class="fc"><input type="checkbox" id="captureToClipboard" /><span data-i18n="sCaptureClipboard">截图同时复制到系统剪贴板（不会因此重复记录一次）</span></span></label>
             </div>
           </section>
@@ -151,7 +134,6 @@
             <div class="f"><span class="fl" data-i18n="sAutoRecordState">状态</span><span class="fc"><span id="autoRecordState" class="st"></span></span></div>
             <div class="f"><span class="fl" data-i18n="sAutoRecordAllow">白名单</span><span class="fc"><span id="autoRecordAllowList" class="chips"></span><input type="text" id="autoRecordAllowAdd" class="narrow" data-i18n-placeholder="sAutoRecordAllowPh" /><span id="autoRecordBrowsers" class="st"></span><span id="autoRecordNow" class="st"></span></span></div>
             <label class="f check wide"><span class="fc"><input type="checkbox" id="diarize" /><span data-i18n="sDiarizeOn">区分录音里的不同说话人（首次会下载约 35 MB 模型）</span></span></label>
-            <div id="speakerList" class="hw indent"></div>
             </div>
           </section>
           <section class="card-section">
@@ -228,25 +210,27 @@
             <label class="f"><span class="fl" data-i18n="sMirror">模型下载镜像（可选）</span><span class="fc"><input id="hfMirror" placeholder="https://hf-mirror.com/" /></span></label>
             </div>
           </section>
-          <section class="card-section setup top">
+          <section class="card-section setup start">
             <h2><span data-i18n="sSetup">本机准备情况</span><span class="info"><i>i</i><span class="tip" data-i18n="sSetupHint">这些都是自动完成的：检查电脑、准备文字识别和语音识别引擎，全部在本机运行。下面每一项都可以自己改。</span></span></h2>
             <div class="body">
             <div id="setupPanel" class="setup-panel">
-              <div class="bar"><i></i></div>
+              <div class="bar hidden"><i></i></div>
               <div class="setup-now"><span id="setupNow"></span></div>
               <ol id="setupSteps" class="steps"></ol>
               <ul id="setupSummary" class="summary hidden"></ul>
-              <details id="setupLogBox" class="loginfo"><summary data-i18n="sSetupLog">查看详细日志</summary><pre id="setupLog" class="log"></pre></details>
+              <details id="setupLogBox" class="loginfo hidden"><summary data-i18n="sSetupLog">查看详细日志</summary><pre id="setupLog" class="log"></pre></details>
               <div class="acts"><button type="button" class="btn" id="btnSetup" data-i18n="sSetupRecheck">重新检查</button></div>
             </div>
             </div>
           </section>
         </div>
 
-        <!-- ================= AI 服务 ================= -->
+        <!-- ================= AI 服务 =================
+             一组一段：先选来源，再只显示这个来源自己的设置（.panel.active 是 display:contents，
+             所以里面的 section 和别的组同一条竖线、同一个间距），Ollama 的模型单开一段。 -->
         <div class="sg-pane" data-group="ai">
           <section class="card-section">
-            <h2><span data-i18n="sAI">AI 服务（标题、每日摘要 & 问答）</span><span class="info"><i>i</i><span class="tip" data-i18n="sAIHint">没有配置 AI 服务时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。</span></span></h2>
+            <h2><span data-i18n="sAI">AI 服务</span><span class="info"><i>i</i><span class="tip" data-i18n="sAIHint">没有配置 AI 服务时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。</span></span></h2>
             <div class="body">
             <label class="f"><span class="fl" data-i18n="sProvider">来源</span><span class="fc">
               <select id="provider">
@@ -257,8 +241,17 @@
               </select>
               <span id="providerConfigured" class="st"></span>
             </span></label>
+            <div class="f"><span class="fl" data-i18n="sTestKey">测试</span><span class="fc">
+              <button type="button" class="btn" id="btnTestProvider" data-i18n="sTestRun">问它一句</button>
+              <span id="providerTestStatus" class="st"></span>
+            </span></div>
+            </div>
+          </section>
 
-            <div id="panel-anthropic" class="panel">
+          <div id="panel-anthropic" class="panel">
+            <section class="card-section">
+              <h2>Claude</h2>
+              <div class="body">
               <label class="f"><span class="fl" data-i18n="sAnthropicAuth">登录方式</span><span class="fc">
                 <select id="anthropicAuth">
                   <option value="apiKey">API Key</option>
@@ -266,7 +259,7 @@
                 </select>
               </span></label>
               <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc"><select id="model"></select></span></label>
-              <label class="f" id="rowApiKey"><span class="fl" data-i18n="sApiKey">Anthropic API Key</span><span class="fc">
+              <label class="f" id="rowApiKey"><span class="fl">API Key</span><span class="fc">
                 <input id="apiKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
                 <button type="button" class="btn" id="btnClearKey" data-i18n="sClearKey">清除</button>
                 <span class="st" id="apiKeyStatus"></span>
@@ -275,10 +268,15 @@
                 <button type="button" class="btn" id="btnAnthropicLogin" data-i18n="sAnthropicLogin">用浏览器登录 Claude 账号</button>
                 <span id="anthropicAccountStatus" class="st"></span>
               </span></div>
-            </div>
+              </div>
+            </section>
+          </div>
 
-            <div id="panel-openrouter" class="panel">
-              <label class="f"><span class="fl" data-i18n="sOpenrouterKey">OpenRouter API Key</span><span class="fc">
+          <div id="panel-openrouter" class="panel">
+            <section class="card-section">
+              <h2>OpenRouter</h2>
+              <div class="body">
+              <label class="f"><span class="fl">API Key</span><span class="fc">
                 <input id="openrouterKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
                 <button type="button" class="btn primary" id="btnOpenrouterLogin" data-i18n="sOpenrouterLogin">用 OpenRouter 账号登录</button>
                 <button type="button" class="btn" id="btnClearOpenrouterKey" data-i18n="sClearKey">清除</button>
@@ -290,27 +288,42 @@
                 <button type="button" class="btn" id="btnOpenrouterModels" data-i18n="sRefreshModels">刷新模型列表</button>
                 <span class="st" id="openrouterModelInfo"></span>
               </span></label>
-            </div>
+              </div>
+            </section>
+          </div>
 
-            <div id="panel-ollama" class="panel">
-              <label class="f"><span class="fl" data-i18n="sOllamaHost">Ollama 地址</span><span class="fc">
+          <div id="panel-ollama" class="panel">
+            <section class="card-section">
+              <h2>Ollama<span class="info"><i>i</i><span class="tip" data-i18n="sOllamaHint">Ollama 是在你自己电脑上跑模型的程序。装好并启动之后，briffy 就完全离线工作。</span></span></h2>
+              <div class="body">
+              <label class="f"><span class="fl" data-i18n="sOllamaHost">地址</span><span class="fc">
                 <input id="ollamaHost" placeholder="http://127.0.0.1:11434" />
                 <button type="button" class="btn" id="btnDetect" data-i18n="sDetect">重新检测</button>
               </span></label>
-              <div id="hwBox" class="hw"></div>
+              <div class="f"><span class="fl" data-i18n="sState">状态</span><span class="fc">
+                <span id="ollamaState" class="st"></span>
+              </span></div>
               <div class="f wide" id="ollamaSetup"><span class="fc">
                 <button type="button" class="btn primary" id="btnInstallOllama" data-i18n="sInstallOllama">一键安装 Ollama</button>
                 <button type="button" class="btn" id="btnStartOllama" data-i18n="sStartOllama">启动 Ollama</button>
                 <button type="button" class="btn" id="btnDownloadOllama" data-i18n="sDownloadOllama">手动下载</button>
               </span></div>
-              <div id="ollamaJob" class="job indent hidden">
-                <div class="job-head"><span id="jobLabel"></span><span id="jobNumbers" class="muted"></span></div>
-                <div class="bar"><i id="jobBar"></i></div>
-                <details id="jobLogBox" class="loginfo"><summary data-i18n="sShowLog">查看详细日志</summary><pre id="installLog" class="log"></pre></details>
+              <div class="f wide"><span class="fc">
+                <div id="ollamaJob" class="job hidden">
+                  <div class="job-head"><span id="jobLabel"></span><span id="jobNumbers" class="muted"></span></div>
+                  <div class="bar"><i id="jobBar"></i></div>
+                  <details id="jobLogBox" class="loginfo"><summary data-i18n="sShowLog">查看详细日志</summary><pre id="installLog" class="log"></pre></details>
+                </div>
+              </span></div>
               </div>
-              <div id="resumePull" class="resume indent hidden"></div>
-              <h4 data-i18n="sModels">模型</h4>
-              <div id="modelCards" class="cards"></div>
+            </section>
+
+            <section class="card-section start">
+              <h2><span data-i18n="sModels">模型</span><span class="info"><i>i</i><span class="tip" data-i18n="sModelsHint">三档是按这台电脑的内存和显卡算出来的：轻松＝几乎不占资源，勉强＝能加载但会慢。分数来自公开评测榜（ifeval 看它照不照你说的格式答，mmlu-pro 看它知不知道），不是按名字猜的。</span></span></h2>
+              <div class="body">
+              <div id="hwBox" class="hw"></div>
+              <div id="resumePull" class="resume hidden"></div>
+              <div id="modelCards" class="mdl"></div>
               <p class="st" id="modelsNote"></p>
               <details class="why"><summary data-i18n="sOtherModel">用别的模型（手动填名称）</summary>
                 <div class="fc">
@@ -322,24 +335,24 @@
               </details>
               <div id="pullProgress" class="st"></div>
               <p class="st" id="ollamaTip"></p>
-            </div>
+              </div>
+            </section>
+          </div>
 
-            <div id="panel-custom" class="panel">
-              <label class="f"><span class="fl" data-i18n="sCustomBase">接口地址（base URL）</span><span class="fc"><input id="customBaseUrl" placeholder="http://127.0.0.1:1234/v1" /></span></label>
+          <div id="panel-custom" class="panel">
+            <section class="card-section">
+              <h2><span data-i18n="sProviderCustom">自定义 OpenAI 兼容接口</span></h2>
+              <div class="body">
+              <label class="f"><span class="fl" data-i18n="sCustomBase">接口地址</span><span class="fc"><input id="customBaseUrl" placeholder="http://127.0.0.1:1234/v1" /></span></label>
               <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc"><input id="customModel" placeholder="model name" /></span></label>
-              <label class="f"><span class="fl" data-i18n="sCustomKey">API Key（可选）</span><span class="fc">
+              <label class="f"><span class="fl">API Key</span><span class="fc">
                 <input id="customKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
                 <button type="button" class="btn" id="btnClearCustomKey" data-i18n="sClearKey">清除</button>
                 <span class="st" id="customKeyStatus"></span>
               </span></label>
-            </div>
-
-            <div class="f wide"><span class="fc">
-              <button type="button" class="btn" id="btnTestProvider" data-i18n="sTestKey">测试</button>
-              <span id="providerTestStatus" class="st"></span>
-            </span></div>
-            </div>
-          </section>
+              </div>
+            </section>
+          </div>
         </div>
 
         <!-- ================= 工作区与关于 ================= -->

@@ -11,16 +11,12 @@
 <body>
   <div id="pet" class="pet state-idle" title="单击截图 · 双击框选 · 中键或长按录音 · 拖入文件存入工作区 · 右键菜单">
     <div class="float">
-      <div class="frame">
-        <img class="avatar" src="../../../assets/pet/avatar.png" alt="" draggable="false" />
-        <!-- briffy drawing itself, when the frame still holds briffy. Same box as the <img>, so the
-             peek gesture moves either one. See assets/brand/briffy-anim.js -->
-        <div class="avatar live"></div>
-        <div class="flash"></div>
-      </div>
+      <!-- 就是它自己：整只回形针，透明底，没有相框也没有图片。见 assets/brand/briffy-anim.js -->
+      <div class="body" id="body"></div>
       <div class="ring"></div>
       <div class="dots"><span></span><span></span><span></span></div>
       <div class="badge"></div>
+      <div class="catch"></div>
     </div>
   </div>
   <script src="../../../assets/brand/briffy-anim.js"></script>

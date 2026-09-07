@@ -147,12 +147,18 @@ workspace/
 ```bash
 npm run fetch-models   # 下载要内置进安装包的英文语音 + 中英 OCR 模型（约 47 MB，只需一次）
 npm run dist:win       # Windows NSIS 安装包，输出到 release/
-npm run dist:mac       # macOS dmg（需在 macOS 上执行）
+npm run release:mac    # macOS：签名 + 公证 + dmg，然后自动验一遍（需在 macOS 上执行）
+npm run pack           # 本地快包：签名但不公证，用来试一下打出来的东西
+npm run verify:mac     # 单独验一个已经打好的 .app
 ```
 
-`dist:*` 会自动先跑 `fetch-models`。`bundled-models/` 不进版本库。
+`dist:*` / `release:mac` 会自动先跑 `fetch-models`。`bundled-models/` 不进版本库。
 
 原生依赖（onnxruntime、tesseract 的 wasm）已在 `package.json > build.asarUnpack` 中声明。
+
+**macOS 发布**见 [docs/RELEASE.md](docs/RELEASE.md)：签名用 `Developer ID Application`，包 arm64、最低 macOS 13，公证要三个环境变量——**缺了 electron-builder 只打印一行 `skipped macOS notarization` 就继续**，打出来的包在本机照样打开，到别人机器上打不开。`npm run verify:mac`（[dev/mac-release-check.js](dev/mac-release-check.js)）就是拦这个的：它按 Gatekeeper 的顺序把签名、嵌进签名里的 entitlements、Info.plist 里每条权限说明、`app.asar.unpacked` 里 11 个原生库的签名、公证票和 `spctl` 判定全过一遍，全绿才发。
+
+**Mac App Store 过不了**，原因不是配置而是沙箱：滚动长截图要辅助功能、窗口归属和 Vision 要 Apple 事件、分片流合并要 ffmpeg、扩展要侧载——沙箱一个都不给。逐条的替代方案、砍完之后 MAS 版长什么样、以及构建侧要补的证书和描述文件，都在 [docs/app-store/mas-blockers.md](docs/app-store/mas-blockers.md)。隐私政策 [docs/PRIVACY.md](docs/PRIVACY.md)，App Privacy 逐项申报 [docs/app-store/app-privacy.md](docs/app-store/app-privacy.md)。
 
 ## 浏览器扩展（采集网页图片 / 视频）
 
@@ -261,6 +267,24 @@ npm run pet -- frames --from assets/pet/raw/B1.png   # 选定后画 8 帧
 ```
 
 需要画图模型的 Key：`OPENAI_API_KEY`（`gpt-image-2`，能直接出透明底）、`GEMINI_API_KEY` 或 `OPENROUTER_API_KEY`（出纯色底，由 `scripts/pet-cutout.js` 抠掉）。`npm run pet:electron -- identity` 会走 Electron，直接复用设置里存好的 OpenRouter Key。抠图是从四条边往里漫水填充，角色内部和背景同色的地方不会被误抠，边缘按颜色距离给半透明并反解掉溢色。走这条路要另外改 `pet.css`，把圆框换成透明贴图。
+
+## 官网
+
+**<https://briffy.cc>**（中文）· **<https://briffy.cc/en/>**（English）
+
+`site/` 是一份双语源文件，发布出去是**两个真正的单语页面**——一个页面服务两种语言，
+链接分不开、搜索引擎收不进去、分享出去的标题永远是其中一种。
+
+```bash
+node dev/preview/serve.js   # 看源文件：http://localhost:5173/site/
+npm run site                # 切成两页：site-dist/
+npm run deploy              # 切完直接发到 briffy.cc
+```
+
+发布走 **Workers 静态资源**（[wrangler.jsonc](wrangler.jsonc)），域名写在 `routes` 里，
+部署时 Cloudflare 自己建 DNS 记录、签证书。站点服从和应用同一套视觉标准，
+`site/paper/tokens.css` 和 `site/briffy-anim.js` 是 `assets/` 的拷贝（和 `extension/paper/` 同一个道理）。
+细节见 [site/README.md](site/README.md)。
 
 ## 界面预览（改样式用）
 

@@ -13,41 +13,75 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: transparent;
 /* 进场：面板从它靠着的那条屏幕边滑出来，然后停住。曲线足够长，读起来是"移动"而不是"跳出来"。
    一张纸不会淡入，所以只有位移，没有缩放 */
 #panel {
-  position: absolute; top: 0; right: 0; bottom: 0; width: 262px;
+  /* 面板和头像之间留 10px：窗口是一直探到头像上沿的（见 windows.js layoutShelf），
+     那 10px 属于这扇窗，所以指针从头像挪过来的路上不会掉进「谁也不在」的地带 */
+  position: absolute; top: 0; right: 0; bottom: 10px; width: 262px;
   display: flex; flex-direction: column;
   background: var(--slip);
   transform: translate3d(0, 14px, 0); opacity: 0;
-  transition: transform .26s cubic-bezier(.16, 1, .3, 1), opacity .18s ease-out;
+  transition: transform .22s cubic-bezier(.16, 1, .3, 1), opacity .14s ease-out;
 }
 body.in #panel { transform: translate3d(0, 0, 0); opacity: 1; }
 
-/* 每行比面板慢一点点，前几条错开，读起来是一次移动落定而不是一整块出现。
-   封顶：第八条之后，延迟会比滑动本身还长 */
-.card { opacity: 0; transform: translate3d(10px, 0, 0); transition: opacity .2s ease-out, transform .3s cubic-bezier(.16, 1, .3, 1); }
-body.in .card { opacity: 1; transform: none; transition-delay: calc(var(--i, 0) * 18ms + 40ms); }
+/* 每条不再各自错开入场：十五条各带一个 transition-delay，最后一条要等到 180ms 之后才动，
+   整块读起来就是「慢」。现在整张纸一起滑进来，一次 220ms 结束。 */
+@media (prefers-reduced-motion: reduce) { #panel { transition: none; } }
 
-@media (prefers-reduced-motion: reduce) { #panel, .card { transition: none; } }
-
-.list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: var(--a3) var(--a2); display: flex; flex-direction: column; gap: 1px; }
+.list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: var(--a3) var(--a3) var(--a2); display: flex; flex-direction: column; gap: var(--a2); }
 .list::-webkit-scrollbar { width: 6px; }
 .list::-webkit-scrollbar-thumb { background: var(--tone-2); }
 
-/* 一条记录：左边一张小图或一个图标，右边标题和一行铅笔字。经过时纸色深一阶——它没有抬起来 */
-.card { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px; align-items: center;
-  padding: var(--a2) 10px; cursor: grab; transition: background .12s; }
-.card:hover { background: var(--tone); }
+/* 每条记录是一张便签，和工作区里同一套纸：--slip 的底 + --e1 的影、直角、无边框。
+   五种纸各带自己的那一件物证（磁带 / 书签舌 / 撕口 / 装订孔 / 折角），
+   只是这里只有 238px 宽，所以物证都收小一号。 */
+/* `flex: none` 不能少：.list 是竖着的 flex，装不下的时候每个孩子默认会被压扁，
+   而卡片里那张 84px 的图不跟着压——于是图溢出自己那张卡，盖住下面一张。
+   卡片不压扁，列表自己滚就是了。 */
+.card { position: relative; flex: none; background: var(--slip); box-shadow: var(--e1); padding: 10px 12px;
+  min-height: 58px; display: flex; flex-direction: column; justify-content: center;
+  cursor: grab; transition: box-shadow .12s, transform .12s; }
+.card:hover { box-shadow: var(--e2); transform: translateY(-2px); }
 .card:active { cursor: grabbing; }
 .card.copied { background: var(--marker); }
-.card .th { width: 42px; height: 36px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.card .th:has(img) { background: var(--slip-2); }
-.card .th:not(:has(img)) { filter: grayscale(1); opacity: .75; }   /* emoji 是贴纸；印在纸上，它是灰的 */
-.card .th img { width: 100%; height: 100%; object-fit: cover; display: block; -webkit-user-drag: none; }
-/* block，不是 flex column：flex 子项的 display 会被块化，.t 上的 -webkit-line-clamp 会失效 */
 .card .tx { min-width: 0; display: block; }
-.card .t { font-size: var(--fs-act); font-weight: var(--w-title); line-height: 1.35; overflow: hidden;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-word; }
-.card .m { display: block; margin-top: 2px; font-size: var(--fs-meta); color: var(--ink-3);
-  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .t { font-size: var(--fs-act); font-weight: var(--w-title); line-height: 1.4; color: var(--ink);
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; word-break: break-word; }
+.card .m { display: block; margin-top: 3px; font-size: var(--fs-meta); color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .tm { position: absolute; right: 10px; bottom: 7px;
+  font: 400 var(--fs-meta)/1 var(--sans); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.card img { display: block; flex: none; width: 100%; height: 84px; object-fit: cover; -webkit-user-drag: none; }
+
+/* 截图：一张拍立得——白边包着画面，底边更宽，时间写在那道宽边上 */
+.k-shot { padding: 6px 6px 20px; }
+/* 录音：底边一条磁粉 */
+.k-voice { padding-bottom: 20px; }
+.k-voice::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 14px; background: var(--evid); }
+.k-voice .tm { bottom: 2px; color: var(--slip); }
+/* 随手记：便利贴的黄，右下角折起来 */
+.k-note { background: var(--p-note); }
+.k-note::after { content: ''; position: absolute; right: 0; bottom: 0; width: 14px; height: 14px;
+  background: var(--p-note-2); clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+/* 收藏：左上垂下一条深色书签带 */
+.k-mark { padding-left: 24px; }
+.k-mark::before { content: ''; position: absolute; left: 10px; top: 0; width: 8px; height: 26px;
+  background: var(--evid); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%); }
+/* 剪贴板：撕下来的一片，上下都撕。box-shadow 只会画矩形，所以影子改用 drop-shadow */
+.k-clip { box-shadow: none; padding: 14px 12px 18px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .10)) drop-shadow(0 4px 10px rgba(0, 0, 0, .10));
+  clip-path: polygon(0 6px, 8% 1px, 17% 5px, 26% 1px, 35% 6px, 44% 2px, 53% 7px, 62% 1px, 71% 5px, 80% 2px, 89% 6px, 100% 2px,
+    100% calc(100% - 3px), 91% calc(100% - 7px), 82% calc(100% - 1px), 73% calc(100% - 6px), 64% calc(100% - 2px),
+    55% calc(100% - 7px), 46% calc(100% - 1px), 37% calc(100% - 5px), 28% calc(100% - 2px), 19% calc(100% - 7px),
+    10% calc(100% - 1px), 0 calc(100% - 5px)); }
+.k-clip:hover { box-shadow: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .12)) drop-shadow(0 10px 22px rgba(0, 0, 0, .13)); }
+/* 文件：左边两个打穿的装订孔，透出底纸色，各自带一道内凹的影 */
+.k-file { padding-left: 26px; }
+.k-file::before, .k-file::after { content: ''; position: absolute; left: 8px; width: 9px; height: 9px;
+  background: var(--page); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .30), inset 0 -1px 0 rgba(255, 255, 255, .5); }
+.k-file::before { top: 32%; }
+.k-file::after { bottom: 32%; }
+
 .empty { color: var(--ink-3); text-align: center; padding: 44px var(--a3); font-size: var(--fs-act); line-height: 1.7; }
 
 .open { flex: none; margin: var(--a1) var(--a3) var(--a3); display: flex; align-items: center; justify-content: center; gap: 7px;

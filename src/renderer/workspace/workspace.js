@@ -42,9 +42,7 @@
       autoWaiting: '等着——没有别的软件在用麦克风', autoBecause: '因为 {who} 正在用麦克风',
       sAutoRecordHint: '不是一直听着房间——briffy 平时不碰麦克风，只有当**白名单里的软件打开了麦克风**时才跟着录一段，对方一关，它也关。所以手机上的游戏、屋里的电视不会被录进来。默认名单是会议和通话软件；输入法永远不算，它的语音输入产出的是文字，那些字已经打在你要写的地方了。浏览器按**站点**放行（meet.google.com 这样），不是整个浏览器——否则网页里的语音输入也会被录。名单留空＝除排除的以外都跟着录。常驻只是每 5 秒问一次系统「现在谁在用麦克风」，实测一次 10 毫秒。会录到通话里对方的声音，很多地方这需要对方同意。',
       autoOff: '未开启', autoIdle: '在听（{mic}）', autoSpeech: '正在录…', autoDenied: '没有麦克风权限', autoFailed: '启动失败',
-      sDiarizeOn: '区分录音里的不同说话人（首次会下载约 35 MB 模型）',
-      speakersHead: '认识的声音', speakerUnnamed: '（未命名）', speakerName: '起个名字', speakerHeard: '共 {n}',
-      speakersNone: '还没听到过任何声音。开启后，录音里的每个人会自动分开，给谁起过名字以后都认得。', contextNow: '现在：{app}{window}', contextNoTitle: '读不到窗口标题（需要在「系统设置 › 隐私与安全性 › 辅助功能」里勾上 briffy）', contextNone: '这台电脑读不到前台应用',
+      sDiarizeOn: '区分录音里的不同说话人（首次会下载约 35 MB 模型）', contextNow: '现在：{app}{window}', contextNoTitle: '读不到窗口标题（需要在「系统设置 › 隐私与安全性 › 辅助功能」里勾上 briffy）', contextNone: '这台电脑读不到前台应用',
       selectMode: '选择', selectDone: '完成', selectAll: '全选', selectNone: '取消选择', deleteSelected: '删除所选',
       nSelected: '已选 {n} 项', confirmDeleteMany: '删除选中的 {n} 条记录（及其文件副本）？', deletedN: '已删除 {n} 条',
       dayCount: '{n} 条', jumpTo: '{time} · {title}', today: '今天', yesterday: '昨天',
@@ -80,7 +78,7 @@
       sOcrSection: '文字识别', sDownloads: '模型下载', sDropped: '拖进来的图片',
       sDroppedHint: '截图一定会做文字识别；拖进来或复制来的图片可以选择要不要。识别不出文字的图片，会由本机分类器说出画面里有什么。',
       sDownloadsHint: '文字识别和语音识别的模型都在第一次用到时下载到本机，之后完全离线。网络不通时可以填一个镜像。',
-      gLook: '外观与语言', gPet: '桌面形象', gAI: 'AI 服务', gEngines: '本机引擎', gCapture: '自动采集', gAbout: '工作区与关于',
+      gLook: '外观与语言', gPet: '快捷键', gAI: 'AI 服务', gEngines: '本机引擎', gCapture: '自动采集', gAbout: '工作区与关于',
       sAI: 'AI 服务', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)', sProviderCustom: '自定义 OpenAI 兼容接口',
       sAnthropicAuth: '登录方式', sAccountOption: '已登录的 Claude 账号（ant auth login）', sAnthropicLogin: '用浏览器登录 Claude 账号',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: '用 OpenRouter 账号登录', sRefreshModels: '刷新模型列表',
@@ -94,7 +92,9 @@
       loginWaiting: '已打开浏览器，请在页面里完成登录…', loginOk: '登录成功，Key 已保存',
       hwLocal: '本机', hwCores: '{n} 线程', hwNoGpu: '未检测到', hwRecommend: '推荐', hwAlternatives: '备选',
       ollamaRunning: '运行中 {version}', ollamaInstalled: '已安装：{models}', ollamaNoModels: '还没有模型，点「下载模型」',
-      sModels: '模型', sOtherModel: '用别的模型（手动填名称）', fitEasy: '轻松跑', fitOk: '跑得动', fitTight: '勉强，会慢', fitNo: '这台跑不动',
+      sModels: '模型', sOtherModel: '用别的模型（手动填名称）', sState: '状态', sTestRun: '问它一句',
+      sOllamaHint: 'Ollama 是在你自己电脑上跑模型的程序。装好并启动之后，briffy 就完全离线工作。',
+      sModelsHint: '三档是按这台电脑的内存和显卡算出来的：轻松＝几乎不占资源，勉强＝能加载但会慢。分数来自公开评测榜（ifeval 看它照不照你说的格式答，mmlu-pro 看它知不知道），不是按名字猜的。', fitEasy: '轻松跑', fitOk: '跑得动', fitTight: '勉强，会慢', fitNo: '这台跑不动',
       tierEasy: '轻松', tierEasyWhy: '几乎不占资源，答得最快', tierMedium: '适中', tierMediumWhy: '这台电脑的合适档位', tierStretch: '勉强', tierStretchWhy: '能加载，但会慢',
       mdScored: '评测 {n} 分',
       mdInstalled: '已下载', mdUse: '使用', mdInUse: '正在用', mdGet: '下载', mdDelete: '删除', mdRecommended: '最适合这台电脑', mdVision: '能看图', mdTextOnly: '只读文字', mdLive: '来自 Ollama 官方库，按公开评测榜和这台电脑排序（{n} 个模型有实测分）· 每天更新', mdCached: '离线，用的是上次缓存的列表',
@@ -172,9 +172,7 @@
       autoWaiting: 'Waiting — nothing else is using the microphone', autoBecause: 'because {who} is using the microphone',
       sAutoRecordHint: 'Not an open microphone on the room: briffy does not touch the mic until **an app on the list opens it**, records alongside it, and lets go when that app does. A game on your phone or a TV in the room will not be recorded. The list starts as meeting and call apps. An input method never counts — what its voice input produces is text, already typed where you wanted it. Browsers are allowed by **site** (meet.google.com), not as a whole, or voice typing on any web page would be recorded too. An empty list means: follow anything not excluded. All it runs is a 10 ms question to the system every 5 seconds: who is using the microphone. It will capture the other side of a call, which in many places needs their consent.',
       autoOff: 'off', autoIdle: 'listening ({mic})', autoSpeech: 'recording…', autoDenied: 'no microphone permission', autoFailed: 'could not start',
-      sDiarizeOn: 'Tell the speakers in a recording apart (fetches about 35 MB the first time)',
-      speakersHead: 'Voices briffy knows', speakerUnnamed: '(unnamed)', speakerName: 'give a name', speakerHeard: '{n} in total',
-      speakersNone: 'No voices yet. Once this is on, everyone in a recording is separated, and anyone you name stays named.', contextNow: 'Right now: {app}{window}', contextNoTitle: 'Cannot read the window title (tick briffy under System Settings > Privacy & Security > Accessibility)', contextNone: 'This machine cannot report the front app',
+      sDiarizeOn: 'Tell the speakers in a recording apart (fetches about 35 MB the first time)', contextNow: 'Right now: {app}{window}', contextNoTitle: 'Cannot read the window title (tick briffy under System Settings > Privacy & Security > Accessibility)', contextNone: 'This machine cannot report the front app',
       selectMode: 'Select', selectDone: 'Done', selectAll: 'Select all', selectNone: 'Clear', deleteSelected: 'Delete selected',
       nSelected: '{n} selected', confirmDeleteMany: 'Delete the {n} selected entries (and their stored copies)?', deletedN: 'Deleted {n}',
       dayCount: '{n} records', jumpTo: '{time} · {title}', today: 'Today', yesterday: 'Yesterday',
@@ -210,7 +208,7 @@
       sOcrSection: 'Text recognition', sDownloads: 'Model downloads', sDropped: 'Pictures you drop in',
       sDroppedHint: 'Screenshots are always read for text; pictures you drop or copy in are up to you. A picture with no text is described by the classifier on this machine instead.',
       sDownloadsHint: 'The text and speech models download on first use and run offline afterwards. Fill in a mirror if the download cannot reach it.',
-      gLook: 'Look & language', gPet: 'Desktop mark', gAI: 'AI service', gEngines: 'On-device engines', gCapture: 'What gets recorded', gAbout: 'Workspace & about',
+      gLook: 'Look & language', gPet: 'Shortcuts', gAI: 'AI service', gEngines: 'On-device engines', gCapture: 'What gets recorded', gAbout: 'Workspace & about',
       sAI: 'AI service', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)', sProviderCustom: 'Custom OpenAI-compatible endpoint',
       sAnthropicAuth: 'Sign in with', sAccountOption: 'Signed-in Claude account (ant auth login)', sAnthropicLogin: 'Sign in to Claude in the browser',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: 'Sign in with OpenRouter', sRefreshModels: 'Refresh model list',
@@ -224,7 +222,9 @@
       loginWaiting: 'Browser opened – finish signing in there…', loginOk: 'Signed in, key saved',
       hwLocal: 'This machine', hwCores: '{n} threads', hwNoGpu: 'none detected', hwRecommend: 'Recommendation', hwAlternatives: 'Alternatives',
       ollamaRunning: 'running {version}', ollamaInstalled: 'installed: {models}', ollamaNoModels: 'no models yet – click "Download model"',
-      sModels: 'Models', sOtherModel: 'Use a different model (type its name)', fitEasy: 'runs easily', fitOk: 'runs fine', fitTight: 'tight, will be slow', fitNo: 'too big for this machine',
+      sModels: 'Models', sOtherModel: 'Use a different model (type its name)', sState: 'Status', sTestRun: 'Ask it something',
+      sOllamaHint: 'Ollama is the program that runs models on your own machine. Once it is installed and running, briffy works entirely offline.',
+      sModelsHint: 'The three shelves are cut for this machine\u2019s memory and graphics: comfortable means it barely uses the machine, a stretch means it loads but will be slow. Scores come from public leaderboards (ifeval for following the shape you asked for, mmlu-pro for knowing things), not guessed from the name.', fitEasy: 'runs easily', fitOk: 'runs fine', fitTight: 'tight, will be slow', fitNo: 'too big for this machine',
       tierEasy: 'Comfortable', tierEasyWhy: 'barely uses the machine, answers fastest', tierMedium: 'Balanced', tierMediumWhy: 'the right trade for this machine', tierStretch: 'A stretch', tierStretchWhy: 'it loads, but it will be slow',
       mdScored: 'scored {n}',
       mdInstalled: 'downloaded', mdUse: 'Use', mdInUse: 'in use', mdGet: 'Download', mdDelete: 'Delete', mdRecommended: 'best fit for this machine', mdVision: 'reads images', mdTextOnly: 'text only', mdLive: "From Ollama's library, ranked by public benchmarks and this machine ({n} scored) · refreshed daily", mdCached: 'Offline — showing the last cached list',
@@ -265,7 +265,7 @@
 
   const state = {
     meta: null, settings: null, ui: 'zh', entries: [], dates: [], selectedId: null, editing: false,
-    query: '', date: '', sources: [], pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
+    query: '', date: '', source: '', pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
     selecting: false, picked: new Set(),
     view: 'grid',
     boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
@@ -315,7 +315,6 @@
     // the margin carries the tools for the entries page only; the css hides them elsewhere
     document.body.dataset.tab = tab;
     for (const s of document.querySelectorAll('.tab')) s.classList.toggle('active', s.id === `tab-${tab}`);
-    if (tab === 'settings' && document.querySelector('.sg-btn.active')?.dataset.group === 'pet') loadPetPicker().catch(() => {});
     // 进「问」这一页要把已有的对话画出来。以前只 focus 不渲染，第一次进去就是一整片空白——
     // 而输入框那只托盘当时也被 CSS 藏着，于是那一页既没有内容也没有地方打字。
     if (tab === 'ask') { renderAsk(); setTimeout(() => $('#askInput').focus(), 0); }
@@ -324,6 +323,7 @@
     if (tab === 'settings') renderConnect();
     if (tab === 'entries' && state.view === 'grid' && jgWidth !== gridWidth()) scheduleGrid();
   }
+
 
   // ---------- 接进来：Notion / Gmail ----------
   //
@@ -467,79 +467,22 @@
   // pet wears. Only ids, names and background colours cross IPC (~250 KB); the pictures
   // load lazily from the CDN and the grid grows as it is scrolled, so opening the tab is
   // instant even at 3448 entries. Picking one downloads that single original into userData.
-  const petLib = { logos: [], thumb: '', current: '', avatarUrl: '', filtered: [], shown: 0, loaded: false };
-
-  // the one picture the pet wears, shown in the sidebar and in the picker's current slot;
-  // it is the local file main already mirrored and resized, never the CDN thumbnail
-  function setAvatarEverywhere(url) {
-    if (!url) return;
-    petLib.avatarUrl = url;
-    $('#brandAvatar').src = url;
-    $('#petCurrent').src = url;
-  }
-  const PET_PAGE = 240;
-
-  async function loadPetPicker() {
-    if (petLib.loaded) return;
-    petLib.loaded = true;
-    const c = await ws.petCatalog();
-    petLib.logos = c.logos || [];
-    petLib.thumb = c.thumb || '';
-    petLib.current = c.current || '';
-    filterPets($('#petSearch').value || '');
-    renderPetCurrent();
-  }
-
-  const petThumb = (k) => petLib.thumb.replace('{k}', k);
-
-  function filterPets(query) {
-    const q = query.trim().toLowerCase();
-    petLib.filtered = q ? petLib.logos.filter((l) => l.n.toLowerCase().includes(q)) : petLib.logos;
-    petLib.shown = 0;
-    const grid = $('#petGrid');
-    grid.innerHTML = '';
-    grid.scrollTop = 0;
-    $('#petCount').textContent = t('sPetCount', { n: petLib.filtered.length });
-    growPetGrid();
-  }
-
-  function growPetGrid() {
-    const grid = $('#petGrid');
-    if (!petLib.filtered.length) { grid.innerHTML = `<p class="muted pet-empty">${esc(t('sPetNone'))}</p>`; return; }
-    const next = petLib.filtered.slice(petLib.shown, petLib.shown + PET_PAGE);
-    if (!next.length) return;
-    grid.insertAdjacentHTML('beforeend', next.map((l) =>
-      `<button type="button" class="pet-cell${l.k === petLib.current ? ' on' : ''}" data-k="${esc(l.k)}" `
-      + `style="background-color:${esc(l.bg)}" title="${esc(l.n)}">`
-      + `<img loading="lazy"${l.f ? ' class="flip"' : ''} src="${esc(petThumb(l.k))}" alt="" /></button>`).join(''));
-    petLib.shown += next.length;
-  }
-
-  function renderPetCurrent() {
-    const cur = petLib.logos.find((l) => l.k === petLib.current);
-    if (petLib.avatarUrl) $('#petCurrent').src = petLib.avatarUrl;
-    $('#petCurrentName').textContent = cur ? cur.n : t('sPetDefault');
-    $('#petReset').disabled = !petLib.current;
-    for (const b of document.querySelectorAll('.pet-cell')) b.classList.toggle('on', b.dataset.k === petLib.current);
-  }
-
-  async function pickPet(key) {
-    const grid = $('#petGrid');
-    grid.classList.add('busy');
-    $('#petStatus').textContent = t('petApplying');
-    const r = await ws.petSetAvatar(key);
-    grid.classList.remove('busy');
-    if (!r || !r.ok) { $('#petStatus').textContent = t('petFailed', { err: (r && r.error) || '?' }); return; }
-    petLib.current = key;
-    setAvatarEverywhere(r.avatarUrl);
-    renderPetCurrent();
-    $('#petStatus').textContent = t('petApplied');
-  }
+  // 形象图库删了（2026-09-06）：常驻形象现在自己画自己（briffy-anim.js 的 body: 'full'），
+  // 从 3448 个 logo 里挑一个不会有任何变化——一块点了没反应的界面比没有这块更糟。
+  function setAvatarEverywhere(url) { if (url) $('#brandAvatar').src = url; }
 
   // ---------- entries ----------
   async function loadEntries() {
     state.dates = await ws.listDates();
-    state.entries = await ws.listEntries({ query: state.query, dates: state.date ? [state.date] : null, sources: state.sources, pinned: state.pinned });
+    // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了，
+    // 那就是剪贴板。要看它，点那一格。
+    state.entries = await ws.listEntries({
+      query: state.query,
+      dates: state.date ? [state.date] : null,
+      sources: state.source && state.source !== 'pinned' ? [state.source] : null,
+      exclude: state.source ? null : ['clipboard'],
+      pinned: state.source === 'pinned',
+    });
     ws.stats().then((st) => { state.counts = st.bySource || null; state.pinnedCount = st.pinned || 0; renderSources(); }).catch(() => {});
     renderDateFilter();
     renderSources();
@@ -596,18 +539,10 @@
     $('#sources').innerHTML = shown.map(chip).join('')
       + `<button type="button" class="src-chip more" data-more="1">${esc(t(open ? 'srcLess' : 'srcMore'))}</button>`;
   }
-  // 「全部」是"什么都没勾"。来源可以多选；置顶是另一件事，单独一个开关
-  function isOn(key) {
-    if (key === 'pinned') return state.pinned;
-    if (key === '') return !state.sources.length && !state.pinned;
-    return state.sources.includes(key);
-  }
-  function toggleSource(key) {
-    if (key === 'pinned') { state.pinned = !state.pinned; return; }
-    if (key === '') { state.sources = []; state.pinned = false; return; }
-    const i = state.sources.indexOf(key);
-    if (i >= 0) state.sources.splice(i, 1); else state.sources.push(key);
-  }
+  // 筛选是**单选**：一次只看一类东西。「全部」是没选（`state.source === ''`），
+  // 收藏是其中一个选项，不是另一个并行的开关——两个能同时按的东西会让「现在在看什么」说不清楚。
+  function isOn(key) { return (state.source || '') === key; }
+  function toggleSource(key) { state.source = state.source === key ? '' : key; }
 
   // 左边的时间轴：一天一行，相对日 + 条数。日期抬头已经不显示了，所以哪一天只由它说。
   // 点一行跳过去；滚动时哪一天正压在视野顶上，哪一行就加粗。
@@ -673,12 +608,14 @@
   const ROW_TARGET = 150;                       // px; the height a row is aimed at before it is justified
   const ROW_GAP = 8;
   const TEXT_RATIO = { note: 2, text: 2, url: 2, audio: 2, pdf: 1.6, file: 1.6, video: 1.8, media: 1.8 };
-  // 一条记录长成哪种纸。有画面的一律是相纸——你要看的是那张图，不是它从哪来的。
+  // 一条记录长成哪种纸。
+  // **剪贴板排在图片前面**：从剪贴板来的东西就该长成撕下来的那一片纸，是图也一样——
+  // 一屏里「哪些是我复制来的」比「哪些有画面」更要紧，而拍立得会把它伪装成一张截图。
   function cardKind(e) {
+    if (e.source === 'clipboard') return 'clip';
     if (isPicture(e)) return 'shot';
     if (e.type === 'audio') return 'voice';
     if (e.source === 'bookmark') return 'mark';
-    if (e.source === 'clipboard') return 'clip';
     if (e.type === 'note' || e.type === 'text') return 'note';
     return 'file';
   }
@@ -737,7 +674,7 @@
   // "Nothing here" used to mean two opposite things: nothing was worth keeping, or briffy was closed
   // and the day was never offered. It knows which now (src/main/uptime.js), so it says which.
   async function emptyReason() {
-    if (!state.date || state.query || state.sources.length || state.pinned) return '';
+    if (!state.date || state.query || state.source) return '';
     try {
       const st = await ws.dayStats(state.date);
       if (st.status === 'off') return t('dayWasOff');
@@ -831,7 +768,11 @@
     // 剪贴板 —— 一片撕下来的纸：原文加引号，底下写从哪个应用来
     if (kind === 'clip') {
       const where = ctxShort(e);
-      return `<div class="b"><div class="bb">${esc(clipText(cardText(e) || cardTitle(e), 300))}</div></div>`
+      // 复制来的要是一张图，那就把图嵌在这片纸里——纸边留着，时间和来源还写在纸上
+      const body = isPicture(e)
+        ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
+        : `<div class="b"><div class="bb">${esc(clipText(cardText(e) || cardTitle(e), 300))}</div></div>`;
+      return body
         + `<div class="lab"><span class="tm">${time}</span></div>`
         + `${where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : ''}${mark}`;
     }
@@ -1198,20 +1139,18 @@
     const inModal = !!(box.closest && box.closest('.modal-card'));
     const sec = (label, body, tool = '') => (body
       ? `<section class="dt-sec"><div class="dt-sec-head"><h3>${esc(label)}</h3>${tool}</div>${body}</section>` : '');
-    const copyWord = `<button type="button" class="mini" data-action="copy">${esc(t('copy'))}</button>`;
+    // 每一段都能单独复制：复制的对象是这一段，不是整条记录，所以按钮长在这一段的标题旁边
+    const copyOf = (field) => `<button type="button" class="mini" data-action="copySec" data-of="${field}">${esc(t('copy'))}</button>`;
     const machine = [
-      sec(t('summary'), e.summary ? `<p class="summary-text">${esc(e.summary)}</p>` : ''),
-      sec(t('seen'), e.visionLabels ? `<p class="summary-text">${esc(e.visionLabels)}</p>` : ''),
-      sec(textLabel, e.text ? `<div class="text-block">${esc(e.text)}</div>` : '', copyWord),
+      sec(t('summary'), e.summary ? `<p class="summary-text">${esc(e.summary)}</p>` : '', copyOf('summary')),
+      sec(t('seen'), e.visionLabels ? `<p class="summary-text">${esc(e.visionLabels)}</p>` : '', copyOf('visionLabels')),
+      sec(textLabel, e.text ? `<div class="text-block">${esc(e.text)}</div>` : '', copyOf('text')),
     ].filter(Boolean).join('');
 
     box.innerHTML = `
       <div class="dt${(!isPicture(e) && e.type !== 'audio') ? ' bare' : ''}">
         <header class="dt-head">
-          <div class="dt-name">
-            <h2>${esc(e.title || e.path || e.url || '')}</h2>
-            <div class="time">${meta.join(' · ')}${ctxUrl}</div>
-          </div>
+          <h2>${esc(e.title || e.path || e.url || '')}</h2>
           <div class="dt-acts">
             <button type="button" class="act${e.pinned ? ' on' : ''}" data-action="pin"
               title="${esc(t(e.pinned ? 'unpin' : 'pin'))}">${esc(t('pin'))}</button>
@@ -1219,17 +1158,20 @@
             ${inModal ? `<button type="button" class="act act-close" data-close aria-label="Close">
               <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>` : ''}
           </div>
-          <!-- 你写的那一句：还是那张便利贴的黄，只是一行高。点一下才交出光标。
-               它横跨整张纸，所以是头里的第三行，不是挤在标题那一列里 -->
+        </header>
+        <!-- 日期和备注跟着滚：钉住的只有标题和那三只托盘——「这是哪一条、能对它做什么」，
+             翻到哪儿都要在手边；日期和你写的那一句读一遍就够了 -->
+        <div class="dt-sub">
+          <div class="time">${meta.join(' · ')}${ctxUrl}</div>
           <div class="dt-note">
             <input id="noteField" class="note-line" readonly value="${esc(e.note || '')}"
               placeholder="${esc(t('notePlaceholder'))}" aria-label="${esc(t('noteLabel'))}" />
           </div>
-        </header>
+        </div>
         <div class="dt-media">
           <div class="preview">${preview}${(isPicture(e) || e.ocrBoxes) ? `<div class="pic-tools">
-            ${isPicture(e) ? `<button type="button" class="pic-btn" data-action="copy">${esc(t('copy'))}</button>` : ''}
             ${e.ocrBoxes ? `<button type="button" class="pic-btn${state.boxesOn ? ' on' : ''}" data-action="boxes">${esc(t(state.boxesOn ? 'hideBoxes' : 'showBoxes'))}</button>` : ''}
+            ${isPicture(e) ? `<button type="button" class="pic-btn" data-action="copy">${esc(t('copy'))}</button>` : ''}
           </div>` : ''}</div>
           ${state.boxesOn && e.ocrBoxes ? `<p class="st">${esc(t('copyLine'))}</p>` : ''}
           ${statusLine}
@@ -1350,7 +1292,7 @@
     if (!state.dates.includes(entry.dateKey)) { state.dates.unshift(entry.dateKey); state.dates.sort().reverse(); renderDateFilter(); }
   }
 
-  async function detailAction(action) {
+  async function detailAction(action, btn = null) {
     const e = currentEntry();
     if (!e) return;
     switch (action) {
@@ -1361,6 +1303,12 @@
       case 'edit': state.editing = true; renderDetail(); break;
       case 'moreActions': state.moreActions = !state.moreActions; renderDetail(); break;
       case 'cancelEdit': state.editing = false; renderDetail(); break;
+      // 每一段自己的复制：复制这一段，不是整条记录
+      case 'copySec': {
+        await navigator.clipboard.writeText(String((btn && e[btn.dataset.of]) || '').trim());
+        toast(t('copied'));
+        break;
+      }
       // 一张图该复制的是那张图，不是它被认出来的字
       case 'copy': {
         if (isPicture(e)) { const r = await ws.copyEntry(e.id); toast(t(r && r.ok ? 'copied' : 'copyFailed')); break; }
@@ -1674,25 +1622,6 @@
     }
   }
 
-  // Everyone briffy has heard, and a box to name them in. A name is the whole point: it turns
-  // "speaker 2" into a person, and it carries into every recording after.
-  function renderSpeakers(list) {
-    const box = $('#speakerList');
-    if (!box) return;
-    if (!$('#diarize').checked) { box.innerHTML = ''; return; }
-    const people = Array.isArray(list) ? list : [];
-    if (!people.length) { box.innerHTML = `<div class="muted">${esc(t('speakersNone'))}</div>`; return; }
-    const mins = (sec) => (sec >= 60 ? `${Math.round(sec / 60)} min` : `${Math.round(sec)} s`);
-    box.innerHTML = `<div class="muted">${esc(t('speakersHead'))}</div>`
-      + people.map((p) => `<label class="f"><span class="fl">${esc(mins(p.seconds))}</span>`
-        + `<span class="fc"><input type="text" class="speaker-name" data-id="${esc(p.id)}" value="${esc(p.name || '')}" placeholder="${esc(t('speakerName'))}" /></span></label>`).join('');
-    for (const input of box.querySelectorAll('.speaker-name')) {
-      input.addEventListener('blur', async () => {
-        await ws.nameSpeaker(input.dataset.id, input.value.trim());
-        flashSaved();
-      });
-    }
-  }
 
   function langOptions(selected) {
     return state.meta.languages.map((l) => `<option value="${l.code}"${l.code === selected ? ' selected' : ''}>${esc(l.name)}${l.name !== l.english ? ` (${esc(l.english)})` : ''}</option>`).join('');
@@ -1731,7 +1660,6 @@
     renderAllow();
     renderBrowsers((m.apps && m.apps.browsers) || []);
     $('#diarize').checked = s.diarize === true;
-    renderSpeakers(m.speakers);
     renderAutoRecord(m.listen);
     renderMicNow(m.listen);
     renderConnect();
@@ -1884,7 +1812,10 @@
   function renderSetup(st) {
     if (!st) return;
     $('#setupPanel').classList.remove('hidden');
+    // 一条空的进度槽是「有件事没做完」的意思。没在跑的时候它不该在那儿画一道灰线。
+    $('#setupPanel .bar').classList.toggle('hidden', !st.running);
     $('#setupPanel .bar i').style.width = `${st.percent || 0}%`;
+    $('#setupLogBox').classList.toggle('hidden', !$('#setupLog').textContent.trim());
     $('#setupNow').textContent = st.current || (st.running ? t('setupRunning') : st.ok === true ? t('setupOk') : st.ok === false ? t('setupFail', { err: st.error || '' }) : '');
     $('#setupSteps').innerHTML = (st.steps || []).map((s) => `<li class="${s.state}"><span class="dot"></span><span>${esc(s.label)}</span>${s.detail ? `<em>${esc(s.detail)}</em>` : ''}</li>`).join('');
     if (st.summary && st.summary.length) {
@@ -1994,23 +1925,25 @@
     const pickModel = starred ? starred.model : rec.model;
     const pickSize = starred ? starred.sizeGB : rec.sizeGB;
     const size = pickSize ? t('hwSize', { gb: pickSize }) : '';
-    let html = `<div class="lede">${esc(t('hwPick', { model: pickModel || '?' }))}${size ? ` <span class="muted">${esc(size)}</span>` : ''}</div>`;
+    // 「Ollama 装了没有」是这一段的状态行，「用哪个模型」是下一段的第一句 —— 它们是两件事，
+    // 挤在同一块灰字里就成了一段谁也不读的说明。
+    const state$ = $('#ollamaState');
     if (ol.running) {
       const names = ol.models.map((m) => m.name);
-      html += `<div class="ok">${esc(t('ollamaReady'))}${names.length ? ` · ${esc(t('ollamaInstalled', { models: names.join(', ') }))}` : ''}</div>`;
+      state$.className = 'st ok';
+      state$.textContent = t('ollamaReady') + (names.length ? ` · ${t('ollamaInstalled', { models: names.join(', ') })}` : '');
       $('#ollamaModels').innerHTML = names.map((n) => `<option value="${esc(n)}"></option>`).join('');
-    } else if (ol.installed) {
-      html += `<div class="bad">${esc(t('ollamaNotStarted', { binary: ol.binary || '' }))}</div>`;
     } else {
-      html += `<div class="bad">${esc(t('ollamaNotInstalled'))}</div>`;
+      state$.className = 'st warn';
+      state$.textContent = ol.installed ? t('ollamaNotStarted', { binary: ol.binary || '' }) : t('ollamaNotInstalled');
     }
     const alts = rec.alternatives.map((x) => `<code>${esc(x.model)}</code> ${x.sizeGB} GB · ${esc(x.note)}`).join('<br>');
-    html += `<details class="why"><summary>${esc(t('hwWhy'))}</summary>`
+    $('#hwBox').innerHTML = `<div class="lede">${esc(t('hwPick', { model: pickModel || '?' }))}${size ? ` <span class="muted">${esc(size)}</span>` : ''}</div>`
+      + `<details class="why"><summary>${esc(t('hwWhy'))}</summary>`
       + `<div>${esc(rec.reason)}${rec.notes.length ? ` ${esc(rec.notes.join(' '))}` : ''}</div>`
       + `<div class="muted">${esc(hw.cpu)} · ${esc(t('hwCores', { n: hw.cores }))} · RAM ${hw.ramGB} GB · ${esc(gpus)}</div>`
       + (alts ? `<div class="alts"><b>${esc(t('hwAlternatives'))}</b><br>${alts}</div>` : '')
       + `</details>`;
-    $('#hwBox').innerHTML = html;
     $('#ollamaModel').placeholder = rec.model || '';
     renderModelCards();
     // only offer the step that is actually needed
@@ -2027,21 +1960,24 @@
   // (ifeval for following instructions in the shape asked for, mmlu-pro for knowing things), not a
   // guess from the name -- so the table moves when the leaderboard does.
   const TIERS = [['easy', 'tierEasy'], ['medium', 'tierMedium'], ['stretch', 'tierStretch']];
-  function modelCard(m, installed, current, running) {
+  // 一个模型是一行，不是一张卡片。九张带影子的白方块把设置页变成了另一个应用的界面 ——
+  // 这一页上只有真实物件才有影子，而目录里的一个名字不是物件。名字 / 说明 / 动作三列对齐，
+  // 正在用的那一行划一道荧光笔（选中永远是荧光笔，不是抬起来）。
+  function modelRow(m, installed, current, running) {
     const have = installed.has(m.model);
     const inUse = m.model === current;
     const bits = [`${m.sizeGB} GB`, m.vision ? t('mdVision') : t('mdTextOnly')];
     if (m.measured) bits.push(t('mdScored', { n: (m.quality * 100).toFixed(0) }));
+    if (have) bits.push(t('mdInstalled'));
+    if (inUse) bits.push(t('mdInUse'));
     const acts = [];
     if (!have) acts.push(`<button type="button" class="btn primary" data-get="${esc(m.model)}"${running ? '' : ' disabled'}>${esc(t('mdGet'))}</button>`);
     else if (!inUse) acts.push(`<button type="button" class="btn" data-use="${esc(m.model)}">${esc(t('mdUse'))}</button>`);
     if (have) acts.push(`<button type="button" class="btn" data-del="${esc(m.model)}">${esc(t('mdDelete'))}</button>`);
-    return `<div class="card-model${inUse ? ' in-use' : ''}">
-      <div class="nm">${esc(m.model)}${m.recommended ? `<span class="tag-rec">${esc(t('mdRecommended'))}</span>` : ''}</div>
-      <div class="sz">${esc(bits.join(' · '))}</div>
-      <div class="sz">${have ? esc(t('mdInstalled')) : ''}${inUse ? ` · ${esc(t('mdInUse'))}` : ''}</div>
-      <div class="acts">${acts.join('')}</div>
-    </div>`;
+    return `<div class="mdl-row${inUse ? ' in-use' : ''}">`
+      + `<span class="mdl-n">${esc(m.model)}${m.recommended ? `<i class="tag-rec">${esc(t('mdRecommended'))}</i>` : ''}</span>`
+      + `<span class="mdl-m">${esc(bits.join(' · '))}</span>`
+      + `<span class="mdl-a">${acts.join('')}</span></div>`;
   }
   function renderModelCards() {
     const st = state.providerStatus;
@@ -2053,8 +1989,8 @@
     $('#modelCards').innerHTML = TIERS.map(([key, label]) => {
       const list = tiers[key] || [];
       if (!list.length) return '';
-      return `<div class="tier"><div class="tier-head">${esc(t(label))}<span>${esc(t(`${label}Why`))}</span></div>`
-        + `<div class="cards">${list.map((m) => modelCard(m, installed, current, running)).join('')}</div></div>`;
+      return `<div class="mdl-tier"><div class="mdl-h">${esc(t(label))}<span>${esc(t(`${label}Why`))}</span></div>`
+        + list.map((m) => modelRow(m, installed, current, running)).join('') + `</div>`;
     }).join('');
     const c = st.catalogue || {};
     $('#modelsNote').textContent = c.live
@@ -2430,7 +2366,7 @@
       // 于是点一下同时发生两件事：开窗口，再贴一张 z-index:20 的大图——它盖住整个主页，
       // 又压在 z-index:60 的详情窗底下，看着正是「详情卡片后面的主页变成了图片」。
       const btn = e.target.closest('[data-action]');
-      if (btn) { e.preventDefault(); detailAction(btn.dataset.action); }
+      if (btn) { e.preventDefault(); detailAction(btn.dataset.action, btn); }
     }
     $('#detail').addEventListener('click', detailClick);
     $('#listDetail').addEventListener('click', detailClick);
@@ -2465,7 +2401,6 @@
       for (const x of document.querySelectorAll('.sg-btn')) x.classList.toggle('active', x === b);
       for (const p of document.querySelectorAll('.sg-pane')) p.classList.toggle('active', p.dataset.group === g);
       document.querySelector('.sg-panes').scrollTop = 0;   // 标签行不滚动，所以只需要把内容退回顶部
-      if (g === 'pet') loadPetPicker().catch(() => {});
       if (g === 'ai') loadProviderStatus().catch(() => {});
       if (g === 'capture') loadFfmpeg().catch(() => {});
     });
@@ -2477,7 +2412,7 @@
 
     const form = $('#settingsForm');
     form.addEventListener('submit', (e) => e.preventDefault());
-    const isSetting = (el) => el && el.matches('input, select') && el.id !== 'petSearch' && el.id !== 'workspaceDir';
+    const isSetting = (el) => el && el.matches('input, select') && el.id !== 'workspaceDir';
     form.addEventListener('change', (e) => { if (isSetting(e.target)) queueSave(); });
     // 「再加一个」：回车或离开都算加。它不是一个设置项（名单在 allowList 里），所以不能交给上面那条
     const addBox = $('#autoRecordAllowAdd');
@@ -2492,20 +2427,13 @@
       if (el.type === 'password' || el.type === 'checkbox' || el.hasAttribute('list')) return;   // wait for change
       queueSave(700);
     });
-    $('#petSearch').addEventListener('input', (e) => filterPets(e.target.value));
-    $('#petReset').addEventListener('click', () => pickPet(''));
-    $('#petGrid').addEventListener('click', (e) => { const b = e.target.closest('.pet-cell'); if (b) pickPet(b.dataset.k); });
-    $('#petGrid').addEventListener('scroll', (e) => {
-      const g = e.currentTarget;
-      if (g.scrollTop + g.clientHeight > g.scrollHeight - 240) growPetGrid();
-    });
     $('#lang1').addEventListener('change', renderSttLanguage);
     $('#lang2').addEventListener('change', renderSttLanguage);
     for (const id of ['#hotkeyRegion', '#hotkeyScreen', '#hotkeyVoice']) $(id).addEventListener('keydown', (e) => {
       e.preventDefault();
       const { mods, key } = keyFromEvent(e);
       if (!key) return;
-      if (!mods.length) { $('#hotkeyHint').textContent = t('hotkeyNeedsModifier'); return; }
+      if (!mods.length) { $('#hotkeyError').textContent = t('hotkeyNeedsModifier'); return; }
       e.target.value = [...mods, key].join('+');
       queueSave();
     });
