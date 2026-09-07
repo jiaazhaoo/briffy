@@ -79,15 +79,39 @@ function lsValue(out, key) {
   return m ? m[1] : '';
 }
 
-async function frontApp() {
+/**
+ * 前台的应用，从前到后。`visibleProcessList` 一次就给出顺序，而且名字直接嵌在 ASN 里
+ * （`ASN:0x0-0x652652-"Claude"`，空格写成下划线），实测 8ms——比 `lsappinfo front` 再查一次名字
+ * 还便宜。名字只用来判断是不是 briffy 自己，选定之后仍然按 ASN 去问准确的名字和 bundle id。
+ */
+async function frontList() {
+  const out = await run('lsappinfo', ['visibleProcessList'], 600);
+  if (!out) return [];
+  return [...out.matchAll(/ASN:\S*?-"([^"]*)"/g)].map((m) => ({ asn: m[0], name: m[1].replace(/_/g, ' ') }));
+}
+
+/**
+ * @param {{skipSelf?:boolean}} opts skipSelf 时跳过 briffy 自己，取它**后面**那个应用。
+ *
+ * 截图是从 briffy 自己的按钮或托盘按下去的——那一刻 briffy 就是前台，于是「不记录 briffy 自己」
+ * 这条正确的规矩把截图的来源一起吃掉了：实测 6 张截图 0 条有来源，而它们前后几分钟的记录都有。
+ * 可截图拍的本来就是**别的**窗口（briffy 为了拍照把自己藏起来了），所以该记的是 briffy 后面
+ * 那一个。这不是猜：visibleProcessList 给的就是前后顺序。
+ */
+async function frontApp({ skipSelf = false } = {}) {
   if (!MAC) return null;
-  const asn = (await run('lsappinfo', ['front'], 600) || '').trim();
-  if (!asn) return null;
-  const info = await run('lsappinfo', ['info', '-only', 'name,bundleID', asn], 600);
-  if (!info) return null;
-  const app = lsValue(info, 'LSDisplayName');
-  const bundleId = lsValue(info, 'CFBundleIdentifier');
-  return app ? { app, bundleId } : null;
+  const list = await frontList();
+  for (const it of list) {
+    if (skipSelf && (SELF.has(it.name) || SELF.has(it.name.replace(/\s+/g, '')))) continue;
+    const info = await run('lsappinfo', ['info', '-only', 'name,bundleID', it.asn], 600);
+    if (!info) return null;
+    const app = lsValue(info, 'LSDisplayName');
+    const bundleId = lsValue(info, 'CFBundleIdentifier');
+    if (!app) return null;
+    if (skipSelf && (SELF.has(app) || SELF_BUNDLES.has(bundleId))) continue;
+    return { app, bundleId };
+  }
+  return null;
 }
 
 // One AppleScript for the frontmost process and its window, so a title costs one round trip. It fails
@@ -101,6 +125,22 @@ const TITLE_SCRIPT = `tell application "System Events"
   end try
   return out
 end tell`;
+
+// 指名道姓地问某个应用的最前面那个窗口。截图那条路要用：那时 briffy 自己在最前面，
+// 「最前面那个进程的窗口」只会读到 briffy 的标题，而要的是它后面那个应用的。
+// 窗口标题是「… - 小红书」「…_哔哩哔哩」这些字唯一的来处，丢了它来源就只剩一个应用名。
+const TITLE_OF_SCRIPT = (name) => `tell application "System Events"
+  try
+    return name of front window of (first application process whose name is ${JSON.stringify(name)})
+  end try
+  return ""
+end tell`;
+
+async function frontWindowOf(name) {
+  if (!MAC || !name || Date.now() < quietUntil) return '';
+  const out = await run('osascript', ['-e', TITLE_OF_SCRIPT(name)], TITLE_TIMEOUT_MS);
+  return out === null ? '' : String(out).trim();
+}
 
 async function frontWindow() {
   if (!MAC || Date.now() < quietUntil) return '';
@@ -135,11 +175,12 @@ function trimWindowTitle(title, app) {
  * @returns {Promise<{app:string, bundleId?:string, window?:string, url?:string}|null>} null when the
  *   answer is briffy itself, when the feature is off, or when the platform cannot say.
  */
-async function read({ title = true, maxAgeMs = 700 } = {}) {
+async function read({ title = true, maxAgeMs = 700, skipSelf = false } = {}) {
   if (!enabled || !MAC) return null;
-  if (cached && Date.now() - cached.at < maxAgeMs) return cached.value;
+  // 跳过自己那一档不吃缓存：截图很少发生，而缓存里存的可能正是「briffy 在前台」那个空结果
+  if (!skipSelf && cached && Date.now() - cached.at < maxAgeMs) return cached.value;
 
-  const front = await frontApp();
+  const front = await frontApp({ skipSelf });
   if (!front) return null;
   if (SELF.has(front.app) || SELF_BUNDLES.has(front.bundleId)) { cached = { at: Date.now(), value: null }; return null; }
 
@@ -151,10 +192,12 @@ async function read({ title = true, maxAgeMs = 700 } = {}) {
     if (lastTab.title) ctx.window = lastTab.title;
   }
   if (title && !ctx.window) {
-    const w = trimWindowTitle(await frontWindow(), front.app);
+    // 「最前面那个进程的窗口」在 skipSelf 时读到的会是 briffy 自己，所以那种情况按名字点着问
+    const raw = skipSelf ? await frontWindowOf(front.app) : await frontWindow();
+    const w = trimWindowTitle(raw, front.app);
     if (w) ctx.window = w.slice(0, 300);
   }
-  cached = { at: Date.now(), value: ctx };
+  if (!skipSelf) cached = { at: Date.now(), value: ctx };
   return ctx;
 }
 

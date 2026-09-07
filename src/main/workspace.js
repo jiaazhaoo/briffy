@@ -182,7 +182,9 @@ function saveShot(png, { width, height, displayLabel, region = false, context = 
 
 async function captureScreenshot() {
   // Sampled before anything is hidden or shown, so it names the app the user was actually looking at.
-  const context = foreground.read();
+  // skipSelf：这一下常常是从 briffy 自己的按钮或托盘按的，那时前台就是 briffy——而拍的是它后面
+  // 那个窗口，所以要的是它后面那个应用。见 foreground.frontApp。
+  const context = foreground.read({ skipSelf: true });
   windows.setPetState('capturing');            // the shutter flash says it; no need to also say it
   const wait = await windows.hideForCapture();
   let shot;
@@ -202,7 +204,7 @@ async function captureScreenshot() {
 /** Drag-a-box capture. Resolves to null when the user cancels. */
 async function captureRegion() {
   if (region.active()) return null;
-  const context = foreground.read();           // before the selection overlay covers the screen
+  const context = foreground.read({ skipSelf: true });   // 在选择遮罩盖住屏幕之前，而且要 briffy 后面那个应用
   windows.setPetState('capturing');            // the selection overlay carries its own instructions
   let picked;
   try {
