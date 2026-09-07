@@ -311,7 +311,11 @@ function askSystem(languageName, small) {
     `LANGUAGE RULE: answer in the same language as the question. If that is unclear, use ${languageName}.`,
     'Quote titles, names and terms exactly as they appear in the items, in their original language \u2014 never translate them.',
     'Answer only from the items. If they do not contain the answer, say so plainly and describe what is there instead; never invent an item, a date or a detail.',
-
+    'Be short and concrete: a direct answer first, then only the detail that supports it.',
+    // 同一条记录里常常既写着「所有可选项」，也写着「这个人选了哪一个」。两次实测都栽在这儿：
+    // 第一次把报名页上的 10/25/50/100km 全列成他的项目，第二次把普通组的出发时段安到了他头上，
+    // 而正确的那半句就在同一行里。所以明说：先认人选了哪个，别的选项不是他的。
+    'When the items list options, tiers or categories, work out which one this person actually chose or booked, and answer for that one. Do not present the other options as theirs, and do not repeat a detail that the items attach to a different option.',
   ];
   if (small) lines.push('Output only the JSON object, nothing else.');
   return lines.join(' ');
