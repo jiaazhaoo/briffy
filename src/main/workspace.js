@@ -174,7 +174,8 @@ function saveShot(png, { width, height, displayLabel, region = false, context = 
     region,
   });
   attachContext(entry, context);
-  windows.setPetState('processing', { message: s.captureToClipboard !== false ? t('capturedCopiedShort') : t('capturedShort') });
+  // 存好了就是存好了——后面的 OCR / 起标题是后台的事，不该由它挂在脸上
+  windows.setPetState('success', { message: s.captureToClipboard !== false ? t('capturedCopiedShort') : t('capturedShort') });
   enqueue(entry.id);
   return entry;
 }
@@ -272,7 +273,7 @@ async function captureLong(picked, context) {
     displayLabel: picked.display && picked.display.label,
   });
   attachContext(entry, context);
-  windows.setPetState('processing', { message: t('longSaved', { h: shot.height }) });
+  windows.setPetState('success', { message: t('longSaved', { h: shot.height }) });
   enqueue(entry.id);
   return entry;
 }
@@ -294,10 +295,8 @@ async function runDiarization(id, pcm, chunks, langs, settings) {
   diarize.release();
   if (!dia || !dia.segments.length) return null;
 
+  // 说话人只按这一段录音里说得多少编号：说话人 1 / 2 / 3。没有名字，也不跨录音认人。
   const nameOf = (personId) => {
-    const p = dia.speakers.find((x) => x.id === personId);
-    if (p && p.name) return p.name;
-    // Unnamed people are numbered by how much they said, which is stable within one recording.
     const rank = dia.speakers.findIndex((x) => x.id === personId);
     return t('speakerN', { n: rank >= 0 ? rank + 1 : '?' });
   };
@@ -401,7 +400,7 @@ async function ingestFiles(paths, { origin = '', quiet = false } = {}) {
     added.push(attachContext(entry));
     enqueue(entry.id);
   }
-  if (added.length) { if (!quiet) windows.setPetState('processing', { message: added.length > 1 ? t('savedN', { n: added.length }) : t('saved') }); }
+  if (added.length) { if (!quiet) windows.setPetState('success', { message: added.length > 1 ? t('savedN', { n: added.length }) : t('saved') }); }
   else if (skippedDirs) { if (!quiet) windows.setPetState('error', { message: t('skippedDir') }); }
   else if (!quiet) windows.setPetState('error', { message: t('nothingDropped') });
   return added;
@@ -417,7 +416,7 @@ async function ingestUrl(url, { origin = '', quiet = false } = {}) {
     if (twin) { console.log('[clipboard] this link is already saved today; skipping'); return null; }
   }
   const entry = attachContext(store.addEntry({ type: 'url', title: normalized, url: normalized, mime: 'text/uri-list', origin, copyId }));
-  if (!quiet) windows.setPetState('processing', { message: t('saved') });
+  if (!quiet) windows.setPetState('success', { message: t('saved') });
   enqueue(entry.id);
   return entry;
 }
@@ -445,7 +444,7 @@ async function ingestNote(text, { origin = '', quiet = false } = {}) {
   const file = uniquePath(dayDir('files'), `${timeStamp()}-${origin === 'clipboard' ? 'clip' : 'note'}.txt`);
   fs.writeFileSync(file, body, 'utf8');
   const entry = attachContext(store.addEntry({ type: 'note', title: firstLine || t('noteTitle'), text: body, path: store.relPath(file), mime: 'text/plain', size: Buffer.byteLength(body), origin, copyId }));
-  if (!quiet) windows.setPetState('processing', { message: t('saved') });
+  if (!quiet) windows.setPetState('success', { message: t('saved') });
   enqueue(entry.id);
   return entry;
 }
@@ -728,7 +727,7 @@ async function ingestAudio({ webm, pcm, sampleRate = 16000, durationSec = 0, pea
   pcmCache.set(entry.id, pcm);
   // Automatic recordings say nothing at all -- they happen by themselves, possibly several times an
   // hour, and a balloon for each would be the clipboard mistake over again. See the note there.
-  if (!auto) windows.setPetState('processing');    // transcription runs quietly from here
+  if (!auto) windows.setPetState('success');       // 录完就是录完了，转写在后台跑
   enqueue(entry.id);
   return entry;
 }
@@ -774,13 +773,15 @@ function setProgress(id, text, force = false) {
   if (!force && now - lastProgressAt < 400) return;
   lastProgressAt = now;
   store.updateEntry(id, { progress: text });
-  if (windows.getState() !== 'recording') windows.setPetState('processing');
+  // 不再把进度写到脸上。这是后台的活（OCR、起标题），东西早就存下了；
+  // 让它一直顶着三个点，等于把后处理的时间算进了「存东西」这个动作里。
+  // 进度还是照写进这条记录，工作区那边看得到。
 }
 
-// A record that finishes without anything to announce still has to leave the pet in the right state:
-// busy while more are queued, idle once the queue is empty.
+// 一条记录处理完、又没什么可报的，就把脸放回待机。
+// （以前是「队列里还有就继续处理中」——那正是把后台的时间挂在脸上。）
 function announceQueue() {
-  windows.setPetState(queue.length ? 'processing' : 'idle');
+  if (windows.getState() !== 'recording') windows.setPetState('idle');
 }
 
 
@@ -1072,7 +1073,7 @@ async function processEntry(id) {
     if (current.origin === 'clipboard' || current.auto) { announceQueue(); return; }
     const heading = (result.title || '').trim().slice(0, 34);
     const message = heading ? t('recorded', { title: heading }) : t('tagsDone');
-    windows.setPetState(queue.length ? 'processing' : 'success', { message, sticky: false });
+    windows.setPetState('success', { message, sticky: false });
   } catch (e) {
     console.error('[workspace] entry failed', id, e);
     store.updateEntry(id, { status: 'error', error: e.message || String(e), progress: '' });

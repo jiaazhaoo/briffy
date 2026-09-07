@@ -34,6 +34,7 @@ const diarize = require('./diarize');
 const dayStats = require('./day-stats');
 const ocrBoxes = require('./ocr-boxes');
 const region = require('./region');
+const viewer = require('./viewer');
 const setup = require('./setup');
 const permissions = require('./permissions');
 const { installPage } = require('./install-page');
@@ -137,7 +138,6 @@ async function main() {
     shelfStrings: () => ({ open: i18n.t('shelfOpen'), copied: i18n.t('shelfCopied'), empty: i18n.t('shelfEmpty') }),
   });
   workspace.init({ store, windows });
-  diarize.init({ store });   // main reads the remembered voices for the settings page
   uptime.init({ store });
   longshot.init();
   listen.init({
@@ -172,7 +172,7 @@ async function main() {
   });
 
   region.init();
-  windows.createBubbleWindow();
+  viewer.init({ store, llm, clipboardWatch, publicEntry });
   windows.createPetWindow();
   windows.createShelfWindow();     // hidden until the pointer rests on the pet
   createTray();
@@ -841,7 +841,7 @@ function setupIpc() {
     // connect（同一套去重），剩下的照旧。只在拖拽这条路上分流：剪贴板里复制一个文件夹
     // 不该触发一次整包导入。
     const rest = [];
-    const bulk = [];
+    let bulk = [];
     for (const src of (Array.isArray(p.paths) ? p.paths : [])) {
       const kind = await importBulk.sniff(src).catch(() => '');
       if (kind) bulk.push(src); else rest.push(src);
@@ -893,21 +893,11 @@ function setupIpc() {
       allow: apps.describe(store.getSettings().autoRecordAllow ?? apps.defaultAllow()),
       suggested: apps.defaultAllow(),
     },
-    speakers: diarize.people(),
     extensionDir: extensionDir(),
     setup: setup.status(),
     ocrModels: Object.entries(ocr.PADDLE_MODELS).map(([id, m]) => ({ id, name: m.name, sizeMB: m.sizeMB, langs: m.langs, bundled: !!m.bundled })),
   }));
   ipcMain.handle('ws:save-settings', (_e, patch) => store.updateSettings(patch || {}));
-  ipcMain.handle('ws:pet-catalog', () => petskin.catalogue(store));
-  ipcMain.handle('ws:pet-set-avatar', async (_e, key) => {
-    try {
-      const picked = key ? await petskin.apply(store, key) : (petskin.reset(store), { key: '' });
-      const avatarUrl = petskin.url(store);
-      windows.sendPetCommand('config', { avatarUrl, avatarBuiltin: petskin.isBuiltin(store) });
-      return { ok: true, avatarUrl, ...picked };
-    } catch (e) { return { ok: false, error: e.message }; }
-  });
   ipcMain.handle('ws:test-provider', async (_e, override) => {
     try { return await llm.testProvider(llm.config(store, override || {})); } catch (e) { return { ok: false, error: e.message }; }
   });
@@ -1086,6 +1076,7 @@ function setupIpc() {
   });
   ipcMain.handle('ws:stats', () => store.stats());
   // Where each line of recognised text sits on a picture; read only when a detail view opens.
+  ipcMain.handle('ws:open-viewer', (_e, id) => { viewer.open(id); return true; });
   ipcMain.handle('ws:entry-boxes', (_e, id) => ocrBoxes.load(store.getEntry(id)));
   // What one day holds, by counting. Also says whether briffy was even running that day.
   ipcMain.handle('ws:day-stats', (_e, dateKey) => {
@@ -1094,5 +1085,4 @@ function setupIpc() {
   });
   ipcMain.handle('ws:context-probe', () => foreground.probe());
   ipcMain.handle('ws:entry-link', (_e, id) => (store.getEntry(id) ? deeplink.linkTo.entry(id) : ''));
-  ipcMain.handle('ws:name-speaker', (_e, id, name) => diarize.rename(id, name));
 }

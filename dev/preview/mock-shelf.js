@@ -7,10 +7,10 @@
   const entries = [
     { id: '1', title: '选 A，把 C 留作可切换的「列表」', createdAt: at(2), type: 'note', kind: '笔记', thumb: '', file: true, pinned: true, note: '版面就照这个来' },
     { id: '2', title: '截图 11:22', createdAt: at(8), type: 'screenshot', kind: '截图', thumb: '/sample.png', file: true },
-    { id: '3', title: '为什么 SQLite 不需要服务器', createdAt: at(14), type: 'url', kind: '链接', thumb: '', file: true },
-    { id: '4', title: '剪贴板图片 11:05', createdAt: at(31), type: 'image', kind: '图片', thumb: '/sample.png', file: true },
+    { id: '3', title: '为什么 SQLite 不需要服务器', createdAt: at(14), type: 'url', kind: '链接', source: 'bookmark', thumb: '', file: true },
+    { id: '4', title: '剪贴板图片 11:05', createdAt: at(31), type: 'image', kind: '图片', source: 'clipboard', thumb: '/sample.png', file: true },
     { id: '5', title: '语音 10:58', createdAt: at(39), type: 'audio', kind: '语音', thumb: '', file: true },
-    { id: '6', title: 'chrome://extensions/', createdAt: at(46), type: 'note', kind: '笔记', thumb: '', file: true },
+    { id: '6', title: 'chrome://extensions/', createdAt: at(46), type: 'note', kind: '笔记', source: 'clipboard', thumb: '', file: true },
     { id: '7', title: '第三季度预算与路线图会议.pdf', createdAt: at(52), type: 'pdf', kind: 'PDF', thumb: '', file: true },
     { id: '8', title: '剪贴板图片 10:31', createdAt: at(66), type: 'image', kind: '图片', thumb: '/sample.png', file: true },
     { id: '9', title: '后端联调排在本周四，前端先按 mock 走', createdAt: at(74), type: 'note', kind: '笔记', thumb: '', file: true },

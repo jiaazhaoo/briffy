@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 638 638" width="638" height="638">
+  <!-- briffy 的标记，和 assets/brand/briffy.svg 同一份数字。这里只是把白底换成透明，好让浏览器标签页自己配底。 -->
+  <g fill="none" stroke="#2A6CF0" stroke-linecap="round">
+    <path d="M156.5 638 V283.75 A161.75 161.75 0 0 1 480 283.75 V638" stroke-width="46"/>
+    <path d="M245.5 638 V493.5 A73 73 0 0 1 391.5 493.5 V638" stroke-width="45"/>
+    <path d="M291.5 320 A27.6 27.6 0 0 0 345.5 320" stroke-width="20"/>
+  </g>
+  <g fill="#2A6CF0"><circle cx="238" cy="281" r="27"/><circle cx="399" cy="281" r="27"/></g>
+</svg>

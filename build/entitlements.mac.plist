@@ -1,11 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened runtime entitlements for the Developer ID build (notarised DMG / zip).
+  Not the Mac App Store set: nothing here turns the sandbox on. See docs/app-store/mas-blockers.md.
+
+  Every key below is load-bearing. Anything not needed is left out, because each exception is
+  something Apple's notary service reads as "this app asked to do more than the default".
+-->
 <plist version="1.0">
 <dict>
+  <!-- V8 compiles JavaScript at runtime; without these two Electron does not start at all. -->
   <key>com.apple.security.cs.allow-jit</key><true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+
+  <!-- The native modules (onnxruntime, sherpa-onnx, node-screenshots, sharp, skia) ship .dylib and
+       .node files signed by their own publishers, not by this team. Library validation would refuse
+       to load them. -->
   <key>com.apple.security.cs.disable-library-validation</key><true/>
+
+  <!-- Voice notes. This is the key macOS checks before handing over the microphone; the sentence the
+       user sees comes from NSMicrophoneUsageDescription in Info.plist. -->
   <key>com.apple.security.device.audio-input</key><true/>
+
+  <!-- Apple events to other applications. Four things need this and silently fail without it, because
+       a hardened-runtime process is denied Apple events by default:
+         src/main/window-list.js  which windows are open, so a capture can be attributed
+         src/main/foreground.js   the frontmost app and its window title
+         src/main/scroll.js       driving a scroll for a long screenshot (also needs Accessibility)
+         src/main/vision.js       reaching the Vision framework through osascript -l JavaScript
+       The sentence the user sees comes from NSAppleEventsUsageDescription in Info.plist. -->
+  <key>com.apple.security.automation.apple-events</key><true/>
+
+  <!-- Sandbox-only keys. They do nothing in this build (no sandbox), and are kept because they state
+       what the app does with the network and because the Mac App Store build will need exactly these:
+       outgoing calls to the AI service, and 127.0.0.1:47831 for the browser extension. -->
   <key>com.apple.security.network.client</key><true/>
+  <key>com.apple.security.network.server</key><true/>
 </dict>
 </plist>

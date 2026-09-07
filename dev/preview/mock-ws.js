@@ -17,7 +17,12 @@
   ];
   entries.push(
     mk(0, 17, 30, { type: 'url', title: '为什么 SQLite 不需要服务器', url: 'https://example.com/sqlite', origin: 'bookmark', path: 'files/sqlite.txt', tags: ['SQLite', '嵌入式', '数据库', '架构', '单文件'], text: '为什么 SQLite 不需要服务器\n\nSQLite 把整个数据库放在一个文件里…' }),
-    mk(0, 12, 15, { type: 'text', title: '从 Slack 复制的一段', path: 'files/clip.txt', origin: 'clipboard', tags: ['Slack', '排期', '联调', '后端', '本周'], text: '后端联调排在本周四，前端先按 mock 走，接口字段定了再改。' }),
+    // 带 context 的剪贴板：真实数据里几乎都有来源应用，而「来自 Google Chrome」正好长到
+    // 会和右下角的时间打架——这条就是为了让样张也能看见那个问题
+    mk(0, 12, 15, { type: 'text', title: '从 Slack 复制的一段', path: 'files/clip.txt', origin: 'clipboard', context: { app: 'Google Chrome', window: 'Slack' }, tags: ['Slack', '排期', '联调', '后端', '本周'], text: '后端联调排在本周四，前端先按 mock 走，接口字段定了再改。' }),
+    mk(0, 22, 19, { type: 'text', title: 'Windsor Road, Egham TW20 0AE', path: 'files/clip2.txt', origin: 'clipboard', context: { app: 'Google Chrome', window: '地图' }, tags: ['地址', 'Egham'], text: 'Windsor Road, Egham TW20 0AE' }),
+    // 从剪贴板复制来的一张图：它该长成撕纸，不是拍立得
+    mk(0, 21, 41, { type: 'image', title: '剪贴板图片 21:41', path: 'files/clipshot.png', fileUrl: '/sample.png', width: 1160, height: 760, origin: 'clipboard', context: { app: 'Google Chrome', window: '地图' }, tags: ['剪贴板', '图片'] }),
     mk(0, 14, 2, { type: 'image', title: 'chart.png', path: 'files/chart.png', fileUrl: '/sample.png', width: 1600, height: 900, origin: 'browser', sourceTitle: '2026 年 Q3 财报', tags: ['财报', '营收', '同比', '图表', 'Q3'] }),
   );
   // ?dup=N 把这批记录复制 N 份：布局、滚动、拉框这些只有在装不下一屏时才看得出问题
@@ -52,12 +57,6 @@
     getSettings: async () => ({ settings, avatarUrl: '/assets/pet/avatar.png', languages, models: [{ id: 'claude-opus-5', name: 'Claude Opus 5 (default)' }, { id: 'claude-sonnet-5', name: 'Claude Sonnet 5' }, { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (fastest)' }], sttModels: [{ id: 'Xenova/whisper-tiny', name: 'Whisper tiny (~40 MB)' }, { id: 'Xenova/whisper-small', name: 'Whisper small (~250 MB, recommended)' }], platform: 'win32', version: '0.1.0', screenPermission: 'granted', hotkeyError: '', workspaceDir: 'C:\\Users\\User\\AppData\\Roaming\\briffy\\workspace', stats: { days: 3, entries: entries.length }, localApi: { running: true, port: 47831, lastReceived: null }, extensionDir: 'C:\\local project\\briffy\\extension', setup: null,
       ocrModels: [{ id: 'v6-small', name: 'PP-OCRv6 small', sizeMB: 26 }, { id: 'v6-tiny', name: 'PP-OCRv6 tiny', sizeMB: 12 }, { id: 'v5-mobile', name: 'PP-OCRv5 mobile', sizeMB: 24 }] }),
     saveSettings: async (patch) => { Object.assign(settings, patch); return settings; },
-    // the real catalogue file, so the picker grid can be checked for real in the browser
-    petCatalog: async () => {
-      const c = await (await fetch('/assets/pet/catalog.json')).json();
-      return { thumb: c.thumb, count: c.count, logos: c.logos, current: settings.petAvatar || '' };
-    },
-    petSetAvatar: async (k) => { settings.petAvatar = k; return { ok: true, key: k, avatarUrl: '/assets/pet/avatar.png' }; },
     testProvider: async () => { await sleep(600); return { ok: true, model: 'qwen3.5:9b', reply: 'OK' }; },
     providerStatus: async () => ({ catalogue: { live: true, at: Date.now(), scored: 13, tiers: {
       easy: [
@@ -127,8 +126,6 @@
       return entries.filter((e) => !seen.has(e.id)).slice(0, 3).map((e) => ({ ...pub(e), near: true }));
     },
     // 「接进来」那一格：两个服务都没连上的样子，加上一个能点的导出文件行
-
-    // 「接进来」那一格：两个服务都没连上的样子，加上一个能点的导出文件行
     connectList: async () => ([
       { name: 'notion', label: 'Notion', connected: false },
       { name: 'gmail', label: 'Gmail', connected: false },
@@ -164,13 +161,22 @@
     onOllamaPull: on('ws:ollama-pull-progress'),
     chooseDir: async () => 'D:\\briffy',
     listDates: async () => [...new Set(entries.map((e) => e.dateKey))].sort().reverse(),
-    listEntries: async ({ query = '', dates = null, source = '', pinned = false } = {}) => entries.filter((e) => (!dates || dates.includes(e.dateKey)) && (!source || srcOf(e) === source) && (!pinned || e.pinned) && (!query || `${e.title} ${e.tags.join(' ')} ${e.text}`.toLowerCase().includes(query.toLowerCase()))).map(pub),
+    listEntries: async ({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false } = {}) => {
+      const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
+      const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
+      return entries.filter((e) => (!dates || dates.includes(e.dateKey))
+        && (!want || want.has(srcOf(e)))
+        && (want || !skip || !skip.has(srcOf(e)))
+        && (!pinned || e.pinned)
+        && (!query || `${e.title} ${e.tags.join(' ')} ${e.text}`.toLowerCase().includes(query.toLowerCase()))).map(pub);
+    },
     // the four line boxes of the mock screenshot, in its own 2320x1520 pixels
     entryBoxes: async () => ({ w: 2320, h: 1520, lines: [[120, 96, 640, 44, 96, 'briffy — 记录 / 每日摘要 / 设置'], [120, 190, 900, 38, 91, '搜索标题 / 三个词 / 文字'], [120, 268, 720, 36, 88, '2026年9月3日周四 · 8'], [1500, 96, 300, 40, 74, '设置']] }),
     dayStats: async () => ({ total: 0, status: 'idle', uptimeMinutes: 95, byType: {}, bySource: {}, byApp: [], byHour: [] }),
     contextProbe: async () => ({ ok: true, app: 'Google Chrome', window: 'briffy · 样式基准页', reason: '' }),
     entryLink: async (id) => `briffy://entry/${id}`,
     getEntry: async (id) => pub(entries.find((e) => e.id === id)),
+    copyEntry: async () => ({ ok: true }),          // 真的那份把图片写进剪贴板，预览里只要不报错
     deleteEntry: async (id) => { const i = entries.findIndex((e) => e.id === id); if (i >= 0) entries.splice(i, 1); return true; },
     retryEntry: async () => true,
     updateEntry: async (id, patch) => { const e = entries.find((x) => x.id === id); Object.assign(e, patch); return pub(e); },

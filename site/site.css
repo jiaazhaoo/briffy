@@ -1,0 +1,303 @@
+/* briffy 官网。
+   视觉标准是 .claude/skills/paper-ui/SKILL.md，token 是 paper/tokens.css（assets/paper 的拷贝，
+   和 extension/paper 同一个道理：这个目录要能被单独部署）。
+
+   站点服从应用的同一条规矩：
+     · 全直角，border-radius 全文件为 0。
+     · 没有边框、没有分隔线、没有底纹。分组只靠留白。
+     · 只有真实物件有影子——这一页上的"真实物件"就是记录卡片本身（.c）。
+       标题、正文、导航、按钮、说明全都是印在底纸上的字，永远层 0。
+     · 一种字体。--mono 只给代码块。
+     · 一屏一个彩色：--accent 给链接和引用编号，别的什么都不给。
+
+   唯一的不同是**字阶**。应用是坐在窗口前 13px 的阅读距离，网页不是；
+   所以这里在应用那六级之外，另起一组只属于站点的字号（--t-*），
+   六级本身一个都没改——"五种纸"那一段用的就是应用里的真实尺寸，不然它就不是真的了。 */
+
+:root {
+  --t-hero: clamp(32px, 5.6vw, 58px);
+  --t-h2:   clamp(21px, 2.6vw, 30px);
+  --t-h3:   17px;
+  --t-lede: clamp(16px, 1.5vw, 19px);
+  --t-body: 16px;
+  --t-fine: 13.5px;
+
+  --col-w: 1080px;
+  --edge: clamp(20px, 5vw, 44px);
+  --sec-gap: clamp(72px, 10vw, 148px);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  background-attachment: fixed;
+  color: var(--ink);
+  font: 400 var(--t-body)/1.65 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-autospace: normal;
+  text-spacing-trim: space-first;
+  line-break: strict;
+}
+img, svg { max-width: 100%; }
+b { font-weight: 600; }
+/* 应用把 IBM Plex Mono 随包带走，所以 tokens 里的 --mono 可以把 "Noto Sans SC" 放在第二位；
+   网页取不到 Plex 时那一位会接管拉丁字母，代码就退回成正文。站点这份把中文字面从栈里去掉：
+   代码里本来也不会出现汉字，宁可退到系统等宽。 */
+:root { --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+code { font: 400 .92em/1.5 var(--mono); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- 两种语言，一份版面。html[lang] 说了算，JS 只改那一个属性 ---- */
+html[lang="zh-Hans"] .en { display: none; }
+html[lang="en"] .zh { display: none; }
+html[lang="en"] { --sans: "Source Sans 3", -apple-system, "Segoe UI Variable Text", "Segoe UI", sans-serif; }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: var(--edge); top: 10px; z-index: 9; background: var(--ink); color: var(--page);
+  padding: 8px 12px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ══ 顶上一行 ══════════════════════════════════════════════════════════════
+   顶部没有托盘，只有纸上的字（are.na / Steidl 都是这条），所以它不固定、跟着页面滚。 */
+.top {
+  max-width: var(--col-w); margin: 0 auto; padding: 26px var(--edge) 0;
+  display: flex; align-items: center; gap: var(--a4); flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 9px; color: var(--ink);
+  font-weight: 600; font-size: var(--t-fine); letter-spacing: .01em; }
+.brand:hover { text-decoration: none; }
+.brand-mark { display: block; width: 20px; height: 20px; flex: none; }
+.topnav { margin-left: auto; display: flex; align-items: center; gap: var(--a4); flex-wrap: wrap; }
+.topnav a { color: var(--ink-3); font-size: var(--t-fine); }
+.topnav a:hover { color: var(--ink); text-decoration: none; }
+.lang { border: 0; background: var(--tone); color: var(--ink-2); font: 600 var(--fs-meta)/1 var(--sans);
+  padding: 6px 9px; cursor: pointer; }
+.lang:hover { background: var(--tone-2); color: var(--ink); }
+.lang:active { transform: translateY(1px); }
+
+/* ══ 头一屏 ════════════════════════════════════════════════════════════════ */
+main { display: block; }
+.hero { max-width: var(--col-w); margin: 0 auto; padding: clamp(56px, 9vw, 104px) var(--edge) 0; }
+.hero-mark { display: flex; align-items: baseline; gap: var(--a3); margin-bottom: clamp(26px, 4vw, 44px); }
+.mark-host { display: block; width: clamp(84px, 11vw, 124px); height: clamp(84px, 11vw, 124px);
+  padding: 0; border: 0; background: none; cursor: pointer; }
+.mark-slot { display: block; width: 100%; height: 100%; }
+.mark-hint { color: var(--ink-3); font-size: var(--fs-meta); opacity: 0; transition: opacity .18s; }
+.hero-mark:hover .mark-hint { opacity: 1; }
+
+h1 { margin: 0; font: 600 var(--t-hero)/1.12 var(--sans); letter-spacing: -.012em;
+  text-wrap: balance; max-width: 16em; }
+html[lang="zh-Hans"] h1 { letter-spacing: 0; line-height: 1.2; }
+.lede { margin: clamp(20px, 2.6vw, 30px) 0 0; max-width: 34em;
+  font-size: var(--t-lede); line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
+.acts { display: flex; gap: var(--a3); flex-wrap: wrap; margin: clamp(26px, 3.4vw, 38px) 0 0; }
+.btn { display: inline-block; padding: 10px 18px; background: var(--tone); color: var(--ink);
+  font-size: var(--t-fine); font-weight: 600; }
+.btn:hover { background: var(--tone-2); text-decoration: none; }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--ink); color: var(--page); }
+.btn.primary:hover { background: var(--ink-2); }
+.fine { margin: var(--a4) 0 0; color: var(--ink-3); font-size: var(--t-fine); }
+
+/* ══ 每一段 ════════════════════════════════════════════════════════════════ */
+.sec { max-width: var(--col-w); margin: 0 auto; padding: var(--sec-gap) var(--edge) 0; }
+.sec-head { margin-bottom: clamp(34px, 4.4vw, 56px); }
+h2 { margin: 0; font: 600 var(--t-h2)/1.25 var(--sans); letter-spacing: -.008em;
+  max-width: 20em; text-wrap: balance; }
+html[lang="zh-Hans"] h2 { letter-spacing: 0; line-height: 1.35; }
+.sub { margin: var(--a3) 0 0; max-width: 40em; color: var(--ink-2); text-wrap: pretty; }
+h3 { margin: 0 0 var(--a2); font: 600 var(--t-h3)/1.4 var(--sans); }
+h4 { margin: var(--a5) 0 var(--a4); font: 600 var(--t-h3)/1.4 var(--sans); }
+
+/* ══ 一天 ══════════════════════════════════════════════════════════════════
+   产品的主语是「一天」。一串时刻，你一个都没经手——这是"无感"最短的证明，
+   所以它自己占一段，前后什么都不放。 */
+#day { padding-top: clamp(46px, 6vw, 82px); }
+.times { display: flex; flex-wrap: wrap; justify-content: space-between; margin: 0;
+  max-width: 900px; gap: var(--a2) clamp(14px, 2.2vw, 34px);
+  color: var(--ink-3); font-size: var(--t-body); font-variant-numeric: tabular-nums;
+  letter-spacing: .02em; }
+.times-note { margin: var(--a4) 0 0; color: var(--ink); font-size: var(--t-lede); }
+
+/* ══ 手势：左边一只 briffy，右边一列动作 ══════════════════════════════════ */
+.ges { display: grid; grid-template-columns: 168px 1fr; gap: clamp(30px, 5vw, 64px); align-items: start; }
+.ges-mark { position: sticky; top: 40px; }
+.ges-mark .mark-slot { width: 112px; height: 112px; }
+.ges-state { display: block; margin-top: var(--a2); color: var(--ink-3);
+  font-size: var(--fs-meta); font-variant-numeric: tabular-nums; min-height: 1.5em; }
+
+.rows { margin: 0; }
+/* 两栏都只有一两个词，让它们靠在一起——摊到整页宽只会把一对词拉散 */
+.ges .rows { max-width: 42em; }
+.row { display: grid; grid-template-columns: 9.5em 1fr; gap: var(--a3) var(--a4);
+  padding: var(--a3) 0; }
+.row + .row { margin-top: 2px; }
+.rows dt { margin: 0; font-weight: 600; color: var(--ink); }
+.rows dd { margin: 0; color: var(--ink-2); text-wrap: pretty; }
+/* 悬停不加底、不加框、不抬起——它是印在纸上的一行字，只是墨深了一点 */
+.ges .row { transition: none; }
+.ges .row:hover dd, .ges .row:focus-within dd { color: var(--ink); }
+.rows.tight .row { padding: var(--a2) 0; grid-template-columns: 11.5em 1fr; }
+.rows.nums .row { grid-template-columns: 1fr auto; }
+.rows.nums dd { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+kbd { display: inline-block; background: var(--tone); color: var(--ink-2);
+  font: 600 11.5px/1 var(--sans); padding: 4px 5px; margin: 0 1px; vertical-align: baseline; }
+.keys { margin: var(--a5) 0 0; color: var(--ink-3); font-size: var(--t-fine); }
+
+/* ══ 五种纸 ════════════════════════════════════════════════════════════════
+   这一段的卡片是**应用里的真实尺寸**（240px 一列，--a4 的沟）：
+   放大了就不是那个东西了。CSS 也是从 dev/preview/cards.html 那张样张搬过来的。 */
+.mix { position: relative; margin: 0 auto; }
+.mix > .c { position: absolute; }
+
+.c { position: relative; background: var(--slip); box-shadow: var(--e1);
+  font-size: var(--fs-body); line-height: 1.6; color: var(--ink);
+  transition: transform .12s, box-shadow .12s; }
+.c:hover { transform: translateY(-2px); box-shadow: var(--e2); }
+.c .k { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums; }
+.c .k svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5;
+  stroke-linecap: square; stroke-linejoin: miter; flex: none; }
+
+/* 1 · 录音 —— 一条磁带 */
+.c-voice { background: var(--p-voice); padding: var(--a3) var(--a3) 0; }
+.c-voice .lab { display: flex; align-items: baseline; gap: var(--a3); }
+.c-voice .lab .said { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: var(--ink-2); margin: 0; }
+.c-voice .dur { flex: none; color: var(--ink-2); font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums; }
+.wave { display: flex; align-items: flex-end; gap: 1px; height: 36px;
+  margin: var(--a3) calc(var(--a3) * -1) 0; padding: 0 var(--a3) 9px; background: var(--p-voice-2); }
+.wave i { flex: 1; min-width: 1px; background: var(--ink-3); opacity: .55; }
+
+/* 2 · 截图 —— 拍立得 */
+.c-shot { background: var(--p-shot); padding: 8px 8px 0; }
+.c-shot .pic { display: block; width: 100%; background: var(--slip-2); }
+.c-shot .k { height: 34px; }
+
+/* 3 · 随手记 —— 便利贴 */
+.c-note { background: var(--p-note); aspect-ratio: 1 / 1; padding: 18px 18px 0; }
+.c-note .said { margin: 0; font-size: 15px; line-height: 1.75;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+.c-note .k { position: absolute; left: 18px; bottom: 18px; }
+.c-note .fold { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px;
+  background: var(--p-note-2); clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(-1px -1px 1.5px rgba(0, 0, 0, .16)); }
+
+/* 4 · 收藏 —— 索引卡 */
+.c-mark { background: var(--p-mark); padding: var(--a3) var(--a3) var(--a3) 34px; }
+.c-mark .ttl { font: 600 15px/1.45 var(--sans); margin: 2px 0 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.c-mark .host { display: block; color: var(--ink-3); font-size: var(--fs-meta); margin-top: 3px; }
+.c-mark .ribbon { position: absolute; left: var(--a3); top: 0; width: 10px; height: 44px;
+  background: var(--p-mark-2); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); }
+
+/* 5 · 剪贴板 —— 撕下来的碎片。撕过的边不齐，box-shadow 只会画矩形，所以两层 drop-shadow（数值同 --e1） */
+.c-clip { background: var(--p-clip); padding: 19px 10px 21px; box-shadow: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .10)) drop-shadow(0 4px 10px rgba(0, 0, 0, .10));
+  clip-path: polygon(
+    0 7px, 7% 2px, 13% 8px, 21% 1px, 28% 6px, 36% 2px, 44% 8px, 52% 3px, 60% 7px, 68% 1px, 76% 6px, 84% 2px, 92% 7px, 100% 3px,
+    100% calc(100% - 6px), 93% calc(100% - 1px), 85% calc(100% - 7px), 77% calc(100% - 2px), 69% calc(100% - 6px),
+    61% calc(100% - 1px), 53% calc(100% - 7px), 45% calc(100% - 3px), 37% calc(100% - 8px), 29% calc(100% - 2px),
+    21% calc(100% - 6px), 13% calc(100% - 1px), 6% calc(100% - 7px), 0 calc(100% - 3px)); }
+.c-clip:hover { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .12)) drop-shadow(0 10px 22px rgba(0, 0, 0, .13)); }
+.c-clip .said { margin: var(--a2) 0 0; }
+.c-clip .from { display: block; margin-top: var(--a2); color: var(--ink-3); font-size: var(--fs-meta); }
+@media (prefers-color-scheme: dark) {
+  .c-clip { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .5)) drop-shadow(0 4px 10px rgba(0, 0, 0, .4)); }
+  .c-clip:hover { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55)) drop-shadow(0 10px 22px rgba(0, 0, 0, .45)); }
+}
+
+/* 五个名字，用空隙分开——它们是图例，不是说明 */
+.legend { list-style: none; margin: clamp(34px, 4.4vw, 54px) 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: var(--a2) var(--a4); }
+.legend li { color: var(--ink-3); font-size: var(--t-fine); }
+
+/* ══ 问 ════════════════════════════════════════════════════════════════════ */
+.ask { display: grid; grid-template-columns: 1fr 240px; gap: clamp(34px, 5vw, 66px); align-items: start; }
+.q { margin: 0; font: 600 var(--t-h3)/1.5 var(--sans); }
+.q::before { content: "「"; color: var(--ink-3); }
+.q::after { content: "」"; color: var(--ink-3); }
+html[lang="en"] .q::before { content: "“"; }
+html[lang="en"] .q::after { content: "”"; }
+.a { margin: var(--a4) 0 0; max-width: 38em; text-wrap: pretty; }
+.cite { color: var(--accent); font-weight: 600; padding: 0 1px; }
+.cite:hover { text-decoration: none; background: var(--marker); color: var(--ink); }
+.note { margin: var(--a5) 0 0; max-width: 40em; color: var(--ink-2); font-size: var(--t-fine);
+  line-height: 1.7; text-wrap: pretty; }
+
+.ask-r-h { margin: 0 0 var(--a3); color: var(--ink-3); font-size: var(--fs-meta); }
+.ask-r .ev { margin-bottom: var(--a4); }
+.ev { position: relative; }
+.ev .no { position: absolute; right: -9px; top: -9px; z-index: 2; width: 20px; height: 20px;
+  display: grid; place-items: center; background: var(--accent); color: var(--page);
+  font-size: var(--fs-meta); font-weight: 600; }
+.c-voice.ev { padding-bottom: 0; }
+.c-clip.ev .no { right: 8px; top: 12px; }   /* 撕口会把伸出纸外的角标裁掉，所以它得站在纸里 */
+
+/* ══ 三列 / 两列的印刷段落 ════════════════════════════════════════════════ */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: clamp(30px, 4vw, 58px); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: clamp(34px, 5vw, 66px); align-items: start; }
+.col p { margin: 0 0 var(--a3); color: var(--ink-2); font-size: var(--t-fine); line-height: 1.7;
+  text-wrap: pretty; }
+.col p:last-child { margin-bottom: 0; }
+.col .num { margin-top: var(--a2); color: var(--ink-3); font-size: var(--fs-meta); }
+.col .num b { display: block; color: var(--ink); font-size: 30px; font-weight: 600;
+  line-height: 1.2; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+
+.honest { margin-top: clamp(52px, 7vw, 92px); max-width: 40em; }
+.honest p { margin: 0 0 var(--a3); color: var(--ink-2); text-wrap: pretty; }
+.honest p b { color: var(--ink); }
+.honest .fine { margin: var(--a4) 0 0; }
+
+.code { margin: 0 0 var(--a4); padding: var(--a3) var(--a4); background: var(--slip-2);
+  overflow-x: auto; }
+.code code { display: block; font: 400 13px/1.9 var(--mono); color: var(--ink); white-space: pre; }
+
+/* ══ 页脚 ══════════════════════════════════════════════════════════════════ */
+.foot { max-width: var(--col-w); margin: clamp(80px, 11vw, 150px) auto 0;
+  padding: 0 var(--edge) clamp(56px, 7vw, 90px);
+  display: flex; gap: var(--a5); align-items: flex-start; flex-wrap: wrap; }
+.foot-l { display: flex; gap: var(--a3); align-items: flex-start; max-width: 40em; }
+.foot-l .brand-mark { width: 26px; height: 26px; margin-top: 2px; }
+.foot p { margin: 0 0 var(--a2); color: var(--ink-2); font-size: var(--t-fine); text-wrap: pretty; }
+.foot p b { color: var(--ink); }
+.foot .fine { margin: var(--a3) 0 0; color: var(--ink-3); }
+.foot-r { margin-left: auto; display: flex; gap: var(--a4); align-items: center; flex-wrap: wrap; }
+.foot-r a { color: var(--ink-3); font-size: var(--t-fine); }
+.foot-r a:hover { color: var(--ink); text-decoration: none; }
+
+/* ══ 窄屏 ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 860px) {
+  .ges { grid-template-columns: 1fr; }
+  .ges-mark { position: static; display: flex; align-items: baseline; gap: var(--a3); }
+  .ges-mark .mark-slot { width: 76px; height: 76px; }
+  .ges-state { margin-top: 0; }
+  .ask { grid-template-columns: 1fr; }
+  .ask-r { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--a4); align-items: start; }
+  .ask-r-h { grid-column: 1 / -1; margin-bottom: 0; }
+  .ask-r .ev { margin-bottom: 0; }
+}
+@media (max-width: 620px) {
+  .row { grid-template-columns: 1fr; gap: var(--a1); }
+  .rows.tight .row, .rows.nums .row { grid-template-columns: 1fr; }
+  .rows.nums dd { margin-top: var(--a1); }
+  .topnav { gap: var(--a3); }
+  .topnav a { font-size: var(--fs-meta); }
+  .foot-r { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c, .btn, .lang { transition: none; }
+  .c:hover { transform: none; }
+}

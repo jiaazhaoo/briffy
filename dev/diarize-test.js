@@ -89,39 +89,18 @@ app.whenReady().then(async () => {
     }
   }
 
-  // ---------- across recordings ----------
   const first = heard[SAMPLES[1].file];
-  if (first) {
-    const pcm = workspace.readWav(path.join(clipDir, SAMPLES[1].file));
-    const again = await diarize.run(pcm);
-    check('the same recording twice gives the same people, not new ones',
-      again && again.speakers.every((p) => first.speakers.some((q) => q.id === p.id)),
-      again ? `${again.speakers.length} voices, all already known` : 'nothing came back');
-    check('and it did not invent anybody the second time',
-      again && again.speakers.every((p) => p.isNew === false), '');
-
-    // Half the clip on its own: still the same voices, not fresh ones.
-    const half = pcm.subarray(0, Math.floor(pcm.length / 2));
-    const part = await diarize.run(half);
-    if (part) {
-      check('a different recording of the same voice is recognised',
-        part.speakers.every((p) => first.speakers.some((q) => q.id === p.id)),
-        `${part.speakers.map((p) => (first.speakers.some((q) => q.id === p.id) ? 'known' : 'NEW')).join(', ')}`);
-    }
-  }
-
-  // ---------- naming somebody sticks ----------
-  const everyone = diarize.people();
-  const expected = SAMPLES.reduce((n, s) => n + s.people, 0);
-  check('everyone heard so far is listed, and nobody twice', everyone.length === expected,
-    `${everyone.length} voices, expected ${expected} (${SAMPLES.map((s) => s.people).join(' + ')})`);
-  if (everyone.length) {
-    check('a voice can be given a name', diarize.rename(everyone[0].id, '张三') === true, '');
-    check('and the name is still there afterwards',
-      diarize.people().find((p) => p.id === everyone[0].id).name === '张三', '');
-    check('naming a voice that does not exist fails rather than inventing one',
-      diarize.rename('nope', 'x') === false, '');
-  }
+  // 跨录音认人、给声音起名字那一半在 2026-09-06 删了（「不同会议有不同的人」），
+  // 所以这里也不再有相应的检查。剩下的就是这套东西真正在做的事：
+  // 在**一段**录音里把人分开，按说得多少编号。
+  const again = await diarize.run(workspace.readWav(path.join(clipDir, SAMPLES[1].file)));
+  check('同一段录音跑两遍，人数一样', again && again.speakers.length === SAMPLES[1].people,
+    again ? `${again.speakers.length} of ${SAMPLES[1].people}` : 'nothing came back');
+  check('编号就是 s1 s2 s3，按说得多少排', again
+    && again.speakers.every((p, i) => p.id === `s${i + 1}`)
+    && again.speakers.every((p, i) => i === 0 || p.seconds <= again.speakers[i - 1].seconds),
+    again ? again.speakers.map((p) => `${p.id}:${p.seconds}s`).join(' ') : '');
+  check('不再往工作区里写 speakers.json', !fs.existsSync(path.join(store.paths().workspace, 'speakers.json')), '');
 
   // ---------- the words, joined to the voices ----------
   if (first) {
@@ -131,7 +110,7 @@ app.whenReady().then(async () => {
     ];
     const turns = attribute(fake, first.segments);
     check('words land on the voice that was speaking', turns.every((x) => x.speaker), JSON.stringify(turns.map((x) => x.speaker && x.speaker.slice(0, 6))));
-    const line = asLines(turns, (id) => (diarize.people().find((p) => p.id === id) || {}).name || 'Speaker');
+    const line = asLines(turns, (id) => `说话人 ${id.slice(1)}`);
     check('and read back as a conversation', line.includes(':'), line.slice(0, 60));
   }
 

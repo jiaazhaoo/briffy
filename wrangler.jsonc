@@ -1,0 +1,26 @@
+{
+  // briffy 的官网。这个仓库主要是一个 Electron 应用，这份配置只管 site/ 那一页。
+  //
+  //   npm run site      →  site-dist/          把双语源文件切成中文页和 /en/ 英文页
+  //   npm run deploy    →  先切，再发           发布到 briffy.cc
+  //
+  // 用 Workers 静态资源而不是 Pages：域名可以写在这份配置里（routes + custom_domain），
+  // 部署时 Cloudflare 自己建 DNS 记录、签证书，不用再去后台点一遍。
+  // 没有 main：只发静态文件的 Worker 不需要脚本。
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "briffy-site",
+  "compatibility_date": "2026-09-07",
+
+  "assets": {
+    "directory": "./site-dist",
+    // 目录访问补上尾斜杠：/en 会跳到 /en/，页面里那些相对路径才落回同一层
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+
+  "routes": [
+    { "pattern": "briffy.cc", "custom_domain": true }
+  ],
+
+  "observability": { "enabled": true }
+}

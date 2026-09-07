@@ -3,14 +3,11 @@
 (() => {
   const api = window.pet;
   const el = document.getElementById('pet');
-  const avatarEl = el.querySelector('.avatar:not(.live)');
-  // briffy drawing itself. Only when the frame still holds briffy: pick a logo out of the catalogue
-  // and it goes back to being a picture, because making someone else's mark pull faces is not ours
-  // to do. The springs settle and cancel their own frame request, so between two states this costs
-  // exactly what the still pet costs -- which is the whole reason the idle CSS loops could go.
-  const faceEl = el.querySelector('.live');
-  const face = (window.briffyAnim && faceEl) ? window.briffyAnim.attach(faceEl) : null;
-  let builtin = true;
+  // 它自己：整只回形针，画在透明底上。没有相框，也没有图片——
+  // 弹簧走完自己停（briffy-anim.js 会 cancelAnimationFrame），两次动作之间一帧都不画。
+  const face = window.briffyAnim
+    ? window.briffyAnim.attach(el.querySelector('.body'), { body: 'full', colour: 'currentColor', noScale: true })
+    : null;
   const DRAG_THRESHOLD = 5;
   const DBL_MS = 320;
   const LONG_PRESS_MS = 550;
@@ -30,11 +27,12 @@
   // window goes quiet. (The slow breath is gone with them: it is the one motion that cannot stop.)
   // A gesture is a sequence of phases. Only the phases that carry an animation cost anything, so the
   // long held middle of the peek is a static class and the window stays quiet right through it.
+  // 待机的小动作：推它一下，不改表情。以前是两条 CSS 手势（跳一下、从相框里探个头），
+  // 相框没了，探头也就没意义了；剩下的那一下交给弹簧——它会自己停。
   const GESTURES = [
-    { every: 7500, phases: [['g-hop', 900]] },
-    { every: 11000, phases: [['g-peek-up', 700], ['g-peek-hold', 1300], ['g-peek-down', 700]] },
+    { every: 7500, kick: ['by', -620] },        // 轻轻一跳
+    { every: 13000, kick: ['rot', -170] },      // 歪一下头
   ];
-  const playing = new Set();
   const gestureTimers = [];
 
   // set imperatively elsewhere (drag, drop target, long press); render() rebuilds the whole class list
@@ -42,28 +40,17 @@
   const IMPERATIVE = ['dragging', 'dropping', 'held'];
   function render() {
     const kept = IMPERATIVE.filter((c) => el.classList.contains(c));
-    const extra = [...playing, ...kept];
+    const extra = kept;
     el.className = `pet state-${recording ? 'recording' : state}${badge ? ' has-badge' : ''}`
-      + `${builtin ? ' default-skin' : ''}${extra.length ? ` ${extra.join(' ')}` : ''}`;
-    // The face follows the same word the class does. `set` is a no-op when it is already there, so
-    // this can be called on every gesture edge without waking anything.
-    if (face && builtin) face.set(recording ? 'recording' : state);
+      + `${extra.length ? ` ${extra.join(' ')}` : ''}`;
+    // 表情跟着同一个词走。`set` 在已经是那个状态时什么都不做，所以随便叫。
+    if (face) face.set(recording ? 'recording' : state);
   }
 
   function playGesture(g) {
     if (state !== 'idle' || recording) return;
-    if (g.phases.some(([cls]) => playing.has(cls))) return;                                // still going
-    if (el.classList.contains('dragging') || el.classList.contains('dropping')) return;    // being handled
-    let i = 0;
-    const step = () => {
-      if (i > 0) playing.delete(g.phases[i - 1][0]);
-      if (i >= g.phases.length || state !== 'idle' || recording) { render(); return; }
-      const [cls, ms] = g.phases[i++];
-      playing.add(cls);
-      render();
-      setTimeout(step, ms);
-    };
-    step();
+    if (el.classList.contains('dragging') || el.classList.contains('dropping')) return;    // 正被摆弄
+    if (face) face.nudge(g.kick[0], g.kick[1]);
   }
   function startGestures() {
     if (gestureTimers.length) return;
@@ -72,29 +59,28 @@
   function stopGestures() {
     for (const t of gestureTimers) clearInterval(t);
     gestureTimers.length = 0;
-    playing.clear();
   }
   startGestures();   // main confirms the state right after load, but do not wait on it to come alive
 
   api.onState((s) => {
-    state = s.state || 'idle';
+    const next = s.state || 'idle';
+    // 连着存两样东西，主进程会两次发同一个状态。`face.set` 在状态没变时什么都不做，
+    // 于是第二次就一点反应也没有——存东西必须每次都看得见，所以同一个状态再来一次就重演一遍。
+    const again = next === state && next !== 'idle';
+    state = next;
     badge = !!s.badge;
     // the other states draw their own feedback; idle is the only one that has to invent something to do
     if (state === 'idle' && !recording) startGestures(); else stopGestures();
     render();
+    if (again && face) face.poke(recording ? 'recording' : state);
   });
   // the picture in the round frame lives in userData once one is picked in the settings,
   // so main hands us its file:// url instead of the bundled default in the markup
-  function setAvatar(url, isBuiltin) {
-    if (url) avatarEl.src = url;
-    if (typeof isBuiltin === 'boolean') builtin = isBuiltin;
-    render();
-  }
-  api.getConfig().then((c) => { config = { ...config, ...(c || {}) }; setAvatar(config.avatarUrl, config.avatarBuiltin); }).catch(() => {});
+  api.getConfig().then((c) => { config = { ...config, ...(c || {}) }; }).catch(() => {});
   api.onCommand((c) => {
     if (!c) return;
     if (c.cmd === 'toggle-recording') toggleRecording();
-    else if (c.cmd === 'config') { config = { ...config, ...c, cmd: undefined }; setAvatar(c.avatarUrl, c.avatarBuiltin); }
+    else if (c.cmd === 'config') { config = { ...config, ...c, cmd: undefined }; }
     else if (c.cmd === 'list-mics') listMics();
     else if (c.cmd === 'mic-test') micTest(c);
   });

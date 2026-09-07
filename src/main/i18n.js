@@ -1,5 +1,5 @@
 'use strict';
-// Main-process UI strings (bubble messages, tray menu, notifications). The renderer has its own dictionary.
+// Main-process UI strings (tray menu, notifications, log lines). The renderer has its own dictionary.
 
 const STRINGS = {
   zh: {

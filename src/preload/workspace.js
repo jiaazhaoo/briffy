@@ -14,8 +14,6 @@ contextBridge.exposeInMainWorld('ws', {
   pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch (_) { return ''; } },
   getSettings: invoke('ws:get-settings'),
   saveSettings: invoke('ws:save-settings'),
-  petCatalog: invoke('ws:pet-catalog'),
-  petSetAvatar: invoke('ws:pet-set-avatar'),
   testProvider: invoke('ws:test-provider'),
   providerStatus: invoke('ws:provider-status'),
   openrouterModels: invoke('ws:openrouter-models'),
@@ -34,6 +32,7 @@ contextBridge.exposeInMainWorld('ws', {
   openExtensionDir: invoke('ws:open-extension-dir'),
   extensionStatus: invoke('ws:extension-status'),
   openExtensionGuide: invoke('ws:open-extension-guide'),
+  onExtension: listen('ws:extension'),
   // 接进来的东西。凭据只从这里往主进程走，回来的永远只有状态。
   connectList: () => ipcRenderer.invoke('ws:connect-list'),
   connectSet: (name, creds) => ipcRenderer.invoke('ws:connect-set', name, creds),
@@ -41,7 +40,6 @@ contextBridge.exposeInMainWorld('ws', {
   connectSync: (name, opts) => ipcRenderer.invoke('ws:connect-sync', name, opts),
   onConnectProgress: listen('ws:connect-progress'),
   importPick: () => ipcRenderer.invoke('ws:import-pick'),
-  onExtension: listen('ws:extension'),
   exportExtension: invoke('ws:export-extension'),
   runSetup: invoke('ws:run-setup'),
   onSetup: listen('ws:setup-progress'),
@@ -70,10 +68,13 @@ contextBridge.exposeInMainWorld('ws', {
   ask: invoke('ws:ask'),
   stats: invoke('ws:stats'),
   entryBoxes: invoke('ws:entry-boxes'),        // where each line of recognised text sits on a picture
+  // 复制这一条：图片进剪贴板当图片，别的当文字。和书架上那个复制是同一个 handler，
+  // 没必要为工作区再写一份一模一样的
+  copyEntry: invoke('shelf:copy'),
+  openViewer: invoke('ws:open-viewer'),   // 点开一张图：它去自己的窗口里被看
   dayStats: invoke('ws:day-stats'),            // one day by counting, plus whether briffy was running
   contextProbe: invoke('ws:context-probe'),    // what this machine can tell us about the front app
   entryLink: invoke('ws:entry-link'),
-  nameSpeaker: invoke('ws:name-speaker'),      // give one of the remembered voices a name          // briffy://entry/<id>
   onEntry: listen('ws:entry'),
   onSummary: listen('ws:summary'),
   onSettings: listen('ws:settings'),
