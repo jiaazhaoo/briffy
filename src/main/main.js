@@ -1074,6 +1074,9 @@ function setupIpc() {
       return ids.map((id) => store.getEntry(id)).filter(Boolean).map(publicEntry);
     } catch (_) { return []; }
   });
+  // 主题：讲同一件事的记录归成的堆。空手是正常的——向量还没补齐，或者这个工作区还没有成堆的东西。
+  ipcMain.handle('ws:topics', () => ask.topicList());
+  ipcMain.handle('ws:topic-entries', (_e, id) => ask.topicEntries(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
   ipcMain.handle('ws:stats', () => store.stats());
   // Where each line of recognised text sits on a picture; read only when a detail view opens.
   ipcMain.handle('ws:open-viewer', (_e, id) => { viewer.open(id); return true; });

@@ -119,6 +119,14 @@
     },
     openExtensionGuide: async () => ({ ok: true, url: 'http://127.0.0.1:47831/install' }),
     onExtension: on('ws:extension'),
+    // 主题：讲同一件事的记录归成的堆
+    topics: async () => ([
+      { id: 't1', name: '泰晤士河步道超级马拉松挑战赛', words: '', n: 5 },
+      { id: 't2', name: 'Ollama 模型推荐与配置', words: '', n: 6 },
+      { id: 't3', name: '蓝色笑脸回形针', words: '', n: 3 },
+    ]),
+    topicEntries: async (id) => entries.slice(0, id === 't2' ? 6 : 3).map(pub),
+
     // 「意思相近」：搜的时候慢一拍补上来的那几条，每条都带 near 标记
     searchNear: async (q, skip) => {
       await new Promise((r) => setTimeout(r, 300));

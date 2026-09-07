@@ -46,6 +46,11 @@ select:hover { color: var(--ink); }
 .src-chip { display: inline-flex; align-items: baseline; gap: 5px; border: 0; background: transparent; color: var(--ink-3);
   padding: 0; font: 400 var(--fs-act)/1.4 var(--sans); cursor: pointer; text-align: left; }
 .src-chip:hover { color: var(--ink-2); }
+/* 主题那一行：和筛选同一个说法，但退一档——筛选是「在看什么」，主题是「还有这些成堆的东西」。
+   退一档只靠留白和字号，不靠加线加框（全仓只有输入框底下那一道发丝线）。 */
+.sources.topics { padding-top: 2px; }
+.sources.topics .src-chip { font-size: var(--fs-meta); }
+
 .src-chip.active { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 .src-chip .n { font-variant-numeric: tabular-nums; opacity: .6; font-weight: 400; }
 .src-chip.zero { opacity: .4; }
@@ -119,6 +124,9 @@ input[type="checkbox"]:checked::after { opacity: 1; }
 /* 顶栏不是托盘：托盘属于底部（浮在滚动内容上的常驻工具）。顶部是导航和筛选，就是纸上的字。
    参照 are.na 的 Explore 页和 Steidl：它们顶上没有条、没有底色、没有边框，只有字。
    两行：搜索 + 「怎么看」在第一行，来源筛选在第二行。两行都从内容列的左边起。 */
+/* 内容让开顶栏的那一截。以前这个数是 112px，写死在两个地方（.jg-scroll 的 inset 和 .lv 的
+   padding-top）——顶栏一多一行就穿帮，而且要改两处才对得上。现在由 workspace.js 量出来写进来。 */
+:root { --top-h: 112px; }
 .top { position: fixed; top: 38px; left: 0; right: 0; z-index: 20;
   padding: 0 var(--axis) 0 var(--pad); }
 .top-row { display: flex; align-items: baseline; gap: var(--a5); }
@@ -241,7 +249,7 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .split { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.15fr); }
 .list { overflow: auto; padding: var(--pad) var(--a4) var(--a5); }
 .detail { overflow: auto; padding: var(--pad) var(--pad) var(--a5) var(--a4); }
-/* .lv 已经整体让开了顶栏那 112px，所以这里不能再让一次；头钉在这半张纸自己的顶上 */
+/* .lv 已经整体让开了顶栏那一截（--top-h），所以这里不能再让一次；头钉在这半张纸自己的顶上 */
 .lv-prev .detail { padding: 0 var(--pad) 92px var(--a4); }
 .lv-prev .dt-head { padding: 0 0 var(--a2); }
 .empty { color: var(--ink-3); text-align: center; padding: 90px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -255,7 +263,7 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 滚动区从顶栏底下开始，不是"顶到窗口顶上再垫 112px 的内边距"——
    顶栏是印在纸上的字、没有底色，所以垫出来的那 112px 拦不住任何东西：一往下滚，
    便签就从那几个字上面爬过去。让框自己起在 112，溢出的部分被框裁掉，字底下就永远是干净的。 */
-.jg-scroll { position: absolute; inset: 112px 0 0; overflow-y: auto; overflow-x: hidden; padding: 0 var(--a3) 92px var(--pad); scrollbar-width: none; }
+.jg-scroll { position: absolute; inset: var(--top-h) 0 0; overflow-y: auto; overflow-x: hidden; padding: 0 var(--a3) 92px var(--pad); scrollbar-width: none; }
 .jg-scroll::-webkit-scrollbar { width: 0; height: 0; }
 /* 哪一天由左边的时间轴说，这里只剩一天与一天之间的留白（外加给时间轴当锚点）。
    千万别再让它 sticky 带底色：一个没有字的不透明块钉在滚动区顶上，就是一条划过去会盖住卡片的横带 */
@@ -308,7 +316,7 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 一条一行，时间自成一列，选中的在旁边摊开。最密的一个视图，也是收拾东西用的那个。
    它和网格是同一张纸的两种排法，所以起点也一样：顶栏是印在纸上的字、没有底色，
    内容必须自己让开那 112px，不然滚上去就是字压着字。 */
-.lv { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(360px, 1fr) minmax(340px, 420px); padding-top: 112px; }
+.lv { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(360px, 1fr) minmax(340px, 420px); padding-top: var(--top-h); }
 /* 行自己带 12px 内边距，所以这里减掉，字才真的落在 --pad 上、和顶栏对齐 */
 /* 滚动条也是一条线，而这里不许有线（网格早就 scrollbar-width: none 了，列表漏了，
    于是两栏中间和窗口右边各挂着一道灰杠） */
