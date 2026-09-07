@@ -11,8 +11,9 @@
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
       near: '相近', topicsHint: '成堆的：', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
-      fAll: '全部', fClear: '清空', tNote: '文本', tImage: '图片', tUrl: '网页', tScreenshot: '截图',
-      tAudio: '录音', tVideo: '视频', tFile: '文件', tOther: '其它', fMoreN: '更多 {n}', fLess: '收起',
+      fAll: '全部', fClear: '清空', fMoreN: '更多 {n}', fLess: '收起',
+      tImage: '图片', tText: '文字', tAudio: '音频', tVideo: '视频', tPdf: 'PDF', tDoc: '文档',
+      tSheet: '表格', tSlides: '幻灯片', tArchive: '压缩包', tLink: '链接', tOther: '其它',
       askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
       askNoEntries: '工作区里还没有记录，先存点东西进来。',
       askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
@@ -142,8 +143,9 @@
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
       near: 'related', topicsHint: 'Groups:', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
-      fAll: 'All', fClear: 'Clear', tNote: 'Text', tImage: 'Pictures', tUrl: 'Web', tScreenshot: 'Screenshots',
-      tAudio: 'Voice', tVideo: 'Video', tFile: 'Files', tOther: 'Other', fMoreN: '{n} more', fLess: 'Less',
+      fAll: 'All', fClear: 'Clear', fMoreN: '{n} more', fLess: 'Less',
+      tImage: 'Pictures', tText: 'Text', tAudio: 'Audio', tVideo: 'Video', tPdf: 'PDF', tDoc: 'Documents',
+      tSheet: 'Spreadsheets', tSlides: 'Slides', tArchive: 'Archives', tLink: 'Links', tOther: 'Other',
       askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
       askNoEntries: 'The workspace has no entries yet.',
       askNoProvider: 'No AI service configured (Settings › AI service), so nobody read these for you. Here are the matching records.',
@@ -540,7 +542,10 @@
   // 它们是**叠**的：「小红书上的图片」这种要求只有叠起来才成立。所以上面那行同时也是
   // 「现在叠了哪几个」，右端一个「清空」——三个能同时按的东西，不写出来就会丢失「现在在看什么」。
   // 下面只展开一个维度的值：三行值会把顶栏撑高一整行记录的高度。
-  const TYPE_LABEL = { note: 'tNote', image: 'tImage', url: 'tUrl', screenshot: 'tScreenshot', audio: 'tAudio', video: 'tVideo', file: 'tFile' };
+  // 类型按**格式**分（store.js 的 entryFormat）：截图和网页存下来的图都是图片，随手记和邮件都是文字。
+  // 「怎么进来的」是「来源」那一档的事，两件事混在一格里就都说不清。
+  const TYPE_LABEL = { image: 'tImage', text: 'tText', audio: 'tAudio', video: 'tVideo', pdf: 'tPdf',
+    doc: 'tDoc', sheet: 'tSheet', slides: 'tSlides', archive: 'tArchive', link: 'tLink', other: 'tOther' };
   // 来源里那几个不是站点也不是应用的值，是「实在不知道从哪儿来」时退回的采集方式
   const ORIGIN_LABEL = { clipboard: 'srcClipboard', screenshot: 'srcScreenshot', voice: 'srcVoice', bookmark: 'srcBookmark', browser: 'srcBrowser', other: 'srcOther' };
   const DIMS = [['type', 'dimType'], ['origin', 'dimOrigin'], ['topic', 'dimTopic']];

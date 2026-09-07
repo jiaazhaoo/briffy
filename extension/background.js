@@ -133,14 +133,18 @@ async function ping() {
 // reported, one at a time, and the app keeps it in memory for half a minute -- this is not history.
 let wantTab = false;
 let lastSent = '';
+let lastSentAt = 0;
+// 同一个页面待久了也要再报一次，否则应用那边会认为这条标签页已经旧到不能用了。
+// 只在「应用要」的时候才有这个心跳，关掉「记录来源」它就停。
+const RESEND_MS = 60 * 1000;
 
 async function reportTab(tab) {
   if (!wantTab) return;
   if (!tab || !tab.active || !/^https?:/i.test(tab.url || '')) return;
   if (tab.incognito) return;                       // a private window is not something to hand over
   const key = `${tab.url}|${tab.title || ''}`;
-  if (key === lastSent) return;
-  lastSent = key;
+  if (key === lastSent && Date.now() - lastSentAt < RESEND_MS) return;
+  lastSent = key; lastSentAt = Date.now();
   try {
     const res = await fetch(`${await apiBase()}/api/tab`, {
       method: 'POST',
@@ -162,6 +166,9 @@ async function reportActiveTab() {
 chrome.tabs.onActivated.addListener(() => reportActiveTab());
 chrome.tabs.onUpdated.addListener((_id, info, tab) => { if (info.status === 'complete' || info.title) reportTab(tab); });
 chrome.windows.onFocusChanged.addListener((id) => { if (id !== chrome.windows.WINDOW_ID_NONE) reportActiveTab(); });
+// 心跳：停在同一个页面上不动，也让应用那边知道这个页面还在
+chrome.alarms.create('briffy-tab', { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'briffy-tab') reportActiveTab(); });
 
 // Heartbeat: lets the app show "extension connected" without the user opening the popup first.
 // Reloading the extension does not reach tabs that are already open: content scripts are injected when

@@ -142,6 +142,43 @@ function siteOf(url) {
   } catch (_) { return ''; }
 }
 
+// 按**格式**分，不是按「怎么进来的」分。截图和从网页存下来的图都是图片；一条随手记和一封邮件
+// 都是文字。「怎么进来的」是另一个维度（entryOrigin），两件事混在一格里就都说不清了。
+// mime 是现成的，工作区里 213 条只有 4 条没有；没有的用扩展名兜底。
+const FORMAT = [
+  [/^image\//, 'image'], [/^audio\//, 'audio'], [/^video\//, 'video'],
+  [/pdf/, 'pdf'],
+  [/(msword|wordprocessingml|opendocument\.text|rtf)/, 'doc'],
+  [/(excel|spreadsheetml|opendocument\.spreadsheet|csv)/, 'sheet'],
+  [/(powerpoint|presentationml|opendocument\.presentation)/, 'slides'],
+  [/(zip|x-tar|gzip|x-7z|x-rar)/, 'archive'],
+  [/uri-list/, 'link'],
+  [/^text\//, 'text'],
+];
+const EXT_FORMAT = {
+  '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image', '.heic': 'image', '.svg': 'image',
+  '.mp3': 'audio', '.wav': 'audio', '.m4a': 'audio', '.webm': 'audio', '.aac': 'audio', '.flac': 'audio',
+  '.mp4': 'video', '.mov': 'video', '.mkv': 'video', '.avi': 'video',
+  '.pdf': 'pdf', '.doc': 'doc', '.docx': 'doc', '.rtf': 'doc', '.pages': 'doc',
+  '.xls': 'sheet', '.xlsx': 'sheet', '.csv': 'sheet', '.numbers': 'sheet',
+  '.ppt': 'slides', '.pptx': 'slides', '.key': 'slides',
+  '.zip': 'archive', '.tar': 'archive', '.gz': 'archive', '.7z': 'archive', '.rar': 'archive',
+  '.txt': 'text', '.md': 'text', '.json': 'text', '.html': 'text',
+};
+
+/** @returns {string} image / text / audio / video / pdf / doc / sheet / slides / archive / link / other */
+function entryFormat(e) {
+  if (!e) return 'other';
+  const mime = String(e.mime || '').split(';')[0].toLowerCase();
+  for (const [re, k] of FORMAT) if (re.test(mime)) return k;
+  const p = String(e.path || e.originalPath || e.title || '').toLowerCase();
+  const dot = p.lastIndexOf('.');
+  if (dot > 0) { const k = EXT_FORMAT[p.slice(dot)]; if (k) return k; }
+  if (e.type === 'note') return 'text';
+  if (e.type === 'url') return 'link';
+  return 'other';
+}
+
 /**
  * 这条记录**是从哪儿来的**，按能知道的最细一档答：
  *   站点   知道网址就用站点名（小红书、哔哩哔哩、GitHub）
@@ -428,7 +465,7 @@ class Store extends EventEmitter {
         if (!want && skip && skip.has(entrySource(e))) continue;
         if (pinned && !e.pinned) continue;
         if (only && !only.has(e.id)) continue;
-        if (type && String(e.type || '') !== type) continue;
+        if (type && entryFormat(e) !== type) continue;
         if (origin && entryOrigin(e) !== origin) continue;
         if (q) {
           const hay = `${e.title} ${e.tags.join(' ')} ${e.visionLabels || ''} ${e.text} ${e.summary} ${e.path} ${e.note || ''} ${e.context ? `${e.context.app || ''} ${e.context.window || ''} ${e.context.url || ''}` : ''}`.toLowerCase();
@@ -459,7 +496,7 @@ class Store extends EventEmitter {
       for (const e of this.loadDay(key)) {
         total++; if (e.pinned) pinned++;
         bySource[entrySource(e)]++;
-        const t = String(e.type || 'other'); byType[t] = (byType[t] || 0) + 1;
+        const t = entryFormat(e); byType[t] = (byType[t] || 0) + 1;
         const o = entryOrigin(e); byOrigin[o] = (byOrigin[o] || 0) + 1;
       }
     }
@@ -467,4 +504,4 @@ class Store extends EventEmitter {
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, siteOf, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
+module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, entryFormat, siteOf, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };

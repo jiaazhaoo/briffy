@@ -180,7 +180,7 @@
       const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
       const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
       return entries.filter((e) => (!only || only.has(e.id))
-        && (!type || (e.type || '') === type)
+        && (!type || e._fmt === type)
         && (!origin || originOf(e) === origin)
         && (!dates || dates.includes(e.dateKey))
         && (!want || want.has(srcOf(e)))
@@ -228,7 +228,13 @@
       // 三个维度的计数：类型、来源（站点优先，其次应用，再退回采集方式）
       const byType = {}; const byOrigin = {};
       for (const e of entries) {
-        byType[e.type || 'other'] = (byType[e.type || 'other'] || 0) + 1;
+        const fmt = /^image/.test(e.mime || '') || e.type === 'image' || e.type === 'screenshot' ? 'image'
+          : /^audio/.test(e.mime || '') || e.type === 'audio' ? 'audio'
+          : /pdf/.test(e.mime || '') || /\.pdf$/i.test(e.title || '') ? 'pdf'
+          : /^video/.test(e.mime || '') || e.type === 'video' ? 'video'
+          : e.type === 'url' ? 'link' : 'text';
+        e._fmt = fmt;
+        byType[fmt] = (byType[fmt] || 0) + 1;
         const o = originOf(e);
         byOrigin[o] = (byOrigin[o] || 0) + 1;
       }
