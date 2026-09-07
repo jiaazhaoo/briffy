@@ -77,6 +77,30 @@ function native() {
  * will hand over a PNG, but encoding one costs 133 ms and decoding it back into a NativeImage another
  * 138 ms -- together slower than the API this replaces. `toRaw` plus `createFromBitmap` costs 75 + 5.
  */
+/**
+ * node-screenshots hands over RGBA; `nativeImage.createFromBitmap` wants the platform's own order,
+ * which is BGRA everywhere Electron runs. Handed the buffer as it comes, every pixel gets its red
+ * and its blue swapped -- a hue shift over the whole frozen desktop, and over every crop saved out
+ * of it, uniform enough that it reads as "something is off" rather than as an obvious fault.
+ * (dev/region-color-check.js measures it against the library's own PNG, which has no such ambiguity.)
+ *
+ * One 32-bit rotate per pixel rather than four byte moves: 12.7M pixels on this machine's screen,
+ * and this route was taken to be fast. Everything Electron supports is little-endian, so in memory
+ * R,G,B,A reads as a word 0xAABBGGRR -- the fix is to trade its two ends and leave green and alpha be.
+ */
+function toBGRA(raw) {
+  if ((raw.byteOffset & 3) === 0 && (raw.length & 3) === 0) {
+    const u = new Uint32Array(raw.buffer, raw.byteOffset, raw.length >>> 2);
+    for (let i = 0; i < u.length; i++) {
+      const p = u[i];
+      u[i] = (p & 0xff00ff00) | ((p >>> 16) & 0xff) | ((p & 0xff) << 16);
+    }
+    return raw;
+  }
+  for (let i = 0; i + 3 < raw.length; i += 4) { const r = raw[i]; raw[i] = raw[i + 2]; raw[i + 2] = r; }
+  return raw;
+}
+
 async function grabNative(displays) {
   const lib = native();
   if (!lib) return null;
@@ -94,7 +118,7 @@ async function grabNative(displays) {
     if (!mon) return { display, image: null };
     try {
       const img = await mon.captureImage();
-      const raw = await img.toRaw();
+      const raw = toBGRA(await img.toRaw());
       return { display, image: nativeImage.createFromBitmap(raw, { width: img.width, height: img.height }) };
     } catch (e) {
       console.warn('[region] native capture failed for one display:', e.message);
@@ -271,4 +295,4 @@ function init() {
   });
 }
 
-module.exports = { init, warm, selectRegion, cancel, active };
+module.exports = { init, warm, selectRegion, cancel, active, toBGRA };
