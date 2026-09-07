@@ -1119,6 +1119,8 @@ function setupIpc() {
     return {
       edges: g.edges,
       nodes: g.nodes.map((n) => {
+        // 实体节点没有对应的记录：它就是一个地点、一个日期、一个数
+        if (n.entity) return { id: n.id, hop: n.hop, entity: n.entity };
         const e = store.getEntry(n.id);
         return e ? { ...publicEntry(e), hop: n.hop } : null;
       }).filter(Boolean),

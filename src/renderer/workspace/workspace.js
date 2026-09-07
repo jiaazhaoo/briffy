@@ -1302,7 +1302,8 @@
     // 所以最后按卡片实际占的范围把画布收紧——图有多大就多大，不留白撑场面。
     const M = 10;
     const box = g.nodes.map((n) => {
-      const w = n.hop === 2 ? G.w2 : G.w1; const h = n.hop === 2 ? G.h2 : G.h1;
+      const w = n.entity ? Math.max(58, String(n.entity.text).length * 8 + 20) : (n.hop === 2 ? G.w2 : G.w1);
+      const h = n.entity ? 26 : (n.hop === 2 ? G.h2 : G.h1);
       const [x, y] = pos.get(n.id) || [cx, cy];
       return { id: n.id, x, y, w, h };
     });
@@ -1336,6 +1337,15 @@
     // 缩略图认得出来、标题能读、时间在下面。画成 <rect> 的时候，一个 24px 高的灰方块里
     // 塞十四个字符，截出来的是「English (Great」这种谁也认不出的东西。
     const cards = g.nodes.map((n) => {
+      // 实体不是记录，是关节：一个地点、一个日期、一个数。所以它不是一张纸——
+      // 它是印在底纸上的一个词，没有影子，也没有缩略图和时间。
+      if (n.entity) {
+        const w2 = Math.max(58, String(n.entity.text).length * 8 + 20);
+        const [ex, ey] = at(n.id);
+        return `<button type="button" class="gr-ent k-${esc(n.entity.kind)}" data-node="${esc(n.id)}"`
+          + ` title="${esc(n.entity.text)} · ${esc(String(n.entity.n))}" style="left:${(ex - w2 / 2).toFixed(1)}px;top:${(ey - 13).toFixed(1)}px;width:${w2}px;height:26px">`
+          + `<span>${esc(n.entity.text)}</span></button>`;
+      }
       const far = n.hop === 2;
       const w = far ? G.w2 : G.w1; const h = far ? G.h2 : G.h1;
       const [x, y] = at(n.id);
