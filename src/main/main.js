@@ -1106,7 +1106,8 @@ function setupIpc() {
     return {
       source: l.source ? { ...l.source, entry: l.source.page ? publicEntry(store.getEntry(l.source.page)) : null } : null,
       clips: many(l.clips),
-      run: many(l.run),
+      // 同一程带着页面的名字：那一页本身多半没存过，代表那一条只是用来点开的
+      run: l.run.map((p) => ({ name: p.name, entry: publicEntry(store.getEntry(p.id)) })).filter((x) => x.entry),
       near: many(l.near),
     };
   });
