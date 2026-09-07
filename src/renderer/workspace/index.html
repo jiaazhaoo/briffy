@@ -154,6 +154,10 @@
             </div>
           </section>
           <section class="card-section">
+            <h2><span data-i18n="sConnect">接进来</span><span class="info"><i>i</i><span class="tip" data-i18n="sConnectHint">把 Notion 的页面和 Gmail 的邮件同步进工作区，之后它们和你自己存的东西一样可以搜、可以问。凭据是你自己的：Notion 用你建的 integration token（你决定它能看见哪些页面），Gmail 用你在 Google Cloud 建的桌面端 client——Google 把读邮件列为受限权限，内置的 client 会让每个人都卡在一张警告页上。只读，不发信、不改标签、不删邮件。断开只清凭据，已经同步进来的记录一条都不动。</span></span></h2>
+            <div class="body" id="connectList"></div>
+          </section>
+          <section class="card-section">
             <h2><span data-i18n="sClipboard">剪贴板</span><span class="info"><i>i</i><span class="tip" data-i18n="sClipboardHint">密码管理器复制的内容会自动跳过；从工作区里复制出去的文字不会重复记录。托盘菜单里也能随时开关。</span></span></h2>
             <div class="body">
             <label class="f check wide"><span class="fc"><input type="checkbox" id="clipboardWatch" /><span data-i18n="sClipboardWatch">实时记录剪贴板（复制的文字、图片、文件都会存入工作区）</span></span></label>

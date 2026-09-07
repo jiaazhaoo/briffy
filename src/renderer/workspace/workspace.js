@@ -25,6 +25,12 @@
       sContext: '记录来源', sContextOn: '保存时记下当时的应用、窗口和网页地址',
       sContextHint: '只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。',
       sContextTest: '看看现在能读到什么',
+      sConnect: '接进来', cNotConnected: '没连', cConnect: '连接', cSync: '同步', cSyncing: '同步中…',
+      cDisconnect: '断开', cSynced: '已同步 {n} 条', cNever: '还没同步过', cConnecting: '连接中…',
+      cNotionToken: 'integration token', cNotionHelp: '在 notion.so/my-integrations 建一个内部集成，再把要同步的页面「连接」给它',
+      cGmailId: 'client id', cGmailSecret: 'client secret',
+      cGmailHelp: '在 Google Cloud 建一个「桌面应用」类型的 OAuth client，开启 Gmail API。点连接会打开浏览器让你同意。',
+      cSyncDone: '全部同步完了', cSyncMore: '还有更多，再点一次继续',
       sAutoRecord: '自动录音', sAutoRecordOn: '白名单里的软件用麦克风时，跟着录下来', sAutoRecordState: '状态',
       sAutoRecordAllow: '白名单', sAutoRecordAllowPh: '再加一个…',
       autoAllowEmpty: '空的——不会自动录任何东西', autoAllowDrop: '点一下去掉', autoAllowReset: '恢复默认',
@@ -146,6 +152,12 @@
       sContext: 'Where it came from', sContextOn: 'Record the app, window and page address at the moment of a save',
       sContextHint: 'Asked once, at the instant you save something -- briffy never watches your screen. The window title needs Accessibility permission; the page address comes from the browser extension, and turning this off stops asking for both.',
       sContextTest: 'See what it can read now',
+      sConnect: 'Bring in', cNotConnected: 'not connected', cConnect: 'Connect', cSync: 'Sync', cSyncing: 'syncing…',
+      cDisconnect: 'Disconnect', cSynced: '{n} brought in', cNever: 'never synced', cConnecting: 'connecting…',
+      cNotionToken: 'integration token', cNotionHelp: 'Make an internal integration at notion.so/my-integrations, then connect the pages you want to it',
+      cGmailId: 'client id', cGmailSecret: 'client secret',
+      cGmailHelp: 'Make a Desktop app OAuth client in Google Cloud and enable the Gmail API. Connect opens your browser to approve it.',
+      cSyncDone: 'all caught up', cSyncMore: 'more to come — press again',
       sAutoRecord: 'Automatic recording', sAutoRecordOn: 'Record along when an app on the list uses the microphone', sAutoRecordState: 'State',
       sAutoRecordAllow: 'Only these', sAutoRecordAllowPh: 'add one…',
       autoAllowEmpty: 'empty — nothing will be recorded automatically', autoAllowDrop: 'click to remove', autoAllowReset: 'restore the default',
@@ -301,7 +313,100 @@
     // 进「问」这一页要把已有的对话画出来。以前只 focus 不渲染，第一次进去就是一整片空白——
     // 而输入框那只托盘当时也被 CSS 藏着，于是那一页既没有内容也没有地方打字。
     if (tab === 'ask') { renderAsk(); setTimeout(() => $('#askInput').focus(), 0); }
+    // 接入的状态会自己变（同步在跑、token 过期），所以每次打开设置都重新问一次，
+    // 而不是沿用启动时那一份。populateSettings 只在启动和保存后跑。
+    if (tab === 'settings') renderConnect();
     if (tab === 'entries' && state.view === 'grid' && jgWidth !== gridWidth()) scheduleGrid();
+  }
+
+  // ---------- 接进来：Notion / Gmail ----------
+  //
+  // 凭据只往一个方向走：输入框 -> 主进程 -> safeStorage。这里从来不读它们，connectList() 回来的
+  // 只有状态，所以这一页上任何时候都不会有一份 token 的副本。
+  const CONNECT_FIELDS = {
+    notion: [{ key: 'token', label: 'cNotionToken', type: 'password' }],
+    gmail: [{ key: 'clientId', label: 'cGmailId', type: 'text' }, { key: 'clientSecret', label: 'cGmailSecret', type: 'password' }],
+  };
+  let connectBusy = '';
+
+  async function renderConnect() {
+    const box = $('#connectList');
+    if (!box) return;
+    let list = [];
+    try { list = await ws.connectList(); } catch (_) { list = []; }
+    box.textContent = '';
+    for (const svc of list) box.appendChild(connectRow(svc));
+  }
+
+  function connectRow(svc) {
+    const row = document.createElement('div');
+    row.className = 'f';
+    const left = document.createElement('span');
+    left.className = 'fl';
+    left.textContent = svc.label;
+    const fc = document.createElement('span');
+    fc.className = 'fc';
+    row.append(left, fc);
+
+    if (!svc.connected) {
+      const inputs = {};
+      for (const f of (CONNECT_FIELDS[svc.name] || [])) {
+        const i = document.createElement('input');
+        i.type = f.type; i.placeholder = t(f.label); i.className = 'wide';
+        i.autocomplete = 'off'; i.spellcheck = false;
+        inputs[f.key] = i;
+        fc.appendChild(i);
+      }
+      const go = document.createElement('button');
+      go.type = 'button'; go.className = 'btn'; go.textContent = t('cConnect');
+      go.addEventListener('click', async () => {
+        const creds = {};
+        for (const [k, i] of Object.entries(inputs)) creds[k] = i.value.trim();
+        go.disabled = true; go.textContent = t('cConnecting');
+        const r = await ws.connectSet(svc.name, creds);
+        for (const i of Object.values(inputs)) i.value = '';      // 存进去了就不在页面上留副本
+        if (!r.ok) { go.disabled = false; go.textContent = t('cConnect'); note(fc, r.error, true); return; }
+        renderConnect();
+      });
+      fc.appendChild(go);
+      note(fc, t(svc.name === 'gmail' ? 'cGmailHelp' : 'cNotionHelp'), false);
+      return row;
+    }
+
+    const state = document.createElement('span');
+    state.className = 'st';
+    state.textContent = [svc.account, svc.count ? t('cSynced', { n: svc.count }) : t('cNever'),
+      svc.lastAt ? fmtTime(svc.lastAt) : '', svc.done ? t('cSyncDone') : ''].filter(Boolean).join(' · ');
+
+    const sync = document.createElement('button');
+    sync.type = 'button'; sync.className = 'btn';
+    sync.textContent = connectBusy === svc.name ? t('cSyncing') : t('cSync');
+    sync.disabled = !!connectBusy;
+    sync.addEventListener('click', async () => {
+      connectBusy = svc.name;
+      sync.disabled = true; sync.textContent = t('cSyncing');
+      const r = await ws.connectSync(svc.name, {});
+      connectBusy = '';
+      if (r && !r.ok) note(fc, r.error, true);
+      renderConnect();
+    });
+
+    const drop = document.createElement('button');
+    // 房里已经有这套按钮的词汇，别自己再造一套：.btn 是印在纸上能按的地方，.danger 是印泥色的删除
+    drop.type = 'button'; drop.className = 'btn danger'; drop.textContent = t('cDisconnect');
+    drop.addEventListener('click', async () => { await ws.connectDrop(svc.name); renderConnect(); });
+
+    fc.append(sync, drop, state);
+    if (svc.error) note(fc, svc.error, true);
+    return row;
+  }
+
+  function note(fc, text, bad) {
+    if (!text) return;
+    const n = document.createElement('span');
+    n.className = `st${bad ? ' warn' : ''}`;
+    n.textContent = text;
+    fc.appendChild(n);
   }
 
   // ---------- pet picker ----------
@@ -1547,6 +1652,7 @@
     renderSpeakers(m.speakers);
     renderAutoRecord(m.listen);
     renderMicNow(m.listen);
+    renderConnect();
     $('#clipboardWatch').checked = s.clipboardWatch !== false;
     $('#clipboardMinChars').value = s.clipboardMinChars ?? 12;
     $('#localApi').checked = s.localApi !== false;
