@@ -124,6 +124,45 @@ function entrySource(e) {
   return 'other';
 }
 
+// 站点名。域名本身当标签太长也太技术（space.bilibili.com），而这几个是中文用户天天用的，
+// 名字对不上就等于没有这个筛选。表很小，认不出来的就用域名，够用。
+const SITES = {
+  'xiaohongshu.com': '小红书', 'bilibili.com': '哔哩哔哩', 'weibo.com': '微博', 'zhihu.com': '知乎',
+  'douyin.com': '抖音', 'instagram.com': 'Instagram', 'x.com': 'X', 'twitter.com': 'X',
+  'youtube.com': 'YouTube', 'github.com': 'GitHub', 'reddit.com': 'Reddit',
+  'facebook.com': 'Facebook', 'zoom.us': 'Zoom', 'notion.so': 'Notion', 'claude.ai': 'Claude',
+  'mail.google.com': 'Gmail', 'docs.google.com': 'Google Docs',
+};
+function siteOf(url) {
+  try {
+    const h = new URL(String(url)).hostname.replace(/^www\./, '');
+    if (SITES[h]) return SITES[h];
+    const base = h.split('.').slice(-2).join('.');
+    return SITES[base] || h;
+  } catch (_) { return ''; }
+}
+
+/**
+ * 这条记录**是从哪儿来的**，按能知道的最细一档答：
+ *   站点   知道网址就用站点名（小红书、哔哩哔哩、GitHub）
+ *   应用   知道当时在哪个应用就用应用名（Claude、Terminal、WeChat）
+ *   方式   都不知道，就退回它是怎么进来的（截图、剪贴板、语音）
+ *
+ * 这和 entrySource 不是一回事：那个只答「怎么进来的」。实测这个工作区 211 条里有 94 条
+ * 既没有网址也没有应用（没有前台上下文的笔记和图片），退到方式那一档它们才有归属，
+ * 否则近一半的记录会掉进「没有来源」那个格子里，筛选就等于半瞎。
+ */
+function entryOrigin(e) {
+  if (!e) return 'other';
+  const c = e.context || {};
+  const site = siteOf(e.url || c.url || '');
+  if (site) return site;
+  // 浏览器只说明「是个网页」，说不出是哪个站——那种情况下方式那一档反而更有信息
+  const app = String(c.app || '').trim();
+  if (app && !/^(google chrome|chrome|safari|firefox|microsoft edge|arc)$/i.test(app)) return app;
+  return entrySource(e);
+}
+
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (_) { return fallback; }
 }
@@ -371,7 +410,10 @@ class Store extends EventEmitter {
 
   entriesForDate(dateKey) { return [...this.loadDay(dateKey)]; }
 
-  listEntries({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false, limit = 500 } = {}) {
+  listEntries({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false,
+    type = '', origin = '', ids = null, limit = 500 } = {}) {
+    // 三个维度是**叠**的，不是单选：「小红书上的图片」这种要求只有叠起来才成立。
+    const only = Array.isArray(ids) && ids.length ? new Set(ids) : null;
     const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
     // `exclude` is how "everything" can still leave something out: the clipboard fills up on its own
     // all day, and a page that is nine parts clipboard is not "everything", it is the clipboard.
@@ -385,6 +427,9 @@ class Store extends EventEmitter {
         if (want && !want.has(entrySource(e))) continue;
         if (!want && skip && skip.has(entrySource(e))) continue;
         if (pinned && !e.pinned) continue;
+        if (only && !only.has(e.id)) continue;
+        if (type && String(e.type || '') !== type) continue;
+        if (origin && entryOrigin(e) !== origin) continue;
         if (q) {
           const hay = `${e.title} ${e.tags.join(' ')} ${e.visionLabels || ''} ${e.text} ${e.summary} ${e.path} ${e.note || ''} ${e.context ? `${e.context.app || ''} ${e.context.window || ''} ${e.context.url || ''}` : ''}`.toLowerCase();
           if (!hay.includes(q)) continue;
@@ -409,11 +454,17 @@ class Store extends EventEmitter {
     let total = 0;
     let pinned = 0;
     const bySource = Object.fromEntries(SOURCES.map((s) => [s, 0]));
+    const byType = {}; const byOrigin = {};
     for (const key of this.listDates()) {
-      for (const e of this.loadDay(key)) { total++; if (e.pinned) pinned++; bySource[entrySource(e)]++; }
+      for (const e of this.loadDay(key)) {
+        total++; if (e.pinned) pinned++;
+        bySource[entrySource(e)]++;
+        const t = String(e.type || 'other'); byType[t] = (byType[t] || 0) + 1;
+        const o = entryOrigin(e); byOrigin[o] = (byOrigin[o] || 0) + 1;
+      }
     }
-    return { days: this.listDates().length, entries: total, pinned, bySource };
+    return { days: this.listDates().length, entries: total, pinned, bySource, byType, byOrigin };
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
+module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, siteOf, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };

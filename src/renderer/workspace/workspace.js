@@ -10,7 +10,10 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', topicsHint: '成堆的：', askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
+      near: '相近', topicsHint: '成堆的：', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
+      fAll: '全部', fClear: '清空', tNote: '文本', tImage: '图片', tUrl: '网页', tScreenshot: '截图',
+      tAudio: '录音', tVideo: '视频', tFile: '文件', tOther: '其它', fMoreN: '更多 {n}', fLess: '收起',
+      askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
       askNoEntries: '工作区里还没有记录，先存点东西进来。',
       askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
       askFailed: 'AI 服务出错：{err}。下面仍然是匹配到的记录。',
@@ -138,7 +141,10 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', topicsHint: 'Groups:', askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
+      near: 'related', topicsHint: 'Groups:', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
+      fAll: 'All', fClear: 'Clear', tNote: 'Text', tImage: 'Pictures', tUrl: 'Web', tScreenshot: 'Screenshots',
+      tAudio: 'Voice', tVideo: 'Video', tFile: 'Files', tOther: 'Other', fMoreN: '{n} more', fLess: 'Less',
+      askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
       askNoEntries: 'The workspace has no entries yet.',
       askNoProvider: 'No AI service configured (Settings › AI service), so nobody read these for you. Here are the matching records.',
       askFailed: 'AI service failed: {err}. The matching records are still below.',
@@ -266,7 +272,9 @@
   const state = {
     meta: null, settings: null, ui: 'zh', entries: [], dates: [], selectedId: null, editing: false,
     query: '', date: '', source: '', pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
-    topics: [], topic: '',            // 讲同一件事的记录归成的堆；topic 是正在看的那一个
+    topics: [],
+    // 三个维度叠着筛：类型（是什么）、来源（从哪儿来）、主题（关于什么）。dim 是当前展开的那一个。
+    f: { type: '', origin: '', topic: '' }, dim: 'type', dimOpen: false,
     selecting: false, picked: new Set(),
     view: 'grid',
     boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
@@ -474,24 +482,28 @@
 
   // ---------- entries ----------
   async function loadEntries() {
-    if (state.topic) { pickTopic(state.topic); return; }   // 正在看一个主题，别被普通加载顶掉
+    await loadTopics();
     state.dates = await ws.listDates();
+    // 主题是一份 id 清单，所以它和另外两个维度是「取交集」，不是「取代」——
+    // 「那场挑战里的图片」要求两个条件同时成立。
+    let ids = null;
+    if (state.f.topic) { try { ids = (await ws.topicEntries(state.f.topic)).map((e) => e.id); } catch (_) { ids = []; } }
     // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了，
-    // 那就是剪贴板。要看它，点那一格。
+    // 那就是剪贴板。要看它，去「来源」里点那一格。
     state.entries = await ws.listEntries({
       query: state.query,
       dates: state.date ? [state.date] : null,
-      sources: state.source && state.source !== 'pinned' ? [state.source] : null,
-      exclude: state.source ? null : ['clipboard'],
-      pinned: state.source === 'pinned',
+      type: state.f.type,
+      origin: state.f.origin,
+      ids,
+      exclude: state.f.origin ? null : ['clipboard'],
     });
-    ws.stats().then((st) => { state.counts = st.bySource || null; state.pinnedCount = st.pinned || 0; renderSources(); }).catch(() => {});
+    ws.stats().then((st) => { state.counts = st; state.pinnedCount = st.pinned || 0; renderDims(); }).catch(() => {});
     renderDateFilter();
-    renderSources();
+    renderDims();
     renderList();
     renderAxis();
     if (state.selectedId && !state.entries.some((e) => e.id === state.selectedId)) closeDetail();
-    renderTopics();
     addNear();
   }
 
@@ -518,63 +530,65 @@
     renderAxis();
   }
 
-  // Screenshots, clipboard and web grabs are three different habits, and one merged stream buries them.
-  // The counts are over the whole workspace, so a source with nothing in it still says so.
-  const SOURCE_CHIPS = [
-    ['', 'srcAll'], ['screenshot', 'srcScreenshot'], ['clipboard', 'srcClipboard'], ['bookmark', 'srcBookmark'],
-    ['browser', 'srcBrowser'], ['voice', 'srcVoice'], ['other', 'srcOther'],
-    // Pinned is not a source, but it answers the same question -- "show me only these" -- and a
-    // separate control for one boolean would cost a whole line of the page.
-    ['pinned', 'srcPinned'],
-  ];
-  // 一行里只站四个常用的来源，其余收进「更多」。数字只跟在选中的那个后面——
-  // 八个数字排成一行是八个同等重量的东西，那是这一行最吵的地方。
-  const PRIMARY_SOURCES = ['', 'screenshot', 'clipboard', 'bookmark'];
-  function renderSources() {
-    const c = state.counts;
-    const open = state.moreSources || SOURCE_CHIPS.some(([k]) => !PRIMARY_SOURCES.includes(k) && isOn(k));
-    const chip = ([key, label]) => {
-      const n = !c ? null : key === 'pinned' ? state.pinnedCount : (c[key] || 0);
-      const zero = n === 0 && key !== '';   // 别叫 empty：那是空状态那块大居中的名字
-      return `<button type="button" class="src-chip${isOn(key) ? ' active' : ''}${zero ? ' zero' : ''}" data-source="${key}">`
-        + `${esc(t(label))}</button>`;
-    };
-    const shown = SOURCE_CHIPS.filter(([k]) => open || PRIMARY_SOURCES.includes(k));
-    $('#sources').innerHTML = shown.map(chip).join('')
-      + `<button type="button" class="src-chip more" data-more="1">${esc(t(open ? 'srcLess' : 'srcMore'))}</button>`;
-  }
-  // 主题：讲同一件事的记录归成的堆。它和筛选是两个问题——筛选说「怎么进来的」（截图 / 剪贴板），
-  // 主题说「关于什么」（那场挑战 / Ollama / 回形针 logo）。所以是两行，不是一行里混着。
+  // ---------- 筛选：三个维度，叠着用 ----------
   //
-  // 只在没有搜索词、也没有按来源筛的时候出现：一次只回答一个问题。搜索框已经在回答「关于什么」了，
-  // 这时候再摆一排主题只会让「现在在看什么」说不清楚。
-  let topicsLoaded = false;
-  async function renderTopics() {
-    const box = $('#topics');
+  // 三个维度回答三个不同的问题，混在一行里就说不清了：
+  //   类型  这是什么   —— 图片 / 文本 / 网页 / 录音
+  //   来源  从哪儿来   —— 小红书 / 哔哩哔哩 / Claude / Terminal，实在不知道就退回它是怎么进来的
+  //   主题  关于什么   —— 自动归堆的结果（topic.js）
+  //
+  // 它们是**叠**的：「小红书上的图片」这种要求只有叠起来才成立。所以上面那行同时也是
+  // 「现在叠了哪几个」，右端一个「清空」——三个能同时按的东西，不写出来就会丢失「现在在看什么」。
+  // 下面只展开一个维度的值：三行值会把顶栏撑高一整行记录的高度。
+  const TYPE_LABEL = { note: 'tNote', image: 'tImage', url: 'tUrl', screenshot: 'tScreenshot', audio: 'tAudio', video: 'tVideo', file: 'tFile' };
+  // 来源里那几个不是站点也不是应用的值，是「实在不知道从哪儿来」时退回的采集方式
+  const ORIGIN_LABEL = { clipboard: 'srcClipboard', screenshot: 'srcScreenshot', voice: 'srcVoice', bookmark: 'srcBookmark', browser: 'srcBrowser', other: 'srcOther' };
+  const DIMS = [['type', 'dimType'], ['origin', 'dimOrigin'], ['topic', 'dimTopic']];
+  const originName = (k) => (ORIGIN_LABEL[k] ? t(ORIGIN_LABEL[k]) : k);
+  const topicLabel = (id) => { const x = (state.topics || []).find((z) => z.id === id); return x ? (x.name || x.words) : id; };
+  // 认不出来的类型用它自己的名字，不要都翻成「其它」——两个不同的值顶着同一个标签，
+  // 界面上就成了两个一模一样的词，点哪个都说不清。
+  const valueName = (dim, k) => (dim === 'type' ? (TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k) : dim === 'origin' ? originName(k) : topicLabel(k));
+
+  /** 当前维度有哪些值可选，大的在前。@returns {[string, number][]} */
+  function valuesOf(dim) {
+    const c = state.counts || {};
+    if (dim === 'type') return Object.entries(c.byType || {}).sort((a, b) => b[1] - a[1]);
+    if (dim === 'origin') return Object.entries(c.byOrigin || {}).sort((a, b) => b[1] - a[1]);
+    return (state.topics || []).filter((x) => x.name || x.words).map((x) => [x.id, x.n]);
+  }
+
+  function renderDims() {
+    const box = $('#dims');
     if (!box) return;
-    if (!topicsLoaded) { topicsLoaded = true; try { state.topics = await ws.topics(); } catch (_) { state.topics = []; } }
-    const list = (state.topics || []).filter((x) => x.name);
-    const show = list.length && !state.query && !state.source;
-    box.hidden = !show;
-    if (!show) return;
-    box.innerHTML = `<span class="src-chip zero" style="pointer-events:none">${esc(t('topicsHint'))}</span>`
-      + list.slice(0, 10).map((x) => `<button type="button" class="src-chip${state.topic === x.id ? ' active' : ''}" data-topic="${esc(x.id)}">`
-        + `${esc(x.name)}<span class="n">${x.n}</span></button>`).join('');
+    const any = DIMS.some(([k]) => state.f[k]);
+    box.innerHTML = DIMS.map(([k, label]) => {
+      const on = state.f[k];
+      return `<button type="button" class="src-chip dim${state.dim === k ? ' open' : ''}${on ? ' active' : ''}" data-dim="${k}">`
+        + `${esc(t(label))}${on ? `<span class="n">${esc(String(valueName(k, on)).slice(0, 14))}</span>` : ''}</button>`;
+    }).join('')
+      + (any ? `<button type="button" class="src-chip clear" data-clear="1">${esc(t('fClear'))}</button>` : '');
+    renderValues();
   }
 
-  async function pickTopic(id) {
-    state.topic = state.topic === id ? '' : id;
-    if (!state.topic) { loadEntries(); return; }
-    let list = [];
-    try { list = await ws.topicEntries(state.topic); } catch (_) { list = []; }
-    state.entries = list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-    renderTopics(); renderList(); renderAxis();
+  let moreValues = false;
+  function renderValues() {
+    const box = $('#sources');
+    if (!box) return;
+    const dim = state.dim;
+    const all = valuesOf(dim);
+    const shown = moreValues ? all : all.slice(0, 8);
+    box.innerHTML = `<button type="button" class="src-chip${state.f[dim] ? '' : ' active'}" data-val="">${esc(t('fAll'))}</button>`
+      + shown.map(([k, n]) => `<button type="button" class="src-chip${state.f[dim] === k ? ' active' : ''}${n ? '' : ' zero'}" data-val="${esc(k)}">`
+        + `${esc(String(valueName(dim, k)).slice(0, 18))}<span class="n">${n}</span></button>`).join('')
+      + (all.length > shown.length ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fMoreN', { n: all.length - shown.length }))}</button>`
+        : (moreValues && all.length > 8 ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fLess'))}</button>` : ''));
   }
 
-  // 筛选是**单选**：一次只看一类东西。「全部」是没选（`state.source === ''`），
-  // 收藏是其中一个选项，不是另一个并行的开关——两个能同时按的东西会让「现在在看什么」说不清楚。
-  function isOn(key) { return (state.source || '') === key; }
-  function toggleSource(key) { state.source = state.source === key ? '' : key; state.topic = ''; }
+  async function loadTopics() {
+    if (state.topics.length) return;
+    try { state.topics = await ws.topics(); } catch (_) { state.topics = []; }
+  }
 
   // 左边的时间轴：一天一行，相对日 + 条数。日期抬头已经不显示了，所以哪一天只由它说。
   // 点一行跳过去；滚动时哪一天正压在视野顶上，哪一行就加粗。
@@ -706,7 +720,7 @@
   // "Nothing here" used to mean two opposite things: nothing was worth keeping, or briffy was closed
   // and the day was never offered. It knows which now (src/main/uptime.js), so it says which.
   async function emptyReason() {
-    if (!state.date || state.query || state.source) return '';
+    if (!state.date || state.query || state.f.type || state.f.origin || state.f.topic) return '';
     try {
       const st = await ws.dayStats(state.date);
       if (st.status === 'off') return t('dayWasOff');
@@ -1351,7 +1365,7 @@
       case 'openContextUrl': await ws.openExternal(ctxOf(e) ? ctxOf(e).url : ''); break;
       case 'pin': {
         const updated = await ws.updateEntry(e.id, { pinned: !e.pinned });
-        if (updated) { upsert(updated); state.pinnedCount += updated.pinned ? 1 : -1; renderSources(); renderDetail(); renderList(); }
+        if (updated) { upsert(updated); state.pinnedCount += updated.pinned ? 1 : -1; renderDims(); renderDetail(); renderList(); }
         break;
       }
       case 'copyLink': {
@@ -2258,11 +2272,16 @@
       new ResizeObserver(fit).observe(top);
       fit();
     }
-    $('#topics').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-topic]');
-      if (b) pickTopic(b.dataset.topic);
+    // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
+    $('#dims').addEventListener('click', (e) => {
+      if (e.target.closest('[data-clear]')) { state.f = { type: '', origin: '', topic: '' }; loadEntries(); return; }
+      const b = e.target.closest('[data-dim]');
+      if (!b) return;
+      const k = b.dataset.dim;
+      if (state.dim === k && state.f[k]) { state.f[k] = ''; loadEntries(); return; }
+      state.dim = k; moreValues = false; renderDims();
     });
-    $('#search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = e.target.value; state.topic = ''; loadEntries(); }, 200); });
+    $('#search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = e.target.value; loadEntries(); }, 200); });
     $('#dateFilter').addEventListener('change', (e) => { state.date = e.target.value; loadEntries(); });
     $('#quickAdd').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -2277,11 +2296,13 @@
       for (const x of document.querySelectorAll('#themeSeg button')) x.classList.toggle('active', x === b);
       await ws.saveSettings({ theme: b.dataset.theme });      // seeing it change is the confirmation
     });
+    // 下面那行：选当前维度的值。再点一次同一个就是取消。
     $('#sources').addEventListener('click', (e) => {
-      if (e.target.closest('[data-more]')) { state.moreSources = !state.moreSources; renderSources(); return; }
-      const chip = e.target.closest('.src-chip');
+      if (e.target.closest('[data-more]')) { moreValues = !moreValues; renderValues(); return; }
+      const chip = e.target.closest('[data-val]');
       if (!chip) return;
-      toggleSource(chip.dataset.source);
+      const v = chip.dataset.val;
+      state.f[state.dim] = state.f[state.dim] === v ? '' : v;
       loadEntries();
     });
     let lastPicked = null;

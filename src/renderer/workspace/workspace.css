@@ -46,11 +46,17 @@ select:hover { color: var(--ink); }
 .src-chip { display: inline-flex; align-items: baseline; gap: 5px; border: 0; background: transparent; color: var(--ink-3);
   padding: 0; font: 400 var(--fs-act)/1.4 var(--sans); cursor: pointer; text-align: left; }
 .src-chip:hover { color: var(--ink-2); }
-/* 主题那一行：和筛选同一个说法，但退一档——筛选是「在看什么」，主题是「还有这些成堆的东西」。
-   退一档只靠留白和字号，不靠加线加框（全仓只有输入框底下那一道发丝线）。 */
-.sources.topics { padding-top: 2px; }
-.sources.topics .src-chip { font-size: var(--fs-meta); }
-
+/* 筛选是两行：上面三个维度名，下面当前那个维度的值。两行要能一眼分出来，靠的是字号和墨色，
+   不是线和框（全仓只有输入框底下那一道发丝线）。
+   维度名有两种「亮」，别混：
+     .open    下面正展开的是它 —— 满墨加粗，不划线（划线是「选中了一个值」的说法）
+     .active  这个维度已经筛上了 —— 后面直接把选中的值写出来，那比任何记号都清楚 */
+.sources.dims { padding-top: 2px; gap: var(--a4); }
+.sources.dims .src-chip { font-size: var(--fs-meta); }
+.src-chip.dim.open { color: var(--ink); font-weight: 600; }
+.src-chip.dim.active { text-decoration: none; }
+.src-chip.dim .n { opacity: 1; color: var(--ink); }
+.src-chip.clear { color: var(--ink-3); margin-left: auto; }
 .src-chip.active { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
 .src-chip .n { font-variant-numeric: tabular-nums; opacity: .6; font-weight: 400; }
 .src-chip.zero { opacity: .4; }
