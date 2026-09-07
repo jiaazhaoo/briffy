@@ -28,6 +28,21 @@ const TAG_SCHEMA = {
   additionalProperties: false,
 };
 
+// 改写这一步的三个上限。带太多轮上文会把主语稀释掉（正是这一层要治的病），
+// 查询太长向量就钝（同一个稀释效应），条数太多则每条只能取一两个名额。
+const PLAN_TURNS = 3;      // 最多带几轮上文
+const PLAN_ANSWER = 400;   // 每轮答案截到这么长
+const PLAN_MAX = 8;        // 最多几条查询
+const PLAN_MAXLEN = 40;
+const PLAN_SEEDS = 24;        // 最多给它看几个已经在手上的名字
+// 分类词。小模型对「不要输出 X」这种否定指令是不听的——实测原样给了
+// activity / route / schedule / plan / itinerary / event / trip 七个。所以在代码里滤，不在提示里求。
+// 这张表是**有限的**：它是「问句里指代事物的那一类词」，不是英语或中文的全部名词。
+const PLAN_BANNED = new Set(('activity activities event events schedule plan plans itinerary route routes '
+  + 'address addresses location locations place places detail details info information record records note notes '
+  + 'trip journey thing things item items data content summary list overview '
+  + '活动 行程 路线 地址 地点 位置 详情 信息 记录 内容 安排 计划 清单 概况 东西').split(/\s+/));    // 一条查询最长这么多字符——超过就不是「几个实词」了
+
 const ASK_SCHEMA = {
   type: 'object',
   properties: {
@@ -35,6 +50,15 @@ const ASK_SCHEMA = {
     used: { type: 'array', items: { type: 'integer' }, description: 'Numbers of the items the answer actually relies on' },
   },
   required: ['answer', 'used'],
+  additionalProperties: false,
+};
+
+const PLAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    queries: { type: 'array', items: { type: 'string' }, description: 'Independent search queries, 1-3 content words each' },
+  },
+  required: ['queries'],
   additionalProperties: false,
 };
 
@@ -363,11 +387,104 @@ function askSystem(languageName, small) {
  * @param {object} cfg   from config()
  * @param {{question:string, entries:Array}} input  entries in ranked order; the tail is dropped when the context is full
  */
-async function answerQuestion(cfg, { question, entries, terms = [] }) {
+/**
+ * 这一问该拿什么去检索。**问之前先问一次模型。**
+ *
+ * ask.js 顶上那条「挑记录完全不经过模型」是为了三件事：断网还能定位、没配 AI 还有一份正确的
+ * 清单、延迟确定。这一层不破那三条——它是**加在上面**的：模型不在就退回原句，退回去就是从前那套。
+ *
+ * 为什么非要它不可，是量出来的（dev/ask-address-probe.js）：
+ *   「我记下来了详细地址，你找一下」——递给模型的八条里 0 条写着地址。
+ *   地址那几条记录全部的词汇是 Windsor / Road / Egham / TW20 / 0AE，里头没有「地址」二字；
+ *   而主语（那场徒步）在上一问里，这一句自己没有。词面和向量都够不着，因为**要找的东西和
+ *   问的话不共用任何一个词，而补上那个词需要读懂上文**。这件事只有模型做得了。
+ *
+ * 输出的是**几条互相独立的查询**，不是一句话。这一条是今天最贵的一个发现：同样几个词，
+ * 揉成一句「Bishops Park Fulham Runnymede Staines…」只捞回 1/7，拆成五条分开的查询捞回 3/7。
+ * 向量对多余的字没有免疫力——一个查询装不下一个问题的几个面，塞进去就成了一团谁也不像的云。
+ *
+ * 还有一条也是量出来的：中文概念要再出一条英文的。「停车」在这个工作区里搜出 0 条，
+ * 因为那几条记录上写的是 parking / Parking space。
+ *
+ * @param {object} cfg
+ * @param {{question:string, history:{question:string,answer:string}[]}} args
+ * @returns {Promise<string[]>} 几条查询；拿不到就是空数组，调用方退回原句
+ */
+async function searchPlan(cfg, { question, history = [], seeds = [] }) {
+  const q = String(question || '').trim();
+  if (!q) return [];
+  const sys = [
+    'Turn the user\'s latest message into a few INDEPENDENT search queries for their own capture library',
+    '(screenshots, clipboard text, voice notes they saved themselves).',
+    'Rules:',
+    '- Each query is 1-3 content words. Never a sentence. No question words, no politeness.',
+    '- Keep the user\'s OWN distinctive words as queries, in their own language, verbatim.',
+    '- The latest message usually omits its subject; take it from the conversation above.',
+    '  Every place name, event name or product name mentioned earlier becomes its OWN query.',
+    '- Their notes are often in another language than the question, so emit the English form',
+    '  of each concept as a separate query too (停车 -> parking, 车站 -> station).',
+    '- Prefer names, numbers and proper nouns over abstractions.',
+    '- "Names already in hand" were pulled out of their own notes on this subject. These exact',
+    '  strings are in the library. Pick the ones this question is about and copy them VERBATIM,',
+    '  one per query. Prefer them over anything you invent.',
+    'Return JSON: {"queries": ["...", "..."]} with 4 to 8 entries.',
+  ].join(' ');
+  // 只带最近几轮：更早的轮次会把主语稀释掉，而稀释正是这一层要治的病
+  const talk = history.slice(-PLAN_TURNS).map((t) => {
+    const a = String((t && t.answer) || '').replace(/\s+/g, ' ').slice(0, PLAN_ANSWER);
+    return `Q: ${String((t && t.question) || '').replace(/\s+/g, ' ')}\nA: ${a}`;
+  }).join('\n');
+  // 给的是**从手上那几条记录里抽出来的名字**，不是正文。
+  //
+  // 给正文试过，不成：上一轮用上的那条是「赛程分前后半程 - Claude」，剥完家具的头 300 字仍然是
+  // claude.ai 的宣传语（"Claude is Anthropic's AI, built for problem solvers…"），而终点 Runnymede
+  // 在更后面。截多长都是赌。而名字这一份是 entity.js 已经算好的：Bishops · Fulham · Runnymede ·
+  // 接驳 · 车站 · 50km——正是要它抄的东西，而且不用截。
+  const hand = [...new Set(seeds)].slice(0, PLAN_SEEDS).map((x) => `- ${x}`).join('\n');
+  const text = `${talk ? `[conversation so far]\n${talk}\n\n` : ''}`
+    + `${hand ? `[names already in hand]\n${hand}\n\n` : ''}[latest message]\n${q}`;
+  let raw;
+  try {
+    switch (cfg.provider) {
+      case 'anthropic':
+        raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300, effort: 'low' });
+        break;
+      case 'openrouter':
+        raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300 });
+        break;
+      case 'custom':
+        raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300 });
+        break;
+      case 'ollama':
+        raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300, numCtx: 8192 });
+        break;
+      default:
+        return [];
+    }
+  } catch (_) { return []; }        // 改写不了就退回原句，问答这条路不能因为它断掉
+  const parsed = parseJsonLoose(raw && raw.text);
+  const list = parsed && Array.isArray(parsed.queries) ? parsed.queries : [];
+  const out = [];
+  for (const x of list) {
+    const s2 = String(x || '').replace(/\s+/g, ' ').trim();
+    if (!s2 || s2.length > PLAN_MAXLEN || out.includes(s2)) continue;
+    // 整条都是分类词的丢掉：「行程」「address」谁的记录里都不写，占一格就少一个真名字的位子
+    const parts = s2.toLowerCase().split(/[\s·,，、]+/).filter(Boolean);
+    if (parts.length && parts.every((w) => PLAN_BANNED.has(w))) continue;
+    out.push(s2);
+    if (out.length >= PLAN_MAX) break;
+  }
+  return out;
+}
+
+async function answerQuestion(cfg, { question, entries, terms = [], history = [] }) {
   const limit = DIGEST_LIMIT[cfg.provider] || 12000;
   const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
   const system = askSystem(cfg.languageName, small);
-  const text = `Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit, terms)}`;
+  // 上文要给，否则「详细地址」这种省略了主语的追问，模型手上有对的记录也说不清是哪儿的地址。
+  // 只给最近几轮、答案截短：多给会把这一问的主语淹掉，和 searchPlan 那边同一个道理。
+  const talk = history.slice(-PLAN_TURNS).map((t) => `Q: ${String((t && t.question) || '').replace(/\s+/g, ' ')}\nA: ${String((t && t.answer) || '').replace(/\s+/g, ' ').slice(0, PLAN_ANSWER)}`).join('\n');
+  const text = `${talk ? `Conversation so far:\n${talk}\n\n` : ''}Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit, terms)}`;
   let raw;
   switch (cfg.provider) {
     case 'anthropic':
@@ -405,4 +522,4 @@ async function testProvider(cfg) {
   }
 }
 
-module.exports = { config, isConfigured, label, describe, translate, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, _windowAround: windowAround, _buildNumbered: buildNumbered };
+module.exports = { config, isConfigured, label, describe, translate, dailySummary, answerQuestion, searchPlan, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, PLAN_SCHEMA, PLAN_MAX, _windowAround: windowAround, _buildNumbered: buildNumbered };

@@ -28,7 +28,27 @@ function init(deps) { store = deps.store; }
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
 // 一句话问出来的东西最多留这么几条。40 是给「把这段时间给我」用的；一个具体的问题给四十条，
 // 结果是每条只摊到五百字，而含着答案的那几条正需要一千多。少而长。
-const KEEP = 8;
+const KEEP = 16;
+// 一条查询最多贡献这么几条。**卡得紧是有道理的**：一个问题有好几个面（起点、终点、停车），
+// 让第一条查询把名额吃光，剩下的面就一条也进不来——今天量到的正是这个，把词揉成一句只捞回
+// 1/7，拆成五条各取前 3 捞回 3/7。
+const PER_QUERY = 3;
+// 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
+// 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
+const CHAIN_ADD = 5;
+const CHAIN_SEEDS = 8;   // 拿前几条当种子。再多就是让排在后面的、本来就不确定的那几条去开枝散叶
+const CHAIN_SPAN = 16;   // 每个种子长这么大的一片就够——要的是近邻，不是整件事
+// 短问句不当回声判据：「今天呢」这种三个字，正文里随手就撞上，挡掉的会是真记录。
+const ECHO_MIN = 8;
+// 只在短记录上判「整条是家具」。长记录里夹着一行家具是常态，不该因此整条丢掉。
+const JUNK_MAX = 120;
+// 上一轮带过来几条。带多了这一问就成了上一问的回声，带少了追问就没有主语。
+const CARRY_TURNS = 2;   // 往回带几轮
+const CARRY_EACH = 3;    // 每轮带那一轮排最前的几条
+const CARRY_ROOM = 4;    // 一共最多占这么多格
+// 手上那几条记录里最罕见的几个名字，直接当查询。**不经过模型**——名字和罕见度都是算出来的。
+const SEED_QUERIES = 4;
+const MAX_QUERIES = 10;  // 一问最多分这么多路。再多每路就只剩一两个名额，等于没分
 // 第一次提问不该卡在建索引上。一个用了几年的工作区从零建要好几分钟，所以每次只做这么久，
 // 剩下的下一次接着做；天是从新到旧建的，先补上的正好是最可能被问到的。
 const SYNC_BUDGET_MS = 400;
@@ -79,6 +99,113 @@ function storyCtx() {
   };
 }
 
+/**
+ * 这几条记录里都有哪些名字，罕见的在前。
+ *
+ * 给改写那一步当菜单用。抽名字这件事已经有人做了（entity.js，滤掉网页家具和虚词，
+ * 邮编日期数量走正则），这里只是把它取出来排个序——**不是新造一套抽取**。
+ * @returns {string[]}
+ */
+function namesIn(ids) {
+  learnFurniture();
+  if (!evIdx) return [];
+  const score = new Map();
+  for (const id of new Set(ids)) {
+    for (const k of evIdx.words.get(id) || []) {
+      const df = evIdx.df.get(k) || 99;
+      const t = evIdx.text.get(k);
+      if (t && (score.get(t) === undefined || df < score.get(t))) score.set(t, df);
+    }
+  }
+  return [...score.entries()].sort((a, b) => a[1] - b[1]).map(([t]) => t);
+}
+
+/** 上一轮真正用上的那几条。模型自己报的 used 是 1 起的下标，对应当时给它的 sources。 */
+function usedIds(turn) {
+  const t = turn || {};
+  const ids = Array.isArray(t.ids) ? t.ids : [];
+  const used = Array.isArray(t.used) ? t.used : [];
+  const picked = used.map((n) => ids[Number(n) - 1]).filter(Boolean);
+  return picked.length ? picked : ids;      // 没报 used 就退回全部，总比没有主语强
+}
+
+/**
+ * 认出回声：正文里原样写着你问过的话的记录。
+ *
+ * 它们几乎都是上一次问答被复制回工作区留下的，里面带着上一次的答案——而那份答案是**摘要**，
+ * 门牌号早在摘要里就没了。同时它们又是词面上最完美的命中（问题的每一个字它都有），
+ * 所以不挡住的话，模型读的永远是自己上次说过的话，越读越薄。
+ * @param {string[]} questions 这一场对话里问过的话
+ * @returns {(id:string)=>boolean}
+ */
+function echoFilter(questions) {
+  const qs = (questions || []).map((x) => String(x || '').replace(/\s+/g, '').toLowerCase())
+    .filter((x) => x.length >= ECHO_MIN);
+  if (!qs.length) return () => false;
+  return (id) => {
+    const e = store.getEntry(id);
+    if (!e) return false;
+    const t = `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, '').toLowerCase();
+    return qs.some((x) => t.includes(x));
+  };
+}
+
+/**
+ * 整条都是网页家具的记录，别占格子。
+ *
+ * 「English (Great Britain)」这种——一个语言选择条，被复制过好几回。它对任何问题都不是答案，
+ * 但它短、干净、在向量空间里离哪儿都不远，所以每次都挤进来。实测第 2 问十六格里它占了三格。
+ * 判据不新造：boilerplate 已经学过「哪些行是家具」（出现在三条以上记录里的行），
+ * 一条记录**整条**就是这么一行，那它就是家具本身。
+ *
+ * 同一段文字重复存过好几遍的也只留一条：三条一模一样的记录给模型看，它读到的信息是一样的，
+ * 占掉的却是三个格子。
+ * @returns {(id:string)=>boolean}
+ */
+function junkFilter() {
+  const fur = boilerplate.furniture();
+  const body = new Set();
+  return (id) => {
+    const e = store.getEntry(id);
+    if (!e) return true;
+    const t = `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!t) return true;
+    if (body.has(t)) return true;                       // 一模一样的第二遍
+    if (fur && t.length <= JUNK_MAX) {
+      const lines = String(e.text || '').split('\n').map((x) => boilerplate.key(x)).filter(Boolean);
+      if (lines.length && lines.every((x) => fur.has(x))) return true;
+    }
+    body.add(t);
+    return false;
+  };
+}
+
+/**
+ * 从检索够到的这几条出发，沿链走一跳，补几条它们的近邻。
+ *
+ * 为什么补位交给链、不交给向量：今天量过，250 条的时候向量前十里排在正确答案前面的已经是
+ * 「5381491216421114」「ipaslogo.com」和一行破折号——噪声和答案在同一个距离带（0.38~0.47）。
+ * 噪声条数随库线性长，对的答案永远只有几条，所以**向量是唯一一个库越大越差的部件**。
+ * 而链走的是硬证据：一个邮编在一百万条里仍然只指着那几条。
+ * @returns {string[]}
+ */
+function chainAround(seeds, room) {
+  const n = Math.min(CHAIN_ADD, Math.max(0, room));
+  if (!n || !seeds.length) return [];
+  try {
+    const ctx = storyCtx();
+    const have = new Set(seeds);
+    const best = new Map();
+    for (const seed of seeds.slice(0, CHAIN_SEEDS)) {
+      for (const m of story.grow(seed, ctx, { max: CHAIN_SPAN }).members) {
+        if (have.has(m.id)) continue;
+        if ((best.get(m.id) || 0) < m.score) best.set(m.id, m.score);
+      }
+    }
+    return [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([id]) => id);
+  } catch (_) { return []; }        // 长不出来就算了，检索够到的那几条本来就是答案的大半
+}
+
 /** 和这一条共用证据词的那几条，每条带着共用的词。空手是正常的：这一条上没有够罕见的词。 */
 function evidenceOf(id) {
   try { learnFurniture(); } catch (_) { /* 用上一份 */ }
@@ -126,34 +253,107 @@ function warm() {
  * @returns {Promise<null|{question:string, answer:string, used:number[], sources:Array,
  *   range:{from:string,to:string}|null, scored:boolean, noProvider:boolean, error:string, model:string}>}
  */
-async function run(question, { limit = MAX_ITEMS } = {}) {
+async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
   const q = String(question || '').trim();
   if (!q) return null;
   const today = localDateKey();
   try { refresh(); } catch (e) { console.warn('[ask] 索引没能追平', e.message); }
 
-  // 词面先挑，不在这里截断——截断留到融合之后，否则向量能补的那几条已经被切掉了
-  const pick = retrieve.select(index, q, { today, limit, getEntry: (id) => store.getEntry(id) });
-  let ids = pick.ids.slice(0, KEEP);
-  if (pick.ids.length) {
-    const near = await vector.search(index, q, { limit, cacheDir: store.paths().models, from: pick.range ? pick.range.from : '' })
-      .catch(() => []);
-    ids = retrieve.fuse(pick.ids, near, KEEP);
+  const cfg0 = llm.config(store);
+  // ① 这一问该拿什么去检索。模型不在就是空数组，下面退回原句——那时的行为和从前一模一样。
+  // 改写的时候，把「上一轮真正用上的那几条记录里的名字」摆给它挑。它只能说出它见过的词，
+  // 而上一次回答有没有把地名写出来是碰运气的——名字这一份不碰运气，是 entity.js 算出来的。
+  const seeds = namesIn(history.slice(-CARRY_TURNS).flatMap((t) => usedIds(t).slice(0, CARRY_EACH)));
+  const plan = llm.isConfigured(cfg0) ? await llm.searchPlan(cfg0, { question: q, history, seeds }).catch(() => []) : [];
+
+  // 真正拿去检索的几条，**模型只出其中一部分**：
+  //   · 原句和它的实词——这两条是地板。没有模型、模型抽风、改写全被滤掉，剩下的仍然是今天这套，
+  //     不多不少。ask.js 顶上那条「不依赖模型也能定位」的保证就落在这儿。
+  //   · 手上那几条记录里最罕见的几个名字，**直接当查询用，不经过模型**。让模型从菜单里挑，
+  //     实测它挑不准：菜单里明明有 Runnymede，它挑走了 Thames / Path / Ultra / Challenge。
+  //     名字是算出来的，罕见度也是算出来的，那就别让它猜——猜的部分留给「还该从哪个角度找」。
+  //   · 模型出的那几条，补角度用。
+  const plain = retrieve.select(index, q, { today, limit, getEntry: (id) => store.getEntry(id) });
+  const queries = [];
+  for (const x of [q, (plain.terms || []).join(' '), ...seeds.slice(0, SEED_QUERIES), ...plan]) {
+    const s2 = String(x || '').trim();
+    if (s2 && !queries.includes(s2)) queries.push(s2);
+    if (queries.length >= MAX_QUERIES) break;
   }
-  const entries = ids.map((id) => store.getEntry(id)).filter(Boolean);
+
+  // ② 每条查询各自挑一小把，再并起来。**分开问，不揉成一句**——见 llm.searchPlan 那笔账。
+  //
+  // 回声在这里滤，不在 retrieve.rerank 里滤：那一层比的是「记录里有没有原样写着**这条查询**」，
+  // 而改写之后送进去的是「Bishops Park」这种词，回声当然不含它，于是那道闸整个失效了。
+  // 实测：第 2 问十六格里五格是回声（自己上一次的问答被复制回工作区留下的）。
+  // 所以按**整场对话的问句**滤——记录里原样写着你问过的话，它就不是这句话的答案。
+  const echoed = echoFilter([...history.map((t) => (t || {}).question), q]);
+  const drop = junkFilter();
+  // 上一轮读过的那几条记录，直接带过来。
+  //
+  // **一场对话的状态不是那几段文字，是那几条记录。** 实测栽在这儿两次：改写这一步只能说出
+  // 上一次回答里出现过的词，而上一次回答说没说「Bishops Park」是碰运气的——同一个问题跑两遍，
+  // 一遍说了（于是第 2 问找得到起点），一遍没说（于是第 2 问从零开始，答「未找到」）。
+  // 而上一轮手上那条「赛程分前后半程」里从头到尾写着起点和终点，它跟回答说了什么无关。
+  //
+  // 带的是**上一轮真正用上的那几条**（模型自己报的 used），不是它当时手上的全部。带全部会把
+  // 上一轮那些没用上的杂物（一条 GitHub 仓库、一条 Andrew Ng 的推）一路拖下去，越拖越脏。
+  const carried = [];
+  for (const t of history.slice(-CARRY_TURNS)) {
+    for (const id of usedIds(t).slice(0, CARRY_EACH)) {
+      if (!carried.includes(id) && store.getEntry(id)) carried.push(id);
+    }
+  }
+  const seen = new Set();
+  let pick = null;
+  const room = KEEP - CHAIN_ADD;      // 给链留出位子，别让检索把格子占满
+  // 每条查询各留一小串，最后**按名次横着取**：先把每条查询的第一名都收进来，再收第二名。
+  // 顺着一条条查询收是错的，实测栽过：「起点地址」那条查询的第一名（Bishops Park, Fulham）
+  // 排在第十六位，模型根本没读到它，回了一句「记录中未包含起点和终点的详细地址」——
+  // 而答案就是它手上的最后一条。一个问题的几个面是**平级**的，收的时候就得平级。
+  const lanes = [];
+  for (const sub of queries) {
+    const p = sub === q ? plain : retrieve.select(index, sub, { today, limit, getEntry: (id) => store.getEntry(id) });
+    if (!pick && p.ids.length) pick = p;                    // 时间范围和词按第一条命中的算
+    if (!p.ids.length) continue;
+    const near = await vector.search(index, sub, { limit, cacheDir: store.paths().models, from: p.range ? p.range.from : '' })
+      .catch(() => []);
+    lanes.push(retrieve.fuse(p.ids, near, PER_QUERY * 3).filter((id) => !echoed(id) && !drop(id)));
+  }
+  const ids = [];
+  for (const id of carried) {                       // 上一轮的先站住位子，它们是这一问的主语
+    if (ids.length >= CARRY_ROOM || seen.has(id) || echoed(id) || drop(id)) continue;
+    seen.add(id); ids.push(id);
+  }
+  for (let r = 0; r < PER_QUERY && ids.length < room; r++) {
+    for (const lane of lanes) {
+      if (ids.length >= room) break;
+      const id = lane[r];
+      if (id && !seen.has(id)) { seen.add(id); ids.push(id); }
+    }
+  }
+  if (!pick) pick = plain;
+
+  // ③ 沿链走一跳补位。找地址那次就靠它：Runnymede Pleasure Ground 和 Windsor Road 共用邮编
+  //    TW20 0AE，检索只够到前者，一跳就把后者带上来了。
+  for (const id of chainAround(ids, KEEP - ids.length)) {
+    if (!seen.has(id) && !echoed(id) && !drop(id)) { seen.add(id); ids.push(id); }
+  }
+
+  const entries = ids.slice(0, KEEP).map((id) => store.getEntry(id)).filter(Boolean);
 
   const base = {
     question: q, answer: '', used: [], model: '',
     sources: entries, range: pick.range,
     scored: pick.scored, noProvider: false, error: '', total: index.stats().entries,
-    inRange: pick.inRange,
+    inRange: pick.inRange, queries, ids: entries.map((e) => e.id),
   };
   if (!entries.length) return base;
 
-  const cfg = llm.config(store);
+  const cfg = cfg0;
   if (!llm.isConfigured(cfg)) return { ...base, noProvider: true };
   try {
-    const r = await llm.answerQuestion(cfg, { question: q, entries, terms: pick.terms });
+    const r = await llm.answerQuestion(cfg, { question: q, entries, terms: pick.terms, history });
     return { ...base, answer: r.answer, used: r.used, model: r.model };
   } catch (e) {
     return { ...base, error: e.message || String(e) };
