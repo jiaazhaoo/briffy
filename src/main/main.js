@@ -1052,8 +1052,17 @@ function setupIpc() {
   ipcMain.handle('ws:list-summaries', () => summary.list());
   ipcMain.handle('ws:get-summary', (_e, dateKey) => summary.get(dateKey));
   ipcMain.handle('ws:generate-summary', (_e, dateKey) => summary.generate(dateKey, { force: true, quiet: true }));
-  ipcMain.handle('ws:ask', async (_e, question) => {
-    const r = await ask.run(question);
+  const ASK_HISTORY = 6;   // 最多带几轮上文过来
+  // 追问要带上文。带过去的只有问句、答句和「上一轮用上了哪几条」的 id——不是整条记录，
+  // 那些 renderer 手上本来就有；IPC 上再抬一遍是白花钱。
+  ipcMain.handle('ws:ask', async (_e, question, history) => {
+    const turns = (Array.isArray(history) ? history : []).slice(-ASK_HISTORY).map((t) => ({
+      question: String((t && t.question) || ''),
+      answer: String((t && t.answer) || ''),
+      ids: Array.isArray(t && t.ids) ? t.ids.map(String) : [],
+      used: Array.isArray(t && t.used) ? t.used.map(Number).filter((n) => Number.isFinite(n)) : [],
+    }));
+    const r = await ask.run(question, { history: turns });
     return r ? { ...r, sources: r.sources.map(publicEntry) } : null;
   });
   // 接进来的东西：Notion、Gmail。凭据只往里走，list() 不会把它们带出来。

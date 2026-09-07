@@ -1547,7 +1547,12 @@
     $('#btnAsk').disabled = true;
     renderAsk();
     try {
-      state.ask.result = await ws.ask(q);
+      // 带上这条对话前面几轮：问句、答句，还有「那一轮模型说自己用上了哪几条」。
+      // 追问几乎都省略主语（「详细地址」是哪儿的地址），而主语在上一轮的**记录**里，不在字面上。
+      state.ask.result = await ws.ask(q, state.chat.map((t) => ({
+        question: t.question, answer: t.answer,
+        ids: (t.sources || []).map((e) => e.id), used: t.used || [],
+      })));
     } catch (err) {
       state.ask.result = { question: q, answer: '', used: [], sources: [], range: null, scored: true, noProvider: false, error: err.message, total: 0 };
     } finally {

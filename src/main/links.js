@@ -239,6 +239,8 @@ function linksOf(id, g, { runLimit = 6 } = {}) {
 const EV_MAXDF = 40;      // 出现在这么多条以上的词是这个工作区的通用词汇，不算证据
 const EV_NEEDDF = 14;     // 至少要有一个这么罕见的共用词，否则这条边不成立
 const EV_KEEP = 20;       // 一条记录最多拿这么多个词当指纹，只留最罕见的
+// 两个词的倒排重合到这个份上，就当它们说的是同一件事（一个地名被切成了好几段）
+const FACET_SAME = 0.8;
 const ALIAS_MIN = 2;      // 两个词一起出现过这么多次，才算一份对照
 const ALIAS_RATIO = 0.8;  // 而且要几乎总是一起出现
 
@@ -325,6 +327,30 @@ function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
  * 和这一条共用词的那几条，每条带着**那一对词**——线上写的就是它。
  * @returns {{id:string, score:number, pairs:{a:string,b:string,fuzzy:boolean}[]}[]}
  */
+/**
+ * 这几对词其实说的是几件事。
+ *
+ * 判据不用词表：**总是一起出现的词是一件事**。倒排一样（或几乎一样）的两个词，
+ * 无论是「Bishops / Park / Fulham」还是「Ultra / Challenge」，都只算一份证据。
+ * 这和 alias 那一段用的是同一个观察，只是这里用来算分，那里用来配对。
+ */
+function facets(ps, idx) {
+  const sigs = [];
+  for (const key of new Set(ps.map((p) => p.a))) {
+    const post = idx.post.get(key) || [];
+    if (!post.length) continue;
+    const set = new Set(post);
+    // 和已经数过的某一件事几乎同现，就并进去，不另算一件
+    const same = sigs.find((s2) => {
+      let both = 0;
+      for (const x of set) if (s2.has(x)) both++;
+      return both >= Math.min(set.size, s2.size) * FACET_SAME;
+    });
+    if (!same) sigs.push(set);
+  }
+  return sigs.length || 1;
+}
+
 function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF } = {}) {
   const mine = idx.words.get(String(id || ''));
   if (!mine) return [];
@@ -348,8 +374,12 @@ function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF 
   for (const [other, ps] of hit) {
     const best = Math.min(...ps.map((p) => idx.df.get(p.a) || 99));
     if (best > needDf) continue;
-    // **按最罕见的那一对打分，不按几对的和**：四对泛词不该压过一个 50km
-    const score = 1 / Math.log2(2 + best) + 0.05 * Math.min(ps.length, 6);
+    // **按最罕见的那一对打分，不按几对的和**：四对泛词不该压过一个 50km。
+    // 后面那一小截是「对得上好几处」的加分，而它按**几件事**算，不按几个词算——
+    // 「Bishops Park, Fulham」被切成三个词，三个词的倒排几乎一模一样（它们本来就是一个地名），
+    // 按词算就成了三份证据，0.05×3 把它抬到 0.506；而共用一个 Runnymede 只有 0.383。
+    // 于是那条写着起点和终点的记录，反倒够不到写着终点地址的那一条。同现的词是一件事，不是三件。
+    const score = 1 / Math.log2(2 + best) + 0.05 * Math.min(facets(ps, idx), 6);
     const seen = new Set();
     const pairs = ps
       .sort((x, y) => (idx.df.get(x.a) || 0) - (idx.df.get(y.a) || 0))

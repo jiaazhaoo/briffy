@@ -149,9 +149,17 @@ function index(entries, stripOf) {
 
   const byRecord = new Map();
   for (const [id, list] of raw) {
-    // 一条记录只挂最罕见的那几个：一篇长文提到二十样东西，前几样才说明它是关于什么的
+    // 一条记录只挂几个，**先看有没有人拿它当过标题，再看罕见**。
+    //
+    // 只按罕见排是错的，实测栽得很难看：「赛程分前后半程」那条正文里写着 Runnymede，
+    // 而 Runnymede 被 8 条记录提到，于是它排在 不能(3)、服务(6)、之间(5)、小时(6)、参考(6)
+    // 后面，被挤出了这条记录的二十个名额。结果那条讲赛程的记录和「Runnymede Pleasure Ground,
+    // Egham, Surrey TW20 0AE」之间连不上——两条都写着同一个地名，而其中一条把它丢了。
+    // 罕见度分不出「地名」和「填充词」：填充词也可以很罕见，而且中文的填充词是无穷多的。
+    // 分得出的是另一件事——**这个工作区里有没有谁把它写在标题上过**。地名有，「之间」没有。
     const keep = list.filter((x) => ents.has(x.key))
-      .sort((a, b) => ents.get(a.key).records.length - ents.get(b.key).records.length)
+      .sort((a, b) => (nameRank(a, titled) - nameRank(b, titled))
+        || (ents.get(a.key).records.length - ents.get(b.key).records.length))
       .slice(0, PER_RECORD)
       .map((x) => x.key);
     byRecord.set(id, keep);
@@ -161,7 +169,16 @@ function index(entries, stripOf) {
   return { ents, byRecord };
 }
 
+/**
+ * 挂哪几个的第一顺位：邮编、日期、数量是正则认死的，最硬；其次是被谁当过标题的词；
+ * 剩下的只在正文里出现过，最后。
+ */
+function nameRank(x, titled) {
+  if (x.kind !== 'name') return 0;                       // place / date / qty
+  return titled && titled.has(String(x.text).toLowerCase()) ? 1 : 2;
+}
+
 /** 提到这样东西的记录越少，这条「提到」边越硬——一个邮编比一个常见的名字值钱得多。 */
 const weight = (n) => 0.55 + 0.40 / Math.log2(2 + Math.max(1, n));
 
-module.exports = { of, index, weight, headOf, CHROME, MIN_DF, MAX_DF, PER_RECORD, PATTERNS };
+module.exports = { of, index, weight, headOf, nameRank, CHROME, MIN_DF, MAX_DF, PER_RECORD, PATTERNS };
