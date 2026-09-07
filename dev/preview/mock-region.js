@@ -35,7 +35,7 @@
         { app: 'Finder', title: 'Downloads', x: 980, y: 400, w: 380, h: 460 },
         { app: 'OffScreen', title: 'half outside', x: 1300, y: 700, w: 400, h: 400 },
       ],
-      strings: { hint: '拖动选择区域 · <kbd>Esc</kbd> 取消', ok: '保存', cancel: '取消', long: '长截图' },
+      strings: { hint: '拖动选择区域 · <kbd>Esc</kbd> 取消', ok: '保存', cancel: '取消', long: '长截图', tools: { rect: '画框', ellipse: '画圆', pen: '画笔', mosaic: '马赛克', text: '添加文字', undo: '撤销' } },
     };
     window.__init = payload;                 // so a probe can see exactly what the overlay was handed
     handlers.init && handlers.init(payload);

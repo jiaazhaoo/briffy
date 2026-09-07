@@ -211,7 +211,12 @@ async function captureRegion() {
     picked = await region.selectRegion({
       hideWindows: () => windows.hideForCapture(),
       restoreWindows: () => windows.restoreAfterCapture(),
-      strings: { hint: t('regionHint'), ok: t('regionOk'), cancel: t('regionCancel'), long: t('regionLong') },
+      strings: {
+        hint: t('regionHint'), ok: t('regionOk'), cancel: t('regionCancel'), long: t('regionLong'),
+        // 画东西那一排只有图标，名字全靠停上去那一下
+        tools: { rect: t('regionRect'), ellipse: t('regionEllipse'), pen: t('regionPen'),
+          mosaic: t('regionMosaic'), text: t('regionText'), undo: t('regionUndo') },
+      },
     });
   } catch (e) {
     windows.restoreAfterCapture();

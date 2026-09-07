@@ -14,14 +14,27 @@ html, body {
    工具带、提示、尺寸读数和选区框，每样都罩着 50% 的黑。点还是点得动（.shade-part 是
    pointer-events:none），所以它不像坏了，只是整片暗一档。 */
 #frozen { z-index: 0; }
-#shade, .shade-part { z-index: 1; }
-#snap { z-index: 2; }
-#box { z-index: 3; }
-.chip, .hint { z-index: 4; }
-.toolbar { z-index: 5; }
+/* 画上去的东西在压暗**底下**：选区里没有压暗，所以里面的标注是原样的；画到选区外面的
+   跟着一起暗——存出去的时候那部分会被裁掉，暗着正好说明了这件事。 */
+#ink { z-index: 1; }
+#shade, .shade-part { z-index: 2; }
+#snap { z-index: 3; }
+#box { z-index: 4; }
+.chip, .hint { z-index: 5; }
+.toolbar, .pop { z-index: 6; }
+.typing { z-index: 7; }
 
 /* 冻住的桌面，1:1 显示 */
 #frozen { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: fill; -webkit-user-drag: none; }
+
+/* 画上去的东西。铺满整屏、按物理像素开画布，所以画完之后选区还能接着挪；
+   永远不吃鼠标事件——是不是在画由 region.js 说了算，画布只负责显示。 */
+#ink { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; }
+.typing { position: fixed; margin: 0; padding: 2px 4px; border: 1px dashed rgba(255, 255, 255, .85);
+  background: rgba(0, 0, 0, .28); font-family: var(--sans); font-weight: 600; resize: none;
+  outline: none; overflow: hidden; min-width: 40px; min-height: 1.4em; white-space: pre; }
+.typing[hidden] { display: none; }
+body.drawing { cursor: crosshair; }
 
 /* 选区之外全部压暗 */
 #shade { position: fixed; inset: 0; background: rgba(16, 16, 14, .5); }
@@ -65,4 +78,24 @@ html, body {
 .tool:active { transform: translateY(1px); }
 .tool.primary { background: #1b1a18; color: #fbfaf6; }
 .tool.primary:hover { background: #000; }
+/* 两组之间只靠留白分开，不画线 */
+.toolbar .grp { display: flex; gap: 2px; }
+.toolbar .grp.act { margin-left: 10px; }
+.tool.ico { padding: 7px 8px; }
+.tool.on { background: #1b1a18; color: #fbfaf6; }
+.tool:disabled { opacity: .35; cursor: default; background: transparent; }
+.tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+
+/* 粗细和颜色。和工具带同一张纸，贴在它上面一点 */
+.pop { position: fixed; display: flex; align-items: center; gap: 14px; padding: 6px 10px;
+  background: #fbfaf6; box-shadow: 0 5px 14px rgba(0, 0, 0, .40), 0 20px 48px rgba(0, 0, 0, .34); }
+.pop.hidden { display: none; }
+.sizes, .swatches { display: flex; align-items: center; gap: 6px; }
+.sizes button { width: 24px; height: 24px; border: 0; background: none; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center; }
+.sizes button i { display: block; background: #55524f; }
+.sizes button:hover i, .sizes button.on i { background: #1b1a18; }
+.sizes button.on { background: rgba(27, 26, 24, .10); }
+.swatches button { width: 20px; height: 20px; border: 0; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18); }
+.swatches button.on { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18), 0 0 0 2px #1b1a18; }
 .tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }

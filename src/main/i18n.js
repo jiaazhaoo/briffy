@@ -45,6 +45,9 @@ const STRINGS = {
     regionTitle: '截图 {time}',
     regionPrompt: '拖动鼠标框选要截的区域',
     regionLong: '长截图',
+    // 框选那一屏上，画东西的那几个工具
+    regionRect: '画框', regionEllipse: '画圆', regionPen: '画笔', regionMosaic: '马赛克',
+    regionText: '添加文字', regionUndo: '撤销',
     longStarting: '正在准备…', longScroll: '正在自己往下滚，到底会停；也可以随时点「完成」',
     longDone: '完成', longCancel: '取消', longFull: '已经很长了，先存下来吧',
     longTooFast: '滚太快了，慢一点才接得上',
@@ -164,6 +167,8 @@ const STRINGS = {
     regionTitle: 'Screenshot {time}',
     regionPrompt: 'Drag to select the area to capture',
     regionLong: 'Scrolling shot',
+    regionRect: 'Rectangle', regionEllipse: 'Ellipse', regionPen: 'Pen', regionMosaic: 'Mosaic',
+    regionText: 'Text', regionUndo: 'Undo',
     longStarting: 'Getting ready…', longScroll: 'Scrolling for you — it stops at the bottom, or press Done',
     longDone: 'Done', longCancel: 'Cancel', longFull: 'That is very long already — save it',
     longTooFast: 'Too fast to follow — scroll a little slower',

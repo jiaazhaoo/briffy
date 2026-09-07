@@ -2,7 +2,7 @@
 <html lang="zh-Hans">
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' file:" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' file:" />
   <title>briffy region</title>
   <link rel="stylesheet" href="../../../assets/fonts/fonts.css" />
   <link rel="stylesheet" href="../../../assets/paper/tokens.css" />
@@ -17,12 +17,45 @@
     <div class="handle nw"></div><div class="handle ne"></div><div class="handle sw"></div><div class="handle se"></div>
   </div>
   <div id="size" class="chip hidden"></div>
+  <!-- 在选区上画点什么。画布铺满整屏、坐标记在屏幕的物理像素里，所以画完之后选区还能接着挪、
+       接着改大小——画上去的东西钉在桌面上，不是钉在框上。引擎和「看图」那一页是同一份。 -->
+  <canvas id="ink"></canvas>
+  <textarea id="typing" class="typing" hidden spellcheck="false"></textarea>
   <div id="hint" class="hint"><span id="hintText"></span></div>
+  <!-- 左边一组是「在这张图上做什么」，右边一组是「拿它怎么办」。中间靠留白分开，不画线。 -->
   <div id="toolbar" class="toolbar hidden">
-    <button id="btnCancel" class="tool"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span id="labelCancel"></span></button>
-    <button id="btnLong" class="tool"><svg viewBox="0 0 24 24"><path d="M6 3h12M6 8h12M6 13h12"/><path d="M12 16v5M9 18l3 3 3-3"/></svg><span id="labelLong"></span></button>
-    <button id="btnOk" class="tool primary"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span id="labelOk"></span></button>
+    <div class="grp draw">
+      <button type="button" class="tool ico" data-tool="rect" aria-label="rectangle">
+        <svg viewBox="0 0 24 24"><path d="M4 5.5h16v13H4z" /></svg>
+      </button>
+      <button type="button" class="tool ico" data-tool="ellipse" aria-label="ellipse">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5" /></svg>
+      </button>
+      <button type="button" class="tool ico" data-tool="pen" aria-label="pen">
+        <svg viewBox="0 0 24 24"><path d="M4 19.5l3-1 11-11-2-2-11 11z" /><path d="M15 4.5l2-2 2 2-2 2" /></svg>
+      </button>
+      <button type="button" class="tool ico" data-tool="mosaic" aria-label="mosaic">
+        <svg viewBox="0 0 24 24"><path d="M4 4.5h5v5H4zM14 4.5h5v5h-5zM9 9.5h5v5H9zM19 9.5h1v5h-1zM4 14.5h5v5H4zM14 14.5h5v5h-5z" /></svg>
+      </button>
+      <button type="button" class="tool ico" data-tool="text" aria-label="text">
+        <svg viewBox="0 0 24 24"><path d="M5 6V4.5h14V6M12 4.5v15M8.5 19.5h7" /></svg>
+      </button>
+      <button type="button" class="tool ico" id="btnUndo" aria-label="undo">
+        <svg viewBox="0 0 24 24"><path d="M4 13a8 8 0 1 1 2.3 5.6" /><path d="M4 6v7h7" /></svg>
+      </button>
+    </div>
+    <div class="grp act">
+      <button type="button" id="btnCancel" class="tool"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span id="labelCancel"></span></button>
+      <button type="button" id="btnLong" class="tool"><svg viewBox="0 0 24 24"><path d="M6 3h12M6 8h12M6 13h12"/><path d="M12 16v5M9 18l3 3 3-3"/></svg><span id="labelLong"></span></button>
+      <button type="button" id="btnOk" class="tool primary"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span id="labelOk"></span></button>
+    </div>
   </div>
+  <!-- 粗细和颜色，只在真的选了工具的时候才升起来 -->
+  <div class="pop hidden" id="pop">
+    <div class="sizes" id="sizes"></div>
+    <div class="swatches" id="swatches"></div>
+  </div>
+  <script src="../shared/annotate.js"></script>
   <script src="boxes.js"></script>
   <script src="region.js"></script>
 </body>
