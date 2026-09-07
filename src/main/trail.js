@@ -115,6 +115,72 @@ function days() {
   } catch (_) { return []; }
 }
 
+// 窗口标题里会动的那些东西。Terminal 的转圈动画一秒一变，同一件事会被记成几十次「切换」——
+// 实测一天原始 9,952 帧里有 1,655 次「切换」，归一化并合并之后只剩 63 段有意义的。
+const SPINNER = /[✳◐◑◒◓⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏◜◝◞◟]\s*/g;
+const GLANCE_S = 60;           // 不到一分钟的是瞥一眼，不算一件事，折进前一段
+
+function tidyTitle(w) {
+  return String(w || '')
+    .replace(SPINNER, '')
+    .replace(/\s*—\s*\d+×\d+\s*$/, '')       // Terminal 的窗口尺寸
+    .replace(/^\(\d+\)\s*/, '')               // 未读数
+    .replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 一天分成几段。这是「路过」那一页看到的东西。
+ *
+ * 三步，每一步都是实测逼出来的：
+ *   归一化标题   转圈动画、未读数、窗口尺寸都在变，但那不是换了一件事
+ *   相邻合并     同一个应用同一个标题连着的，是一段
+ *   折掉一瞥     不到一分钟就切走的，折进前一段——切出去回个消息不算换了件事
+ *
+ * 网页正文按时间落进它所属的那一段，界面上点开才展。
+ * @returns {{from:string, to:string, secs:number, app:string, window:string, pages:object[]}[]}
+ */
+function sessions(day) {
+  const rows = read(day);
+  const focus = rows.filter((r) => r.kind === 'focus');
+  const pages = rows.filter((r) => r.kind === 'page');
+  // 一段的终点不是「下一条事件的时间」，是「最后一次看见它 + 一个心跳」。
+  // 两者的差别在真实数据上是这样的：凌晨 4:17 到 11:30 之间没有任何事件（人在睡觉），
+  // 按前者算就成了「在 Terminal 里连续 432 分钟」。心跳每五分钟落一条，所以真在用的时候
+  // 两条之间不会超过五分钟；超过了，那段空白就是空白，不该记在谁头上。
+  const blocks = [];
+  for (const r of focus) {
+    const w = tidyTitle(r.window);
+    const at = Date.parse(r.at);
+    const top = blocks[blocks.length - 1];
+    if (top && top.app === r.app && top.window === w) { top.seen = at; continue; }
+    blocks.push({ start: at, seen: at, app: r.app, window: w, url: r.url || '' });
+  }
+  for (let i = 0; i < blocks.length; i++) {
+    const cap = blocks[i].seen + HEARTBEAT_MS;
+    const next = i + 1 < blocks.length ? blocks[i + 1].start : Infinity;
+    blocks[i].end = Math.min(cap, next, Date.now());
+    if (blocks[i].end < blocks[i].seen) blocks[i].end = blocks[i].seen;
+  }
+  const merged = [];
+  for (const b of blocks) {
+    const top = merged[merged.length - 1];
+    const secs = (b.end - b.start) / 1000;
+    if (top && secs < GLANCE_S && top.app !== b.app) { top.end = b.end; continue; }
+    if (top && top.app === b.app && top.window === b.window) { top.end = b.end; continue; }
+    merged.push(b);
+  }
+  return merged.map((b) => ({
+    from: new Date(b.start).toISOString(),
+    to: new Date(b.end).toISOString(),
+    secs: Math.round((b.end - b.start) / 1000),
+    app: b.app,
+    window: b.window,
+    url: b.url,
+    pages: pages.filter((p) => { const t = Date.parse(p.at); return t >= b.start && t <= b.end; })
+      .map((p) => ({ at: p.at, url: p.url, title: p.window, text: p.text })),
+  }));
+}
+
 /** 一天里在每个 app / 每个站点上待了多久（秒），按"到下一条为止"算。 */
 function spans(day) {
   const rows = read(day).filter((r) => r.kind === 'focus');
@@ -130,4 +196,4 @@ function spans(day) {
     .sort((a, b) => b.secs - a.secs);
 }
 
-module.exports = { init, start, stop, tick, notePage, read, days, spans, onAppend, POLL_MS, IDLE_S, MAX_TEXT, HEARTBEAT_MS };
+module.exports = { init, start, stop, tick, notePage, read, days, spans, sessions, tidyTitle, onAppend, GLANCE_S, POLL_MS, IDLE_S, MAX_TEXT, HEARTBEAT_MS };

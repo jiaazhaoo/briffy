@@ -1089,6 +1089,7 @@ function setupIpc() {
   // 不用动手存的那一层：一天的痕迹和各应用待了多久。空手是正常的——这个功能默认关着。
   ipcMain.handle('ws:trail', (_e, day) => trail.read(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-days', () => trail.days());
+  ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());
   // Where each line of recognised text sits on a picture; read only when a detail view opens.

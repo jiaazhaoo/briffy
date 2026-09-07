@@ -326,6 +326,30 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 行自己带 12px 内边距，所以这里减掉，字才真的落在 --pad 上、和顶栏对齐 */
 /* 滚动条也是一条线，而这里不许有线（网格早就 scrollbar-width: none 了，列表漏了，
    于是两栏中间和窗口右边各挂着一道灰杠） */
+/* ---------- 路过 ---------- */
+/* 一段一行，读起来是一页日记：时间在左（和网格的时间轴同一个位置），时长、应用、标题依次退墨。
+   没有框、没有线、没有颜色——它和列表是同一种东西，只是说的是另一件事。 */
+.tv .lv-rows { grid-column: 1 / -1; }
+.tv-row { display: grid; grid-template-columns: 108px 46px 96px 1fr auto; align-items: baseline;
+  gap: var(--a3); padding: var(--a2) 0; cursor: pointer; }
+.tv-row:hover .ti { color: var(--ink); }
+.tv-row .tm { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; }
+.tv-row .dur { color: var(--ink-2); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; text-align: right; }
+.tv-row .app { color: var(--ink-2); font-size: var(--fs-meta); }
+.tv-row .ti { color: var(--ink-2); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-row.open .ti { color: var(--ink); font-weight: 600; }
+.tv-row .np { color: var(--ink-3); font-size: var(--fs-meta); }
+/* 点开才展的那几页正文：缩到标题那一栏，靠留白分组，不加线 */
+.tv-pages { padding: 0 0 var(--a4) calc(108px + 46px + 96px + var(--a3) * 3); }
+.tv-page + .tv-page { margin-top: var(--a3); }
+.tv-page .ti { font: 600 var(--fs-body)/1.5 var(--sans); color: var(--ink); }
+.tv-page .bb { color: var(--ink-2); font: 400 var(--fs-body)/1.6 var(--sans); margin-top: var(--a1);
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.tv-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a5) 0; max-width: 46ch; line-height: 1.7; }
+.tv-more { border: 0; background: transparent; color: var(--ink-3); font: 400 var(--fs-act)/1.5 var(--sans);
+  padding: var(--a3) 0; cursor: pointer; }
+.tv-more:hover { color: var(--ink); }
+
 .lv-rows { overflow: auto; padding: 0 var(--a3) 92px calc(var(--pad) - 12px); scrollbar-width: none; }
 .lv-rows::-webkit-scrollbar, .lv-prev::-webkit-scrollbar { width: 0; height: 0; }
 /* 日期抬头不显示——哪一天由右边的时间轴说。和 .jg-day 同一条规矩：

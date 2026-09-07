@@ -106,6 +106,63 @@ ok('一段最长按心跳算——中间可能锁屏或睡眠，那些不算「�
   assert.strictEqual(s[0].secs, trail.HEARTBEAT_MS / 1000, '十一个小时被当成了「一直在用」');
 });
 
+ok('标题里会动的东西归一化掉——同一件事不该被记成几十次切换', () => {
+  assert.strictEqual(trail.tidyTitle('jia — ✳ 主显示器文字模糊 — Claude — 80×24'), 'jia — 主显示器文字模糊 — Claude');
+  assert.strictEqual(trail.tidyTitle('◐ 编译中'), '编译中');
+  assert.strictEqual(trail.tidyTitle('(3) 微信'), '微信');
+});
+
+ok('一天分段：同一个应用同一个标题连着的是一段', () => {
+  const day = '2026-09-03';
+  const rows = [
+    ['09:00:00', 'Chrome', '✳ 一篇文章'], ['09:02:00', 'Chrome', '◐ 一篇文章'], ['09:04:00', 'Chrome', '一篇文章'],
+    ['09:06:00', 'Terminal', 'jia — 80×24'],
+  ].map(([t, app, w]) => JSON.stringify({ at: `2026-09-03T${t}.000Z`, kind: 'focus', app, window: w }));
+  fs.writeFileSync(path.join(TMP, 'trail', `${day}.jsonl`), rows.join('\n') + '\n');
+  const s = trail.sessions(day);
+  assert.strictEqual(s.length, 2, JSON.stringify(s.map((x) => x.window)));
+  assert.strictEqual(s[0].window, '一篇文章');
+  assert.strictEqual(s[0].secs, 6 * 60, '第一段该到 Terminal 开始为止');
+});
+
+ok('中间的空白不算在谁头上——那是人走开了', () => {
+  // 这是真实数据上抓到的错：凌晨四点到十一点半没有任何事件（在睡觉），
+  // 按「到下一条为止」算就成了「在 Terminal 里连续 432 分钟」。
+  const day = '2026-09-04';
+  fs.writeFileSync(path.join(TMP, 'trail', `${day}.jsonl`), [
+    { at: '2026-09-04T04:17:00.000Z', kind: 'focus', app: 'Terminal', window: 'a' },
+    { at: '2026-09-04T11:30:00.000Z', kind: 'focus', app: 'Chrome', window: 'b' },
+  ].map((x) => JSON.stringify(x)).join('\n') + '\n');
+  const s = trail.sessions(day);
+  assert.strictEqual(s[0].secs, trail.HEARTBEAT_MS / 1000, `七小时被算成了在用：${s[0].secs}s`);
+});
+
+ok('不到一分钟的一瞥折进前一段——切出去回个消息不算换了件事', () => {
+  const day = '2026-09-05';
+  fs.writeFileSync(path.join(TMP, 'trail', `${day}.jsonl`), [
+    { at: '2026-09-05T09:00:00.000Z', kind: 'focus', app: 'Chrome', window: '一篇文章' },
+    { at: '2026-09-05T09:03:00.000Z', kind: 'focus', app: 'WeChat', window: '微信' },
+    { at: '2026-09-05T09:03:20.000Z', kind: 'focus', app: 'Chrome', window: '一篇文章' },
+    { at: '2026-09-05T09:06:00.000Z', kind: 'focus', app: 'Terminal', window: 'x' },
+  ].map((x) => JSON.stringify(x)).join('\n') + '\n');
+  const s = trail.sessions(day);
+  assert.strictEqual(s.length, 2, JSON.stringify(s.map((x) => `${x.app}/${x.secs}s`)));
+  assert.strictEqual(s[0].app, 'Chrome');
+});
+
+ok('网页正文落进它所属的那一段', () => {
+  const day = '2026-09-06';
+  fs.writeFileSync(path.join(TMP, 'trail', `${day}.jsonl`), [
+    { at: '2026-09-06T09:00:00.000Z', kind: 'focus', app: 'Chrome', window: '一篇文章' },
+    { at: '2026-09-06T09:01:00.000Z', kind: 'page', url: 'https://a.example/x', window: '一篇文章', text: '正文在这里' },
+    { at: '2026-09-06T09:04:00.000Z', kind: 'focus', app: 'Terminal', window: 'x' },
+  ].map((x) => JSON.stringify(x)).join('\n') + '\n');
+  const s = trail.sessions(day);
+  assert.strictEqual(s[0].pages.length, 1, JSON.stringify(s[0]));
+  assert.strictEqual(s[0].pages[0].text, '正文在这里');
+  assert.strictEqual(s[1].pages.length, 0, '正文不该落进后面那段');
+});
+
 ok('正文不进 entries/，那一页是「你决定留下的东西」', () => {
   const entries = path.join(TMP, 'entries');
   assert.ok(!fs.existsSync(entries), 'trail 写到 entries/ 里去了');

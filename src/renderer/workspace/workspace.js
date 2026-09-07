@@ -10,7 +10,10 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', topicsHint: '成堆的：', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
+      near: '相近', topicsHint: '成堆的：', viewTrail: '路过',
+      trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
+      trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
+      trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
       fAll: '全部', fClear: '清空', fMoreN: '更多 {n}', fLess: '收起', fUnknown: '未知',
       tImage: '图片', tText: '文字', tAudio: '音频', tVideo: '视频', tPdf: 'PDF', tDoc: '文档',
       tSheet: '表格', tSlides: '幻灯片', tArchive: '压缩包', tLink: '链接', tOther: '其它',
@@ -142,7 +145,10 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', topicsHint: 'Groups:', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
+      near: 'related', topicsHint: 'Groups:', viewTrail: 'Passed by',
+      trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
+      trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
+      trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
       fAll: 'All', fClear: 'Clear', fMoreN: '{n} more', fLess: 'Less', fUnknown: 'Unknown',
       tImage: 'Pictures', tText: 'Text', tAudio: 'Audio', tVideo: 'Video', tPdf: 'PDF', tDoc: 'Documents',
       tSheet: 'Spreadsheets', tSlides: 'Slides', tArchive: 'Archives', tLink: 'Links', tOther: 'Other',
@@ -1020,11 +1026,57 @@
     layoutGrid();
   }
 
+  // ---------- 路过：同一天的另一种看法 ----------
+  //
+  // 一段一行：时间 · 时长 · 应用 · 窗口标题。点开才展那一段里读过的网页正文——
+  // 默认全展开的话，一天会变成很长的一页，而这一页的用处是「一眼看完这一天」。
+  //
+  // 短的折起来：实测一天原始 9,952 次前台变化归并成 746 段，其中够三分钟的只有 71 段。
+  // 剩下那些是切出去看一眼又回来，摊开来只会把真正待过的那几段淹掉。
+  const SHORT_S = 180;
+  let trailOpen = new Set();
+  let trailAll = false;
+
+  async function renderTrail() {
+    const box = $('#tvRows');
+    if (!box) return;
+    if (!state.settings || state.settings.recordTrail !== true) {
+      box.innerHTML = `<div class="tv-note">${esc(t('trailOff'))}</div>`;
+      return;
+    }
+    const day = state.date || todayKey();
+    let all = [];
+    try { all = await ws.trailSessions(day); } catch (_) { all = []; }
+    if (!all.length) { box.innerHTML = `<div class="tv-note">${esc(t('trailEmpty'))}</div>`; return; }
+    const shown = trailAll ? all : all.filter((b) => b.secs >= SHORT_S);
+    const hidden = all.length - shown.length;
+    box.innerHTML = shown.map((b, i) => {
+      const key = b.from;
+      const open = trailOpen.has(key);
+      const mins = Math.max(1, Math.round(b.secs / 60));
+      const title = b.window && b.window !== b.app ? b.window : '';
+      return `<div class="tv-row${open ? ' open' : ''}" data-key="${esc(key)}" role="button" tabindex="0">`
+        + `<span class="tm">${esc(fmtTime(b.from))}–${esc(fmtTime(b.to))}</span>`
+        + `<span class="dur">${esc(t('trailMin', { n: mins }))}</span>`
+        + `<span class="app">${esc(b.app)}</span>`
+        + `<span class="ti">${esc(title)}</span>`
+        + `${b.pages.length ? `<span class="np">${esc(t('trailPages', { n: b.pages.length }))}</span>` : ''}`
+        + `</div>`
+        + (open && b.pages.length
+          ? `<div class="tv-pages">${b.pages.map((p) => `<div class="tv-page"><div class="ti">${esc(p.title || p.url)}</div>`
+            + `<div class="bb">${esc(String(p.text || '').slice(0, 600))}</div></div>`).join('')}</div>`
+          : '');
+    }).join('')
+      + (hidden > 0 ? `<button type="button" class="tv-more" data-trail-all="1">${esc(t('trailShort', { n: hidden }))} · ${esc(t('trailAll'))}</button>` : '');
+  }
+
   function applyView(view) {
-    state.view = view === 'list' ? 'list' : 'grid';
+    state.view = ['list', 'trail'].includes(view) ? view : 'grid';
     try { localStorage.setItem('briffy.view', state.view); } catch (_) { /* storage unavailable */ }
     $('#entryGrid').hidden = state.view !== 'grid';
     $('#entryList').hidden = state.view !== 'list';
+    $('#entryTrail').hidden = state.view !== 'trail';
+    if (state.view === 'trail') renderTrail();
     for (const b of document.querySelectorAll('#viewSeg button')) b.classList.toggle('active', b.dataset.view === state.view);
     if (state.view === 'grid') jgIds = '';          // dealt while hidden, if at all: deal it again at its real width
     renderList();
@@ -2282,7 +2334,15 @@
       fit();
     }
     // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
-    $('#dims').addEventListener('click', (e) => {
+$('#tvRows').addEventListener('click', (e) => {
+      if (e.target.closest('[data-trail-all]')) { trailAll = true; renderTrail(); return; }
+      const row = e.target.closest('.tv-row');
+      if (!row) return;
+      const k = row.dataset.key;
+      if (trailOpen.has(k)) trailOpen.delete(k); else trailOpen.add(k);
+      renderTrail();
+    });
+        $('#dims').addEventListener('click', (e) => {
       if (e.target.closest('[data-clear]')) { state.f = { type: '', origin: '', topic: '' }; loadEntries(); return; }
       const b = e.target.closest('[data-dim]');
       if (!b) return;
