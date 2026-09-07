@@ -6,7 +6,7 @@
 //   node scripts/pet-avatar.js --default                                    rebuild the bundled default
 //
 // This writes the fallback that ships with the app. What an installed copy actually
-// wears is picked in Settings > 小动物形象 and lives in userData (src/main/petskin.js).
+// wears, when it is not drawing itself, lives in userData (src/main/petskin.js).
 //
 // Writes assets/pet/avatar.png (240x240, @2x of the 120px pet window). The circle,
 // the ring and the shadow are done in CSS, so this only has to produce a square.

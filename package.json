@@ -26,7 +26,6 @@
     "pet:electron": "electron scripts/gen-pet.js",
     "pet:cutout": "node scripts/pet-cutout.js",
     "pet:avatar": "node scripts/pet-avatar.js",
-    "pet:catalog": "node scripts/pet-catalog.js",
     "pet:orient": "node scripts/pet-orient.js",
     "fetch-models": "node scripts/fetch-bundled-models.js",
     "preview": "node dev/preview/serve.js",
