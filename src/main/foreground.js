@@ -23,7 +23,12 @@ const { execFile } = require('child_process');
 
 const MAC = process.platform === 'darwin';
 const TITLE_TIMEOUT_MS = 1500;    // long enough for a cold osascript, short enough to never be felt
-const TAB_FRESH_MS = 30 * 1000;   // a tab older than this is not evidence of what is on screen now
+// 扩展在每次切标签、页面加载完、切窗口时都会上报，所以「旧」只可能是因为**你在同一个页面上待着**
+// ——那这条记录反而是对的，页面确实还在屏幕上。三十秒是在防一件不会发生的事，代价实测很惨：
+// 34 条在 Chrome 前台存下的记录里只有 1 条带上了网址，而它们的窗口标题明明白白写着
+// 「… - 小红书」「…_哔哩哔哩」。剩下那 33 条的来源只能退回「剪贴板」。
+// 五分钟是给「扩展被关掉/卸载了而浏览器还在前台」留的上限：那种情况下旧标签页会开始说谎。
+const TAB_FRESH_MS = 5 * 60 * 1000;
 const BACKOFF_MS = 10 * 60 * 1000; // after repeated failures (usually a refused permission), stop asking
 const FAILURES_BEFORE_BACKOFF = 3;
 
