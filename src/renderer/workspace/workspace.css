@@ -344,7 +344,12 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 窗口跟着图走，不是图跟着窗口走：图只有四张卡的时候，一个 880 宽的空框子比图本身还显眼 */
 /* 写成 .modal-card.graph-card 是为了压过 .modal-card 的固定宽度——它在这条下面，同分就它赢 */
 .modal-card.graph-card { width: auto; max-width: min(880px, 94vw); height: auto; max-height: 86vh; overflow: auto; }
-.graph-body { padding: var(--a3) var(--a4) var(--a4); overflow: auto; }
+/* 抬头的左右边距**得自己写**。详情窗里 .dt-head 是躺在 .detail 里面的，两边的空是 .detail 给的；
+   图谱这一张里它是 .modal-card 的直接孩子，于是继承了个零——标题贴着窗口左沿、叉贴着右沿，
+   而底下的图规规矩矩缩进 26。一张窗上两条不同的左边线，就是「边距贼丑」的来处。 */
+.modal-card.graph-card > .dt-head { padding: var(--a4) var(--a4) var(--a3); }
+/* 图自己带 10px 的余量（graphMap 里的 M），所以这里不再叠一层上边距 */
+.graph-body { padding: 0 var(--a4) var(--a4); }
 /* 线在下、卡片在上，两层用同一套坐标。图不缩放——把一张 680 宽的 svg 拉满一个更宽的框，
    11px 的字会跟着放大成模糊的一团，方块也跟着变形。宁可窄窗口里横向滚。 */
 .gr-map { position: relative; margin: 0 auto; }
