@@ -9,8 +9,12 @@
   <link rel="stylesheet" href="workspace.css" />
 </head>
 <body data-tab="entries">
-  <!-- 无边框窗口（为了直角）自己的控件：一条看不见的拖拽带 + 一个关闭 -->
+  <!-- 无边框窗口（为了直角）自己的控件：一条看不见的拖拽带 + 左上角一个控件。
+       那个控件在首页是「关掉窗口」，在「问」和「设置」这两页是「回记录」——
+       同一个角落永远是「离开我现在看的这个东西」，只是子页要离开的是那一页，不是整个应用。
+       （在那两页上 ⌘W 照样关窗，所以关闭这条路没断。） -->
   <div class="winbar">
+    <button type="button" id="winBack" class="wback"><span class="ar" aria-hidden="true">←</span><span data-i18n="tabEntries">记录</span></button>
     <button type="button" id="winClose" class="ico wclose" data-i18n-title="close" aria-label="Close">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
     </button>
