@@ -2440,6 +2440,7 @@
     $('#btnSettings').addEventListener('click', () => switchTab(state.tab === 'settings' ? 'entries' : 'settings'));
     $('#btnAskPage').addEventListener('click', () => switchTab(state.tab === 'ask' ? 'entries' : 'ask'));
     $('#winClose').addEventListener('click', () => window.close());
+    $('#winBack').addEventListener('click', () => switchTab('entries'));
 
     // 拖外部文件进窗口 = 拖到常驻头像上：同一个入口，只是这里多一层蒙版说清楚松手会发生什么
     const veil = $('#dropVeil');

@@ -126,6 +126,16 @@ input[type="checkbox"]:checked::after { opacity: 1; }
 .winbar { position: fixed; top: 6px; left: 6px; right: 6px; height: 30px; z-index: 30; -webkit-app-region: drag; }
 .wclose { position: absolute; left: 8px; top: 0; -webkit-app-region: no-drag; padding: 3px; }
 .wclose svg { width: 15px; height: 15px; }
+/* 「回记录」站在同一个角落，但对到页边那条线上（--pad，减掉 winbar 自己的 6px），
+   于是它和底下那一列的第一个字同一条左边线。导航是字，不是图标——箭头只是个提示。 */
+.wback { position: absolute; left: calc(var(--pad) - 6px); top: 0; -webkit-app-region: no-drag;
+  display: none; align-items: baseline; gap: 6px; border: 0; background: transparent; cursor: pointer;
+  padding: 4px 0; color: var(--ink-3); font: 400 var(--fs-nav)/1.4 var(--sans); }
+.wback:hover { color: var(--ink); }
+.wback:active { transform: translateY(1px); }
+.wback .ar { font-size: 12px; }
+body[data-tab="ask"] .wback, body[data-tab="settings"] .wback { display: inline-flex; }
+body[data-tab="ask"] .wclose, body[data-tab="settings"] .wclose { display: none; }
 
 /* 顶栏不是托盘：托盘属于底部（浮在滚动内容上的常驻工具）。顶部是导航和筛选，就是纸上的字。
    参照 are.na 的 Explore 页和 Steidl：它们顶上没有条、没有底色、没有边框，只有字。
@@ -834,6 +844,17 @@ body[data-tab="settings"] .d-mid { display: none; }
    独自吊在半空的话，一整屏空白里就它一行，谁也不挨着谁。 */
 .askcol:has(.empty) { display: flex; flex-direction: column; justify-content: flex-end; }
 .askcol .empty { padding: 0; }
+
+/* 底下那只托盘在记录页上是「浮在素材上面的工具」，所以它按内容收成一只小的。
+   到了「问」这一页它就是这一页的输入框本身，一只小托盘吊在一整屏空白的正中间没有道理——
+   所以在这里它和答案那一栏同宽、左右同一条边线：上面读到哪，下面就在那儿写。
+   左边那个头像在这一页也没有意义（它是「去问」那个入口，而你已经在这儿了），收起来。 */
+/* 660 是正文的宽度，+20 是托盘自己那圈内边距——对齐的是里面的字，不是托盘的纸边 */
+body[data-tab="ask"] .dock.d-mid { width: min(680px, calc(100vw - var(--chat-rail) - 2 * var(--a4)));
+  min-width: 0; max-width: none; }
+body[data-tab="ask"] .ask-bar { width: 100%; }
+body[data-tab="ask"] .ask-bar .pet { display: none; }
+body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none; }
 .turn { padding-bottom: var(--a5); }
 /* 一轮问答的主语是那个问题——和记录页里「一天」的地位一样，所以吃字阶最上面那一档。
    在这之前它是 13/600，和正文同一个大小，一页读下来分不出哪句是问、哪段是答。 */
