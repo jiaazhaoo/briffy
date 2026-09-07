@@ -46,6 +46,13 @@
     provider: 'ollama', anthropicAuth: 'apiKey', openrouterModel: 'anthropic/claude-opus-5', ollamaHost: 'http://127.0.0.1:11434', ollamaModel: '',
     customBaseUrl: 'http://127.0.0.1:1234/v1', customModel: '', hasApiKey: false, apiKeyHint: '', hasOpenrouterKey: true, openrouterKeyHint: 'sk-or-v1…a1b2', hasCustomKey: false, customKeyHint: '',
   };
+  const SITE = { 'xiaohongshu.com': '小红书', 'bilibili.com': '哔哩哔哩', 'github.com': 'GitHub', 'x.com': 'X' };
+  const originOf = (e) => {
+    if (e.url) { try { const h = new URL(e.url).hostname.replace(/^www\./, ''); return SITE[h] || h; } catch (_) { /* 不是网址 */ } }
+    const app = (e.context && e.context.app) || '';
+    if (app && !/chrome|safari|firefox|edge/i.test(app)) return app;
+    return srcOf(e);
+  };
   const listeners = {};
   const on = (ch) => (cb) => { (listeners[ch] = listeners[ch] || []).push(cb); return () => {}; };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -126,7 +133,6 @@
       { id: 't3', name: '蓝色笑脸回形针', words: '', n: 3 },
     ]),
     topicEntries: async (id) => entries.slice(0, id === 't2' ? 6 : 3).map(pub),
-
     // 「意思相近」：搜的时候慢一拍补上来的那几条，每条都带 near 标记
     searchNear: async (q, skip) => {
       await new Promise((r) => setTimeout(r, 300));
@@ -169,10 +175,14 @@
     onOllamaPull: on('ws:ollama-pull-progress'),
     chooseDir: async () => 'D:\\briffy',
     listDates: async () => [...new Set(entries.map((e) => e.dateKey))].sort().reverse(),
-    listEntries: async ({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false } = {}) => {
+    listEntries: async ({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false, type = '', origin = '', ids = null } = {}) => {
+      const only = Array.isArray(ids) && ids.length ? new Set(ids) : (Array.isArray(ids) ? new Set() : null);
       const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
       const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
-      return entries.filter((e) => (!dates || dates.includes(e.dateKey))
+      return entries.filter((e) => (!only || only.has(e.id))
+        && (!type || (e.type || '') === type)
+        && (!origin || originOf(e) === origin)
+        && (!dates || dates.includes(e.dateKey))
         && (!want || want.has(srcOf(e)))
         && (want || !skip || !skip.has(srcOf(e)))
         && (!pinned || e.pinned)
@@ -215,7 +225,14 @@
     stats: async () => {
       const bySource = { screenshot: 0, clipboard: 0, bookmark: 0, browser: 0, voice: 0, other: 0 };
       for (const e of entries) bySource[srcOf(e)]++;
-      return { days: 3, entries: entries.length, pinned: entries.filter((e) => e.pinned).length, bySource };
+      // 三个维度的计数：类型、来源（站点优先，其次应用，再退回采集方式）
+      const byType = {}; const byOrigin = {};
+      for (const e of entries) {
+        byType[e.type || 'other'] = (byType[e.type || 'other'] || 0) + 1;
+        const o = originOf(e);
+        byOrigin[o] = (byOrigin[o] || 0) + 1;
+      }
+      return { days: 3, entries: entries.length, pinned: entries.filter((e) => e.pinned).length, bySource, byType, byOrigin };
     },
     onEntry: on('ws:entry'), onSummary: on('ws:summary'), onSettings: on('ws:settings'), onNavigate: on('ws:navigate'),
   };

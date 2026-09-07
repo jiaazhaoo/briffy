@@ -35,11 +35,11 @@
         </button>
       </div>
     </div>
+    <!-- 筛选是两行：上面一行是三个维度和各自选中的值，下面一行是当前那个维度的可选值。
+         三个维度**叠着**筛（「小红书上的图片」），所以上面那行同时也是「现在叠了哪几个」，
+         右端一个「清空」。摊成三行值会把顶栏撑高一整行记录的高度，所以只展开一个。 -->
+    <div class="sources dims" id="dims"></div>
     <div class="sources" id="sources"></div>
-    <!-- 主题：讲同一件事的记录。和筛选同一个说法（小字并排、没有框），但它说的是「关于什么」，
-         而筛选说的是「怎么进来的」。没有成堆的东西时整行不出现。 -->
-    <div class="sources topics" id="topics" hidden></div>
-
   </header>
 
   <div class="mid">
