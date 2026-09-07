@@ -2,11 +2,9 @@
 /* global viewer */
 // 看一张图，并且在上面画点什么。
 //
-// 画的东西存成一串形状（`shapes`），不是直接糊到像素上：所以可以撤销，可以在放大之后还对得上位置，
-// 也可以在导出的时候按原图的分辨率重画一遍——屏幕上看到的是缩放后的样子，复制出去的却是原尺寸。
-// 每个形状的坐标都记在**图片自己的像素**里，不是屏幕坐标；缩放和旋转只改变怎么把它画出来。
-//
-// 马赛克是唯一一个要读原图的：它把框住的那一块按 12px 一格重新采样，画回同一个位置。
+// 画的那一套（形状、撤销、马赛克、导出）在 src/renderer/shared/annotate.js，
+// 框选截图那一屏用的是同一份——两处都要能在图上画，没有理由各写一遍，写两遍就会各歪各的。
+// 这里只剩看图这一半：缩放、旋转、平移、翻页，以及把屏幕坐标换算成图片自己的像素。
 (() => {
   const api = window.viewer;
   const $ = (s) => document.querySelector(s);
@@ -15,25 +13,16 @@
   const wrap = $('#wrap');
   const pic = $('#pic');
   const ink = $('#ink');
-  const ctx = ink.getContext('2d');
   const marq = $('#marquee');
   const typing = $('#typing');
   const pop = $('#pop');
 
-  const COLOURS = ['#2f7bf6', '#7ac70c', '#f5a623', '#4a4a4a', '#ffffff', '#f5514f'];
-  const SIZES = [2, 4, 7, 12];
-
   let entry = null;
   let all = [];
-  let shapes = [];
-  let tool = '';              // '' = 只是看；rect / ellipse / pen / mosaic / text / crop
-  let colour = COLOURS[5];
-  let size = SIZES[1];
   let zoom = 1;
   let rot = 0;                // 0 / 90 / 180 / 270
   let fitZoom = 1;
   let pinned = false;
-  let drawing = null;         // 正在画的那个形状
   let panFrom = null;
   let pan = { x: 0, y: 0 };
 
@@ -56,7 +45,7 @@
   function load(e) {
     if (!e) return;
     entry = e;
-    shapes = [];
+    ann.reset(); syncTools();
     rot = 0; pan = { x: 0, y: 0 };
     pic.onload = () => { fit(); renderGrid(); };
     pic.src = e.fileUrl || '';
@@ -96,98 +85,39 @@
     return { x: ux + pic.naturalWidth / 2, y: uy + pic.naturalHeight / 2 };
   }
 
-  // ---------- 画 ----------
-  function paint(target = ctx, scale = 1) {
-    target.clearRect(0, 0, ink.width, ink.height);
-    for (const s of shapes) drawShape(target, s, scale);
-  }
-
-  function drawShape(c, s, scale = 1) {
-    c.save();
-    c.strokeStyle = s.colour;
-    c.fillStyle = s.colour;
-    c.lineWidth = Math.max(1, s.size);
-    c.lineCap = 'round';
-    c.lineJoin = 'round';
-    if (s.kind === 'rect') c.strokeRect(s.x, s.y, s.w, s.h);
-    else if (s.kind === 'ellipse') {
-      c.beginPath();
-      c.ellipse(s.x + s.w / 2, s.y + s.h / 2, Math.abs(s.w / 2), Math.abs(s.h / 2), 0, 0, Math.PI * 2);
-      c.stroke();
-    } else if (s.kind === 'pen') {
-      c.beginPath();
-      s.pts.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
-      c.stroke();
-    } else if (s.kind === 'text') {
-      c.font = `600 ${s.size * 5}px ${getComputedStyle(document.body).fontFamily}`;
-      c.textBaseline = 'top';
-      s.text.split('\n').forEach((line, i) => c.fillText(line, s.x, s.y + i * s.size * 6.6));
-    } else if (s.kind === 'mosaic') {
-      mosaic(c, s);
-    }
-    c.restore();
-  }
-
-  /** 马赛克：把框住的那块按格子重采样。读的是原图，所以放大之后也不会糊上一层旧像素 */
-  function mosaic(c, s) {
-    const x = Math.round(Math.min(s.x, s.x + s.w));
-    const y = Math.round(Math.min(s.y, s.y + s.h));
-    const w = Math.round(Math.abs(s.w));
-    const h = Math.round(Math.abs(s.h));
-    if (w < 2 || h < 2) return;
-    const step = Math.max(6, s.size * 3);
-    const small = document.createElement('canvas');
-    small.width = Math.max(1, Math.round(w / step));
-    small.height = Math.max(1, Math.round(h / step));
-    const sc = small.getContext('2d');
-    sc.imageSmoothingEnabled = true;
-    sc.drawImage(pic, x, y, w, h, 0, 0, small.width, small.height);
-    c.imageSmoothingEnabled = false;
-    c.drawImage(small, 0, 0, small.width, small.height, x, y, w, h);
-    c.imageSmoothingEnabled = true;
-  }
+  // 画的那一套：形状、撤销、马赛克、导出，都在共用的那一份里。这里只负责告诉它
+  // 「源图是谁」「画在哪张布上」「一个鼠标点落在图片的哪个像素上」。
+  const ann = window.Annotate.create({
+    source: pic,
+    canvas: ink,
+    typing,
+    toLocal: toPic,
+    // .canvasWrap 的坐标系就是图片自己的像素（外面那层 transform 负责缩放和旋转），
+    // 所以直接用 p，不需要再拿 clientX 反推一次
+    placeTyping: (p) => { typing.style.left = `${p.x}px`; typing.style.top = `${p.y}px`; },
+  });
+  const paint = () => ann.paint();
 
   // ---------- 手上的动作 ----------
+  // 引擎先看这一下是不是它的：选了工具就是它的，没选工具就是「拖着看」。
   stage.addEventListener('pointerdown', (ev) => {
     if (ev.button !== 0) return;
-    if (typing.hidden === false) { commitText(); return; }
-    // 按下去的默认行为是把焦点交给被点的那个元素——刚 focus() 的输入框会当场被抢走，
-    // 于是 blur 立刻触发、框又关上了，看着就是「添加文字不好使」
-    if (tool) ev.preventDefault();
-    if (!tool) {                                   // 没选工具就是拖着看
-      if (zoom <= fitZoom + 0.001) return;
-      panFrom = { x: ev.clientX - pan.x, y: ev.clientY - pan.y };
-      document.body.classList.add('panning');
-      return;
-    }
-    const p = toPic(ev);
-    if (tool === 'text') { openText(p); return; }
-    if (tool === 'crop') { drawing = { kind: 'crop', x: p.x, y: p.y, w: 0, h: 0 }; marq.hidden = false; startMarq(ev); return; }
-    drawing = tool === 'pen'
-      ? { kind: 'pen', pts: [p], colour, size }
-      : { kind: tool, x: p.x, y: p.y, w: 0, h: 0, colour, size };
-    shapes.push(drawing);
+    if (ann.down(ev)) { if (ann.tool === 'crop') { marq.hidden = false; startMarq(ev); } return; }
+    if (zoom <= fitZoom + 0.001) return;
+    panFrom = { x: ev.clientX - pan.x, y: ev.clientY - pan.y };
+    document.body.classList.add('panning');
   });
 
   window.addEventListener('pointermove', (ev) => {
     if (panFrom) { pan = { x: ev.clientX - panFrom.x, y: ev.clientY - panFrom.y }; layout(); return; }
-    if (!drawing) return;
-    const p = toPic(ev);
-    if (drawing.kind === 'pen') drawing.pts.push(p);
-    else { drawing.w = p.x - drawing.x; drawing.h = p.y - drawing.y; }
-    if (drawing.kind === 'crop') moveMarq(ev); else paint();
+    if (ann.move(ev) && ann.tool === 'crop') moveMarq(ev);
   });
 
-  window.addEventListener('pointerup', async () => {
+  window.addEventListener('pointerup', () => {
     document.body.classList.remove('panning');
     panFrom = null;
-    if (!drawing) return;
-    const done = drawing;
-    drawing = null;
-    if (done.kind === 'crop') { marq.hidden = true; marqStart = null; applyCrop(done); return; }
-    // 一下点出来的空形状不留（笔画除外，它本来就可以只有一个点）
-    if (done.kind !== 'pen' && Math.abs(done.w) < 3 && Math.abs(done.h) < 3) shapes.pop();
-    paint();
+    const done = ann.up();
+    if (done && done.kind === 'crop') { marq.hidden = true; marqStart = null; applyCrop(done); }
   });
 
   let marqStart = null;
@@ -198,55 +128,10 @@
     marq.style.cssText = `position:fixed;left:${l}px;top:${tp}px;width:${Math.abs(ev.clientX - marqStart.x)}px;height:${Math.abs(ev.clientY - marqStart.y)}px`;
   }
 
-  // ---------- 打字 ----------
-  function openText(p) {
-    typing.hidden = false;
-    typing.value = '';
-    typing.dataset.x = p.x;
-    typing.dataset.y = p.y;
-    // .canvasWrap 的坐标系就是图片自己的像素（外面那层 transform 负责缩放和旋转），
-    // 所以这里直接用 p，不需要再拿 clientX 反推一次
-    typing.style.left = `${p.x}px`;
-    typing.style.top = `${p.y}px`;
-    typing.style.color = colour;
-    typing.style.fontSize = `${size * 5}px`;
-    typing.style.lineHeight = '1.35';
-    // 焦点要等这一轮的默认行为走完再给，不然还是会被抢走
-    setTimeout(() => { typing.focus(); typing.setSelectionRange(0, 0); }, 0);
-  }
-  let committing = false;
-  function commitText() {
-    if (committing || typing.hidden) return;   // pointerdown 和 blur 会前后脚各叫一次
-    committing = true;
-    const value = typing.value.trim();
-    typing.hidden = true;
-    committing = false;
-    if (!value) return;
-    shapes.push({ kind: 'text', x: +typing.dataset.x, y: +typing.dataset.y, text: value, colour, size });
-    paint();
-  }
-  typing.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') { typing.value = ''; typing.hidden = true; }
-    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) commitText();
-  });
-  typing.addEventListener('blur', commitText);
 
   // ---------- 导出 ----------
-  /** 整张图（连同画上去的东西），原尺寸 */
-  function compose(crop = null) {
-    const out = document.createElement('canvas');
-    const box = crop || { x: 0, y: 0, w: pic.naturalWidth, h: pic.naturalHeight };
-    out.width = Math.max(1, Math.round(box.w));
-    out.height = Math.max(1, Math.round(box.h));
-    const c = out.getContext('2d');
-    c.drawImage(pic, box.x, box.y, box.w, box.h, 0, 0, out.width, out.height);
-    c.translate(-box.x, -box.y);
-    for (const s of shapes) drawShape(c, s);
-    return out.toDataURL('image/png');
-  }
-
   async function copyWhole() {
-    const r = await api.copyPng(compose());
+    const r = await api.copyPng(ann.compose());
     toast(t(r && r.ok ? 'copied' : 'copyFailed'));
   }
   /** 裁剪：把当前这张图换成框住的那一块。画上去的东西一并烙进去，然后清空——
@@ -257,43 +142,33 @@
     const w = Math.min(Math.abs(box.w), pic.naturalWidth - x);
     const h = Math.min(Math.abs(box.h), pic.naturalHeight - y);
     if (w < 4 || h < 4) return;
-    const url = compose({ x, y, w, h });
-    shapes = [];
+    const url = ann.compose({ x, y, w, h });
+    ann.reset();                      // 画的东西已经烙进新图了，留着形状会画第二遍
     pic.onload = () => { fit(); };
     pic.src = url;
-    pickTool('crop');                 // 裁完就把工具收起来，别一松手又开始框
+    syncTools();                      // 裁完就把工具收起来，别一松手又开始框
     toast(t('cropped'));
   }
 
   // ---------- 工具条 ----------
-  function pickTool(next) {
-    tool = tool === next ? '' : next;
-    for (const b of document.querySelectorAll('.tool')) b.classList.toggle('on', b.dataset.tool === tool);
-    document.body.classList.toggle('drawing', !!tool);
+  function syncTools() {
+    for (const b of document.querySelectorAll('.tool')) b.classList.toggle('on', b.dataset.tool === ann.tool);
+    document.body.classList.toggle('drawing', !!ann.tool);
     showPop();
   }
+  function pickTool(next) { ann.setTool(next); syncTools(); }
   for (const b of document.querySelectorAll('.tool')) b.addEventListener('click', () => pickTool(b.dataset.tool));
 
   /** 粗细和颜色只在真的会用到的时候才升起来，而且贴着当前那个工具 */
   function showPop() {
-    if (!tool || tool === 'crop') { pop.hidden = true; return; }
-    const b = document.querySelector(`.tool[data-tool="${tool}"]`);
+    if (!ann.tool || ann.tool === 'crop') { pop.hidden = true; return; }
+    const b = document.querySelector(`.tool[data-tool="${ann.tool}"]`);
     pop.hidden = false;
     const r = b.getBoundingClientRect();
     const w = pop.offsetWidth || 260;
     pop.style.left = `${Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2))}px`;
   }
-  function renderPop() {
-    $('#sizes').innerHTML = SIZES.map((s) => `<button type="button" data-size="${s}" class="${s === size ? 'on' : ''}" title="${s}px"><i style="width:${Math.min(16, s + 3)}px;height:${Math.min(16, s + 3)}px"></i></button>`).join('');
-    $('#swatches').innerHTML = COLOURS.map((c) => `<button type="button" data-colour="${c}" class="${c === colour ? 'on' : ''}" style="background:${c}" title="${c}"></button>`).join('');
-  }
-  pop.addEventListener('click', (ev) => {
-    const s = ev.target.closest('[data-size]');
-    const c = ev.target.closest('[data-colour]');
-    if (s) size = Number(s.dataset.size);
-    if (c) colour = c.dataset.colour;
-    if (s || c) renderPop();
-  });
+  const renderPop = window.Annotate.palette($('#sizes'), $('#swatches'), ann);
 
   // 下限是 fitZoom：图最小也要占满这个框的宽或高
   const clampZoom = (z) => Math.max(fitZoom, Math.min(8, z));
@@ -327,7 +202,7 @@
     else { zoom = clampZoom(1); pan = { x: 0, y: 0 }; layout(); }
   });
   $('#tRot').addEventListener('click', () => { rot = (rot + 90) % 360; fit(); });
-  $('#tUndo').addEventListener('click', () => { shapes.pop(); paint(); });
+  $('#tUndo').addEventListener('click', () => ann.undo());
   $('#tCopy').addEventListener('click', copyWhole);
   $('#vClose').addEventListener('click', () => api.close());
 
@@ -375,10 +250,10 @@
 
   document.addEventListener('keydown', (ev) => {
     if (!typing.hidden) return;
-    if (ev.key === 'Escape') { if (tool) pickTool(tool); else api.close(); }
+    if (ev.key === 'Escape') { if (ann.tool) pickTool(ann.tool); else api.close(); }
     if (ev.key === '+' || ev.key === '=') $('#tIn').click();
     if (ev.key === '-') $('#tOut').click();
-    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z') { shapes.pop(); paint(); }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z') ann.undo();
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'c') copyWhole();
     if (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') {
       const i = all.findIndex((x) => entry && x.id === entry.id);

@@ -11,6 +11,22 @@
   const hint = $('#hint');
   const snapBox = $('#snap');
   const snapLabel = $('#snapLabel');
+  const ink = $('#ink');
+  const typing = $('#typing');
+  const pop = $('#pop');
+
+  // 在选区上画点什么。引擎和「看图」那一页是同一份（src/renderer/shared/annotate.js）。
+  //
+  // 坐标记在**整块屏幕的物理像素**里，不是选区里的：这样画完之后选区还能接着挪、接着改大小，
+  // 画上去的东西钉在桌面上、不跟着框走——像素记在框里的话，一挪框，标注就整个错位。
+  const ann = window.Annotate.create({
+    source: frozen,
+    canvas: ink,
+    typing,
+    toLocal: (ev) => ({ x: ev.clientX * scale, y: ev.clientY * scale }),
+    placeTyping: (p) => { typing.style.left = `${p.x / scale}px`; typing.style.top = `${p.y / scale}px`; },
+    onChange: () => { $('#btnUndo').disabled = ann.empty(); },
+  });
 
   const MIN = 8;
   let sel = null;            // { x, y, w, h } in CSS pixels
@@ -54,7 +70,15 @@
     $('#labelCancel').textContent = strings.cancel;
     $('#labelLong').textContent = strings.long || '';
     $('#btnLong').hidden = !strings.long;
+    const names = strings.tools || {};
+    for (const b of document.querySelectorAll('.tool[data-tool]')) b.title = names[b.dataset.tool] || '';
+    $('#btnUndo').title = names.undo || '';
     sel = null; drag = null;
+    // 画布开在物理像素上：写 CSS 尺寸就够显示，但存出去的是原图分辨率，标注不能是糊的
+    ink.width = Math.round(innerWidth * scale);
+    ink.height = Math.round(innerHeight * scale);
+    ann.reset();
+    syncTools();
     hint.classList.remove('hidden');
     render();
   });
@@ -197,7 +221,7 @@
     sizeChip.style.left = `${Math.max(4, sel.x)}px`;
     sizeChip.style.top = `${chipTop}px`;
 
-    if (drag) { toolbar.classList.add('hidden'); return; }
+    if (drag) { toolbar.classList.add('hidden'); pop.classList.add('hidden'); return; }
     toolbar.classList.remove('hidden');
     const tw = toolbar.offsetWidth || 150;
     const th = toolbar.offsetHeight || 36;
@@ -207,6 +231,7 @@
     toolbar.style.left = `${Math.max(4, Math.min(tx, innerWidth - tw - 4))}px`;
     toolbar.style.top = `${ty}px`;
     hint.classList.add('hidden');
+    showPop();                       // 调色板贴着工具带走，工具带一动它就得跟上
   }
 
   function normalize(x1, y1, x2, y2) {
@@ -231,7 +256,12 @@
   document.addEventListener('mousedown', (e) => {
     if (e.button === 2) { api.cancel(); return; }
     if (e.button !== 0) return;
+    // 工具带和调色板上的点击归它们自己
+    if (closest(e.target, '.toolbar') || closest(e.target, '.pop') || e.target === typing) return;
+    // 选了工具就是在画，不是在拉框——这是「先框出来，再在上面标」这个顺序的全部实现。
+    // 四个角除外：画到一半想把框改大一点，不该先把工具收起来。
     const handle = closest(e.target, '.handle');
+    if (!handle && ann.down(e)) return;
     if (handle) {
       drag = { mode: 'resize', corner: [...handle.classList].find((c) => c !== 'handle'), orig: { ...sel } };
     } else if (sel && e.target === box) {
@@ -244,6 +274,7 @@
   });
 
   document.addEventListener('mousemove', (e) => {
+    if (ann.move(e)) return;
     if (!drag) {
       if (sel || (!windows.length && !elBoxes.length)) return;
       here = { x: e.clientX, y: e.clientY };
@@ -270,6 +301,7 @@
   });
 
   document.addEventListener('mouseup', (e) => {
+    if (ann.up()) return;
     if (!drag) return;
     const wasNew = drag.mode === 'new';
     drag = null;
@@ -288,6 +320,7 @@
 
   // double-click inside the selection confirms, like the screenshot tools people already use
   document.addEventListener('dblclick', (e) => {
+    if (ann.tool) return;                       // 正在画的时候双击是画第二笔，不是「存」
     if (sel && sel.w >= MIN && sel.h >= MIN && !closest(e.target, '.toolbar')) confirm();
   });
   document.addEventListener('contextmenu', (e) => { e.preventDefault(); api.cancel(); });
@@ -295,11 +328,13 @@
   // ---------- keyboard ----------
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      // one step back before giving up entirely: a snapped window is easy to hit by accident
+      // 一层一层往回退，别一下子全丢：先收起工具，再放掉选区，最后才是整个放弃
+      if (ann.tool) { pickTool(ann.tool); return; }
       if (sel && (windows.length || elBoxes.length)) { sel = null; snap = null; render(); return; }
       api.cancel();
       return;
     }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); ann.undo(); return; }
     if (e.key === 'Enter') { confirm(); return; }
     if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {   // whole screen
       sel = { x: 0, y: 0, w: innerWidth, h: innerHeight };
@@ -319,8 +354,41 @@
 
   function confirm() {
     if (!sel || sel.w < MIN || sel.h < MIN) return;
-    api.select({ x: sel.x, y: sel.y, width: sel.w, height: sel.h });
+    ann.commitText();                            // 还开着的输入框先落到画布上，别丢掉最后一句
+    const rect = { x: sel.x, y: sel.y, width: sel.w, height: sel.h };
+    // 只交出画上去的那一层，底图那一半留在主进程里从没被压过的原图上裁——
+    // 送到这边来的桌面是 JPEG（为了快），拿它当底图存出去等于凭空掉一次画质。
+    const ink2 = ann.empty() ? '' : ann.inkOnly({
+      x: sel.x * scale, y: sel.y * scale, w: sel.w * scale, h: sel.h * scale,
+    });
+    api.select({ ...rect, ink: ink2 });
   }
+
+  // ---------- 工具带 ----------
+  function syncTools() {
+    for (const b of document.querySelectorAll('.tool[data-tool]')) b.classList.toggle('on', b.dataset.tool === ann.tool);
+    document.body.classList.toggle('drawing', !!ann.tool);
+    $('#btnUndo').disabled = ann.empty();
+    showPop();
+  }
+  function pickTool(next) { ann.setTool(next); syncTools(); }
+  for (const b of document.querySelectorAll('.tool[data-tool]')) {
+    b.addEventListener('click', () => pickTool(b.dataset.tool));
+  }
+  $('#btnUndo').addEventListener('click', () => { ann.undo(); syncTools(); });
+
+  /** 粗细和颜色只在真的会用到的时候才升起来，贴着工具带的上沿 */
+  function showPop() {
+    if (!ann.tool) { pop.classList.add('hidden'); return; }
+    pop.classList.remove('hidden');
+    const tb = toolbar.getBoundingClientRect();
+    const w = pop.offsetWidth || 240;
+    const h = pop.offsetHeight || 34;
+    pop.style.left = `${Math.max(4, Math.min(tb.left, innerWidth - w - 4))}px`;
+    // 工具带自己有可能被顶到选区上面去，那时候调色板跟着翻到它下面，别飘出屏幕
+    pop.style.top = tb.top - h - 6 >= 4 ? `${tb.top - h - 6}px` : `${tb.bottom + 6}px`;
+  }
+  window.Annotate.palette($('#sizes'), $('#swatches'), ann);
   $('#btnOk').addEventListener('click', confirm);
   // The same rectangle, handed over to be watched instead of cropped.
   $('#btnLong').addEventListener('click', () => {

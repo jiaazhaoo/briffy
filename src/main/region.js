@@ -159,6 +159,44 @@ async function grabWithCapturer(displays) {
   });
 }
 
+/**
+ * 把画上去的那一层叠回裁好的原图上。
+ *
+ * **底图那一半从来没离开过主进程。** 送到渲染层去的那张桌面是 JPEG（为了快，见文件头那笔账），
+ * 拿它当底图存出去等于凭空掉一次画质；所以渲染层只交出标注那一层——底下透明、和裁剪框同尺寸，
+ * 在这里按 alpha 叠回从没被压过的那张原图上。
+ *
+ * 主进程没有 canvas，所以自己算。Electron 的位图是**预乘**的（dev 里量过：rgba(255,0,0,128)
+ * 读回来是 r=128,a=128），所以公式是 out = base·(1−a) + ink，ink 不再乘一遍 alpha——
+ * 多乘那一下会让所有半透明的边缘发暗，笔画看着像镶了一圈黑边。
+ */
+function overlay(base, dataUrl) {
+  const comma = String(dataUrl || '').indexOf(',');
+  if (comma < 0) return base;
+  let layer;
+  try { layer = nativeImage.createFromBuffer(Buffer.from(dataUrl.slice(comma + 1), 'base64')); } catch (_) { return base; }
+  if (!layer || layer.isEmpty()) return base;
+  const size = base.getSize();
+  const ls = layer.getSize();
+  // 对不上就整层不叠：错位的标注比没有标注糟糕得多，而这里没有第二次机会去问。
+  if (ls.width !== size.width || ls.height !== size.height) {
+    console.warn(`[region] ink layer ${ls.width}×${ls.height} != crop ${size.width}×${size.height}, dropped`);
+    return base;
+  }
+  const out = base.toBitmap();
+  const ink = layer.toBitmap();
+  for (let i = 0; i < out.length; i += 4) {
+    const a = ink[i + 3];
+    if (!a) continue;
+    if (a === 255) { out[i] = ink[i]; out[i + 1] = ink[i + 1]; out[i + 2] = ink[i + 2]; continue; }
+    const k = (255 - a) / 255;
+    out[i] = Math.round(out[i] * k) + ink[i];
+    out[i + 1] = Math.round(out[i + 1] * k) + ink[i + 1];
+    out[i + 2] = Math.round(out[i + 2] * k) + ink[i + 2];
+  }
+  return nativeImage.createFromBitmap(out, size);
+}
+
 async function grabDisplays() {
   const displays = screen.getAllDisplays();
   return (await grabNative(displays)) || grabWithCapturer(displays);
@@ -263,7 +301,7 @@ function init() {
     crop.width = Math.min(crop.width, size.width - crop.x);
     crop.height = Math.min(crop.height, size.height - crop.y);
     if (crop.width < 4 || crop.height < 4) { cancel(); return; }
-    const cropped = full.crop(crop);
+    const cropped = rect.ink ? overlay(full.crop(crop), rect.ink) : full.crop(crop);
     finish({ png: cropped.toPNG(), width: crop.width, height: crop.height, display: win.displayInfo });
   });
   // The same box, but the user wants what is below it too. Nothing is cropped here: the frozen
@@ -295,4 +333,4 @@ function init() {
   });
 }
 
-module.exports = { init, warm, selectRegion, cancel, active, toBGRA };
+module.exports = { init, warm, selectRegion, cancel, active, toBGRA, overlay };
