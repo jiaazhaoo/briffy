@@ -1099,31 +1099,13 @@ function setupIpc() {
   ipcMain.handle('ws:chat-rename', (_e, id, title) => chats.rename(String(id || ''), String(title || '')));
   ipcMain.handle('ws:chat-remove', (_e, id) => chats.remove(String(id || '')));
   ipcMain.handle('ws:related', (_e, id) => ask.relatedTo(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
-  // 这一条身上挂着的全部边。三种边分开给，各自带着自己的来路——绝不合成一个「相关度」。
-  ipcMain.handle('ws:links', (_e, id) => {
-    const l = ask.linksOf(id);
-    const many = (ids) => ids.map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry);
-    return {
-      source: l.source ? { ...l.source, entry: l.source.page ? publicEntry(store.getEntry(l.source.page)) : null } : null,
-      clips: many(l.clips),
-      // 同一程带着页面的名字：那一页本身多半没存过，代表那一条只是用来点开的
-      run: l.run.map((p) => ({ name: p.name, entry: publicEntry(store.getEntry(p.id)) })).filter((x) => x.entry),
-      // 证据边一定要把**共用的那几个词**一起带上：这条边的全部意义就是它说得出为什么
-      evidence: l.evidence.map((x) => ({ pairs: x.pairs, entry: publicEntry(store.getEntry(x.id)) })).filter((x) => x.entry),
-      near: many(l.near),
-    };
-  });
-  // 一条记录周围两跳的图。节点连同记录本身一起给，省得渲染层再问一遍。
-  ipcMain.handle('ws:graph', (_e, id) => {
-    const g = ask.graphOf(id);
-    return {
-      edges: g.edges,
-      nodes: g.nodes.map((n) => {
-        const e = store.getEntry(n.id);
-        return e ? { ...publicEntry(e), hop: n.hop } : null;
-      }).filter(Boolean),
-    };
-  });
+  // 和这一条有关的记录，一条按远近排好的清单。**每条都带着它凭什么在这儿**——
+  // 一对词、一页的名字、或者「同一段操作」。藏起理由的话它就退化成又一个「相关」了。
+  ipcMain.handle('ws:links', (_e, id) => ({
+    related: ask.linksOf(id).related
+      .map((x) => ({ score: x.score, why: x.why, entry: publicEntry(store.getEntry(x.id)) }))
+      .filter((x) => x.entry),
+  }));
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());

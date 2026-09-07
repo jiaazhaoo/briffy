@@ -338,60 +338,6 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 行自己带 12px 内边距，所以这里减掉，字才真的落在 --pad 上、和顶栏对齐 */
 /* 滚动条也是一条线，而这里不许有线（网格早就 scrollbar-width: none 了，列表漏了，
    于是两栏中间和窗口右边各挂着一道灰杠） */
-/* ---------- 图谱 ---------- */
-/* 一条记录周围两跳。三条规矩和别处一样：全直角（所以节点是方块不是圆）、
-   没有颜色（远近只用墨色深浅）、线只有发丝那一档——这里的线是内容不是装饰，所以它能出现。 */
-/* 窗口跟着图走，不是图跟着窗口走：图只有四张卡的时候，一个 880 宽的空框子比图本身还显眼 */
-/* 写成 .modal-card.graph-card 是为了压过 .modal-card 的固定宽度——它在这条下面，同分就它赢 */
-.modal-card.graph-card { width: auto; max-width: min(880px, 94vw); height: auto; max-height: 86vh; overflow: auto; }
-/* 抬头的左右边距**得自己写**。详情窗里 .dt-head 是躺在 .detail 里面的，两边的空是 .detail 给的；
-   图谱这一张里它是 .modal-card 的直接孩子，于是继承了个零——标题贴着窗口左沿、叉贴着右沿，
-   而底下的图规规矩矩缩进 26。一张窗上两条不同的左边线，就是「边距贼丑」的来处。 */
-.modal-card.graph-card > .dt-head { padding: var(--a4) var(--a4) var(--a3); }
-/* 图自己带 10px 的余量（graphMap 里的 M），所以这里不再叠一层上边距 */
-.graph-body { padding: 0 var(--a4) var(--a4); }
-/* 线在下、卡片在上，两层用同一套坐标。图不缩放——把一张 680 宽的 svg 拉满一个更宽的框，
-   11px 的字会跟着放大成模糊的一团，方块也跟着变形。宁可窄窗口里横向滚。 */
-.gr-map { position: relative; margin: 0 auto; }
-/* 宽高要写死：全局那条 `svg { width:16px }` 是给图标定的，不写的话这一层会缩成 16×16，
-   viewBox 跟着缩三十五倍——线还在，只是细到看不见。 */
-.gr-lines { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-/* 这条线不是分隔线，它是这张图要说的那件事本身，所以比发丝线深一点、也允许它存在。
-   三种边的把握不同，线也不能一样：同一处是精确匹配（同一个网址、同一个标签页标题），
-   画满；同一程只是「那一段里你还路过了什么」，画虚；意思相近最细。 */
-.gr-edge { stroke: var(--ink-3); stroke-width: 1; fill: none; opacity: .55; }
-.gr-edge.e-page { stroke: var(--ink-2); stroke-width: 1.4; opacity: .8; }
-.gr-edge.e-run { stroke-dasharray: 3 4; opacity: .5; }
-/* 共用证据词：点线。它比「同一程」实（拿得出那个词），比「同一处」虚（一个词不是同一页） */
-.gr-edge.e-word { stroke: var(--ink-2); stroke-dasharray: 1 3; opacity: .7; }
-
-/* 线上那行小字：**凭什么连**。一条说不出依据的线和「相关」没有区别。
-   底下垫一层底纸色的描边，压在线上也读得出来——这不是描边风格，是让字从线里透出来。 */
-.gr-why { font: 400 10px/1 var(--sans); fill: var(--ink-3); paint-order: stroke;
-  stroke: var(--page); stroke-width: 3px; stroke-linejoin: round; }
-
-/* 图里的节点就是记录本身，所以它长成记录的样子：白便签 + 影子，和网格里那些是同一种纸。
-   （层 1，hover 抬 2px 换 --e2——「只有真实物件有影子」这条在这儿是成立的，一条记录就是物件。） */
-.gr-card { position: absolute; display: flex; align-items: center; gap: var(--a2); overflow: hidden;
-  border: 0; text-align: left; cursor: pointer; padding: 0 9px; color: inherit;
-  background: var(--slip); box-shadow: var(--e1); transition: transform .12s, box-shadow .12s; }
-.gr-card:hover { transform: translateY(-2px); box-shadow: var(--e2); z-index: 2; }
-/* 中心那张是「你现在看的这一条」——荧光笔划过，纸不动。抬起来会和 hover 撞车 */
-.gr-card.on { background: var(--marker); }
-.gr-card .ct { flex: none; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
-  overflow: hidden; background: var(--slip-2); font-size: 13px; filter: grayscale(1); opacity: .75; }
-.gr-card .ct img { width: 100%; height: 100%; object-fit: cover; filter: none; }
-.gr-card .cb { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.gr-card .cb b { font: var(--w-title) var(--fs-act)/1.35 var(--sans);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gr-card .cb span { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
-/* 二跳那圈：只留标题，淡一档。远的那几张只要认出「哦是那件事」，不需要读 */
-.gr-card.h2 { padding: 0 8px; }
-.gr-card.h2 .cb b { font: 400 var(--fs-meta)/1.35 var(--sans); color: var(--ink-2); }
-/* 节点是纸上的一块，不是浮起来的东西——所以只有底色，没有影子也没有描边。
-   一跳和二跳同一个底色，远近全靠字的墨色说。 */
-.gr-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a5) 0; text-align: center; }
-
 /* ---------- 相关 ---------- */
 /* 详情页最底下一小块：讲同一件事的那几条。一条一行，日期在前、标题在后，
    和「路过」那一页同一种读法。没有框、没有线——它是这一页的脚注，不是另一个卡片。 */
@@ -403,12 +349,10 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .rel .tm { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
 .rel .ti { color: var(--ink-2); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rel:hover .ti { color: var(--ink); }
-/* 来处那一页你没存下来：它仍然说得出名字，但没有东西可以点开。名字在左，说明在右 */
-.rel.flat { grid-template-columns: 1fr auto; cursor: default; }
-/* 证据边的左栏是共用的词，不是时间——它比日期长，得多给点地方，也不用等宽数字 */
-.rel.ev { grid-template-columns: 148px 1fr; }
+/* 左边那一栏写的是**凭什么**——一对词、那一页的名字、或者「同一段操作」，不是时间。
+   它比日期长，所以宽一档，也不用等宽数字。一条藏起理由的线，和「相关」没有区别。 */
+.rel.ev { grid-template-columns: 168px 1fr; }
 .rel.ev .tm { font-variant-numeric: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rel.flat:hover .ti { color: var(--ink-2); }
 
 /* ---------- 路过 ---------- */
 /* 一段一行，读起来是一页日记：时间在左（和网格的时间轴同一个位置），时长、应用、标题依次退墨。

@@ -210,31 +210,26 @@ function topicList() {
   catch (_) { return []; }
 }
 /**
- * 这条记录身上挂着的全部边，**每一条都说得出自己的来路**。
+ * 和这一条有关的记录，**一条按远近排好的清单**，每条都说得出为什么。
  *
- * 三种边的证据不同，所以分开给，绝不合成一个「相关度」——合成的那一刻，唯一能调的又只剩阈值，
- * 而阈值这条路已经被量死了（见 src/main/links.js 顶上那笔账）。
+ * 之前这里是四组分开列的边（摘自 / 从这一页摘的 / 同一程 / 同一个词），外加一张图谱。
+ * 图谱做不成：十四张卡片、四十多条线，线上还写着字，实测就是一团乱麻，读不出任何东西。
+ * 而分四组也不对——**你要的是「和这条最近的是哪几条」，不是「按证据种类分类的四张小表」**。
  *
- * @returns {{source:object|null, clips:string[], run:string[], near:string[]}}
- *   source 摘自哪一页 · clips 这一页上摘了哪几条 · run 同一段操作里经过的别的页 · near 意思相近
+ * 所以合成一条清单，用 story.grow 排：它本来就是按分数排好的，而且每条都带着
+ * 它是被哪条边、哪一对词放进来的。左边写理由，右边写标题。
+ * @returns {{related:{id:string, score:number, why:object}[]}}
  */
 function linksOf(id) {
   const me = String(id || '');
-  const out = { source: null, clips: [], run: [], evidence: [], near: [] };
   try {
-    const all = [];
-    for (const key of store.listDates()) all.push(...store.loadDay(key));
-    const g = links.build(all);
-    const l = links.linksOf(me, g);
-    out.source = l.source;
-    out.clips = l.clips;
-    // 同一程给的是「那几页」，不是那一段里的每一条记录：一段 50 条的操作两两相连没有意义。
-    // 页面名字照给，代表那一条用来点开——那一页本身多半没存过。
-    out.run = l.run.pages.filter((p) => p.first).map((p) => ({ name: p.name, id: p.first }));
-  } catch (_) { /* 边是加分项，没有也不该让详情打不开 */ }
-  out.evidence = evidenceOf(me);
-  out.near = relatedTo(me);
-  return out;
+    const s = story.grow(me, storyCtx(), { max: 14 });
+    return {
+      related: s.members
+        .filter((m) => m.id !== me)
+        .map((m) => ({ id: m.id, score: m.score, why: m.via || null })),
+    };
+  } catch (_) { return { related: [] }; }
 }
 
 /** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
@@ -243,47 +238,6 @@ function relatedTo(id) {
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
-/**
- * 从这一条长出去的那一件事。图谱画的就是它。
- *
- * 这不是「周围两跳」，也不是聚类：是**带衰减的扩散**（src/main/story.js）。
- * 一跳一个专名（tw20、runnymede、50km）是强证据，三跳绕过一个泛词什么也不是，所以每远一跳
- * 乘一次衰减，掉到门槛以下就不再走。每一条进来的记录都带着**它是被哪条边、哪个词放进来的**。
- *
- * 实测（dev/story-bench.js）：从「Ultra Challenge」长出 14 条，正好是那一晚的那件事——
- * 报名页、赛程对话、以及从那条对话页上摘下来的三条停车记录。对照它替掉的那套向量归堆：
- * 同一件事只给 5 条，而且没有一条说得出为什么。
- * @returns {{nodes:{id:string,hop:number}[], edges:[string,string,string][]}}
- */
-function graphOf(id) {
-  const me = String(id || '');
-  try { refresh(); } catch (_) { /* 用已经建好的那部分 */ }
-  try {
-    // 图谱是一张画，不是一张清单：环形布局摆得下十来个，再多就糊成一团。
-    // 长出来的那一片可以更大（story.MAX），画的时候取分最高的这些。
-    const s = story.grow(me, storyCtx(), { max: 14 });
-    if (s.members.length > 1) {
-      // 边自己带着依据：一对词，或者那一页的名字。线上写的就是它。
-      return { nodes: s.members.map((m) => ({ id: m.id, hop: m.hop })), edges: s.edges };
-    }
-  } catch (_) { /* 长不出来就退回向量那张图，至少还有东西看 */ }
-  try {
-    const base = vector.graph(index, me);
-    return { nodes: base.nodes, edges: base.edges.map(([a, b]) => [a, b, 'near']) };
-  } catch (_) { return { nodes: [], edges: [] }; }
-}
-
-/**
- * 一个主题下面的全部记录。
- *
- * 归堆那一套（向量 + leader clustering）**决定谁算成员很差**——同一件事它只圈住 5 条，
- * 而且圈住的那 5 条里有两个语言选择条和一个日期。但它圈住的那几条**确实都是这件事的记录**，
- * 所以它当种子是够用的：从每一条往外长一遍（src/main/story.js），并起来就是那件事。
- *
- * 这样就绕开了那张一直做不对的全局清单——**清单还是它给的，只是「成员」不再由它说了算**。
- * 实测：「泰晤士河步道超级马拉松」从 5 条变成十几条，报名页、赛程对话、以及从那条对话页上
- * 摘下来的几条停车记录都进来了，而且每一条都说得出自己是被哪条边放进来的。
- */
 function topicEntries(id) {
   let seeds = [];
   try { seeds = index.topicMembers(String(id || '')); } catch (_) { seeds = []; }
@@ -302,4 +256,4 @@ function topicEntries(id) {
   } catch (_) { return seeds; }   // 长不出来就还是原来那几条，不该因此打不开
 }
 
-module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, evidenceOf, graphOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, evidenceOf, MAX_ITEMS };
