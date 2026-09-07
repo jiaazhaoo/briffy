@@ -223,38 +223,27 @@ App 这边监听 `http://127.0.0.1:47831`（只绑定本机，要求扩展带自
 
 ## 小动物形象
 
-小猫是**一张图片套一个圆框**：可见的圆 54px，窗口 80×80——多出来的 13px 透明边是给投影、录音红圈和每个动作留的余量，不然放大一下就会被窗口的矩形边裁掉。圆形、白边、投影和所有状态特效（录音红圈 + 麦克风角标、思考小点、快门闪光、摘要角标）都在 `pet.css` 里画，跟图片内容无关——所以换一张图就换了一只宠物，不用重画任何东西。同一张图也是工作区左上角的头像，选了就一起变。
+小猫**就是它自己**：一整只回形针，透明底，由 [assets/brand/briffy-anim.js](assets/brand/briffy-anim.js)
+以 `body: 'full'` 现画（[pet.js](src/renderer/pet/pet.js)）。窗口 80×80，画的内容不占满——
+四周留出的透明边是给投影、录音红圈和每个动作的余量，不然放大一下就会被窗口的矩形边裁掉。
+状态特效（录音红圈 + REC、思考小点、摘要角标、拖入时的虚线接框）都在
+[pet.css](src/renderer/pet/pet.css) 里画，跟形象本身无关。
 
-它会动，但很克制：平时**完全静止**，每 7.5 秒蹦一小下，每 11 秒往上探一下头；录音时随红圈一起微微鼓动，处理时歪头往上看，截图时吓一跳，成功时蹦一下，失败时抖一抖。
+它会动，但很克制。这一点是量出来的：**一个正在跑的 CSS 动画，代价和它的值动不动无关**——
+这个窗口透明、置顶、开着就不关，它要的每一帧都是一次永不停止的 alpha 合成。在 M2 Max 上实测，
+三个 `infinite` 待机循环要占掉一个核的 11.4%，而完全静止时只要 0.9%；更说明问题的是，
+蹦跳和探头有七八成周期都停在原地，却和持续呼吸一样贵。所以待机动作只在真正动的那几秒存在。
 
-平时静止不是偷懒，是量出来的：**一个正在跑的 CSS 动画，代价和它的值动不动无关**。这个窗口透明、置顶、开着就不关，它要的每一帧都是一次永不停止的 alpha 合成。在 M2 Max 上实测，三个 `infinite` 待机循环要占掉一个核的 11.4%，而完全静止的小猫只要 0.9%——更说明问题的是，蹦跳和探头有七八成周期都停在原地，却和持续呼吸一样贵。
-
-所以待机动作改成了**只在真正动的那几秒存在**：[pet.js](src/renderer/pet/pet.js) 给它挂上一个 `g-` class，动画跑一遍，class 摘掉，窗口重新安静下来。探头还进一步拆成「抬头 → 静止保持 → 低头」三段，中间那段是纯静态 class（停住不需要动画）。原来那个缓慢的呼吸就是这么没的——它是唯一一个**停不下来**的动作。代价从 11.4% 降到 6.5%。圆框里的东西**一律不加 transform、一律自己就是圆的**（探头是改 `top`）——Chromium 会让带 transform 的子元素逃出父级的圆形裁剪，露出方角。
-
-**所有消息都从它嘴里说**：录音计时、已存入、摘要好了、出错了……全部走漫画式的对话气泡（白底、墨线描边、硬阴影、尾巴斜着指向小猫）。系统通知只在小猫被隐藏、没气泡可说的时候才作为兜底出现。
-
-**朝向统一**：库里的形象一半从左下角冒出来、一半从右下角。我们统一成**从右下往左上**——换装时 `src/main/orient.js` 看图片两侧边缘哪边"贴"着角色，贴左边的就水平镜像（`nativeImage` 位图直接翻，无损）。设置网格里的缩略图也按同样的规则预先标好了（`catalog.json` 里的 `f: 1`，`npm run pet:orient` 重算，3448 张里 1511 张需要镜像）。
-
-**在设置里挑**：右键小猫 → 设置 → 小动物形象，[ipaslogo.com](https://ipaslogo.com) 上 3448 个免费形象（可免费商用）全在里面，每个都套着和小猫一样的圆框，搜 `cat` / `owl` / `fox` 再点一下就换上了。
-
-实现分三块：
-
-| 文件 | 干什么 |
-| --- | --- |
-| [scripts/pet-catalog.js](scripts/pet-catalog.js) | `npm run pet:catalog`，把整个库快照成 [assets/pet/catalog.json](assets/pet/catalog.json)。站点是纯静态 SPA，目录直接烤在它的 bundle 里，没有接口可调，所以是从首页找到 bundle 再解析出来的。只存 id、名字和每张图的背景色（约 250 KB） |
-| [src/main/petskin.js](src/main/petskin.js) | 目录读取 + 换装。挑中一个才下载那一张原图，`nativeImage` 缩到 240×240 存进 userData（安装后 `assets/` 是只读的），装好之后小猫再也不碰网络 |
-| 设置里的网格 | 只有 id 和背景色过 IPC，图片从 CDN 懒加载，网格滚到底再续 240 个，所以 3448 条也是秒开。没加载出来之前先用各自的背景色占位 |
-
-内置的默认形象是库里的 `Cat 3`（深蓝猫 + 珊瑚红底，小尺寸下最清楚）。想换内置默认：
+换内置形象（[scripts/pet-avatar.js](scripts/pet-avatar.js)，`src/main/orient.js` 会把
+从左下角冒出来的图水平镜像成统一朝向）：
 
 ```bash
-npm run pet:avatar -- https://cdn.ipaslogo.com/logos/xxxx.png   # 或者本地图片
-npm run pet:avatar -- --default                                 # 重新生成内置默认
+npm run pet:avatar -- ./somewhere/pic.png   # 换成本地的一张图
+npm run pet:avatar -- --default             # 重新生成内置默认
 ```
 
-原来那只手绘的猫还留在 [assets/pet/default-cat.svg](assets/pet/default-cat.svg)，想要的话 `npm run pet:avatar -- assets/pet/default-cat.svg`。
-
-**注意**：设置里的缩略图是直接连 ipaslogo.com 的 CDN 的（`img-src` 里放行了那一个域名），也就是说浏览形象时会走他们的流量。只有浏览时需要联网，选中之后那张图就落到本地了。
+原来那只手绘的猫还留在 [assets/pet/default-cat.svg](assets/pet/default-cat.svg)，
+想要的话 `npm run pet:avatar -- assets/pet/default-cat.svg`。
 
 ### 想要透明底、全身、多表情的那种
 

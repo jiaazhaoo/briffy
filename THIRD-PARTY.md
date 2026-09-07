@@ -75,9 +75,11 @@ OFL 要求版权声明随字体保留，这一条靠这个安排满足。
 | 素材 | 来源 | 说明 |
 | --- | --- | --- |
 | `assets/brand/briffy.svg`、`assets/icon*.png`、`assets/tray*.png`、`assets/pet/avatar.png`、`assets/brand/original-avatar.jpg` | 本项目原创 | 版权归 Jia Zhao，随本仓库许可 |
-| `assets/pet/catalog.json` | [ipaslogo.com](https://ipaslogo.com) 的索引快照（3448 项，只有 id / 名称 / 底色，约 250 KB） | **已无界面入口**：形象图库在 2026-09-06 被删掉，常驻形象现在自己画自己，`petskin.catalogue / apply / reset` 三个函数没有调用方了。文件还留在仓库里。上游声明「free to download and free for commercial use」，快照时间 2026-09-04 |
 
 `assets/pet/default-cat.svg`、`assets/pet/avatar.png` 是本项目自己画的兜底形象。
+
+仓库里**没有任何从第三方网站抓来的内容**。曾经有过一份 ipaslogo.com 的形象索引，
+随 2026-09-06 删掉形象图库一起移除了。
 
 ## 5. 借用的方法 / Derived work
 
