@@ -91,4 +91,46 @@ async function search(index, question, { limit = 40, cacheDir, mirror = '', from
   return [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
 }
 
-module.exports = { fill, search, MODEL };
+// 一条记录的邻居要多像才算「相关」。实测：0.7 以上是真的同一件事
+// （「模型」→「qwen3.5:0.8b」0.981，「walking 挑战」→「赛程分前后半程」0.737）；
+// 0.4 上下就是瞎猜（一条叫「Views」的记录的前三名分别是 grok-icon-study、报名完成、赛程讨论，
+// 全不相干，分数 0.38）。所以门槛卡在这儿，**低于它一条都不给**，不硬凑。
+const NEAR = 0.60;
+
+/**
+ * 和这条记录讲同一件事的那几条。
+ *
+ * **不建表、不存图**：204 条记录两两全比是 20,706 次点积、18 毫秒，算一条的邻居更是不到 1 毫秒。
+ * 存下来只会多一个会过期的东西——记录改了、删了，图就不对了，还得想什么时候重算。
+ *
+ * 规模上的账写在这儿免得以后重新想：全量两两是 n²，两百条是两万次（免费），
+ * 一百八十五万条是一点七万亿次（不可能）。到那个量级要先用倒排缩候选，或者只在时间窗内比。
+ * @returns {string[]} 按相近程度排，可能是空的
+ */
+function related(index, id, { limit = 3, floor = NEAR } = {}) {
+  const mine = [];
+  const others = new Map();
+  index.vecScan((rid, v) => {
+    if (rid === id) { mine.push(v); return; }
+    if (!others.has(rid)) others.set(rid, []);
+    others.get(rid).push(v);
+  });
+  if (!mine.length) return [];
+  const mean = (list) => {
+    const out = new Float32Array(list[0].length);
+    for (const v of list) for (let i = 0; i < v.length; i++) out[i] += v[i];
+    let n = 0; for (let i = 0; i < out.length; i++) n += out[i] * out[i];
+    n = Math.sqrt(n) || 1;
+    for (let i = 0; i < out.length; i++) out[i] /= n;
+    return out;
+  };
+  const me = mean(mine);
+  const scored = [];
+  for (const [rid, list] of others) {
+    const s = dot(me, mean(list));
+    if (s >= floor) scored.push([rid, s]);
+  }
+  return scored.sort((a, b) => b[1] - a[1]).slice(0, limit).map(([rid]) => rid);
+}
+
+module.exports = { fill, search, related, MODEL, NEAR };

@@ -1089,6 +1089,8 @@ function setupIpc() {
   // 不用动手存的那一层：一天的痕迹和各应用待了多久。空手是正常的——这个功能默认关着。
   ipcMain.handle('ws:trail', (_e, day) => trail.read(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-days', () => trail.days());
+  // 和这一条讲同一件事的那几条。当场算，不存图——存下来只会多一个会过期的东西。
+  ipcMain.handle('ws:related', (_e, id) => ask.relatedTo(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());
