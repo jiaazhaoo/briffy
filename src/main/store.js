@@ -198,29 +198,30 @@ function entryFormat(e) {
 }
 
 /**
- * 这条记录**是从哪儿来的**，按能知道的最细一档答：
- *   站点   知道网址就用站点名（小红书、哔哩哔哩、GitHub）
- *   应用   知道当时在哪个应用就用应用名（Claude、Terminal、WeChat）
- *   方式   都不知道，就退回它是怎么进来的（截图、剪贴板、语音）
+ * 这条记录**是从哪儿来的**：
+ *   站点   有网址就用站点名（小红书、哔哩哔哩、GitHub）
+ *   站点   没网址但浏览器把站名写在了窗口标题里
+ *   应用   不是浏览器，就用应用名（Claude、Terminal、WeChat）
+ *   '?'    以上都不知道
  *
- * 这和 entrySource 不是一回事：那个只答「怎么进来的」。实测这个工作区 211 条里有 94 条
- * 既没有网址也没有应用（没有前台上下文的笔记和图片），退到方式那一档它们才有归属，
- * 否则近一半的记录会掉进「没有来源」那个格子里，筛选就等于半瞎。
+ * **不知道就说不知道，不退回「剪贴板」「截图」。** 那两个是 entrySource 答的另一个问题——
+ * 「怎么进来的」。拿它去当「从哪儿来的」的答案是循环的：一张截图的来源是「截图」，等于没说，
+ * 而且它会变成这一格里最大的一块（103/213），把真正的站名全压下去。
+ *
+ * 一格「未知」看着难看，但它是真的：按天量，功能完全生效那天（09-07）真有来源的是 94%，
+ * 09-06 是 58%（当天中途才开始记），09-05 是 21%（那时还没有这个功能）。尾巴很小，
+ * 而且看得见它才会有人去把它修小。
  */
+const UNKNOWN = '?';
 function entryOrigin(e) {
-  if (!e) return 'other';
+  if (!e) return UNKNOWN;
   const c = e.context || {};
   const site = siteOf(e.url || c.url || '');
   if (site) return site;
   const app = String(c.app || '').trim();
   // 浏览器只说明「是个网页」，说不出是哪个站。网址没拿到的时候，窗口标题里往往还写着站名。
-  if (BROWSER_APP.test(app)) {
-    const named = siteInTitle(c.window);
-    if (named) return named;
-    return entrySource(e);                     // 连标题都没有，那「怎么进来的」比「某个浏览器」有用
-  }
-  if (app) return app;
-  return entrySource(e);
+  if (BROWSER_APP.test(app)) return siteInTitle(c.window) || UNKNOWN;   // 「Chrome」说不出是哪个站
+  return app || UNKNOWN;
 }
 
 function readJson(file, fallback) {
