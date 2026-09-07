@@ -317,20 +317,24 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
         WHERE f.fts MATCH ? ${where.length ? `AND ${where.join(' AND ')}` : ''} LIMIT 500`;
       let rows = [];
       try { rows = db.prepare(sql).all(`"${p.key.replace(/"/g, '""')}"`, ...args); } catch (_) { rows = []; }
-      for (const r of rows) count.set(r.id, (count.get(r.id) || 0) + 1);
+      const plain = p.key.replace(/ /g, '');
+      for (const r of rows) { if (!count.has(r.id)) count.set(r.id, new Set()); count.get(r.id).add(plain); }
     }
     // 两个稀有词一起出现，才说明这一级看懂了这个问题——先要有这样的记录，这一级才算数。
     // 有了之后，剩下的位置用只命中一个的填满：预算是 40 条，空着不比多给几条差的强。
     // 「walking 是哪天多少钱」就是这样——报名那几条是英文的，只占得上 walking 一个词。
     const ranked = [...count.entries()].filter(([id]) => !lead.includes(id));
-    const good = ranked.some(([, n]) => n >= MIN_HITS) ? ranked : [];
+    const good = ranked.some(([, w]) => w.size >= MIN_HITS) ? ranked : [];
     if (good.length) {
       // 命中的词多的在前；一样多就近的在前
       const at = new Map(db.prepare(`SELECT id, at FROM entries WHERE id IN (${good.map(() => '?').join(',')})`)
         .all(...good.map(([id]) => id)).map((r) => [r.id, r.at]));
-      good.sort((a, b) => (b[1] - a[1]) || String(at.get(b[0]) || '').localeCompare(String(at.get(a[0]) || '')));
+      good.sort((a, b) => (b[1].size - a[1].size) || String(at.get(b[0]) || '').localeCompare(String(at.get(a[0]) || '')));
       const ids = [...lead, ...good.map(([id]) => id)].slice(0, limit);
-      return { ids, scored: true, ms: Date.now() - t0, terms: needles };
+      // 每条命中了哪几个词，排序和取舍在 retrieve.js 里做——那儿看得到正文，这儿看不到。
+      const matched = {};
+      for (const [id, w] of good) matched[id] = [...w];
+      return { ids, scored: true, ms: Date.now() - t0, terms: needles, matched };
     }
   }
   if (lead.length) return { ids: lead, scored: true, ms: Date.now() - t0, terms: needles };
