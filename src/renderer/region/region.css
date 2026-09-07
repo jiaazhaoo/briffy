@@ -37,9 +37,17 @@ html, body {
 body.drawing { cursor: crosshair; }
 
 /* 选区之外全部压暗 */
-#shade { position: fixed; inset: 0; background: rgba(16, 16, 14, .5); }
+#shade { position: fixed; inset: 0; background: var(--dim); }
 /* 选区周围四个矩形；比一个盖满屏幕的 box-shadow 重绘便宜 */
-.shade-part { position: fixed; background: rgba(16, 16, 14, .5); pointer-events: none; }
+.shade-part { position: fixed; background: var(--dim); pointer-events: none; }
+/* 压多暗，分两段。
+   **框还没画出来的时候压得轻**：这会儿你还在找目标，整屏是你要读的东西。压掉一半之后，
+   一个浅色窗口（比如 briffy 自己）纸底和白便签会塌到同一个灰上——不是变暗，是认不出来了，
+   看着就像那扇窗没了。而这一屏只把光标底下那个窗口留在原亮度，所以「消失的是哪扇」全看
+   按快捷键那一刻鼠标停在哪，同一件事有时发生有时不发生。
+   **框画出来之后压回一半**：这时候该被读的只剩框里那块，四周越沉，框越跳得出来。 */
+body { --dim: rgba(16, 16, 14, .26); }
+body.has-sel { --dim: rgba(16, 16, 14, .5); }
 #box { position: fixed; box-sizing: border-box; border: 1px solid var(--accent); box-shadow: 0 0 0 1px rgba(255, 255, 255, .35);
   cursor: move; will-change: left, top, width, height; }
 .handle { position: absolute; width: 8px; height: 8px; background: #fff; border: 1.5px solid var(--accent); }
