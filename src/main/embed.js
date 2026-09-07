@@ -55,10 +55,10 @@ function reason() { return broken; }
 
 /**
  * @param {string[]} texts
- * @param {{cacheDir:string, mirror?:string, onProgress?:(pct:number)=>void, timeoutMs?:number}} opts
+ * @param {{cacheDir:string, mirror?:string, model?:string, onProgress?:(pct:number)=>void, timeoutMs?:number}} opts
  * @returns {Promise<number[][]>} one unit-length vector per input
  */
-function embed(texts, { cacheDir, mirror = '', onProgress, timeoutMs = 4 * 60 * 1000 } = {}) {
+function embed(texts, { cacheDir, mirror = '', model = MODEL, onProgress, timeoutMs = 4 * 60 * 1000 } = {}) {
   if (broken) return Promise.reject(Object.assign(new Error(broken), { code: 'embed-crashed' }));
   if (!texts.length) return Promise.resolve([]);
   spawn();
@@ -73,7 +73,7 @@ function embed(texts, { cacheDir, mirror = '', onProgress, timeoutMs = 4 * 60 * 
       resolve: (v) => { clearTimeout(timer); touchIdle(); resolve(v); },
       reject: (e) => { clearTimeout(timer); touchIdle(); reject(e); },
     });
-    child.postMessage({ type: 'embed', id, texts, cfg: { model: MODEL, cacheDir, mirror } });
+    child.postMessage({ type: 'embed', id, texts, cfg: { model, cacheDir, mirror } });
   });
 }
 
