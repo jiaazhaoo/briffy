@@ -190,6 +190,8 @@
   function draw() {
     drawSnap();
     const cut = hole();
+    // 框出来了没有，决定压多暗——见 region.css 里 --dim 那一段
+    document.body.classList.toggle('has-sel', !!sel);
     if (!cut) {
       box.classList.add('hidden'); sizeChip.classList.add('hidden'); toolbar.classList.add('hidden');
       for (const el of shadeParts) el.style.display = 'none';
