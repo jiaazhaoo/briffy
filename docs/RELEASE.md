@@ -14,7 +14,18 @@
 | 目标架构 | **arm64 only**（Apple Silicon）。见下面「为什么不出 Intel 版」 |
 | 最低系统 | macOS 13.0（Electron 44 的下限） |
 
-`package.json > build.mac.identity` 写的是 `"jia zhao (5B88JH77HT)"`——**不带** `Developer ID Application:` 前缀。electron-builder 26 要求去掉前缀，由它按目标类型自己挑证书（这台机器上同时装着 MAS 用的 `Apple Distribution`，前缀反而会让它报错）。
+签名证书**不写在 `package.json` 里**——仓库是公开的，那是维护者这台机器上的东西，
+不该出现在共享配置里，别人 clone 下来也会因为找不到这张证书而打包失败。改用
+electron-builder 认的环境变量 `CSC_NAME`：
+
+```bash
+export CSC_NAME="jia zhao (5B88JH77HT)"
+```
+
+**不带** `Developer ID Application:` 前缀。electron-builder 26 要求去掉前缀，由它按目标类型自己挑证书（这台机器上同时装着 MAS 用的 `Apple Distribution`，前缀反而会让它报错）。
+
+没有这个变量时（任何 fork 的情况）electron-builder 会跳过签名，打出一个未签名的
+DMG——能装、能跑，但首次打开要在「系统设置 › 隐私与安全性」里放行。
 
 ---
 
@@ -34,12 +45,13 @@ xcrun notarytool store-credentials briffy-notary --apple-id "你的@apple.id" --
 3. electron-builder 读的是环境变量，不是钥匙串 profile，所以打包时给它：
 
 ```bash
+export CSC_NAME="jia zhao (5B88JH77HT)"
 export APPLE_ID="你的@apple.id"
 export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 export APPLE_TEAM_ID=5B88JH77HT
 ```
 
-**别把这三行写进仓库里的任何文件。** 放 `~/.zshrc`，或者临时 `export` 一次。
+**别把这四行写进仓库里的任何文件。** 放 `~/.zshrc`，或者临时 `export` 一次。
 
 ---
 

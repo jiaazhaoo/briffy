@@ -81,6 +81,11 @@ if (process.argv.includes('--preflight')) {
   console.log('Preflight');
   if (/Developer ID Application:/.test(id)) ok('Developer ID Application certificate');
   else bad('Developer ID Application certificate', 'not in the keychain — nothing can be signed for distribution');
+  // The certificate name used to sit in package.json. It does not any more: the repository is public and
+  // that is the maintainer's own certificate, so it lives in CSC_NAME. Same failure mode as the notarisation
+  // credentials -- absent, electron-builder skips signing and says so in one line an hour of build later.
+  if (process.env.CSC_NAME) ok('signing identity', `CSC_NAME=${process.env.CSC_NAME}`);
+  else bad('CSC_NAME not set', 'the build would be unsigned — see docs/RELEASE.md');
   if (!missing.length) ok('notarisation credentials', need.join(', '));
   else bad(`notarisation credentials missing: ${missing.join(', ')}`, 'the build would skip notarisation silently — see docs/RELEASE.md');
   console.log(`\n${failures ? '✗ not ready to release' : '✓ ready'}`);
