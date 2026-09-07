@@ -150,6 +150,8 @@
       ];
     },
     // 主题：讲同一件事的记录归成的堆
+    // 「相关」：讲同一件事的那几条，当场算出来的
+    related: async (id) => entries.filter((e) => e.id !== id).slice(0, 3).map(pub),
     topics: async () => ([
       { id: 't1', name: '泰晤士河步道超级马拉松挑战赛', words: '', n: 5 },
       { id: 't2', name: 'Ollama 模型推荐与配置', words: '', n: 6 },

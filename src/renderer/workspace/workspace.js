@@ -10,7 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', topicsHint: '成堆的：', viewTrail: '路过',
+      near: '相近', related: '相关', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
@@ -145,7 +145,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', topicsHint: 'Groups:', viewTrail: 'Passed by',
+      near: 'related', related: 'Related', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
@@ -1211,6 +1211,23 @@
   const detailBox = () => (!$('#detailModal').hidden ? $('#detail') : $('#listDetail'));
   function renderDetail() { renderDetailInto(detailBox()); }
 
+  // 打开一条记录时当场算它的邻居，不存图——存下来只会多一个会过期的东西。
+  // seq 挡住过期的回应：翻得快时前一条的邻居不该落在后一条底下。
+  let relSeq = 0;
+  async function fillRelated(id, box) {
+    const my = ++relSeq;
+    let list = [];
+    try { list = await ws.related(id); } catch (_) { list = []; }
+    if (my !== relSeq || !list.length) return;
+    const slot = box.querySelector('.dt-related');
+    if (!slot) return;
+    slot.hidden = false;
+    slot.innerHTML = `<h3>${esc(t('related'))}</h3>`
+      + list.map((e) => `<button type="button" class="rel" data-rel="${esc(e.id)}">`
+        + `<span class="tm">${esc(fmtDate(e.dateKey))}</span>`
+        + `<span class="ti">${esc(cardTitle(e))}</span></button>`).join('');
+  }
+
   function renderDetailInto(box) {
     const e = currentEntry();
     if (!e) { box.innerHTML = `<div class="empty"><div class="empty-art">🐾</div><span>${esc(t('selectEntry'))}</span></div>`; return; }
@@ -1285,7 +1302,12 @@
           ${statusLine}
         </div>
         ${machine ? `<div class="dt-machine">${machine}</div>` : ''}
+        <div class="dt-related" hidden></div>
       </div>`;
+
+    // 「相关」——讲同一件事的那几条。慢一拍补上来（要算向量），空手就整块不出现：
+    // 向量分数没有绝对意义，硬凑三条只会给出三条不相干的东西，那比没有更糟。
+    fillRelated(e.id, box);
 
     // The note is the user's own line and nothing else writes it, so it saves itself when they leave it.
     // 一行主题。默认是只读的一句说明，点一下才交出光标——省得一打开详情就有个输入框在等你打字。
@@ -2337,7 +2359,16 @@
       fit();
     }
     // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
-$('#tvRows').addEventListener('click', (e) => {
+// 「相关」里点一条 = 打开那一条。委托到 document 上：这一块在详情面板里，
+    // 而详情面板在列表视图和弹窗里各有一份，两处都要能点。
+    document.addEventListener('click', (ev) => {
+      const b = ev.target.closest && ev.target.closest('[data-rel]');
+      if (!b) return;
+      state.selectedId = b.dataset.rel;
+      if (!state.entries.some((x) => x.id === state.selectedId)) { loadEntries(); return; }
+      renderDetail(); renderList();
+    });
+    $('#tvRows').addEventListener('click', (e) => {
       if (e.target.closest('[data-trail-all]')) { trailAll = true; renderTrail(); return; }
       const row = e.target.closest('.tv-row');
       if (!row) return;

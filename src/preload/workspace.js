@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('ws', {
   listEntries: invoke('ws:list-entries'),
   searchNear: (q, exclude) => ipcRenderer.invoke('ws:search-near', q, exclude),
   topics: invoke('ws:topics'),
+  related: invoke('ws:related'),
   trailSessions: invoke('ws:trail-sessions'),
   trailDays: invoke('ws:trail-days'),
   topicEntries: invoke('ws:topic-entries'),

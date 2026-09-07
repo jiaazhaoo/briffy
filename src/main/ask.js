@@ -165,8 +165,14 @@ function topicList() {
   try { return index.topics().map((t) => ({ ...t, name: t.name || t.words || '' })); }
   catch (_) { return []; }
 }
+/** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
+function relatedTo(id) {
+  try { refresh(); } catch (_) { /* 索引没追平也照样能用已经建好的那部分 */ }
+  try { return vector.related(index, String(id || '')); } catch (_) { return []; }
+}
+
 function topicEntries(id) {
   try { return index.topicMembers(String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, topicList, topicEntries, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, MAX_ITEMS };
