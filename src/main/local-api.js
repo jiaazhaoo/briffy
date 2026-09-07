@@ -123,10 +123,18 @@ async function handle(req, res) {
     }
     // The page the browser is on. Held in memory for half a minute and attached only to something the
     // user then chooses to save; nothing here is written to disk on its own. See foreground.js.
+    //
+    // 除非「不用动手存的那一层」开着（wantText），那时候同一个 POST 还会带上这一页的正文，
+    // 而正文是**写盘**的。所以它由一个单独的开关管，而且默认关着——见 src/main/trail.js。
+    // 搭这条路是因为它本来就在每次切标签时跑，不用再造一个触发时机。
     if (req.method === 'POST' && url.pathname === '/api/tab') {
       const tab = await readJson(req);
       if (deps.onTab) deps.onTab(tab || {});
-      json(res, 200, { ok: true, wantTab: !!(deps.wantsTab && deps.wantsTab()) });
+      json(res, 200, {
+        ok: true,
+        wantTab: !!(deps.wantsTab && deps.wantsTab()),
+        wantText: !!(deps.wantsText && deps.wantsText()),
+      });
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/media/done') {

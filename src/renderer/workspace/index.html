@@ -125,6 +125,7 @@
             <h2><span data-i18n="sContext">记录来源</span><span class="info"><i>i</i><span class="tip" data-i18n="sContextHint">只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。</span></span></h2>
             <div class="body">
             <label class="f check wide"><span class="fc"><input type="checkbox" id="recordContext" /><span data-i18n="sContextOn">保存时记下当时的应用、窗口和网页地址</span></span></label>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="recordTrail" /><span data-i18n="sTrailOn">不用动手：把你在哪个应用、看哪个网页，连同网页正文一起记下来</span><span class="info"><i>i</i><span class="tip" data-i18n="sTrailHint">这是 briffy 里唯一一样不用你动手存的东西，所以它默认关着，也不进「记录」那一页——它有自己的地方（工作区里的 trail/）。每两秒问一次前台是哪个应用（实测 0.31% 的一个核），变了才记一条；网页正文由扩展在页面里直接读，不截屏、不做文字识别（0.2 毫秒读一万两千字，而识别一屏要 800 毫秒还只认得出一千一百字）。一分钟没人动就停。微信、Telegram 这类不交出正文的应用只记窗口标题，不碰内容。每天约 1MB。</span></span></span></label>
             <div class="f wide"><span class="fc">
               <button type="button" class="btn" id="btnContextTest" data-i18n="sContextTest">看看现在能读到什么</button>
               <span id="contextStatus" class="st"></span>

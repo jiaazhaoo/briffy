@@ -1705,6 +1705,7 @@
     for (const b of document.querySelectorAll('#themeSeg button')) b.classList.toggle('active', b.dataset.theme === (s.theme || 'system'));
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
     $('#recordContext').checked = s.recordContext !== false;
+    $('#recordTrail').checked = s.recordTrail === true;   // 默认关着：它记的是你路过的，不是你存的
     $('#autoRecord').checked = s.autoRecord === true;
     allowSuggested = (m.apps && m.apps.suggested) || [];
     const described = (m.apps && m.apps.allow) || [];
@@ -1798,6 +1799,7 @@
       customModel: $('#customModel').value.trim(),
       normalizeChineseScript: $('#normalizeChineseScript').checked,
       recordContext: $('#recordContext').checked,
+      recordTrail: $('#recordTrail').checked,
       autoRecord: $('#autoRecord').checked,
       autoRecordAllow: allowList.slice(),
       diarize: $('#diarize').checked,
