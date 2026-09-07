@@ -15,6 +15,7 @@ const path = require('path');
 const llm = require('./llm');
 const retrieve = require('./retrieve');
 const vector = require('./vector');
+const topic = require('./topic');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -64,7 +65,8 @@ function warm() {
     vector.fill(index, readDay, { budgetMs: 1500, cacheDir: store.paths().models })
       .then((r) => {
         if (r.error) { console.warn('[ask] 向量补不了：', r.error); return; }   // 词面那一半照常工作
-        if (!r.done) setTimeout(fillVectors, 800);
+        if (!r.done) { setTimeout(fillVectors, 800); return; }
+        setTimeout(groupAndName, 800);
       })
       .catch((e) => console.warn('[ask] 向量补不了：', e.message || e));
   };
@@ -73,6 +75,26 @@ function warm() {
     try { r = refresh({ budgetMs: 1500 }); } catch (e) { console.warn('[ask] 索引建不起来', e.message); return; }
     if (!r.done) { setTimeout(step, 800); return; }   // 留出空档，别把启动那几秒占满
     setTimeout(fillVectors, 800);
+  };
+  // 向量补齐之后归堆。归堆是纯本地的，两百条跑一遍毫秒级；起名要过模型，一次只起几个，
+  // 起完的名字会留着——同一个代表的堆重算之后还是它，不用再花一次调用。
+  const groupAndName = async () => {
+    try {
+      const groups = topic.build(index, (id) => store.getEntry(id));
+      index.putTopics(groups);
+    } catch (e) { console.warn('[ask] 归堆失败', e.message || e); return; }
+    const cfg = llm.config(store);
+    if (!llm.isConfigured(cfg)) return;               // 没有 provider 就只有条数和抽出来的词
+    for (const t of index.unnamedTopics(3)) {
+      const items = index.topicMembers(t.id, 20)
+        .map((id) => store.getEntry(id)).filter(Boolean)
+        .map((e) => ({ title: e.title, text: e.text }));
+      try {
+        const name = await llm.topicName(cfg, { items });
+        index.nameTopic(t.id, name);
+      } catch (e) { console.warn('[ask] 主题起名失败', e.message || e); return; }
+    }
+    if (index.unnamedTopics(1).length) setTimeout(groupAndName, 2000);
   };
   setTimeout(step, 3000);
 }
@@ -136,4 +158,13 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   return ids.filter((id) => !skip.has(id)).slice(0, limit);
 }
 
-module.exports = { init, run, near, warm, refresh, MAX_ITEMS };
+/** 记录页上那一行主题。空手是正常的：向量还没补齐、或者这个工作区还没有成堆的东西。 */
+function topicList() {
+  try { return index.topics().map((t) => ({ ...t, name: t.name || (t.words || '').split(' ').filter(Boolean).join(' · ') })); }
+  catch (_) { return []; }
+}
+function topicEntries(id) {
+  try { return index.topicMembers(String(id || '')); } catch (_) { return []; }
+}
+
+module.exports = { init, run, near, warm, refresh, topicList, topicEntries, MAX_ITEMS };

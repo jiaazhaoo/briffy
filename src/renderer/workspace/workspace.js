@@ -10,7 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
+      near: '相近', topicsHint: '成堆的：', askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
       askNoEntries: '工作区里还没有记录，先存点东西进来。',
       askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
       askFailed: 'AI 服务出错：{err}。下面仍然是匹配到的记录。',
@@ -138,7 +138,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
+      near: 'related', topicsHint: 'Groups:', askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
       askNoEntries: 'The workspace has no entries yet.',
       askNoProvider: 'No AI service configured (Settings › AI service), so nobody read these for you. Here are the matching records.',
       askFailed: 'AI service failed: {err}. The matching records are still below.',
@@ -266,6 +266,7 @@
   const state = {
     meta: null, settings: null, ui: 'zh', entries: [], dates: [], selectedId: null, editing: false,
     query: '', date: '', source: '', pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
+    topics: [], topic: '',            // 讲同一件事的记录归成的堆；topic 是正在看的那一个
     selecting: false, picked: new Set(),
     view: 'grid',
     boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
@@ -473,6 +474,7 @@
 
   // ---------- entries ----------
   async function loadEntries() {
+    if (state.topic) { pickTopic(state.topic); return; }   // 正在看一个主题，别被普通加载顶掉
     state.dates = await ws.listDates();
     // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了，
     // 那就是剪贴板。要看它，点那一格。
@@ -489,6 +491,7 @@
     renderList();
     renderAxis();
     if (state.selectedId && !state.entries.some((e) => e.id === state.selectedId)) closeDetail();
+    renderTopics();
     addNear();
   }
 
@@ -540,10 +543,38 @@
     $('#sources').innerHTML = shown.map(chip).join('')
       + `<button type="button" class="src-chip more" data-more="1">${esc(t(open ? 'srcLess' : 'srcMore'))}</button>`;
   }
+  // 主题：讲同一件事的记录归成的堆。它和筛选是两个问题——筛选说「怎么进来的」（截图 / 剪贴板），
+  // 主题说「关于什么」（那场挑战 / Ollama / 回形针 logo）。所以是两行，不是一行里混着。
+  //
+  // 只在没有搜索词、也没有按来源筛的时候出现：一次只回答一个问题。搜索框已经在回答「关于什么」了，
+  // 这时候再摆一排主题只会让「现在在看什么」说不清楚。
+  let topicsLoaded = false;
+  async function renderTopics() {
+    const box = $('#topics');
+    if (!box) return;
+    if (!topicsLoaded) { topicsLoaded = true; try { state.topics = await ws.topics(); } catch (_) { state.topics = []; } }
+    const list = (state.topics || []).filter((x) => x.name);
+    const show = list.length && !state.query && !state.source;
+    box.hidden = !show;
+    if (!show) return;
+    box.innerHTML = `<span class="src-chip zero" style="pointer-events:none">${esc(t('topicsHint'))}</span>`
+      + list.slice(0, 10).map((x) => `<button type="button" class="src-chip${state.topic === x.id ? ' active' : ''}" data-topic="${esc(x.id)}">`
+        + `${esc(x.name)}<span class="n">${x.n}</span></button>`).join('');
+  }
+
+  async function pickTopic(id) {
+    state.topic = state.topic === id ? '' : id;
+    if (!state.topic) { loadEntries(); return; }
+    let list = [];
+    try { list = await ws.topicEntries(state.topic); } catch (_) { list = []; }
+    state.entries = list.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    renderTopics(); renderList(); renderAxis();
+  }
+
   // 筛选是**单选**：一次只看一类东西。「全部」是没选（`state.source === ''`），
   // 收藏是其中一个选项，不是另一个并行的开关——两个能同时按的东西会让「现在在看什么」说不清楚。
   function isOn(key) { return (state.source || '') === key; }
-  function toggleSource(key) { state.source = state.source === key ? '' : key; }
+  function toggleSource(key) { state.source = state.source === key ? '' : key; state.topic = ''; }
 
   // 左边的时间轴：一天一行，相对日 + 条数。日期抬头已经不显示了，所以哪一天只由它说。
   // 点一行跳过去；滚动时哪一天正压在视野顶上，哪一行就加粗。
@@ -2219,7 +2250,19 @@
     $('#jgScroll').addEventListener('scroll', markAxis, { passive: true });
     $('#lvRows').addEventListener('scroll', markAxis, { passive: true });
     let searchTimer = null;
-    $('#search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = e.target.value; loadEntries(); }, 200); });
+    // 内容让开顶栏那一截。顶栏的高度会变——多一行主题、筛选换行、窗口变窄——所以量出来，
+    // 别写死。以前是 112px 写死在两处 CSS 里，主题那一行一出现就压在第一条记录上。
+    const top = document.querySelector('.top');
+    if (top && window.ResizeObserver) {
+      const fit = () => document.documentElement.style.setProperty('--top-h', `${Math.round(top.getBoundingClientRect().bottom)}px`);
+      new ResizeObserver(fit).observe(top);
+      fit();
+    }
+    $('#topics').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-topic]');
+      if (b) pickTopic(b.dataset.topic);
+    });
+    $('#search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = e.target.value; state.topic = ''; loadEntries(); }, 200); });
     $('#dateFilter').addEventListener('change', (e) => { state.date = e.target.value; loadEntries(); });
     $('#quickAdd').addEventListener('submit', async (e) => {
       e.preventDefault();
