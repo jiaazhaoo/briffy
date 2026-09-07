@@ -124,6 +124,56 @@ ok('出现在大多数记录里的词不参与匹配', () => {
   assert.deepStrictEqual(r.ids, ['needle'], JSON.stringify(r.ids.slice(0, 5)));
 });
 
+// ---------- 一句话和几个关键词，不是一回事 ----------
+// 这一组是从一次真实的失败里长出来的：问「我最近有个 walking 挑战，你帮我看看记录帮我生成行程单」，
+// 那一周 208 条记录里报名信息一条也没被取到，模型只好去猜日期。三处都错，缺一不可。
+
+ok('一整句没有标点的中文，不会被拼成一个相邻短语', () => {
+  // 「你帮我看看记录帮我生成行程单」ICU 切成十个词。把它们拼成相邻短语，等于要求这句话原样
+  // 出现在某条记录里——永远不成立，而它是 AND 的一项，会把同一个 AND 里真有用的词一起打死。
+  const keys = idx.termsOf('你帮我看看记录帮我生成行程单').map((p) => p.key);
+  assert.ok(!keys.some((k) => k.split(' ').length > 3), '还在拼长短语: ' + JSON.stringify(keys));
+  assert.ok(keys.includes('看看') && keys.includes('记录'), JSON.stringify(keys));
+  assert.ok(!keys.includes('我') && !keys.includes('帮'), '单字不该留下: ' + JSON.stringify(keys));
+});
+
+ok('df 是「多少条记录里有」，不是「一共出现多少次」', () => {
+  day('2026-09-08', [entry('rep', { dateKey: '2026-09-08', title: '重复', text: '芜湖 芜湖 芜湖 芜湖 芜湖' })]);
+  idx.sync(src);
+  const [t] = idx.termsOf('芜湖');
+  assert.strictEqual(t.df, 1, `一条记录里写五遍，df 还是 1，实际 ${t.df}`);
+});
+
+ok('一句话：靠共同命中的稀有词找得到，不必条条都对上', () => {
+  day('2026-09-09', [
+    entry('reg', { dateKey: '2026-09-09', title: 'Sat 12 Sep 2026', text: 'Ultra March 1st Half Challenge 50km Walking Only 挑战 £139' }),
+    entry('noise', { dateKey: '2026-09-09', title: '别的', text: '今天生成了一份行程 看看而已' }),
+  ]);
+  idx.sync(src);
+  // 没有任何一条同时含着 walking / 挑战 / 生成 / 行程 / 看看——「都要有」在这里必定交白卷
+  const r = idx.search({ query: '我有个 walking 挑战，你帮我看看记录帮我生成行程单' });
+  assert.ok(r.ids.includes('reg'), '报名那条没被取到: ' + JSON.stringify(r.ids));
+  assert.ok(r.scored, '不该退回成时间范围');
+});
+
+ok('几个关键词还是「都要有」，这一级不受影响', () => {
+  // 两个词是关键词不是句子：漏一个就是问的不是这件事，仍然交白卷
+  assert.deepStrictEqual(idx.search({ query: '麦克风 完全不存在的词' }).ids, []);
+  assert.deepStrictEqual(idx.search({ query: '长截图 拼接' }).ids, ['e']);
+});
+
+ok('稀有词不够两个就不启动，时间回退保得住', () => {
+  // 「今天做了什么」把时间词拿走之后只剩「做了什么」，凑不出两个稀有词——
+  // 必须继续交白卷，上层才知道该把这一天整个给他
+  assert.deepStrictEqual(idx.search({ query: '做了什么' }).ids, []);
+});
+
+ok('search 把用到的词一起交出来，上层要拿它去截正文', () => {
+  const r = idx.search({ query: '麦克风白名单' });
+  assert.ok(Array.isArray(r.terms) && r.terms.length, JSON.stringify(r.terms));
+  assert.ok(r.terms.some((w) => w.indexOf(' ') < 0), '中文的词要拼回没有空格的样子: ' + JSON.stringify(r.terms));
+});
+
 ok('每天有多少条，是粗筛那一层要用的', () => {
   const d = idx.days({ from: '2026-09-04', to: '2026-09-06' });
   assert.strictEqual(d.length, 3);

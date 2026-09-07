@@ -74,6 +74,9 @@ function open(userDataDir, workspaceDir) {
     CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(body, content='', contentless_delete=1);
     -- 每个词出现在多少条记录里。用来在查询前丢掉过于常见的词：耗时是跟命中行数走的，
     -- 一个几乎每条都有的词（自己的用户名、常驻应用名）会把整条查询从 2ms 拖到 1.4 秒。
+    -- 'row' 模式给出 term / doc / cnt 三列：doc 是含这个词的记录条数，cnt 是总出现次数。
+    -- 要的是 doc。用 cnt 会把「在一条记录里重复十遍」误判成「十条记录都有」——实测 walking
+    -- 只在 6 条里出现，cnt 却是 12，于是它被当成不够稀有，正好错过该被挑出来的那个词。
     CREATE VIRTUAL TABLE IF NOT EXISTS vocab USING fts5vocab(fts, 'row');
   `);
   const got = { schema: get('schema'), workspace: get('workspace') };
@@ -180,23 +183,59 @@ const COMMON = 0.25;      // 出现在超过这一比例记录里的词，不参
  *
  * 顺手丢掉太常见的词：耗时跟命中行数走，一个几乎每条都有的词能把 2ms 拖成 1.4 秒。
  */
-function matchExpr(question, { total = 0 } = {}) {
+// 一个块最多切成这么多个词才还算「一个词组」。再长就不是了：一整句没有标点的中文会被 ICU 切成
+// 十个词，把它们拼成一个相邻短语，等于要求这句话原样出现在某条记录里——那永远不成立，而且它是
+// AND 的一项，所以它会把整个查询打死。实测：「你帮我看看记录帮我生成行程单」切出十个词，拼成的
+// 短语命中 0 条，于是同一个 AND 里的 walking（6 条）和 挑战（5 条）一起陪葬。
+const PHRASE_MAX = 3;
+// 稀有词的门槛，和 COMMON 是一头一尾：COMMON 挡的是到处都是的词，这个挑的是真有指向性的词。
+const RARE = 0.05;
+// 稀有词要共同出现才算数。一个不够——「行程」单独命中的那条和问题多半没关系。
+const MIN_HITS = 2;
+// 拆出这么多个词以上，打进来的就不是几个关键词而是一句话了。两者要用不同的判据：
+// 几个关键词漏一个就是问的不是这件事（「都要有」是对的）；一句话里大半是问话本身的词，
+// 要求条条都对上永远不成立。
+const SENTENCE = 4;
+
+/**
+ * 把一句话拆成能拿去匹配的词。
+ * @returns {{key:string, df:number, rareDf:number}[]} key 是空格分隔的相邻词组；df 给 COMMON 用，
+ *   rareDf 是词组 df 的上界（取各词里最小的那个），给稀有词那一级用。
+ */
+function termsOf(question) {
   // 先按用户自己打的边界切开（空格、标点），再让 ICU 去切每一块
   const words = String(question || '').split(/[\s,，、;；。!！?？:：/\\()（）[\]"'`]+/).filter(Boolean);
-  const phrases = [];
+  const out = [];
+  const seen = new Set();
+  const push = (key) => { if (key && !seen.has(key)) { seen.add(key); out.push({ key, df: null, rareDf: null }); } };
   for (const w of words) {
     const sub = tokens(w);
     if (!sub.length) continue;
-    if (sub.length === 1 && sub[0].length === 1 && !/[\u4e00-\u9fff]/.test(sub[0])) continue;  // 单个字母数字，跳过
-    phrases.push({ key: sub.join(' '), df: null });
+    if (sub.length <= PHRASE_MAX) {
+      if (sub.length === 1 && sub[0].length === 1 && !/[\u4e00-\u9fff]/.test(sub[0])) continue;  // 单个字母数字，跳过
+      push(sub.join(' '));
+      continue;
+    }
+    // 太长，当不成词组：拆成词。单字丢掉——「的」「我」这种到处都是，AND 上它们只会把命中拖回噪音。
+    for (const t of sub) if (t.length > 1) push(t);
   }
+  const dfOf = (t) => {
+    const r = db.prepare('SELECT doc FROM vocab WHERE term=?').get(t);
+    return r ? r.doc : 0;
+  };
+  for (const p of out) {
+    const parts = p.key.split(' ');
+    // 只有整词能问到 df；被切开的词组问不到，一律当作不常见（它们本来就更选择性）
+    p.df = parts.length > 1 ? 0 : dfOf(p.key);
+    // 词组的 df 不会超过它任何一个词的 df，所以取最小的那个当上界就够挑稀有词了
+    p.rareDf = Math.min(...parts.map(dfOf));
+  }
+  return out;
+}
+
+function matchExpr(question, { total = 0 } = {}) {
+  const phrases = termsOf(question);
   if (!phrases.length) return null;
-  // 只有整词能问到 df；被切开的短语问不到，一律当作不常见（它们本来就更选择性）
-  for (const p of phrases) {
-    if (p.key.includes(' ')) { p.df = 0; continue; }
-    const r = db.prepare('SELECT cnt FROM vocab WHERE term=?').get(p.key);
-    p.df = r ? r.cnt : 0;
-  }
   const kept = total ? phrases.filter((p) => p.df / total <= COMMON) : phrases;
   const use = kept.length ? kept : phrases;              // 全被丢光就退回原样，总比没有强
   return use.map((p) => `"${p.key.replace(/"/g, '""')}"`);
@@ -216,12 +255,13 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
   if (pinned) where.push('e.pinned = 1');
 
   const total = db.prepare('SELECT count(*) c FROM entries').get().c;
+  const parts = query.trim() ? termsOf(query) : [];
   const terms = query.trim() ? matchExpr(query, { total }) : null;
   if (!terms) {
     // 没有词，就是「把这段时间给我」——按时间倒着给
     const sql = `SELECT e.id FROM entries e ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY e.at DESC LIMIT ?`;
     const ids = db.prepare(sql).all(...args, limit).map((r) => r.id);
-    return { ids, scored: false, ms: Date.now() - t0 };
+    return { ids, scored: false, ms: Date.now() - t0, terms: [] };
   }
   // 由紧到松试两次，第一个有结果的就是答案：
   //   1  几个短语都要有 —— 最准，也最快（命中少，ORDER BY rank 就便宜）
@@ -235,17 +275,66 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
   const loose = [...new Set(terms.flatMap((t) => t.replace(/^"|"$/g, '').split(' ')))]
     .filter((w) => w.length > 1)
     .map((w) => `"${w}"`);
+  const sentence = parts.length >= SENTENCE;
+  // 拿去在正文里找位置的词。索引里词是空格分开的，原文里中文不带空格，所以要拼回去。
+  // 单字不要：它们哪儿都有，截出来的那一段会落在毫无意义的地方。
+  const needles = [...new Set(parts.flatMap((p) => [p.key, p.key.replace(/ /g, '')]))].filter((w) => w.length > 1);
+  let lead = [];
   const tries = [terms.join(' AND ')];
-  if (loose.length && loose.length !== terms.length) tries.push(loose.join(' AND '));
+  // 拆开再 AND 这一级是给「麦克风白名单」这种连写的关键词用的。对一句话它没有意义——它只会
+  // 碰巧撞上一条同时含着「看看」「生成」「行程」的记录，然后因为「第一个有结果的就是答案」，
+  // 把下面真正该管这件事的那一级挡在门外。实测就是这么坏的。
+  if (!sentence && loose.length && loose.length !== terms.length) tries.push(loose.join(' AND '));
   for (const expr of tries) {
     const sql = `SELECT e.id FROM fts f JOIN entries e ON e.rowid = f.rowid
       WHERE f.fts MATCH ? ${where.length ? `AND ${where.join(' AND ')}` : ''}
       ORDER BY rank LIMIT ?`;
     let ids = [];
     try { ids = db.prepare(sql).all(expr, ...args, limit).map((r) => r.id); } catch (_) { ids = []; }
-    if (ids.length) return { ids, scored: true, ms: Date.now() - t0 };
+    // 几个关键词的时候，命中就是答案。一句话的时候不是：「都要有」在一句话上能中，往往是因为
+    // 撞上了一条正好把这句话本身抄进去的记录——实测这次唯一的命中就是**问题自己**（问完把答案
+    // 复制了一份，于是问题的每个词它都占）。所以一句话只让它打头，剩下的位置留给下面那一级。
+    if (ids.length && !sentence) return { ids, scored: true, ms: Date.now() - t0, terms: needles };
+    if (ids.length) { lead = ids; break; }
   }
-  return { ids: [], scored: true, ms: Date.now() - t0 };
+
+  //   3  命中了**几个**稀有词 —— 一句话问出来的词不可能条条都对上
+  //
+  // 前两级都是「都要有」，那对**打进去的几个关键词**是对的：漏一个就是问的不是这件事。但一句
+  // 完整的话不一样，它里面大半是问话本身的词。实测「我最近有个 walking 挑战，你帮我看看记录帮我
+  // 生成行程单」：walking 6 条、挑战 5 条，两个一 AND 就是那几条报名记录；可同一个 AND 里还有
+  // 帮(1)、生成(2)、行程(1)、看看(7)，没有任何一条记录同时占全，于是交白卷，上层退回「这段时间
+  // 最近 40 条」——按时间倒序，和问题毫无关系。
+  //
+  // 所以这一级换个判据：只看稀有词（df ≤ 5%），按**共同命中的个数**排，至少要两个。
+  // 这不会把「今天做了什么」顶掉——那句话拆完只剩「什么」一个词，够不到两个，这一级根本不启动；
+  // 也不会把「麦克风 完全不存在的词」凑合成答案——凑不齐两个共同命中的词。
+  const rare = sentence ? parts.filter((p) => p.rareDf > 0 && p.rareDf / total <= RARE) : [];
+  if (rare.length >= MIN_HITS) {
+    const count = new Map();
+    for (const p of rare) {
+      const sql = `SELECT e.id FROM fts f JOIN entries e ON e.rowid = f.rowid
+        WHERE f.fts MATCH ? ${where.length ? `AND ${where.join(' AND ')}` : ''} LIMIT 500`;
+      let rows = [];
+      try { rows = db.prepare(sql).all(`"${p.key.replace(/"/g, '""')}"`, ...args); } catch (_) { rows = []; }
+      for (const r of rows) count.set(r.id, (count.get(r.id) || 0) + 1);
+    }
+    // 两个稀有词一起出现，才说明这一级看懂了这个问题——先要有这样的记录，这一级才算数。
+    // 有了之后，剩下的位置用只命中一个的填满：预算是 40 条，空着不比多给几条差的强。
+    // 「walking 是哪天多少钱」就是这样——报名那几条是英文的，只占得上 walking 一个词。
+    const ranked = [...count.entries()].filter(([id]) => !lead.includes(id));
+    const good = ranked.some(([, n]) => n >= MIN_HITS) ? ranked : [];
+    if (good.length) {
+      // 命中的词多的在前；一样多就近的在前
+      const at = new Map(db.prepare(`SELECT id, at FROM entries WHERE id IN (${good.map(() => '?').join(',')})`)
+        .all(...good.map(([id]) => id)).map((r) => [r.id, r.at]));
+      good.sort((a, b) => (b[1] - a[1]) || String(at.get(b[0]) || '').localeCompare(String(at.get(a[0]) || '')));
+      const ids = [...lead, ...good.map(([id]) => id)].slice(0, limit);
+      return { ids, scored: true, ms: Date.now() - t0, terms: needles };
+    }
+  }
+  if (lead.length) return { ids: lead, scored: true, ms: Date.now() - t0, terms: needles };
+  return { ids: [], scored: true, ms: Date.now() - t0, terms: needles };
 }
 
 /** 每天有多少条，用来做粗筛和时间轴。 */
@@ -270,5 +359,5 @@ function stats() {
 
 module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
-  tokens, bodyOf, matchExpr, SCHEMA, get, set, file: () => file, COMMON,
+  tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,
 };

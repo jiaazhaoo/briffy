@@ -10,7 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      askWhole: '这段时间的全部记录', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
+      askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
       askNoEntries: '工作区里还没有记录，先存点东西进来。',
       askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
       askFailed: 'AI 服务出错：{err}。下面仍然是匹配到的记录。',
@@ -138,7 +138,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      askWhole: 'everything from that stretch', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
+      askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
       askNoEntries: 'The workspace has no entries yet.',
       askNoProvider: 'No AI service configured (Settings › AI service), so nobody read these for you. Here are the matching records.',
       askFailed: 'AI service failed: {err}. The matching records are still below.',
@@ -1405,7 +1405,11 @@
   function askMeta(r) {
     const bits = [];
     if (r.range) bits.push(r.range.from === r.range.to ? fmtDate(r.range.from) : t('askRange', { from: fmtDate(r.range.from), to: fmtDate(r.range.to) }));
-    if (!r.scored && r.sources.length) bits.push(t('askWhole'));
+    // 「全部」只有在真的是全部的时候才说。够不到就说最近多少条、一共多少条——
+    // 一周 208 条只给了模型 40 条，写成「全部记录」是在骗人，也让人看不出答案为什么不对。
+    if (!r.scored && r.sources.length) {
+      bits.push(r.inRange > r.sources.length ? t('askRecent', { n: r.sources.length, of: r.inRange }) : t('askWhole'));
+    }
     if (r.sources.length) bits.push(t('askCount', { n: r.sources.length }));
     if (r.model) bits.push(r.model);
     return bits.join(' \u00b7 ');

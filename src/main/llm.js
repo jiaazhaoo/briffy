@@ -249,13 +249,40 @@ async function dailySummary(cfg, { dateKey, entries, counts = '', headings = nul
 }
 
 // ---------- asking the log a question ----------
-function buildNumbered(entries, maxChars) {
+/**
+ * 从一条记录里截出给模型看的那一段。
+ *
+ * 以前这里是 slice(0, perItem)——取开头。开头往往是网页的导航条、cookie 提示、语言选择，
+ * 而真正被问到的那句话在中间。实测：一条报名记录 1285 字，「12 Sep 2026」在第 329 字、
+ * 「Walking Only」在第 380 字，而当时每条只给 200 字，模型看到的是「Select category /
+ * Complete form / Checkout / 闲置 15 分钟会掉线」——然后它只能去猜日期。
+ *
+ * 所以截命中的那一段。找不到任何词才退回开头。
+ */
+function windowAround(text, needles, width) {
+  if (text.length <= width) return text;
+  const hay = text.toLowerCase();
+  let at = -1;
+  for (const n of (needles || [])) {
+    const i = hay.indexOf(String(n).toLowerCase());
+    if (i >= 0 && (at < 0 || i < at)) at = i;
+  }
+  if (at < 0 || at < width / 2) return text.slice(0, width);
+  // 命中前面留三分之一：要的东西常常在命中词的**前面**（「Sat 12 Sep 2026 … Walking Only」，
+  // 问的是 walking，日期在它前头 45 个字）。再往回退到最近的空格，别把词切成半个。
+  let start = Math.max(0, at - Math.floor(width / 3));
+  const back = text.lastIndexOf(' ', start);
+  if (back >= 0 && start - back <= 24) start = back + 1;
+  return `…${text.slice(start, start + width)}`;
+}
+
+function buildNumbered(entries, maxChars, needles) {
   const lines = [];
   let used = 0;
   const perItem = Math.max(200, Math.min(900, Math.floor(maxChars / Math.max(entries.length, 1))));
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
-    const excerpt = (e.text || e.summary || '').replace(/\s+/g, ' ').slice(0, perItem);
+    const excerpt = windowAround((e.text || e.summary || '').replace(/\s+/g, ' '), needles, perItem);
     const line = `[${i + 1}] ${e.dateKey} ${fmtTime(e.createdAt)} (${e.type}) ${e.title || e.path || e.url || ''}`
       + `${e.visionLabels ? ` | in the picture: ${e.visionLabels}` : ''}`
       + `${e.summary ? ` | ${e.summary}` : ''}`
@@ -285,11 +312,11 @@ function askSystem(languageName, small) {
  * @param {object} cfg   from config()
  * @param {{question:string, entries:Array}} input  entries in ranked order; the tail is dropped when the context is full
  */
-async function answerQuestion(cfg, { question, entries }) {
+async function answerQuestion(cfg, { question, entries, terms = [] }) {
   const limit = DIGEST_LIMIT[cfg.provider] || 12000;
   const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
   const system = askSystem(cfg.languageName, small);
-  const text = `Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit)}`;
+  const text = `Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit, terms)}`;
   let raw;
   switch (cfg.provider) {
     case 'anthropic':
@@ -327,4 +354,4 @@ async function testProvider(cfg) {
   }
 }
 
-module.exports = { config, isConfigured, label, describe, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA };
+module.exports = { config, isConfigured, label, describe, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, _windowAround: windowAround, _buildNumbered: buildNumbered };
