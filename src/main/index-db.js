@@ -318,12 +318,14 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
   const rare = parts.filter((p) => p.rareDf > 0 && p.rareDf / total <= RARE);
   if (rare.length >= MIN_HITS) {
     const count = new Map();
+    const dfOfTerm = new Map();
     for (const p of rare) {
       const sql = `SELECT e.id FROM fts f JOIN entries e ON e.rowid = f.rowid
         WHERE f.fts MATCH ? ${where.length ? `AND ${where.join(' AND ')}` : ''} LIMIT 500`;
       let rows = [];
       try { rows = db.prepare(sql).all(`"${p.key.replace(/"/g, '""')}"`, ...args); } catch (_) { rows = []; }
       const plain = p.key.replace(/ /g, '');
+      dfOfTerm.set(plain, p.rareDf);
       for (const r of rows) { if (!count.has(r.id)) count.set(r.id, new Set()); count.get(r.id).add(plain); }
     }
     // 以前这里还要求「至少有一条记录同时占着两个稀有词」，否则整个交白卷。那一条是多余的保护，
@@ -335,7 +337,13 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
       // 命中的词多的在前；一样多就近的在前
       const at = new Map(db.prepare(`SELECT id, at FROM entries WHERE id IN (${good.map(() => '?').join(',')})`)
         .all(...good.map(([id]) => id)).map((r) => [r.id, r.at]));
-      good.sort((a, b) => (b[1].size - a[1].size) || String(at.get(b[0]) || '').localeCompare(String(at.get(a[0]) || '')));
+      // 只命中一个词的记录之间，比的是**那个词有多稀有**，不是谁更新。以前按时间排，于是
+      // 「grok」(6 条) 和「那个」「什么」(各 8 条) 平起平坐，更近的那些赢了，真正写着
+      // blessonism/grok-icon-study 的那条被挤到第 13 位，再被 keep=8 切掉。
+      const best = (w) => Math.min(...[...w].map((t) => dfOfTerm.get(t) ?? Infinity));
+      good.sort((a, b) => (b[1].size - a[1].size)
+        || (best(a[1]) - best(b[1]))
+        || String(at.get(b[0]) || '').localeCompare(String(at.get(a[0]) || '')));
       const ids = [...lead, ...good.map(([id]) => id)].slice(0, limit);
       // 每条命中了哪几个词，排序和取舍在 retrieve.js 里做——那儿看得到正文，这儿看不到。
       const matched = {};
