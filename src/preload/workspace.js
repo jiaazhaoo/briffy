@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('ws', {
   chooseDir: invoke('ws:choose-dir'),
   listDates: invoke('ws:list-dates'),
   listEntries: invoke('ws:list-entries'),
+  searchNear: (q, exclude) => ipcRenderer.invoke('ws:search-near', q, exclude),
   getEntry: invoke('ws:get-entry'),
   deleteEntry: invoke('ws:delete-entry'),
   retryEntry: invoke('ws:retry-entry'),

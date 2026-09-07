@@ -10,7 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
+      near: '相近', askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
       askNoEntries: '工作区里还没有记录，先存点东西进来。',
       askNoProvider: '还没有配置 AI 服务（设置 › AI 服务），所以没人替你读这些。下面是匹配到的记录。',
       askFailed: 'AI 服务出错：{err}。下面仍然是匹配到的记录。',
@@ -138,7 +138,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
+      near: 'related', askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
       askNoEntries: 'The workspace has no entries yet.',
       askNoProvider: 'No AI service configured (Settings › AI service), so nobody read these for you. Here are the matching records.',
       askFailed: 'AI service failed: {err}. The matching records are still below.',
@@ -546,6 +546,29 @@
     renderList();
     renderAxis();
     if (state.selectedId && !state.entries.some((e) => e.id === state.selectedId)) closeDetail();
+    addNear();
+  }
+
+  // 「意思相近」——搜「跑步」出得来那场 walking 挑战，搜「屏幕」出得来那条讲 296 PPI 的笔记。
+  //
+  // 它们**不含**你打的那几个字，所以每一条都标着「相近」，不和精确命中混在一起假装是同一回事。
+  // 一个搜索框安静地返回一堆不含关键词的东西，看起来就是搜坏了。
+  //
+  // 慢一拍是故意的：精确匹配先出来（本地字符串，立刻），相近的随后补上。中间要把问题算成向量，
+  // 模型冷的时候第一次要几百毫秒。seq 挡住过期的回应——打字很快时前一次的结果不该覆盖后一次。
+  let nearSeq = 0;
+  async function addNear() {
+    const my = ++nearSeq;
+    const q = state.query;
+    if (!q || q.trim().length < 2) return;
+    let more = [];
+    try { more = await ws.searchNear(q, state.entries.map((e) => e.id)); } catch (_) { more = []; }
+    if (my !== nearSeq || q !== state.query || !more.length) return;
+    for (const e of more) e.near = true;
+    state.entries = [...state.entries, ...more]
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    renderList();
+    renderAxis();
   }
 
   // Screenshots, clipboard and web grabs are three different habits, and one merged stream buries them.
@@ -633,6 +656,8 @@
   }
 
   function statusPill(e) {
+    // 搜出来的「意思相近」要标出来。用现成的 .pill——房里已经有「一个词」这个说法了，别再造一个
+    if (e.near) return `<span class="pill near">${esc(t('near'))}</span>`;
     if (e.status === 'processing') return `<span class="pill processing">${esc(t('processing'))}${e.progress ? ` · ${esc(e.progress)}` : ''}</span>`;
     if (e.status === 'error') return `<span class="pill error">${esc(t('error'))}</span>`;
     // "local words" used to mark the entries a model had not seen; now that is every entry, so it says nothing
@@ -965,7 +990,7 @@
     const src = where || t(e.source === 'other' ? (OTHER_LABEL[cardKind(e)] || 'srcFile') : (SOURCE_LABEL[e.source] || 'srcFile'));
     return `<span class="ck"></span><span class="tm">${esc(fmtTime(e.createdAt))}</span><span class="th">${thumb}</span>`
       + `<span class="ti">${e.pinned ? '<span class="row-pin"></span>' : ''}${esc(cardTitle(e))}</span>`
-      + `<span class="src">${esc(src)}</span>`;
+      + `<span class="src">${esc(src)}${e.near ? ` · ${esc(t('near'))}` : ''}</span>`;
   }
 
   function renderListView() {

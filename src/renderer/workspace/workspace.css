@@ -390,7 +390,9 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .pill { display: inline-block; color: var(--accent); font: 400 var(--fs-meta)/1.5 var(--sans); white-space: nowrap; }
 .pill.processing { color: var(--accent); }
 .pill.error { color: var(--stamp); }
-.pill.local { color: var(--ink-3); }
+/* 搜出来的「意思相近」。它是元信息的灰，不是蓝——蓝只给「正在发生」，
+   而这只是在说明这一条为什么会出现在这里。（.local 那一档没人用了，就地改名。） */
+.pill.near { color: var(--ink-3); }
 
 /* ---------- 详情 ---------- */
 /* 标题旁边不再挂类型图标：那是个 34px 的 emoji，灰度压到 75% 之后读起来像张碎图，

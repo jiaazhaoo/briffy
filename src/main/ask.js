@@ -115,4 +115,21 @@ async function run(question, { limit = MAX_ITEMS } = {}) {
   }
 }
 
-module.exports = { init, run, warm, refresh, MAX_ITEMS };
+/**
+ * 搜索框的第二条腿：意思相近，但搜的那几个字一个都没写在里面。
+ *
+ * 和「问」那条路不一样，这里**不能**要求词面先命中——搜索框的价值恰恰是「搜跑步出得来徒步」，
+ * 而那时候词面按定义就是空的。实测七个这样的词，词面能搜到 1 个，向量 5 个。
+ * 安全性靠界面兜：这些结果在页面上是**标出来的**，不会和精确命中混在一起假装是同一回事。
+ * @returns {Promise<string[]>} 记录 id，按相近程度排
+ */
+async function near(query, { exclude = [], limit = 12 } = {}) {
+  const q = String(query || '').trim();
+  if (q.length < 2) return [];
+  try { refresh(); } catch (_) { /* 索引没追平也照样能搜已经建好的那部分 */ }
+  const skip = new Set(exclude || []);
+  const ids = await vector.search(index, q, { limit: limit * 3, cacheDir: store.paths().models });
+  return ids.filter((id) => !skip.has(id)).slice(0, limit);
+}
+
+module.exports = { init, run, near, warm, refresh, MAX_ITEMS };
