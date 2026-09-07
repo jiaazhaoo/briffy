@@ -51,6 +51,20 @@ const wordWeight = (df) => 0.40 + 0.55 / Math.log2(2 + Math.max(1, df));
 const PAGE_FULL = 4;   // 摘录不超过这么多的页面，同一处边算满分
 const pageWeight = (clips) => W.page * Math.min(1, PAGE_FULL / Math.max(1, clips));
 
+// 一个节点最多伸出这么多条共用词的边。
+//
+// 原来是 8，扫出来太窄（真实工作区，从三个种子长，看那一晚的十四条）：
+//   limit   收到    一片   够到终点地址
+//      8   8/14    30 条    0/3
+//     12   8/14    37 条    0/3
+//     16  13/14    44 条    2/3   ← 这儿
+//     20  13/14    45 条    2/3
+// 8 的时候「Runnymede Pleasure Ground, Egham, Surrey TW20 0AE」在证据表里排第十一，
+// 被切在门外——而它和「赛程分前后半程」共用的正是 Runnymede 这个地名。
+// 放宽之后召回从 8 涨到 13，而精度反而好了一点（27% → 30%）：多出来的边不是噪声，
+// 是本来就该有的那几条。20 再没有新东西，说明 16 就是这份数据上的坎。
+const EV_LIMIT = 16;
+
 /**
  * 一条记录身上所有的边，合在一起。
  * @returns {{to:string, kind:string, w:number, words?:string[], name?:string}[]}
@@ -80,7 +94,7 @@ function edgesOf(id, ctx) {
   // 它是这条边的依据。一对可以是完全一致（tw20 ↔ tw20），也可以是模糊一致
   // （泰晤士河 ↔ Thames，staines-upon-thames ⊃ thames）。
   if (ctx.ev) {
-    for (const e of links.evidenceFor(id, ctx.ev, { limit: 8 })) {
+    for (const e of links.evidenceFor(id, ctx.ev, { limit: EV_LIMIT })) {
       push(e.id, 'word', wordWeight(1 / Math.max(0.05, e.score - 0.05)), { pairs: e.pairs });
     }
   }
@@ -207,4 +221,4 @@ function hubs(ctx, { limit = 12, min = 4 } = {}) {
   return out;
 }
 
-module.exports = { grow, hubs, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, PAGE_FULL };
+module.exports = { grow, hubs, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, PAGE_FULL, EV_LIMIT };

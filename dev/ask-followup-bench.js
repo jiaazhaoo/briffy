@@ -65,6 +65,7 @@ async function main() {
     const ms = Date.now() - t;
     console.log(`\n════════ 第 ${i + 1} 问 · ${ms}ms ════════`);
     console.log(`「${q}」\n`);
+    console.log(`名字菜单前 12：${JSON.stringify((r.seeds || []).slice(0, 16))}`);
     console.log(`改写成 ${(r.queries || []).length} 条查询：${JSON.stringify(r.queries || [])}`);
     console.log(`递给模型的 ${r.sources.length} 条：`);
     for (const e of r.sources) console.log(`   · ${one(e.title).slice(0, 44)}`);

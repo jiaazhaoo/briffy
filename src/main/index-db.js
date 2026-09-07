@@ -31,7 +31,7 @@ const chunk = require('./chunk');
 const fs = require('fs');
 const { segment } = require('./segment');
 
-const SCHEMA = 7;                  // 改了表结构就加一，旧库直接重建
+const SCHEMA = 8;                  // 改了表结构就加一，旧库直接重建
 const BODY_MAX = 4000;             // 一条记录进倒排的字数上限；OCR 大段的尾巴对找东西没有帮助
 
 let db = null;
@@ -105,8 +105,13 @@ function createTables() {
     -- hash 是内容 + 模型 + 切法的指纹：内容没变就不重算，换了模型旧向量自动作废。
     CREATE TABLE IF NOT EXISTS vec(id TEXT, seq INTEGER, hash TEXT, v BLOB, PRIMARY KEY(id, seq));
     CREATE INDEX IF NOT EXISTS i_vec_id ON vec(id, hash);
-    -- 主题：讲同一件事的记录归成一堆。id 是这堆的代表（最早那条记录的 id），所以重算时
-    -- 堆的身份和名字不会跳。name 空着表示还没起名——起名要过模型，慢一拍，界面先显示条数。
+    -- 向量的粗筛桶（LSH）。没有它，「和这条意思相近的是谁」要把整张向量表扫一遍，
+    -- 而 story.grow 每展开一个节点就问一次——一次扩散能扫四十遍。250 条上是 27ms 看不出来，
+    -- 按 O(n) 外推到 20 万条是每个节点 2.4 秒。
+    -- t 是第几张投影表（同一个向量落进 LSH_TABLES 个桶，各表各投影，提高召回），
+    -- b 是这张表上的桶号（bits 位随机投影的符号拼成的整数）。
+    CREATE TABLE IF NOT EXISTS vec_b(t INTEGER, b INTEGER, id TEXT, PRIMARY KEY(t, b, id));
+    CREATE INDEX IF NOT EXISTS i_vec_b_id ON vec_b(id);
   `);
 }
 
@@ -424,6 +429,57 @@ function putVec(id, hash, vectors) {
  * 真到了几百万行，该换的是存储（float32 → int8），不是先上一个没人看得懂的近似结构。
  * @param {(id:string, v:Float32Array)=>void} fn
  */
+/** 这一条自己的那几段向量。 */
+function vecOf(id) {
+  return db.prepare('SELECT v FROM vec WHERE id=? ORDER BY seq').all(String(id || ''))
+    .map((r) => new Float32Array(r.v.buffer, r.v.byteOffset, r.v.byteLength / 4));
+}
+
+/** 这几条的向量，一次取回。 */
+function vecMany(ids) {
+  const out = new Map();
+  const list = [...new Set(ids || [])].filter(Boolean);
+  if (!list.length) return out;
+  for (let i = 0; i < list.length; i += 400) {         // SQLite 的变量个数有上限，分批
+    const part = list.slice(i, i + 400);
+    const sql = `SELECT id, v FROM vec WHERE id IN (${part.map(() => '?').join(',')}) ORDER BY id, seq`;
+    for (const r of db.prepare(sql).all(...part)) {
+      if (!out.has(r.id)) out.set(r.id, []);
+      out.get(r.id).push(new Float32Array(r.v.buffer, r.v.byteOffset, r.v.byteLength / 4));
+    }
+  }
+  return out;
+}
+
+/** 记下这一条落进了哪几个桶。 */
+function putBuckets(id, pairs) {
+  const key = String(id || '');
+  db.prepare('DELETE FROM vec_b WHERE id=?').run(key);
+  const ins = db.prepare('INSERT OR IGNORE INTO vec_b(t,b,id) VALUES(?,?,?)');
+  for (const [t, b] of pairs || []) ins.run(t, b, key);
+}
+
+/** 和这几个桶同桶的记录。粗筛，宁可多给——精确打分在 vector.js 那边做。 */
+function bucketPeers(pairs, { limit = 400 } = {}) {
+  const out = new Set();
+  const q = db.prepare('SELECT id FROM vec_b WHERE t=? AND b=? LIMIT ?');
+  for (const [t, b] of pairs || []) {
+    for (const r of q.all(t, b, limit)) out.add(r.id);
+    if (out.size >= limit * 2) break;
+  }
+  return [...out];
+}
+
+/** 桶还在不在、是按几位建的。位数跟着库的大小走，所以库长大到一定程度要重建。 */
+function bucketStats() {
+  return {
+    rows: db.prepare('SELECT count(*) c FROM vec_b').get().c,
+    ids: db.prepare('SELECT count(DISTINCT id) c FROM vec_b').get().c,
+  };
+}
+
+function dropBuckets() { db.exec('DELETE FROM vec_b'); }
+
 function vecScan(fn, { day = '' } = {}) {
   const sql = day
     ? 'SELECT v.id, v.v FROM vec v JOIN entries e ON e.id = v.id WHERE e.day >= ? ORDER BY v.id'
@@ -474,5 +530,6 @@ function stats() {
 module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
   useVecModel, needVec, putVec, vecScan, vecStats, sweepVec,
+  vecOf, vecMany, putBuckets, bucketPeers, bucketStats, dropBuckets,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,
 };
