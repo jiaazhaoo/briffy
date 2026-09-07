@@ -508,6 +508,7 @@
 
   // ---------- entries ----------
   async function loadEntries() {
+    loose.clear();       // 列表换了一批，单独取回来的那几份就过期了；要用的时候会再取一次
     await loadTopics();
     state.dates = await ws.listDates();
     // 主题是一份 id 清单，所以它和另外两个维度是「取交集」，不是「取代」——
@@ -1214,16 +1215,29 @@
     renderList();
   }
 
-  function currentEntry() { return state.entries.find((e) => e.id === state.selectedId) || null; }
+  // 从图谱、引用、双链点进来的那条记录**常常不在当前这一列里**：被筛选挡着、被搜索挡着，
+  // 或者干脆是默认视图不显示的那一类（剪贴板）。详情原来只在 state.entries 里找，找不到就退到
+  // 「选择一条记录查看详情」那张空页——你点了一张明明看得见的卡，它却说没选中任何东西。
+  // 所以按 id 单独取一份放这儿：**详情认它自己要显示的那条记录，不问列表答不答应。**
+  const loose = new Map();
+  function currentEntry() {
+    return state.entries.find((e) => e.id === state.selectedId) || loose.get(state.selectedId) || null;
+  }
 
   // The grid wants the whole width, so a record opens in a window over it. The list has a preview
   // pane beside it, and the same rendering goes there.
-  function openDetail(id) {
+  async function openDetail(id) {
     state.selectedId = id;
     state.editing = false;
     $('#detailModal').hidden = false;
     renderDetail();
     renderList();
+    if (currentEntry()) return;                  // 列表里有，那就已经画出来了
+    let e = null;
+    try { e = await ws.getEntry(id); } catch (_) { e = null; }
+    if (!e || state.selectedId !== id) return;   // 翻得快的时候，晚到的那一份不该盖住现在这条
+    loose.set(id, e);
+    renderDetail();
   }
 
   function closeDetail() {
