@@ -55,6 +55,9 @@ const DEFAULT_SETTINGS = {
   // 默认不是一串写死的名字，因为那份名单是别人的：对着一台只装了 Zoom 和微信的电脑，Teams、Webex、
   // Slack、飞书、钉钉那十几项永远不会命中，打开设置看到的是一堆没见过的字符串。装了什么就列什么。
   autoRecordAllow: null,
+  // 外部服务同步到哪儿了。每个服务一条：{ cursor, lastAt, count, error }。
+  // 游标是服务自己的形状——Notion 是分页 cursor，Gmail 是 historyId——所以这里只当作不透明的字符串存。
+  connectState: {},
 
   // Tell voices apart in a recording, and remember them between recordings. Off by default: it fetches
   // about 35 MB of models the first time. See src/main/diarize.js.
@@ -87,6 +90,10 @@ const SECRETS = {
   apiKey: ['apiKeyEnc', 'apiKeyPlain', 'ANTHROPIC_API_KEY'],
   openrouterKey: ['openrouterKeyEnc', 'openrouterKeyPlain', 'OPENROUTER_API_KEY'],
   customKey: ['customKeyEnc', 'customKeyPlain', 'OPENAI_API_KEY'],
+  // 外部服务的凭据。和模型的 key 走同一条路：safeStorage 加密，明文字段只在系统钥匙串不可用时兜底。
+  notionToken: ['notionTokenEnc', 'notionTokenPlain', 'NOTION_TOKEN'],
+  gmailClient: ['gmailClientEnc', 'gmailClientPlain', 'GMAIL_CLIENT'],
+  gmailRefresh: ['gmailRefreshEnc', 'gmailRefreshPlain', ''],
 };
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -110,6 +117,8 @@ function entrySource(e) {
   if (e.origin === 'clipboard') return 'clipboard';
   if (e.origin === 'bookmark') return 'bookmark';
   if (e.origin === 'browser') return 'browser';
+  if (e.origin === 'notion') return 'notion';
+  if (e.origin === 'gmail') return 'gmail';
   if (e.type === 'screenshot') return 'screenshot';
   if (e.type === 'audio') return 'voice';
   return 'other';
