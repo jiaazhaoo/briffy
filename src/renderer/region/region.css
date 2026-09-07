@@ -39,16 +39,18 @@ html, body {
   font: 400 13px/1.5 var(--sans); text-autospace: normal; pointer-events: none; }
 .hint kbd { background: rgba(255, 255, 255, .13); padding: 1px 5px; margin: 0 2px; font: 400 11.5px/1.4 var(--sans); }
 
+/* 这条带子是**要按的地方**，所以它是纸；只负责说话的那两样（尺寸读数、顶上的提示）才是墨色纸条。
+   之前它跟着那两样一起做成墨色，于是近黑的带子压在压暗一半的桌面上——深色叠深色，整条糊成
+   一块暗东西，按钮再怎么调都是在那块暗东西内部调。换成纸底之后按钮就回到应用里那套说法：
+   保存是墨底纸字，另外两个是印在纸上的字。颜色写死不走 token：这一屏盖在别人的桌面上，
+   不该跟着 briffy 自己的深浅色主题翻面。 */
 .toolbar { position: fixed; display: flex; gap: 2px; padding: 4px;
-  background: #1b1a18; box-shadow: 0 4px 12px rgba(0, 0, 0, .45), 0 18px 44px rgba(0, 0, 0, .35); }
-/* 这条工具带本身是墨色的，所以按钮反过来：能按的地方要比它亮，主按钮是纸底墨字——
-   和纸面上「primary = 墨底纸字」是同一条规矩，只是底色反了。
-   之前按钮是透明底，压在近黑的带子上、又压在压暗的桌面上，三层深色叠在一起就糊了 */
-.tool { display: inline-flex; align-items: center; gap: 6px; border: 0; color: #fbfaf6;
-  background: rgba(255, 255, 255, .14);
+  background: #fbfaf6; box-shadow: 0 5px 14px rgba(0, 0, 0, .40), 0 20px 48px rgba(0, 0, 0, .34); }
+.tool { display: inline-flex; align-items: center; gap: 6px; border: 0; color: #1b1a18;
+  background: rgba(27, 26, 24, .07);
   padding: 7px 12px; cursor: pointer; font: 600 12px/1 var(--sans); }
-.tool:hover { background: rgba(255, 255, 255, .26); }
+.tool:hover { background: rgba(27, 26, 24, .14); }
 .tool:active { transform: translateY(1px); }
-.tool.primary { background: #fbfaf6; color: #1b1a18; }
-.tool.primary:hover { background: #fff; }
+.tool.primary { background: #1b1a18; color: #fbfaf6; }
+.tool.primary:hover { background: #000; }
 .tool svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
