@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('ws', {
   topics: invoke('ws:topics'),
   related: invoke('ws:related'),
   graph: invoke('ws:graph'),
+  links: invoke('ws:links'),          // 三种边：摘自 / 从这一页摘的 / 同一程 / 意思相近
   chats: invoke('ws:chats'),
   chat: invoke('ws:chat'),
   chatAppend: invoke('ws:chat-append'),

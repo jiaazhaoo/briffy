@@ -16,6 +16,7 @@ const llm = require('./llm');
 const retrieve = require('./retrieve');
 const vector = require('./vector');
 const topic = require('./topic');
+const links = require('./links');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -165,20 +166,97 @@ function topicList() {
   try { return index.topics().map((t) => ({ ...t, name: t.name || t.words || '' })); }
   catch (_) { return []; }
 }
+/**
+ * 这条记录身上挂着的全部边，**每一条都说得出自己的来路**。
+ *
+ * 三种边的证据不同，所以分开给，绝不合成一个「相关度」——合成的那一刻，唯一能调的又只剩阈值，
+ * 而阈值这条路已经被量死了（见 src/main/links.js 顶上那笔账）。
+ *
+ * @returns {{source:object|null, clips:string[], run:string[], near:string[]}}
+ *   source 摘自哪一页 · clips 这一页上摘了哪几条 · run 同一段操作里经过的别的页 · near 意思相近
+ */
+function linksOf(id) {
+  const me = String(id || '');
+  const out = { source: null, clips: [], run: [], near: [] };
+  try {
+    const all = [];
+    for (const key of store.listDates()) all.push(...store.loadDay(key));
+    const g = links.build(all);
+    const l = links.linksOf(me, g);
+    out.source = l.source;
+    out.clips = l.clips;
+    // 同一程给的是「那几页」，不是那一段里的每一条记录：一段 50 条的操作两两相连没有意义
+    out.run = l.run.pages.map((p) => p.page).filter(Boolean);
+  } catch (_) { /* 边是加分项，没有也不该让详情打不开 */ }
+  out.near = relatedTo(me);
+  return out;
+}
+
 /** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
 function relatedTo(id) {
   try { refresh(); } catch (_) { /* 索引没追平也照样能用已经建好的那部分 */ }
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
-/** 一条记录周围两跳的那张图。节点带 hop（离中心几步），边是节点之间真的够近的那些。 */
+/**
+ * 一条记录周围两跳的那张图。节点带 hop，**边带 kind**。
+ *
+ * 语义那张图照旧（vector.graph），再把「同一处 / 同一程」并进来。边的种类要一路带到界面上：
+ * 一条「摘自」和一条「意思相近」的把握完全不同，画成同一根线就是在说它们一样可靠。
+ * @returns {{nodes:{id:string,hop:number}[], edges:[string,string,string][]}}
+ */
 function graphOf(id) {
+  const me = String(id || '');
   try { refresh(); } catch (_) { /* 用已经建好的那部分 */ }
-  try { return vector.graph(index, String(id || '')); } catch (_) { return { nodes: [], edges: [] }; }
+  let base = { nodes: [], edges: [] };
+  try { base = vector.graph(index, me); } catch (_) { base = { nodes: [], edges: [] }; }
+
+  const hop = new Map(base.nodes.map((n) => [n.id, n.hop]));
+  hop.set(me, 0);
+  const edges = base.edges.map(([a, b]) => [a, b, 'near']);
+  const add = (x, h) => { if (x && !hop.has(x)) hop.set(x, h); };
+
+  try {
+    const all = [];
+    for (const key of store.listDates()) all.push(...store.loadDay(key));
+    const g = links.build(all);
+    const l = links.linksOf(me, g);
+
+    if (l.source) {
+      const page = l.source.page;
+      if (page) { add(page, 1); edges.push([me, page, 'page']); }
+      // 同一页上的兄弟：它们和我是同一处来的，这是这张图里最实的一圈
+      const sibs = (g.pages.get(l.source.key) || { clips: [] }).clips;
+      for (const sib of sibs.slice(0, 8)) {
+        if (sib === me) continue;
+        add(sib, page ? 2 : 1);
+        edges.push([page || me, sib, 'page']);
+      }
+    }
+    for (const c of l.clips.slice(0, 8)) { add(c, 1); edges.push([me, c, 'page']); }
+    // 同一程连的是页面，不是那一段里的每一条记录——一段五十条两两相连没有意义
+    const from = (l.source && l.source.page) || me;
+    for (const p of l.run.pages.slice(0, 4)) {
+      if (!p.page || p.page === from) continue;
+      add(p.page, 2);
+      edges.push([from, p.page, 'run']);
+    }
+  } catch (_) { /* 边是加分项：语义那张图照样出得来 */ }
+
+  const seen = new Set();
+  const out = [];
+  for (const [a, b, kind] of edges) {
+    if (!hop.has(a) || !hop.has(b) || a === b) continue;
+    const key = `${a < b ? a : b}|${a < b ? b : a}|${kind}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push([a, b, kind]);
+  }
+  return { nodes: [...hop].map(([nid, h]) => ({ id: nid, hop: h })), edges: out };
 }
 
 function topicEntries(id) {
   try { return index.topicMembers(String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, graphOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, graphOf, MAX_ITEMS };
