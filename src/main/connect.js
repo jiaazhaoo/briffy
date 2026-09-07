@@ -19,6 +19,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const bulk = require('./import-bulk');
+
 const services = {
   notion: require('./connect-notion'),
   gmail: require('./connect-gmail'),
@@ -187,4 +189,35 @@ function fileOne(service, item) {
   return true;
 }
 
-module.exports = { init, list, connect, disconnect, sync, onProgress, stateOf, services, _fileOne: fileOne, _flushSeen: flushSeen };
+/**
+ * 从导出文件导入：Notion 的 zip、Gmail Takeout 的 mbox、或一个文件夹。
+ *
+ * 这是「不想填凭据」的那条路。Gmail 的受限权限要过 CASA 审计，Notion 的公开集成必须带 client
+ * secret——两样都躲不掉，而导出文件一样都不需要。代价是它是一次快照，不是持续同步。
+ *
+ * 走的是和同步同一个 fileOne，所以去重、更新、按原始时间归日，行为完全一致：
+ * 同一个导出文件拖两次不会变成两份。
+ */
+async function importFiles(paths) {
+  if (running) throw new Error('another sync is already running');
+  running = 'import';
+  const t0 = Date.now();
+  let added = 0; let seen = 0; const kinds = [];
+  try {
+    for (const src of (Array.isArray(paths) ? paths : [paths])) {
+      const out = await bulk.read(src, (item) => {
+        seen++;
+        if (fileOne(item.origin || 'import', item)) added++;
+        if (seen % 200 === 0) say({ service: 'import', added, seen, more: true, ms: Date.now() - t0 });
+      });
+      kinds.push(out.kind);
+    }
+    say({ service: 'import', added, seen, more: false, ms: Date.now() - t0 });
+    return { added, seen, kinds, ms: Date.now() - t0 };
+  } finally {
+    running = null;
+    flushSeen();
+  }
+}
+
+module.exports = { init, list, connect, disconnect, sync, importFiles, onProgress, stateOf, services, _fileOne: fileOne, _flushSeen: flushSeen };

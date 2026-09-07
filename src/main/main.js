@@ -28,6 +28,7 @@ const deeplink = require('./deeplink');
 const longshot = require('./longshot');
 const apps = require('./apps');
 const connect = require('./connect');
+const importBulk = require('./import-bulk');
 const listen = require('./listen');
 const diarize = require('./diarize');
 const dayStats = require('./day-stats');
@@ -834,7 +835,21 @@ function setupIpc() {
     template.splice(template.length - 1, 0, { label: t('trayHidePet'), click: () => { windows.setPetHidden(true); rebuildTray(); } });
     Menu.buildFromTemplate(template).popup({ window: windows.getPetWindow() });
   });
-  ipcMain.handle('pet:drop', (_e, payload) => workspace.ingestDrop(payload || {}).then((r) => r.map(publicEntry)));
+  ipcMain.handle('pet:drop', async (_e, payload) => {
+    const p = payload || {};
+    // 拖一包导出进来和拖一个文件进来是同一个动作，用户不该被要求先知道区别。整包的走
+    // connect（同一套去重），剩下的照旧。只在拖拽这条路上分流：剪贴板里复制一个文件夹
+    // 不该触发一次整包导入。
+    const rest = [];
+    const bulk = [];
+    for (const src of (Array.isArray(p.paths) ? p.paths : [])) {
+      const kind = await importBulk.sniff(src).catch(() => '');
+      if (kind) bulk.push(src); else rest.push(src);
+    }
+    if (bulk.length) connect.importFiles(bulk).catch((e) => console.error('[import]', e.message || e));
+    const out = await workspace.ingestDrop({ ...p, paths: rest });
+    return out.map(publicEntry);
+  });
   ipcMain.on('pet:recording-state', (_e, { recording, seconds, level = 0, peak = 0 } = {}) => {
     if (recording) {
       const bars = '▁▂▃▄▅▆▇█';
@@ -1046,6 +1061,19 @@ function setupIpc() {
   ipcMain.handle('ws:connect-drop', (_e, name) => connect.disconnect(String(name || '')));
   ipcMain.handle('ws:connect-sync', async (_e, name, opts) => {
     try { return { ok: true, ...(await connect.sync(String(name || ''), opts || {})) }; }
+    catch (e) { return { ok: false, error: e.message || String(e) }; }
+  });
+  // 另一条路：不填任何凭据，直接把导出文件收进来。Notion 的 zip、Gmail Takeout 的 mbox、
+  // 或者一个文件夹。macOS 允许一个对话框同时选文件和文件夹，所以这里只有一个按钮。
+  ipcMain.handle('ws:import-pick', async () => {
+    const parent = windows.getWorkspaceWindow() || undefined;
+    const r = await dialog.showOpenDialog(parent, {
+      title: t('dialogImport'),
+      properties: ['openFile', 'openDirectory', 'multiSelections'],
+      filters: [{ name: 'Notion / Gmail', extensions: ['zip', 'mbox'] }],
+    });
+    if (r.canceled || !r.filePaths.length) return { ok: true, cancelled: true };
+    try { return { ok: true, ...(await connect.importFiles(r.filePaths)) }; }
     catch (e) { return { ok: false, error: e.message || String(e) }; }
   });
   ipcMain.handle('ws:stats', () => store.stats());

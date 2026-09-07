@@ -120,6 +120,16 @@
     },
     openExtensionGuide: async () => ({ ok: true, url: 'http://127.0.0.1:47831/install' }),
     onExtension: on('ws:extension'),
+    // 「接进来」那一格：两个服务都没连上的样子，加上一个能点的导出文件行
+    connectList: async () => ([
+      { name: 'notion', label: 'Notion', connected: false },
+      { name: 'gmail', label: 'Gmail', connected: false },
+    ]),
+    connectSet: async () => ({ ok: false, error: 'preview' }),
+    connectDrop: async () => true,
+    connectSync: async () => ({ ok: true, added: 0, seen: 0 }),
+    onConnectProgress: on('ws:connect-progress'),
+    importPick: async () => ({ ok: true, added: 12, seen: 12, kinds: ['zip'] }),
     runSetup: async ({ installOllama }) => {
       const steps = [{ id: 'detect', label: '检查这台电脑' }, { id: 'ocr', label: '准备文字识别' }, { id: 'stt', label: '准备语音识别' }]
         .concat(installOllama ? [{ id: 'ollama', label: '安装本地大模型程序' }, { id: 'model', label: '下载本地大模型' }] : [])

@@ -28,6 +28,9 @@
       sConnect: '接进来', cNotConnected: '没连', cConnect: '连接', cSync: '同步', cSyncing: '同步中…',
       cDisconnect: '断开', cSynced: '已同步 {n} 条', cNever: '还没同步过', cConnecting: '连接中…',
       cNotionToken: 'integration token', cNotionHelp: '在 notion.so/my-integrations 建一个内部集成，再把要同步的页面「连接」给它',
+      cImport: '导出文件', cImportPick: '选文件…', cImportDoing: '正在收…',
+      cImportHelp: '不用建集成、不用授权：Notion 设置 → 导出全部内容（zip），Gmail → Google Takeout（mbox），选进来就行。同一份导出选两次不会变成两份。',
+      cImportDone: '收进 {n} 条（共 {seen} 条）',
       cGmailId: 'client id', cGmailSecret: 'client secret',
       cGmailHelp: '在 Google Cloud 建一个「桌面应用」类型的 OAuth client，开启 Gmail API。点连接会打开浏览器让你同意。',
       cSyncDone: '全部同步完了', cSyncMore: '还有更多，再点一次继续',
@@ -155,6 +158,9 @@
       sConnect: 'Bring in', cNotConnected: 'not connected', cConnect: 'Connect', cSync: 'Sync', cSyncing: 'syncing…',
       cDisconnect: 'Disconnect', cSynced: '{n} brought in', cNever: 'never synced', cConnecting: 'connecting…',
       cNotionToken: 'integration token', cNotionHelp: 'Make an internal integration at notion.so/my-integrations, then connect the pages you want to it',
+      cImport: 'Export file', cImportPick: 'Choose…', cImportDoing: 'Reading…',
+      cImportHelp: 'No integration, no sign-in: Notion Settings → Export all content (zip), Gmail → Google Takeout (mbox). Pick it here. Choosing the same export twice will not duplicate anything.',
+      cImportDone: 'Took in {n} of {seen}',
       cGmailId: 'client id', cGmailSecret: 'client secret',
       cGmailHelp: 'Make a Desktop app OAuth client in Google Cloud and enable the Gmail API. Connect opens your browser to approve it.',
       cSyncDone: 'all caught up', cSyncMore: 'more to come — press again',
@@ -336,6 +342,53 @@
     try { list = await ws.connectList(); } catch (_) { list = []; }
     box.textContent = '';
     for (const svc of list) box.appendChild(connectRow(svc));
+    box.appendChild(importRow());
+  }
+
+  /**
+   * 第三行：导出文件。
+   *
+   * Notion 和 Gmail 都要凭据，而且都躲不掉——Gmail 读邮件是受限权限，自带的 client 会让每个人
+   * 卡在警告页上；Notion 的公开集成必须带 client secret。导出文件一样都不需要，代价是它是一次
+   * 快照而不是持续同步。走的是同一套去重，所以选两次不会变成两份。
+   */
+  function importRow() {
+    const row = document.createElement('div');
+    row.className = 'f';
+    const left = document.createElement('span');
+    left.className = 'fl'; left.textContent = t('cImport');
+    const fc = document.createElement('span');
+    fc.className = 'fc';
+    row.append(left, fc);
+
+    const state = document.createElement('span');
+    state.className = 'st';
+
+    const pick = document.createElement('button');
+    pick.type = 'button'; pick.className = 'btn'; pick.textContent = t('cImportPick');
+    pick.disabled = !!connectBusy;
+    pick.addEventListener('click', async () => {
+      connectBusy = 'import';
+      pick.disabled = true; pick.textContent = t('cImportDoing');
+      // 一份 Takeout 可能是几万封信，跑几分钟。不报数的话按钮看着就是卡住了。
+      const off = ws.onConnectProgress((p) => {
+        if (!p || p.service !== 'import' || !p.more) return;
+        state.textContent = t('cImportDone', { n: p.added, seen: p.seen });
+      });
+      let r;
+      try { r = await ws.importPick(); } catch (e) { r = { ok: false, error: String(e && e.message || e) }; }
+      off();
+      connectBusy = '';
+      pick.disabled = false; pick.textContent = t('cImportPick');
+      if (!r || r.cancelled) return;
+      if (!r.ok) { note(fc, r.error, true); return; }
+      state.textContent = t('cImportDone', { n: r.added, seen: r.seen });
+      loadEntries();                            // 收进来的东西现在就该出现在记录页
+    });
+
+    fc.append(pick, state);
+    note(fc, t('cImportHelp'), false);
+    return row;
   }
 
   function connectRow(svc) {
