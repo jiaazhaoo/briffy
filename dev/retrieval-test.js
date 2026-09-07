@@ -25,6 +25,7 @@ const llm = require('../src/main/llm');
 const LIVE = process.argv.includes('--live');
 const OLLAMA_BUDGET = 8000;    // 本地模型那一档，最紧的一档；宽的档掩盖不了问题
 const LIMIT = 40;              // ask.js 的 MAX_ITEMS
+const KEEP = 8;                // ask.js 的 KEEP
 
 let pass = 0;
 const ok = (name, fn) => {
@@ -79,6 +80,12 @@ function buildCorpus(dir) {
     text: 'Thank you! Your registration is complete. Order summary Order Number C-5R4ZBFQG Sold by Ultra Challenge Ltd '
       + 'Payment method Credit card Amount paid £139.00 Thank you for registering for the Thames Path Ultra Challenge 2026!' });
 
+  // 只占着「看看」「生成」这种问话的词的记录。它们在这个工作区里也很稀有，所以光看稀有度
+  // 分不出来——真实工作区里 16 条材料有 8 条是这么挤进来的，全是 briffy 自己的开发笔记。
+  push('2026-09-06', { id: 'noise1', type: 'note', hh: '23:42', title: '还剩第 4 步：词表扩展', text: '模型离线跑一遍生成同义表，之后卸掉' });
+  push('2026-09-06', { id: 'noise2', type: 'note', hh: '23:39', title: 'app 占用 1.8g', text: '你看看怎么优化成 500-1000' });
+  push('2026-09-05', { id: 'noise3', type: 'note', hh: '05:24', title: '得有时间戳的概念', text: '你看看蛛丝马迹能不能抄一下别人的设计' });
+
   // 问完把回答复制回工作区：这条记录含着问题的每一个词，是它自己的完美匹配。
   push('2026-09-07', { id: 'self', type: 'note', hh: '00:47', title: '我最近有个 walking 挑战，你帮我看看记录帮我生成行程单',
     text: '我最近有个 walking 挑战，你帮我看看记录帮我生成行程单 这段时间的全部记录 40 条记录 '
@@ -91,7 +98,7 @@ function buildCorpus(dir) {
 // ---------- 跑一次真实的挑选，拿到模型真正会读到的那份字符串 ----------
 
 function promptFor(question, all, today) {
-  const pick = retrieve.select(index, question, { today, limit: LIMIT });
+  const pick = retrieve.select(index, question, { today, limit: LIMIT, keep: KEEP, getEntry: (id) => all.get(id) || null });
   const entries = pick.ids.map((id) => all.get(id)).filter(Boolean);
   const text = entries.length ? llm._buildNumbered(entries, OLLAMA_BUDGET, pick.terms) : '';
   return { ...pick, entries, text };
@@ -135,10 +142,28 @@ ok('换个说法问同一件事，一样要进得去', () => {
   assert.ok(/139/.test(p.text), '价钱没进 prompt');
 });
 
-ok('把答案复制回工作区的那条，不许把真正的记录挤出去', () => {
+ok('把答案复制回工作区的那条，是回声不是证据，不许排在前面', () => {
+  // 记录里原样写着你的问题，这件事本身就说明它不是这个问题的答案。而且它往往带着上一次的
+  // 回答——实测那次，模型引用了它四次，把上一次那个错日期原样抄了一遍。
   const p = promptFor('我最近有个 walking 挑战，你帮我看看记录帮我生成行程单', ALL, TODAY);
   assert.ok(p.ids.length > 1, '只剩下问题自己那一条: ' + JSON.stringify(p.ids));
+  assert.notStrictEqual(p.ids[0], 'self', '回声排在了第一');
+  assert.ok(p.ids.indexOf('self') === -1 || p.ids.indexOf('self') >= p.ids.length - 1,
+    '回声没被排到最后: ' + JSON.stringify(p.ids));
   assert.ok(p.text.includes('12 Sep 2026'), '被自我记录挤掉了');
+});
+
+ok('只占着问话的词的记录，不许压过真正说这件事的记录', () => {
+  // 「看看」「生成」在这个工作区里也很稀有，光看稀有度分不出来。分得出来的是：
+  // 清了门槛的那些记录共同占着的词，才是这件事的词。
+  const p = promptFor('我最近有个 walking 挑战，你帮我看看记录帮我生成行程单', ALL, TODAY);
+  const noise = ['noise1', 'noise2', 'noise3'].filter((id) => p.ids.includes(id));
+  for (const n of noise) {
+    for (const good of ['regnote', 'regpage']) {
+      if (!p.ids.includes(good)) continue;
+      assert.ok(p.ids.indexOf(good) < p.ids.indexOf(n), `${n} 排在了 ${good} 前面: ` + JSON.stringify(p.ids));
+    }
+  }
 });
 
 ok('正文里的位置不影响——第 300 多字的东西也得进得去', () => {

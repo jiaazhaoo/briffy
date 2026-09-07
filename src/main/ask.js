@@ -21,6 +21,9 @@ let store;
 function init(deps) { store = deps.store; }
 
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
+// 一句话问出来的东西最多留这么几条。40 是给「把这段时间给我」用的；一个具体的问题给四十条，
+// 结果是每条只摊到五百字，而含着答案的那几条正需要一千多。少而长。
+const KEEP = 8;
 // 第一次提问不该卡在建索引上。一个用了几年的工作区从零建要好几分钟，所以每次只做这么久，
 // 剩下的下一次接着做；天是从新到旧建的，先补上的正好是最可能被问到的。
 const SYNC_BUDGET_MS = 400;
@@ -64,7 +67,7 @@ async function run(question, { limit = MAX_ITEMS } = {}) {
   const today = localDateKey();
   try { refresh(); } catch (e) { console.warn('[ask] 索引没能追平', e.message); }
 
-  const pick = retrieve.select(index, q, { today, limit });
+  const pick = retrieve.select(index, q, { today, limit, keep: KEEP, getEntry: (id) => store.getEntry(id) });
   const entries = pick.ids.map((id) => store.getEntry(id)).filter(Boolean);
 
   const base = {

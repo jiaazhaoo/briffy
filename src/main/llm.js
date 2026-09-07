@@ -10,7 +10,10 @@ const { promptLanguageName } = require('./languages');
 const PROVIDERS = ['anthropic', 'openrouter', 'ollama', 'custom'];
 // How much item text each provider gets (characters). Local models have small context windows.
 const TAG_LIMIT = { anthropic: 100000, openrouter: 60000, custom: 12000, ollama: 5000 };
-const DIGEST_LIMIT = { anthropic: 80000, openrouter: 60000, custom: 12000, ollama: 8000 };
+// ollama 那一档以前是 8000 字。numCtx 是 12288 token，8000 字的中英混排大约用掉一半，
+// 剩下的额度本来就空着。抬到 10000，同时把回答的 maxTokens 从 1200 抬到 1800——
+// 实测一份行程单答到「需跟随穿荧光背心的」就断在半句上，那是被 1200 卡掉的。
+const DIGEST_LIMIT = { anthropic: 80000, openrouter: 60000, custom: 12000, ollama: 10000 };
 
 // The model is asked for a title and a sentence, and nothing else. The words that index an entry are
 // extracted locally from its own text (see workspace.js): they should not change, or cost anything, or
@@ -279,10 +282,16 @@ function windowAround(text, needles, width) {
 function buildNumbered(entries, maxChars, needles) {
   const lines = [];
   let used = 0;
-  const perItem = Math.max(200, Math.min(900, Math.floor(maxChars / Math.max(entries.length, 1))));
+  // 预算不平均分。答案几乎总在最前面那几条里，平均分等于把额度摊薄给了本来就不重要的尾巴——
+  // 实测一次：排第三的那条记录 5555 字，答案在它的末尾，而平均分只给了它 1000 字。
+  // 上限也从 900 抬到 2500：900 是「一次给四十条」时代的数字，现在通常只留八条。
+  const weight = (i) => (i < 3 ? 2 : 1);
+  const totalW = entries.reduce((n, _, i) => n + weight(i), 0) || 1;
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
+    const perItem = Math.max(200, Math.min(2500, Math.floor((maxChars * weight(i)) / totalW)));
     const excerpt = windowAround((e.text || e.summary || '').replace(/\s+/g, ' '), needles, perItem);
+
     const line = `[${i + 1}] ${e.dateKey} ${fmtTime(e.createdAt)} (${e.type}) ${e.title || e.path || e.url || ''}`
       + `${e.visionLabels ? ` | in the picture: ${e.visionLabels}` : ''}`
       + `${e.summary ? ` | ${e.summary}` : ''}`
@@ -302,7 +311,7 @@ function askSystem(languageName, small) {
     `LANGUAGE RULE: answer in the same language as the question. If that is unclear, use ${languageName}.`,
     'Quote titles, names and terms exactly as they appear in the items, in their original language \u2014 never translate them.',
     'Answer only from the items. If they do not contain the answer, say so plainly and describe what is there instead; never invent an item, a date or a detail.',
-    'Be short and concrete: a direct answer first, then only the detail that supports it.',
+
   ];
   if (small) lines.push('Output only the JSON object, nothing else.');
   return lines.join(' ');
@@ -329,7 +338,7 @@ async function answerQuestion(cfg, { question, entries, terms = [] }) {
       raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1600 });
       break;
     case 'ollama':
-      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1200, numCtx: 12288 });
+      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1800, numCtx: 12288 });
       break;
     default:
       throw new Error(`Unknown provider ${cfg.provider}`);
