@@ -27,14 +27,18 @@
 //   **索引是可以扔的。** 它住在 userData 而不是工作区：工作区会被用户搬走、拷贝、换掉，而这里的东西
 //   全都能从工作区重新算出来。meta 里记着它是照着哪个工作区、哪一版 schema 建的，对不上就重建。
 const path = require('path');
+const chunk = require('./chunk');
 const fs = require('fs');
 const { segment } = require('./segment');
 
-const SCHEMA = 4;                  // 改了表结构就加一，旧库直接重建
+const SCHEMA = 5;                  // 改了表结构就加一，旧库直接重建
 const BODY_MAX = 4000;             // 一条记录进倒排的字数上限；OCR 大段的尾巴对找东西没有帮助
 
 let db = null;
 let file = '';
+// 算内容指纹时要把模型名带上，换了模型旧向量才会自动作废。vector.js 打开索引时设进来。
+let vecModel = '';
+function useVecModel(name) { vecModel = String(name || ''); }
 
 /** 分词后的词流，入库和查询共用一套，否则两边切得不一样就永远对不上。 */
 function tokens(text) {
@@ -64,7 +68,7 @@ function open(userDataDir, workspaceDir) {
     CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
     CREATE TABLE IF NOT EXISTS entries(
       rowid INTEGER PRIMARY KEY, id TEXT UNIQUE, day TEXT, at TEXT,
-      type TEXT, app TEXT, pinned INTEGER DEFAULT 0
+      type TEXT, app TEXT, pinned INTEGER DEFAULT 0, hash TEXT
     );
     CREATE INDEX IF NOT EXISTS i_day ON entries(day);
     CREATE INDEX IF NOT EXISTS i_type ON entries(type);
@@ -78,6 +82,12 @@ function open(userDataDir, workspaceDir) {
     -- 要的是 doc。用 cnt 会把「在一条记录里重复十遍」误判成「十条记录都有」——实测 walking
     -- 只在 6 条里出现，cnt 却是 12，于是它被当成不够稀有，正好错过该被挑出来的那个词。
     CREATE VIRTUAL TABLE IF NOT EXISTS vocab USING fts5vocab(fts, 'row');
+    -- 向量，一块一行。不是「一条记录一行」，因为模型一次只读 128 个 token，长记录必须切开
+    -- （见 chunk.js）。也不跟 rowid 走，跟记录 id 走：天文件是整体重写的，今天每存一条新东西
+    -- 整个今天都会重新索引，rowid 全变，那样每存一次就得把今天算过的向量全部重算。
+    -- hash 是内容 + 模型 + 切法的指纹：内容没变就不重算，换了模型旧向量自动作废。
+    CREATE TABLE IF NOT EXISTS vec(id TEXT, seq INTEGER, hash TEXT, v BLOB, PRIMARY KEY(id, seq));
+    CREATE INDEX IF NOT EXISTS i_vec_id ON vec(id, hash);
   `);
   const got = { schema: get('schema'), workspace: get('workspace') };
   if (got.schema !== String(SCHEMA) || got.workspace !== workspaceDir) {
@@ -107,13 +117,13 @@ function putDay(dayKey, list, stamp) {
   try {
     for (const r of rows) db.prepare('DELETE FROM fts WHERE rowid=?').run(r.rowid);
     db.prepare('DELETE FROM entries WHERE day=?').run(dayKey);
-    const ins = db.prepare('INSERT INTO entries(id,day,at,type,app,pinned) VALUES(?,?,?,?,?,?)');
+    const ins = db.prepare('INSERT INTO entries(id,day,at,type,app,pinned,hash) VALUES(?,?,?,?,?,?,?)');
     const insF = db.prepare('INSERT INTO fts(rowid,body) VALUES(?,?)');
     let n = 0;
     for (const e of list) {
       if (!e || !e.id || e.status === 'error') continue;
       const c = e.context || {};
-      const r = ins.run(e.id, dayKey, String(e.createdAt || ''), String(e.type || ''), String(c.app || ''), e.pinned ? 1 : 0);
+      const r = ins.run(e.id, dayKey, String(e.createdAt || ''), String(e.type || ''), String(c.app || ''), e.pinned ? 1 : 0, chunk.hashOf(e, vecModel));
       insF.run(r.lastInsertRowid, bodyOf(e));
       n++;
     }
@@ -355,6 +365,62 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
   return { ids: [], scored: true, ms: Date.now() - t0, terms: needles };
 }
 
+// ---------- 向量 ----------
+
+/**
+ * 还没算向量、或者算的那份已经过期的记录。
+ *
+ * 「过期」指内容指纹对不上——记录改过，或者换了模型 / 改了切法。判断全在 SQL 里，
+ * 不用把天文件读出来，所以问一次是常数代价，可以在后台循环里随便问。
+ * @returns {{id:string, day:string}[]}
+ */
+function needVec(limit = 40) {
+  return db.prepare(`SELECT e.id, e.day FROM entries e
+    LEFT JOIN vec v ON v.id = e.id AND v.hash = e.hash
+    WHERE v.id IS NULL GROUP BY e.id ORDER BY e.at DESC LIMIT ?`).all(limit);
+}
+
+/** 一条记录的全部块，整批换掉。 */
+function putVec(id, hash, vectors) {
+  db.exec('BEGIN');
+  try {
+    db.prepare('DELETE FROM vec WHERE id=?').run(id);
+    const ins = db.prepare('INSERT INTO vec(id,seq,hash,v) VALUES(?,?,?,?)');
+    vectors.forEach((v, i) => ins.run(id, i, hash, Buffer.from(Float32Array.from(v).buffer)));
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); throw e; }
+}
+
+/**
+ * 扫一遍所有向量，边扫边算分。这里不建近似索引：现在是几百行，点积在 JS 里零点几毫秒；
+ * 真到了几百万行，该换的是存储（float32 → int8），不是先上一个没人看得懂的近似结构。
+ * @param {(id:string, v:Float32Array)=>void} fn
+ */
+function vecScan(fn, { day = '' } = {}) {
+  const sql = day
+    ? 'SELECT v.id, v.v FROM vec v JOIN entries e ON e.id = v.id WHERE e.day >= ? ORDER BY v.id'
+    : 'SELECT id, v FROM vec ORDER BY id';
+  for (const r of (day ? db.prepare(sql).all(day) : db.prepare(sql).all())) {
+    fn(r.id, new Float32Array(r.v.buffer, r.v.byteOffset, r.v.byteLength / 4));
+  }
+}
+
+/** 已经算了多少、还欠多少、占多大。 */
+function vecStats() {
+  const rows = db.prepare('SELECT count(*) c, coalesce(sum(length(v)),0) b FROM vec').get();
+  // DISTINCT：一条记录有好几块，不去重的话「已算多少条」会数成块数
+  const done = db.prepare('SELECT count(DISTINCT e.id) c FROM entries e JOIN vec v ON v.id=e.id AND v.hash=e.hash').get().c;
+  const all = db.prepare('SELECT count(*) c FROM entries').get().c;
+  return { chunks: rows.c, bytes: rows.b, entries: done, total: all, pending: all - done };
+}
+
+/** 记录已经不在了，它的向量也该走。天文件重写会让记录消失，但 vec 是按 id 存的，不会自己掉。 */
+function sweepVec(limit = 200) {
+  const gone = db.prepare('SELECT DISTINCT v.id FROM vec v LEFT JOIN entries e ON e.id=v.id WHERE e.id IS NULL LIMIT ?').all(limit);
+  for (const g of gone) db.prepare('DELETE FROM vec WHERE id=?').run(g.id);
+  return gone.length;
+}
+
 /** 每天有多少条，用来做粗筛和时间轴。 */
 function days({ from = '', to = '' } = {}) {
   const where = []; const args = [];
@@ -377,5 +443,6 @@ function stats() {
 
 module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
+  useVecModel, needVec, putVec, vecScan, vecStats, sweepVec,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,
 };
