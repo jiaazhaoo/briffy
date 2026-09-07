@@ -1108,6 +1108,8 @@ function setupIpc() {
       clips: many(l.clips),
       // 同一程带着页面的名字：那一页本身多半没存过，代表那一条只是用来点开的
       run: l.run.map((p) => ({ name: p.name, entry: publicEntry(store.getEntry(p.id)) })).filter((x) => x.entry),
+      // 证据边一定要把**共用的那几个词**一起带上：这条边的全部意义就是它说得出为什么
+      evidence: l.evidence.map((x) => ({ words: x.words, entry: publicEntry(store.getEntry(x.id)) })).filter((x) => x.entry),
       near: many(l.near),
     };
   });

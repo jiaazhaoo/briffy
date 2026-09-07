@@ -29,6 +29,7 @@
 // 为同一个毛病写的，直接借过来——不借的话，同一个终端窗口会因为一个转圈字符裂成四个「页面」
 // （实测：✳ ◑ ◐ 三种转圈把一个窗口拆成 10 + 8 + 5 + 4 条）。
 const { tidyTitle } = require('./trail');
+const { segment } = require('./segment');
 
 const RUN_GAP_MS = 15 * 60 * 1000;   // 隔这么久没动，就是另一段操作了
 const MIN_KEY = 4;                   // 短于这么多字的标题不算页面身份
@@ -218,6 +219,131 @@ function linksOf(id, g, { runLimit = 6 } = {}) {
   return out;
 }
 
+// ───────────────────────── 同一个词 ─────────────────────────
+//
+// A 和 B 共用一个词，B 和 C 共用另一个词。**边不是「像」，是「共用了哪个词」**，所以每条边
+// 都拿得出证据。dev/evidence-chain-bench.js 在真实工作区上量过，从「Windsor Road, Egham
+// TW20 0AE」到「报名成功」四跳走得通，每一跳的词都是真的：tw20/egham → runnymede →
+// trailblazerz/50km/ultra → thames/path/challenge。而向量在这条链上全程 0.155。
+//
+// **不做全局连通分量。** 那条路量过：要把那 14 条连成一块，门槛得放到 df≤8，代价是
+// 一个吃掉 70% 工作区的巨块。但界面要的从来不是「谁和谁在同一个分量里」，是
+// 「**这一条**最强的几个证据邻居」——逐条排序，取前几名，那个巨块的账就不存在了。
+// 排序按词的罕见程度：一个邮编比一个 the 值钱得多。
+const EV_MAXDF = 40;      // 出现在这么多条以上的词是这个工作区的通用词汇，不算证据
+const EV_NEEDDF = 14;     // 至少要有一个这么罕见的共用词，否则这条边不成立
+// 中文的常用二字词天生比专名泛（呈现 / 方式 / 要求 / 通过 / 而且 / 一样），而它们在一个
+// 两百多条的工作区里照样「只出现十来次」。所以汉字词要过更紧的一道——这和英文那边的道理
+// 是同一个：df 量的是这个工作区里的罕见，不是这个词有没有意思。
+const EV_NEEDDF_CJK = 7;
+// 一条记录最多拿这么多个词当指纹，只留最罕见的那些。40 是扫出来的拐点：
+//   24 太紧，一篇 5555 字的对话一条边都剩不下；
+//   40 那条对话连到「你看看我最近要去一个走路的活动」（路线·补给·严格）和「我最近有个
+//      walking 挑战」（报名），全对，平均每条 4.8 条边；
+//   60 开始混进「门槛 → GPT6一出来」，90 之后是「清楚·保持·而且」这种纯噪声。
+const EV_KEEP = 40;
+const CJK_RE = /[㐀-䶿一-鿿]/u;
+const EV_STOP = new Set(('the a an and or of to in on at for with from by is are was were be been am '
+  + 'this that these those it its as if not no yes you your i my we our they them he she his her '
+  + 'will would can could should may might must do does did done have has had get got go goes '
+  + 'there here when where what which who how why all any some more most other than then also '
+  + 'about into over under out up down off just now new see one two three hour hours '
+  + 'day days time home half back only very much many such same page click here link'
+  + ' 一个 这个 那个 可以 没有 就是 什么 我们 你们 他们 自己 已经 因为 所以 但是 如果 还是 这样 那样').split(/\s+/));
+
+/**
+ * 一条记录拿得出的证据词：专名、邮编、汉字词。
+ *
+ * 不要普通词。**在一个以中文为主的工作区里，英文虚词天生就「罕见」**——hour / should / there
+ * 在两百多条里只出现两三次，于是它们通过任何 df 筛，把毫不相干的两晚焊在一起（实测抓到过：
+ * 「Windsor Road ↕ hour ↕ 我半小时后到家」）。df 量的是这个工作区里的罕见，不是这个词有没有意思。
+ */
+function evWords(entry, stripped) {
+  const e = entry || {};
+  const c = e.context || {};
+  const raw = [e.title, String(stripped === undefined ? (e.text || '') : stripped).slice(0, 1500),
+    c.window, c.url, e.url].filter(Boolean).join(' ');
+  const out = new Set();
+  for (const t of segment(raw, '')) {
+    if (!t.wordLike) continue;
+    const w = String(t.w).toLowerCase();
+    if (w.length < 2 || /^\d+$/.test(w) || EV_STOP.has(w)) continue;
+    if (/^[a-z]/.test(w)) {
+      // 拉丁词只认专名（原文里首字母大写）和带数字的（TW18、0AE、50km）
+      const proper = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, '').test(raw)
+        && new RegExp(`\\b${w[0].toUpperCase()}${w.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(raw);
+      if (!proper && !/\d/.test(w)) continue;
+      if (w.length < 3) continue;
+    }
+    out.add(w);
+    // Staines-upon-Thames 里的 thames 是这整件事唯一的桥，不拆就没有
+    if (w.includes('-')) for (const p of w.split('-')) if (p.length >= 3 && !EV_STOP.has(p)) out.add(p);
+  }
+  return out;
+}
+
+/**
+ * 整个工作区的证据词倒排。一次算好，之后每条记录只访问和它共用词的那些记录。
+ * @returns {{post:Map<string,string[]>, df:Map<string,number>, words:Map<string,Set<string>>}}
+ */
+function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
+  const raw = new Map();
+  const df = new Map();
+  for (const e of entries || []) {
+    if (!e || !e.id) continue;
+    const s = evWords(e, stripOf ? stripOf(e) : undefined);
+    raw.set(e.id, s);
+    for (const w of s) df.set(w, (df.get(w) || 0) + 1);
+  }
+  // **一条记录只拿它最独特的那几个词当指纹。**
+  // 不这么做，长散文会互相认亲：一条 5555 字的中文对话和另一条中文对话总能共用一堆
+  // 呈现 / 方式 / 要求 / 通过——每个词都「只出现十来次」，凑够四个就压过了一个 50km。
+  // 停用词表堵不住这个口子，中文的常用二字词是无穷无尽的；限量能，而且它对所有语言一视同仁。
+  const words = new Map();
+  const post = new Map();
+  for (const [id, s] of raw) {
+    const top = [...s].sort((a, b) => (df.get(a) || 0) - (df.get(b) || 0)).slice(0, keep);
+    const set = new Set(top);
+    words.set(id, set);
+    for (const w of set) {
+      if (!post.has(w)) post.set(w, []);
+      post.get(w).push(id);
+    }
+  }
+  return { post, df, words };
+}
+
+/**
+ * 和这一条共用证据词最多的那几条，每条都带着它们共用的词。
+ * @returns {{id:string, score:number, words:string[]}[]} 按强弱排
+ */
+function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF } = {}) {
+  const mine = idx.words.get(String(id || ''));
+  if (!mine) return [];
+  const hit = new Map();
+  for (const w of mine) {
+    const n = idx.df.get(w) || 0;
+    if (n < 2 || n > maxDf) continue;
+    for (const other of idx.post.get(w) || []) {
+      if (other === id) continue;
+      if (!hit.has(other)) hit.set(other, []);
+      hit.get(other).push(w);
+    }
+  }
+  const out = [];
+  for (const [other, ws] of hit) {
+    // 至少要有一个够罕见的共用词。全是「maps」「details」「方式」这种，不算证据。
+    const ok2 = ws.filter((w) => (idx.df.get(w) || 99) <= (CJK_RE.test(w) ? EV_NEEDDF_CJK : needDf));
+    if (!ok2.length) continue;
+    const bestDf = Math.min(...ok2.map((w) => idx.df.get(w) || 99));
+    // **按最罕见的那一个词打分，不按几个词的和。** 用和的话，四个泛词（呈现·方式·要求·通过）
+    // 会压过一个「50km」——而后者才是真正说明问题的那一个。词数只当同分时的先后。
+    const score = 1 / Math.log2(2 + bestDf) + 0.05 * Math.min(ws.length, 6);
+    out.push({ id: other, score, words: ws.sort((a, b) => (idx.df.get(a) || 0) - (idx.df.get(b) || 0)).slice(0, 4) });
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, limit);
+}
+
 /**
  * 一段操作里，你依次经过的那几页。图谱里「同一程」那条链就是它。
  * @returns {{key:string,name:string,page:string,at:string}[]}
@@ -237,5 +363,6 @@ function chainOf(runIds, g, getEntry) {
 
 module.exports = {
   build, linksOf, chainOf, pageKeysOf, pageIdentityOf, normUrl, titleKey,
+  evWords, evidenceIndex, evidenceFor, EV_MAXDF, EV_NEEDDF, EV_KEEP,
   RUN_GAP_MS, MIN_KEY, MAX_CLIPS, SHELLS,
 };

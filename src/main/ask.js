@@ -50,15 +50,26 @@ function readDay(k) {
 const FURNITURE_MS = 5 * 60 * 1000;
 let furnitureAt = 0;
 
-/** 跨记录重复的那些行（语言选择条、Cookie 提示）。逐条切块的时候手上没有整个工作区，所以在这儿喂。 */
+let evIdx = null;   // 证据词的倒排。82ms 建一次，之后每条记录只访问和它共用词的那几条。
+
+/** 跨记录重复的那些行（语言选择条、Cookie 提示），外加证据词的倒排。都要整个工作区才算得出来。 */
 function learnFurniture() {
   if (Date.now() - furnitureAt < FURNITURE_MS) return;
   furnitureAt = Date.now();
   try {
-    const texts = [];
-    for (const key of store.listDates()) for (const e of store.loadDay(key)) if (e && e.text) texts.push(e.text);
-    boilerplate.load(texts);
+    const all = [];
+    for (const key of store.listDates()) all.push(...store.loadDay(key));
+    boilerplate.load(all.map((e) => String((e || {}).text || '')));
+    const fur = boilerplate.furniture();
+    evIdx = links.evidenceIndex(all, (e) => boilerplate.strip(String(e.text || ''), fur));
   } catch (_) { /* 学不到就只剩「成串短行」那一条规则，它不需要别的记录作证 */ }
+}
+
+/** 和这一条共用证据词的那几条，每条带着共用的词。空手是正常的：这一条上没有够罕见的词。 */
+function evidenceOf(id) {
+  try { learnFurniture(); } catch (_) { /* 用上一份 */ }
+  if (!evIdx) return [];
+  try { return links.evidenceFor(String(id || ''), evIdx); } catch (_) { return []; }
 }
 
 function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
@@ -194,7 +205,7 @@ function topicList() {
  */
 function linksOf(id) {
   const me = String(id || '');
-  const out = { source: null, clips: [], run: [], near: [] };
+  const out = { source: null, clips: [], run: [], evidence: [], near: [] };
   try {
     const all = [];
     for (const key of store.listDates()) all.push(...store.loadDay(key));
@@ -206,6 +217,7 @@ function linksOf(id) {
     // 页面名字照给，代表那一条用来点开——那一页本身多半没存过。
     out.run = l.run.pages.filter((p) => p.first).map((p) => ({ name: p.name, id: p.first }));
   } catch (_) { /* 边是加分项，没有也不该让详情打不开 */ }
+  out.evidence = evidenceOf(me);
   out.near = relatedTo(me);
   return out;
 }
@@ -253,6 +265,9 @@ function graphOf(id) {
     }
     for (const c of l.clips.slice(0, 8)) { add(c, 1); edges.push([me, c, 'page']); }
     // 同一程连的是页面，不是那一段里的每一条记录——一段五十条两两相连没有意义
+    // 共用证据词的那几条：这是唯一一种**能传递**的边，也是把停车那半边和报名那半边
+    // 接起来的那一根（Ultra Challenge ↔ 赛程分前后半程，共用「50km」）。
+    for (const ev of evidenceOf(me).slice(0, 5)) { add(ev.id, 1); edges.push([me, ev.id, 'word']); }
     const from = (l.source && l.source.page) || me;
     for (const p of l.run.pages.slice(0, 4)) {
       const to = p.first;
@@ -278,4 +293,4 @@ function topicEntries(id) {
   try { return index.topicMembers(String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, graphOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, evidenceOf, graphOf, MAX_ITEMS };

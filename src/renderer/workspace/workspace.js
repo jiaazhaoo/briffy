@@ -12,6 +12,7 @@
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
       near: '相近', related: '相关', graph: '图谱', untitled: '无标题',
       fromPage: '摘自', clippedHere: '从这一页摘的', sameRun: '同一程', notSaved: '（这一页没存下来）',
+      sameWords: '同一个词',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
       chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
@@ -150,6 +151,7 @@
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
       near: 'related', related: 'Related', graph: 'Graph', untitled: 'Untitled',
       fromPage: 'Clipped from', clippedHere: 'Clipped from this page', sameRun: 'Same sitting', notSaved: '(page not saved)',
+      sameWords: 'Shares a word',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
       chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
@@ -1404,6 +1406,14 @@
         + l.run.map((p) => `<button type="button" class="rel" data-rel="${esc(p.entry.id)}">`
           + `<span class="tm">${esc(fmtTime(p.entry.createdAt))}</span>`
           + `<span class="ti">${esc(p.name)}</span></button>`).join('');
+    }
+    // 证据边：左边那一栏不写时间，写**共用的是哪几个词**。这条边的全部意义就是它说得出为什么，
+    // 藏起来它就退化成又一个「相关」了。
+    if (l.evidence && l.evidence.length) {
+      html += `<h3>${esc(t('sameWords'))}</h3>`
+        + l.evidence.map((x) => `<button type="button" class="rel ev" data-rel="${esc(x.entry.id)}">`
+          + `<span class="tm">${esc(x.words.join(' · '))}</span>`
+          + `<span class="ti">${esc(cardTitle(x.entry))}</span></button>`).join('');
     }
     html += group('related', l.near);
     if (!html) { slot.hidden = true; slot.innerHTML = ''; return; }
