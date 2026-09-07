@@ -166,6 +166,24 @@ const EXT_FORMAT = {
   '.txt': 'text', '.md': 'text', '.json': 'text', '.html': 'text',
 };
 
+// 浏览器把站名写在窗口标题里：「… - 小红书」「…_哔哩哔哩_bilibili」。没拿到网址的时候，
+// 这是唯一还剩下的线索，而且它对 Safari、Firefox 也成立——扩展只在 Chrome 里跑。
+// 只认**已知的站名**，不去猜标题的结构：「最后一段是站名」这种规则一遇到「- Google Chrome」
+// 「– Audio playing」就会给出垃圾。实测这一条能救回 34 条浏览器记录里的 13 条。
+const BROWSER_APP = /chrome|safari|firefox|edge|arc|brave|vivaldi|opera|comet/i;
+const SITE_NAMES = [
+  ['小红书', '小红书'], ['哔哩哔哩', '哔哩哔哩'], ['bilibili', '哔哩哔哩'], ['知乎', '知乎'], ['微博', '微博'],
+  ['抖音', '抖音'], ['youtube', 'YouTube'], ['github', 'GitHub'], ['reddit', 'Reddit'],
+  ['instagram', 'Instagram'], ['facebook', 'Facebook'], ['zoom', 'Zoom'], ['notion', 'Notion'],
+  ['twitter', 'X'], ['wikipedia', 'Wikipedia'], ['gmail', 'Gmail'], ['淘宝', '淘宝'], ['京东', '京东'],
+];
+function siteInTitle(title) {
+  const w = String(title || '').toLowerCase();
+  if (!w) return '';
+  for (const [needle, name] of SITE_NAMES) if (w.includes(needle)) return name;
+  return '';
+}
+
 /** @returns {string} image / text / audio / video / pdf / doc / sheet / slides / archive / link / other */
 function entryFormat(e) {
   if (!e) return 'other';
@@ -194,9 +212,14 @@ function entryOrigin(e) {
   const c = e.context || {};
   const site = siteOf(e.url || c.url || '');
   if (site) return site;
-  // 浏览器只说明「是个网页」，说不出是哪个站——那种情况下方式那一档反而更有信息
   const app = String(c.app || '').trim();
-  if (app && !/^(google chrome|chrome|safari|firefox|microsoft edge|arc)$/i.test(app)) return app;
+  // 浏览器只说明「是个网页」，说不出是哪个站。网址没拿到的时候，窗口标题里往往还写着站名。
+  if (BROWSER_APP.test(app)) {
+    const named = siteInTitle(c.window);
+    if (named) return named;
+    return entrySource(e);                     // 连标题都没有，那「怎么进来的」比「某个浏览器」有用
+  }
+  if (app) return app;
   return entrySource(e);
 }
 
@@ -504,4 +527,4 @@ class Store extends EventEmitter {
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, entryFormat, siteOf, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
+module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, entryFormat, siteOf, siteInTitle, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
