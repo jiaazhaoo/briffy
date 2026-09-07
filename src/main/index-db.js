@@ -64,6 +64,23 @@ function open(userDataDir, workspaceDir) {
   file = path.join(userDataDir, 'index.db');
   db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;');
+  // 顺序是硬的：**先看代次，再建表**。反过来的话，`CREATE INDEX ... ON entries(type)`
+  // 会撞上上一代那张没有 type 列的旧表，整个 open 就炸在这儿。
+  db.exec('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);');
+  const got = { schema: get('schema'), workspace: get('workspace') };
+  if (got.schema !== String(SCHEMA) || got.workspace !== workspaceDir) {
+    dropTables();
+    db.exec('DELETE FROM meta;');
+    createTables();
+    set('schema', String(SCHEMA));
+    set('workspace', workspaceDir);
+  } else {
+    createTables();
+  }
+  return db;
+}
+
+function createTables() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
     CREATE TABLE IF NOT EXISTS entries(
@@ -94,21 +111,30 @@ function open(userDataDir, workspaceDir) {
     CREATE TABLE IF NOT EXISTS topic_of(id TEXT PRIMARY KEY, topic TEXT);
     CREATE INDEX IF NOT EXISTS i_topic_of ON topic_of(topic);
   `);
-  const got = { schema: get('schema'), workspace: get('workspace') };
-  if (got.schema !== String(SCHEMA) || got.workspace !== workspaceDir) {
-    wipe();
-    set('schema', String(SCHEMA));
-    set('workspace', workspaceDir);
-  }
-  return db;
 }
 
 function get(k) { const r = db.prepare('SELECT v FROM meta WHERE k=?').get(k); return r ? r.v : null; }
 function set(k, v) { db.prepare('INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').run(k, String(v)); }
 
 /** 扔掉重建。索引里没有任何工作区里没有的东西，所以这一步永远是安全的。 */
+/**
+ * 换代或换工作区时整个推倒重来。
+ *
+ * **必须 DROP，不能只 DELETE。** 这一版之前它只删行，于是 `CREATE TABLE IF NOT EXISTS` 碰到
+ * 上一代留下的旧表就整句跳过，新加的列永远长不出来——实测升级后第一次启动直接死在
+ * 「table entries has no column named hash」，索引一条都建不起来，而这条错只有 console 里有。
+ * 每一次改表结构都会踩到，所以这里改成真的删表。
+ */
+function dropTables() {
+  db.exec(`DROP TABLE IF EXISTS vocab; DROP TABLE IF EXISTS fts;
+    DROP TABLE IF EXISTS entries; DROP TABLE IF EXISTS days;
+    DROP TABLE IF EXISTS vec; DROP TABLE IF EXISTS topic; DROP TABLE IF EXISTS topic_of;`);
+}
+
 function wipe() {
-  db.exec('DELETE FROM fts; DELETE FROM entries; DELETE FROM days; DELETE FROM meta;');
+  dropTables();
+  db.exec('DELETE FROM meta;');
+  createTables();
 }
 
 function close() { if (db) { try { db.close(); } catch (_) { /* 已经关了 */ } } db = null; }
