@@ -17,6 +17,7 @@ const retrieve = require('./retrieve');
 const vector = require('./vector');
 const topic = require('./topic');
 const links = require('./links');
+const boilerplate = require('./boilerplate');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -45,9 +46,25 @@ function readDay(k) {
   try { return JSON.parse(fs.readFileSync(path.join(entriesDir(), `${k}.json`), 'utf8')); } catch (_) { return []; }
 }
 
+// 家具表多久重学一次。学一遍 12ms，但它要把所有天文件读一遍，所以不必每次 refresh 都学。
+const FURNITURE_MS = 5 * 60 * 1000;
+let furnitureAt = 0;
+
+/** 跨记录重复的那些行（语言选择条、Cookie 提示）。逐条切块的时候手上没有整个工作区，所以在这儿喂。 */
+function learnFurniture() {
+  if (Date.now() - furnitureAt < FURNITURE_MS) return;
+  furnitureAt = Date.now();
+  try {
+    const texts = [];
+    for (const key of store.listDates()) for (const e of store.loadDay(key)) if (e && e.text) texts.push(e.text);
+    boilerplate.load(texts);
+  } catch (_) { /* 学不到就只剩「成串短行」那一条规则，它不需要别的记录作证 */ }
+}
+
 function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   index.open(store.userData, store.workspaceDir);
   index.useVecModel(vector.MODEL);
+  learnFurniture();
   return index.sync({ dir: entriesDir(), loadDay: readDay }, { budgetMs });
 }
 

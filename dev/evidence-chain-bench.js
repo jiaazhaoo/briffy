@@ -49,10 +49,17 @@ async function main() {
   // （rent / airports / payment / log / high 全是 JustPark 的菜单），而证据词全在标题上
   // （tw20 / egham / runnymede / 0ae / thames）。这一条如果成立，剥掉正文就同时解决两件事。
   const HEAD_ONLY = process.env.SRC === 'head';
+  // STRIP=1 先剥掉网页家具（src/main/boilerplate.js）再取词。这一步就是为这里做的：
+  // 「rent / airports / payment / log / high」全是 JustPark 的菜单，它们混在证据词里，
+  // 能把毫不相干的两晚焊在一起。
+  const bp = require('../src/main/boilerplate');
+  const STRIP = process.env.STRIP === '1';
+  const fur = STRIP ? bp.learn(all.map((e) => String(e.text || ''))) : null;
+  const bodyOf = (e) => (STRIP ? bp.strip(String(e.text || ''), fur) : String(e.text || ''));
   const srcOf = (e) => {
     const c = e.context || {};
     return (HEAD_ONLY ? [e.title, c.window, c.url, e.url]
-      : [e.title, String(e.text || '').slice(0, BODY), c.window, c.url, e.url]).filter(Boolean).join(' ');
+      : [e.title, bodyOf(e).slice(0, BODY), c.window, c.url, e.url]).filter(Boolean).join(' ');
   };
 
   // ── 两套取词policy，为的是回答同一个问题：证据词该长什么样
