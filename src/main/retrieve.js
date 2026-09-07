@@ -93,4 +93,33 @@ function select(index, question, { today, limit = 40, getEntry = null, keep = 0 
   };
 }
 
-module.exports = { select };
+/**
+ * 把词面那一份和向量那一份合起来。用 RRF（倒数排名融合）：每一份里排第 r 名就得 1/(K+r) 分，
+ * 加起来重排。它只看名次不看分数——这正是这里需要的，因为向量的分数没有绝对意义，
+ * 0.445 是一条正确答案，0.432 是一个工作区里根本不存在的东西。
+ *
+ * **词面交白卷时，向量不出手。** 这条不是性能考虑，是诚实性考虑：向量永远能凑出点什么，
+ * 让它在「什么都没找到」的时候补位，等于把刚修掉的静默降级又请回来一次，而且更难发现——
+ * 界面上会有十条看起来挺像那么回事的记录。词面找到了东西，说明这个问题确实说中了工作区里的
+ * 某样东西，这时候让向量去补它漏掉的，才是安全的。
+ *
+ * 词面在前一档（K 更小 = 权重更高）：它有「找不到就说找不到」的能力，向量没有。
+ */
+const K_LEX = 20;
+const K_VEC = 60;
+
+function fuse(lexIds, vecIds, limit = 8) {
+  if (!lexIds || !lexIds.length) return [];
+  if (!vecIds || !vecIds.length) return lexIds.slice(0, limit);
+  const score = new Map();
+  const add = (ids, k) => ids.forEach((id, i) => score.set(id, (score.get(id) || 0) + 1 / (k + i + 1)));
+  add(lexIds, K_LEX);
+  add(vecIds, K_VEC);
+  // 名次一样时，词面里更靠前的赢——它是那个会说「没有」的一方
+  const lexAt = new Map(lexIds.map((id, i) => [id, i]));
+  return [...score.entries()]
+    .sort((a, b) => (b[1] - a[1]) || ((lexAt.get(a[0]) ?? 1e9) - (lexAt.get(b[0]) ?? 1e9)))
+    .slice(0, limit).map(([id]) => id);
+}
+
+module.exports = { select, fuse, K_LEX, K_VEC };

@@ -194,6 +194,37 @@ ok('工作区里没有的事，不要凑一堆记录出来装作有', () => {
   assert.ok(!p.scored || !p.ids.length, '凭空给出了 ' + p.ids.length + ' 条: ' + JSON.stringify(p.ids.slice(0, 5)));
 });
 
+// ---------- 融合：向量补词面，但绝不替它出手 ----------
+
+ok('词面交白卷时，向量一条都不许补', () => {
+  // 这条是整个融合里最要紧的一句。向量永远能凑出点什么——实测一个工作区里根本不存在的问题
+  // 也能得 0.432，而一条正确答案才 0.445。让它在「什么都没找到」时补位，等于把静默降级
+  // 请回来，而且更难发现：界面上会出现十条看着挺像那么回事的记录。
+  assert.deepStrictEqual(retrieve.fuse([], ['a', 'b', 'c'], 8), []);
+});
+
+ok('没有向量的时候，就是原来那份', () => {
+  assert.deepStrictEqual(retrieve.fuse(['a', 'b'], [], 8), ['a', 'b']);
+  assert.deepStrictEqual(retrieve.fuse(['a', 'b'], null, 8), ['a', 'b']);
+});
+
+ok('两边都排前面的，融合后更靠前', () => {
+  const out = retrieve.fuse(['x', 'a'], ['a', 'y'], 8);
+  assert.strictEqual(out[0], 'a', JSON.stringify(out));
+});
+
+ok('向量能把词面漏掉的补进来，但补在后面', () => {
+  // 「显示器型号」就是这个形状：词面找到三条不相干的，向量知道那条英文记录才是答案
+  const out = retrieve.fuse(['l1', 'l2', 'l3'], ['v1', 'l3'], 8);
+  assert.ok(out.includes('v1'), JSON.stringify(out));
+  assert.ok(out.indexOf('l1') < out.indexOf('v1'), '词面第一名被向量顶掉了: ' + JSON.stringify(out));
+});
+
+ok('融合之后才截断，截断的条数说了算', () => {
+  const out = retrieve.fuse(['a', 'b', 'c'], ['d', 'e', 'f'], 4);
+  assert.strictEqual(out.length, 4, JSON.stringify(out));
+});
+
 // ---------- 真实工作区（可选） ----------
 //
 // 真实工作区一直在变，所以不能写死期望。改成查不变量：如果工作区里**确实存在**含着某句话的记录，
