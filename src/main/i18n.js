@@ -126,6 +126,7 @@ const STRINGS = {
     trayQuit: '退出',
     menuAddFiles: '添加文件到工作区…',
     dialogAddFiles: '选择要存入工作区的文件',
+    dialogImport: '选择导出文件或文件夹',
     dialogChooseDir: '选择工作区文件夹',
   },
   en: {
@@ -250,6 +251,7 @@ const STRINGS = {
     streamNeedsFfmpeg: 'This video is a segmented stream (HLS / DASH). Joining it into one file needs ffmpeg. Settings › Video downloads can install it, or install it yourself and try again.',
     tagModelDownloading: 'Downloading the keyword model {pct}% (once)',
     dialogAddFiles: 'Choose files to save into the workspace',
+    dialogImport: 'Choose an export file or folder',
     dialogChooseDir: 'Choose workspace folder',
   },
 };

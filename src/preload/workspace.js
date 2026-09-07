@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('ws', {
   connectDrop: (name) => ipcRenderer.invoke('ws:connect-drop', name),
   connectSync: (name, opts) => ipcRenderer.invoke('ws:connect-sync', name, opts),
   onConnectProgress: listen('ws:connect-progress'),
+  importPick: () => ipcRenderer.invoke('ws:import-pick'),
   onExtension: listen('ws:extension'),
   exportExtension: invoke('ws:export-extension'),
   runSetup: invoke('ws:run-setup'),
