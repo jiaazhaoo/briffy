@@ -176,7 +176,12 @@
         source: { key: 'https://claude.ai/chat/abc', name: '赛程分前后半程 - Claude', page: rest[0].id, entry: pub(rest[0]) },
         clips: rest.slice(1, 4).map(pub),
         run: rest.slice(4, 6).map((e, i) => ({ name: ['Runnymede District to Staines Train Station', 'Parking on Buckingham Court, Staines'][i], entry: pub(e) })),
-        evidence: rest.slice(2, 5).map((e, i) => ({ words: [['tw20', '0ae'], ['runnymede'], ['50km', 'ultra']][i], entry: pub(e) })),
+        evidence: rest.slice(2, 5).map((e, i) => ({
+          pairs: [[{ a: 'TW20 0AE', b: 'TW20 0AE', fuzzy: false }],
+            [{ a: '泰晤士河', b: 'Thames', fuzzy: true }],
+            [{ a: '50km', b: '50km', fuzzy: false }, { a: 'Ultra', b: '挑战', fuzzy: true }]][i],
+          entry: pub(e),
+        })),
         near: rest.slice(6, 8).map(pub),
       };
     },
@@ -192,10 +197,16 @@
       ];
       const nodes = [{ ...pub(c), hop: 0 }, ...one.map((e) => ({ ...pub(e), hop: 1 })), ...ents, ...two.map((e) => ({ ...pub(e), hop: 2 }))];
       // 三种边都给上，样张才看得出线的区别
-      const edges = one.map((e, i) => [c.id, e.id, ['page', 'page', 'near'][i] || 'near']);
-      edges.push([one[0].id, one[1].id, 'run']);
-      two.forEach((e, i) => edges.push([one[i % one.length].id, e.id, i ? 'run' : 'page']));
-      for (const x of ents) { edges.push([c.id, x.id, 'mention']); edges.push([x.id, one[0].id, 'mention']); }
+      // 边带着依据：一对词（模糊对写成 a ≈ b），或者那一页的名字
+      const P = (a, b) => [{ a, b: b || a, fuzzy: !!b }];
+      const edges = [
+        [c.id, one[0].id, 'word', P('TW20 0AE')],
+        [c.id, one[1].id, 'word', P('泰晤士河', 'Thames')],
+        [c.id, one[2].id, 'near', ''],
+        [one[0].id, one[1].id, 'run', 'Runnymede District to Staines'],
+      ];
+      two.forEach((e, i) => edges.push([one[i % one.length].id, e.id, i ? 'run' : 'page',
+        i ? 'Booking Details | JustPark' : '赛程分前后半程 - Claude']));
       return { nodes, edges };
     },
     topics: async () => ([

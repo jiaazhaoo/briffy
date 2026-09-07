@@ -31,11 +31,12 @@ ok('强边一路走得远，弱边一跳就停', () => {
   assert.ok(!ids.includes('y'), '同一程走一跳就该停');
 });
 
-ok('每一条进来的都说得出是被哪条边放进来的', () => {
-  const s = grow('a', ctxOf({ a: [{ to: 'b', kind: 'word', w: 0.6, words: ['tw20'] }], b: [] }));
+ok('每一条进来的都说得出是被哪条边、哪一对词放进来的', () => {
+  const pairs = [{ a: 'TW20 0AE', b: 'TW20 0AE', fuzzy: false }];
+  const s = grow('a', ctxOf({ a: [{ to: 'b', kind: 'word', w: 0.6, pairs }], b: [] }));
   const b = s.members.find((m) => m.id === 'b');
   assert.strictEqual(b.via.kind, 'word');
-  assert.deepStrictEqual(b.via.words, ['tw20']);
+  assert.deepStrictEqual(b.via.pairs, pairs, '那一对词要一路带到界面上——线上写的就是它');
   assert.strictEqual(s.members[0].via, null, '种子没有来处');
 });
 

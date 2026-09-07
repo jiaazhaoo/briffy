@@ -1327,11 +1327,23 @@
     // 线分种类：**一条「摘自」和一条「意思相近」的把握完全不同**，画成同一根就是在说它们一样可靠。
     // 同一处是实线（精确匹配），同一程是虚线（那一段里你还路过了什么，会捞进不相干的），
     // 意思相近还是那根细线。
-    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b)).map(([a, b, kind]) => {
+    // 线上写**凭什么连**：一对词（完全一致就写一个，模糊一致写成 a ≈ b），或者那一页的名字。
+    // 一条说不出依据的线和「相关」没有区别，那正是这张图之前难读的原因。
+    const label = (kind, why) => {
+      if (Array.isArray(why)) return why.slice(0, 2).map((p) => (p.fuzzy ? `${p.a} ≈ ${p.b}` : p.a)).join(' · ');
+      if (kind === 'near') return t('near');
+      return String(why || '').slice(0, 22);
+    };
+    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b)).map(([a, b, kind, why]) => {
       const [ax, ay] = at(a); const [bx, by] = at(b);
       const [x1, y1] = rim(a, bx, by);
       const [x2, y2] = rim(b, ax, ay);
-      return `<line class="gr-edge e-${esc(kind || 'near')}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`;
+      const txt = label(kind, why);
+      const mx = (x1 + x2) / 2; const my = (y1 + y2) / 2;
+      // 太短的线上放不下字；放不下就不放，别让字压在卡片上
+      const room = Math.hypot(x2 - x1, y2 - y1) > 86 && txt;
+      return `<line class="gr-edge e-${esc(kind || 'near')}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`
+        + (room ? `<text class="gr-why" x="${mx.toFixed(1)}" y="${(my - 3).toFixed(1)}" text-anchor="middle">${esc(txt.slice(0, 24))}</text>` : '');
     }).join('');
     // 卡片是 HTML 压在这层线上面的：一张记录在图里也该长成它在网格里的样子——
     // 缩略图认得出来、标题能读、时间在下面。画成 <rect> 的时候，一个 24px 高的灰方块里
@@ -1422,7 +1434,7 @@
     if (l.evidence && l.evidence.length) {
       html += `<h3>${esc(t('sameWords'))}</h3>`
         + l.evidence.map((x) => `<button type="button" class="rel ev" data-rel="${esc(x.entry.id)}">`
-          + `<span class="tm">${esc(x.words.join(' · '))}</span>`
+          + `<span class="tm">${esc((x.pairs || []).map((p) => (p.fuzzy ? `${p.a} ≈ ${p.b}` : p.a)).join(' · '))}</span>`
           + `<span class="ti">${esc(cardTitle(x.entry))}</span></button>`).join('');
     }
     html += group('related', l.near);
