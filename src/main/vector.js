@@ -101,34 +101,142 @@ async function search(index, question, { limit = 40, cacheDir, mirror = '', from
 // 「赛程分前后半程」；而 0.6 那一档放进来的是「Views」→ grok-icon-study 这种毫不相干的东西。
 const NEAR = 0.70;
 
+/** 一条记录那几段向量的平均，归一化。 */
+function mean(list) {
+  const out = new Float32Array(list[0].length);
+  for (const v of list) for (let i = 0; i < v.length; i++) out[i] += v[i];
+  let n = 0; for (let i = 0; i < out.length; i++) n += out[i] * out[i];
+  n = Math.sqrt(n) || 1;
+  for (let i = 0; i < out.length; i++) out[i] /= n;
+  return out;
+}
+
+// ── 粗筛的桶（随机投影 LSH）
+//
+// 「和这条意思相近的是谁」以前是把整张向量表扫一遍。204 条上 18ms，所以当初的结论是
+// 「不建表、不存图」——那个结论在那个规模上是对的，注释里也写清楚了 n² 到一百多万条就不可能。
+// 现在它到期了，不是因为记录多了，是因为**调用变密了**：story.grow 每展开一个节点问一次，
+// 一次扩散最多四十次全表扫（实测 27ms / 250 条，按 O(n) 外推到 20 万条是 20 秒）。
+//
+// 换成 LSH：把向量投到 bits 个随机方向上，取符号拼成一个桶号。方向相近的向量大概率同桶。
+// 一个向量同时进 TABLES 张表（各自一套投影），命中任意一张就算候选——单张表会漏，
+// 多张表把漏的概率压下去。候选拿到之后**照样精确算点积**，所以门槛 NEAR=0.70 的含义没变，
+// 变的只是「拿谁来比」。
+const LSH_TARGET = 24;   // 每个桶里大约留这么多条：太满等于没筛，太空就召不回
+const LSH_MIN_BITS = 3;
+const LSH_MAX_BITS = 20;
+const LSH_RECALL = 0.9;  // 想留住九成邻居
+const LSH_MAX_TABLES = 64;
+
+/** 桶号要几位，跟着库的大小走。 */
+function bitsFor(n) {
+  const want = Math.round(Math.log2(Math.max(2, n / LSH_TARGET)));
+  return Math.max(LSH_MIN_BITS, Math.min(LSH_MAX_BITS, want));
+}
+
+// 一个向量要进几张表。**这个数必须跟着位数走，不能钉死。**
+//
+// 钉死过 4，扫出来它撑不住（真实工作区上量的，每一列都是实测）：
+//   位数   3     4     5     6     7     8
+//   召回  96%   88%   76%   68%   57%   52%
+// 而位数是被库的大小逼上去的（每桶要留 ~24 条，20 万条就得 13 位）——4 张表在 13 位上
+// 理论召回只有 9%，等于把「意思相近」这条边悄悄关掉。而实测它值 9/14 对 4/14，关不得。
+//
+// 算法是现成的：两个向量夹角 θ，一刀（一个随机超平面）把它们分开的概率是 θ/π。
+// NEAR=0.70 对应 θ≤45.6°，所以同一张表 b 刀都没分开的概率 p^b（p≈0.747）；
+// L 张表至少有一张没分开的概率 1−(1−p^b)^L。反解出 L，就是下面这一行。
+const LSH_P = 1 - Math.acos(NEAR) / Math.PI;
+function tablesFor(bits) {
+  const p = Math.pow(LSH_P, bits);
+  const want = Math.ceil(Math.log(1 - LSH_RECALL) / Math.log(1 - p));
+  return Math.max(4, Math.min(LSH_MAX_TABLES, want));
+}
+
+// 投影矩阵是**算出来的，不存**：同一个种子永远给同一组方向，存下来只是多一个会和代码不同步的东西。
+const projCache = new Map();
+function projections(t, bits, dim) {
+  const key = `${t}|${bits}|${dim}`;
+  if (projCache.has(key)) return projCache.get(key);
+  const rows = [];
+  for (let i = 0; i < bits; i++) {
+    let x = (t * 7919 + i * 104729 + dim * 15485863) >>> 0;
+    const row = new Float32Array(dim);
+    for (let d = 0; d < dim; d++) {                    // mulberry32
+      x = (x + 0x6D2B79F5) >>> 0;
+      let z = Math.imul(x ^ (x >>> 15), 1 | x);
+      z = (z + Math.imul(z ^ (z >>> 7), 61 | z)) ^ z;
+      row[d] = (((z ^ (z >>> 14)) >>> 0) / 4294967296) * 2 - 1;
+    }
+    rows.push(row);
+  }
+  projCache.set(key, rows);
+  return rows;
+}
+
+/** 这个向量在每张表上落进哪个桶。 */
+function bucketsOf(v, bits, tables = tablesFor(bits)) {
+  const out = [];
+  for (let t = 0; t < tables; t++) {
+    let b = 0;
+    for (const row of projections(t, bits, v.length)) {
+      let s = 0;
+      for (let i = 0; i < v.length; i++) s += row[i] * v[i];
+      b = (b << 1) | (s >= 0 ? 1 : 0);
+    }
+    out.push([t, b]);
+  }
+  return out;
+}
+
+/**
+ * 把桶建起来／补齐。位数跟着库的大小走，所以库长大到换了位数就整张重建——
+ * 那是 log n 次的事，不是每次都做。
+ * @returns {{bits:number, built:number, rebuilt:boolean}}
+ */
+function buildBuckets(index, { force = false } = {}) {
+  const n = index.stats().entries;
+  const bits = bitsFor(n);
+  const tables = tablesFor(bits);
+  const was = Number(index.get('lshBits') || 0);
+  const rebuilt = force || was !== bits;
+  if (rebuilt) { index.dropBuckets(); index.set('lshBits', bits); index.set('lshTables', tables); }
+  else if (index.bucketStats().ids >= n) return { bits, tables, built: 0, rebuilt: false };
+  const pend = new Map();
+  index.vecScan((id, v) => {
+    if (!pend.has(id)) pend.set(id, []);
+    pend.get(id).push(v);
+  });
+  let built = 0;
+  for (const [id, list] of pend) {
+    index.putBuckets(id, bucketsOf(mean(list), bits, tables));
+    built++;
+  }
+  return { bits, tables, built, rebuilt };
+}
+
 /**
  * 和这条记录讲同一件事的那几条。
  *
- * **不建表、不存图**：204 条记录两两全比是 20,706 次点积、18 毫秒，算一条的邻居更是不到 1 毫秒。
- * 存下来只会多一个会过期的东西——记录改了、删了，图就不对了，还得想什么时候重算。
- *
- * 规模上的账写在这儿免得以后重新想：全量两两是 n²，两百条是两万次（免费），
- * 一百八十五万条是一点七万亿次（不可能）。到那个量级要先用倒排缩候选，或者只在时间窗内比。
+ * 两步：桶里粗筛出候选，再对候选**精确算点积**。门槛还是 NEAR，含义没变。
+ * 桶没建起来（老库、刚换模型）就退回全表扫——慢，但不会答错。
  * @returns {string[]} 按相近程度排，可能是空的
  */
 function related(index, id, { limit = 3, floor = NEAR } = {}) {
-  const mine = [];
-  const others = new Map();
-  index.vecScan((rid, v) => {
-    if (rid === id) { mine.push(v); return; }
-    if (!others.has(rid)) others.set(rid, []);
-    others.get(rid).push(v);
-  });
+  const mine = index.vecOf(id);
   if (!mine.length) return [];
-  const mean = (list) => {
-    const out = new Float32Array(list[0].length);
-    for (const v of list) for (let i = 0; i < v.length; i++) out[i] += v[i];
-    let n = 0; for (let i = 0; i < out.length; i++) n += out[i] * out[i];
-    n = Math.sqrt(n) || 1;
-    for (let i = 0; i < out.length; i++) out[i] /= n;
-    return out;
-  };
   const me = mean(mine);
+  const bits = Number(index.get('lshBits') || 0);
+  const peers = bits ? index.bucketPeers(bucketsOf(me, bits, Number(index.get('lshTables') || 0) || undefined)) : null;
+  const others = new Map();
+  if (peers && peers.length) {
+    for (const [rid, list] of index.vecMany(peers.filter((x) => x !== id))) others.set(rid, list);
+  } else {
+    index.vecScan((rid, v) => {
+      if (rid === id) return;
+      if (!others.has(rid)) others.set(rid, []);
+      others.get(rid).push(v);
+    });
+  }
   const scored = [];
   for (const [rid, list] of others) {
     const s = dot(me, mean(list));
@@ -180,4 +288,4 @@ function graph(index, id, { hops = 2, limit = 3, floor = NEAR } = {}) {
   return { nodes: ids.map((x) => ({ id: x, hop: hop.get(x) })), edges };
 }
 
-module.exports = { fill, search, related, graph, MODEL, NEAR };
+module.exports = { fill, search, related, graph, buildBuckets, bitsFor, tablesFor, bucketsOf, MODEL, NEAR, LSH_TARGET, LSH_RECALL, LSH_MAX_TABLES };

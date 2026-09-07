@@ -28,14 +28,14 @@ function init(deps) { store = deps.store; }
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
 // 一句话问出来的东西最多留这么几条。40 是给「把这段时间给我」用的；一个具体的问题给四十条，
 // 结果是每条只摊到五百字，而含着答案的那几条正需要一千多。少而长。
-const KEEP = 16;
+const KEEP = 18;
 // 一条查询最多贡献这么几条。**卡得紧是有道理的**：一个问题有好几个面（起点、终点、停车），
 // 让第一条查询把名额吃光，剩下的面就一条也进不来——今天量到的正是这个，把词揉成一句只捞回
 // 1/7，拆成五条各取前 3 捞回 3/7。
 const PER_QUERY = 3;
 // 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
 // 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
-const CHAIN_ADD = 5;
+const CHAIN_ADD = 4;
 const CHAIN_SEEDS = 8;   // 拿前几条当种子。再多就是让排在后面的、本来就不确定的那几条去开枝散叶
 const CHAIN_SPAN = 16;   // 每个种子长这么大的一片就够——要的是近邻，不是整件事
 // 短问句不当回声判据：「今天呢」这种三个字，正文里随手就撞上，挡掉的会是真记录。
@@ -47,8 +47,10 @@ const CARRY_TURNS = 2;   // 往回带几轮
 const CARRY_EACH = 3;    // 每轮带那一轮排最前的几条
 const CARRY_ROOM = 4;    // 一共最多占这么多格
 // 手上那几条记录里最罕见的几个名字，直接当查询。**不经过模型**——名字和罕见度都是算出来的。
-const SEED_QUERIES = 4;
-const MAX_QUERIES = 10;  // 一问最多分这么多路。再多每路就只剩一两个名额，等于没分
+const SEED_QUERIES = 10;
+// 一问最多分这么多路。分得多不贵（一路 2~5ms），贵的是名额——所以路数和 KEEP 要一起看：
+// 横着取的时候，只有前 room 条路的第一名进得来。
+const MAX_QUERIES = 16;
 // 第一次提问不该卡在建索引上。一个用了几年的工作区从零建要好几分钟，所以每次只做这么久，
 // 剩下的下一次接着做；天是从新到旧建的，先补上的正好是最可能被问到的。
 const SYNC_BUDGET_MS = 400;
@@ -82,42 +84,67 @@ function learnFurniture() {
     boilerplate.load(all.map((e) => String((e || {}).text || '')));
     const fur = boilerplate.furniture();
     evIdx = links.evidenceIndex(all, (e) => boilerplate.strip(String(e.text || ''), fur));
+    ctxCache = null;                 // 词表换了一份，图那一份也跟着作废
   } catch (_) { /* 学不到就只剩「成串短行」那一条规则，它不需要别的记录作证 */ }
 }
 
-/** 扩散要用的那一套：页面图、证据词倒排、向量邻居。都是现算的，谁也不落库。 */
+/**
+ * 扩散要用的那一套：页面图、证据词倒排、向量邻居。
+ *
+ * **算一次，留着用。** 这以前是每次调用都重来一遍：把每一天读进内存、`links.build` 整个工作区，
+ * 而它被 linksOf（每开一次详情页）和 chainAround（每问一次）各调一次。250 条上是 6ms，看不出来；
+ * 按 O(n) 外推到 20 万条是每开一次详情页 5 秒、把整个工作区抬进堆一次。
+ * 而 ask.js 顶上那段注释说的正是同一件事——`listEntries({limit: Infinity})` 是怎么死的。
+ *
+ * 失效的条件就一个：索引变了。sync 报有天被重建过（r.days > 0），下次再算。
+ * 这不是「缓存要不要过期」的问题——图是索引的函数，索引没动，图就没动。
+ */
+let ctxCache = null;
 function storyCtx() {
   try { learnFurniture(); } catch (_) { /* 用上一份 */ }
+  if (ctxCache) return ctxCache;
   const all = [];
   for (const key of store.listDates()) all.push(...store.loadDay(key));
-  const fur = boilerplate.furniture();
-  return {
+  ctxCache = {
     g: links.build(all),
     ev: evIdx,
     ids: all.map((e) => e.id),
     near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
   };
+  return ctxCache;
 }
 
 /**
- * 这几条记录里都有哪些名字，罕见的在前。
+ * 这几条记录讲的是什么，按「最像这件事的名字」排。
  *
- * 给改写那一步当菜单用。抽名字这件事已经有人做了（entity.js，滤掉网页家具和虚词，
- * 邮编日期数量走正则），这里只是把它取出来排个序——**不是新造一套抽取**。
+ * 排序是**先看它在手上这几条里出现过几次，再看它在整个工作区里有多罕见**。
+ * 只按罕见排是错的，实测栽过：手上七条记录里最罕见的四个是 10km、25km、邮件、Visit——
+ * 全是只此一份的边角料，拿它们去检索什么也带不回来；而真正串起这件事的 Runnymede
+ * （在手上好几条里都出现）排在后面，进不了那几个名额。
+ * **罕见 = 独特，反复出现 = 是这件事的主语。要的是后者，再用前者去打破平局。**
+ *
+ * 抽名字本身没有新造一套：还是 entity.js 那一份（滤掉网页家具和虚词，邮编日期数量走正则）。
  * @returns {string[]}
  */
 function namesIn(ids) {
   learnFurniture();
   if (!evIdx) return [];
-  const score = new Map();
+  const seen = new Map();     // 名字 -> {n: 手上几条提到它, df: 全库有多少条提到}
   for (const id of new Set(ids)) {
     for (const k of evIdx.words.get(id) || []) {
-      const df = evIdx.df.get(k) || 99;
       const t = evIdx.text.get(k);
-      if (t && (score.get(t) === undefined || df < score.get(t))) score.set(t, df);
+      if (!t) continue;
+      const x = seen.get(t) || { n: 0, df: evIdx.df.get(k) || 99 };
+      x.n++;
+      seen.set(t, x);
     }
   }
-  return [...score.entries()].sort((a, b) => a[1] - b[1]).map(([t]) => t);
+  // 排序是「在手上这几条里出现得多」× 「在整个工作区里罕见」——就是 tf-idf 那件事。
+  // 两头都试过，两头都偏：只按罕见排，头几个是 10km / 邮件 / Visit 这种只此一份的边角料；
+  // 只按出现得多排，头几个是 Challenge / Ultra / Thames 这种整件事的泛称。
+  // 前者带不回东西，后者带回来的还是那件事本身，不是问题问的那一面。
+  const w = (x) => x.n / Math.log2(2 + x.df);
+  return [...seen.entries()].sort((a, b) => w(b[1]) - w(a[1])).map(([t]) => t);
 }
 
 /** 上一轮真正用上的那几条。模型自己报的 used 是 1 起的下标，对应当时给它的 sources。 */
@@ -217,7 +244,9 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   index.open(store.userData, store.workspaceDir);
   index.useVecModel(vector.MODEL);
   learnFurniture();
-  return index.sync({ dir: entriesDir(), loadDay: readDay }, { budgetMs });
+  const r = index.sync({ dir: entriesDir(), loadDay: readDay }, { budgetMs });
+  if (r && r.days) ctxCache = null;   // 有天被重建过，图跟着重算；没动就接着用上一份
+  return r;
 }
 
 /**
@@ -236,6 +265,11 @@ function warm() {
       .then((r) => {
         if (r.error) { console.warn('[ask] 向量补不了：', r.error); return; }   // 词面那一半照常工作
         if (!r.done) { setTimeout(fillVectors, 800); return; }
+        // 向量齐了才建粗筛桶：桶的位数跟着库的大小走，边补边建会建到一半就作废。
+        try {
+          const b = vector.buildBuckets(index);
+          if (b.built) console.log(`[ask] 向量粗筛桶 ${b.bits} 位 × ${b.tables} 表，${b.built} 条${b.rebuilt ? '（重建）' : ''}`);
+        } catch (e) { console.warn('[ask] 桶建不起来，退回全表扫：', e.message || e); }
       })
       .catch((e) => console.warn('[ask] 向量补不了：', e.message || e));
   };
@@ -263,7 +297,12 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
   // ① 这一问该拿什么去检索。模型不在就是空数组，下面退回原句——那时的行为和从前一模一样。
   // 改写的时候，把「上一轮真正用上的那几条记录里的名字」摆给它挑。它只能说出它见过的词，
   // 而上一次回答有没有把地名写出来是碰运气的——名字这一份不碰运气，是 entity.js 算出来的。
-  const seeds = namesIn(history.slice(-CARRY_TURNS).flatMap((t) => usedIds(t).slice(0, CARRY_EACH)));
+  // 名字从**上几轮看过的全部记录**里抽，不只是模型说它用上的那几条。
+  //
+  // 只从 used 抽过，不稳：同一个案子跑三遍，3/3、1/3、1/3——因为上一轮说自己用了哪几条本身
+  // 就在飘。而名字是不占名额的（占名额的是下面的 carried），多看几条只会让排序更稳：
+  // 「在手上这几条里出现过几次」这个排序，本来就是靠**多条记录一起作证**才准。
+  const seeds = namesIn(history.slice(-CARRY_TURNS).flatMap((t) => (t && t.ids) || []));
   const plan = llm.isConfigured(cfg0) ? await llm.searchPlan(cfg0, { question: q, history, seeds }).catch(() => []) : [];
 
   // 真正拿去检索的几条，**模型只出其中一部分**：
@@ -346,7 +385,7 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
     question: q, answer: '', used: [], model: '',
     sources: entries, range: pick.range,
     scored: pick.scored, noProvider: false, error: '', total: index.stats().entries,
-    inRange: pick.inRange, queries, ids: entries.map((e) => e.id),
+    inRange: pick.inRange, queries, seeds, ids: entries.map((e) => e.id),
   };
   if (!entries.length) return base;
 
