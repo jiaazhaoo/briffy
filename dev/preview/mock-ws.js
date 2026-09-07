@@ -168,46 +168,20 @@
     },
     chatRename: async function (id, title) { const c = this._chats.find((x) => x.id === id); if (c) c.title = title.trim(); return c || null; },
     chatRemove: async function (id) { this._chats = this._chats.filter((c) => c.id !== id); return true; },
-    // 三种边。样张里给全：一条摘录（有来处）、一页摘录清单、同一程、意思相近
+    // 和这一条有关的记录，一条按远近排好的清单，每条带着**凭什么**
     links: async (id) => {
       const me = entries.find((e) => e.id === id) || entries[0];
       const rest = entries.filter((e) => e.id !== me.id);
-      return {
-        source: { key: 'https://claude.ai/chat/abc', name: '赛程分前后半程 - Claude', page: rest[0].id, entry: pub(rest[0]) },
-        clips: rest.slice(1, 4).map(pub),
-        run: rest.slice(4, 6).map((e, i) => ({ name: ['Runnymede District to Staines Train Station', 'Parking on Buckingham Court, Staines'][i], entry: pub(e) })),
-        evidence: rest.slice(2, 5).map((e, i) => ({
-          pairs: [[{ a: 'TW20 0AE', b: 'TW20 0AE', fuzzy: false }],
-            [{ a: '泰晤士河', b: 'Thames', fuzzy: true }],
-            [{ a: '50km', b: '50km', fuzzy: false }, { a: 'Ultra', b: '挑战', fuzzy: true }]][i],
-          entry: pub(e),
-        })),
-        near: rest.slice(6, 8).map(pub),
-      };
-    },
-    graph: async (id) => {
-      const c = entries.find((e) => e.id === id) || entries[0];
-      const one = entries.filter((e) => e.id !== c.id).slice(0, 3);
-      const two = entries.filter((e) => e.id !== c.id && !one.includes(e)).slice(0, 2);
-      // 实体节点：不是记录，是一个地点 / 日期 / 数
-      const ents = [
-        { id: 'e:place:tw20 0ae', hop: 1, entity: { text: 'TW20 0AE', kind: 'place', n: 4 } },
-        { id: 'e:qty:50km', hop: 1, entity: { text: '50km', kind: 'qty', n: 6 } },
-        { id: 'e:name:egham', hop: 1, entity: { text: 'Egham', kind: 'name', n: 5 } },
+      const P = (a2, b2) => [{ a: a2, b: b2 || a2, fuzzy: !!b2 }];
+      const why = [
+        { kind: 'page', name: '赛程分前后半程 - Claude' },
+        { kind: 'word', pairs: P('TW20 0AE') },
+        { kind: 'word', pairs: P('泰晤士河', 'Thames') },
+        { kind: 'word', pairs: [...P('50km'), ...P('Ultra', '挑战')] },
+        { kind: 'run', name: '' },
+        { kind: 'near' },
       ];
-      const nodes = [{ ...pub(c), hop: 0 }, ...one.map((e) => ({ ...pub(e), hop: 1 })), ...ents, ...two.map((e) => ({ ...pub(e), hop: 2 }))];
-      // 三种边都给上，样张才看得出线的区别
-      // 边带着依据：一对词（模糊对写成 a ≈ b），或者那一页的名字
-      const P = (a, b) => [{ a, b: b || a, fuzzy: !!b }];
-      const edges = [
-        [c.id, one[0].id, 'word', P('TW20 0AE')],
-        [c.id, one[1].id, 'word', P('泰晤士河', 'Thames')],
-        [c.id, one[2].id, 'near', ''],
-        [one[0].id, one[1].id, 'run', 'Runnymede District to Staines'],
-      ];
-      two.forEach((e, i) => edges.push([one[i % one.length].id, e.id, i ? 'run' : 'page',
-        i ? 'Booking Details | JustPark' : '赛程分前后半程 - Claude']));
-      return { nodes, edges };
+      return { related: rest.slice(0, 6).map((e, i) => ({ entry: pub(e), score: 0.9 - i * 0.1, why: why[i] })) };
     },
     topics: async () => ([
       { id: 't1', name: '泰晤士河步道超级马拉松挑战赛', words: '', n: 5 },

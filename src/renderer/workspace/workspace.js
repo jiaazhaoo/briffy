@@ -10,11 +10,10 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', related: '相关', graph: '图谱', untitled: '无标题',
-      fromPage: '摘自', clippedHere: '从这一页摘的', sameRun: '同一程', notSaved: '（这一页没存下来）',
-      sameWords: '同一个词',
+      near: '相近', related: '相关', untitled: '无标题',
+      fromPage: '摘自', samePage: '同一页', sameRun: '同一段操作',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
-      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
+      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
@@ -149,11 +148,10 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', related: 'Related', graph: 'Graph', untitled: 'Untitled',
-      fromPage: 'Clipped from', clippedHere: 'Clipped from this page', sameRun: 'Same sitting', notSaved: '(page not saved)',
-      sameWords: 'Shares a word',
+      near: 'related', related: 'Related', untitled: 'Untitled',
+      fromPage: 'Clipped from', samePage: 'Same page', sameRun: 'Same sitting',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
-      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
+      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
@@ -1261,144 +1259,17 @@
   // 布局是**算出来的，不是模拟出来的**：节点少（实测中位 4 张、最多 10 张），一圈一圈摆开就够，
   // 而力导向那种要跑物理、每帧重画、位置还每次都不一样——同一条记录两次打开长得不该不一样。
   // 中心在正中，一跳一圈，二跳外面一圈，各自贴着自己的来处。
-  // 节点大小：中心和一跳是完整的一张便签（缩略图 + 标题 + 时间），二跳只留标题——
-  // 越往外越小，一是外圈周长有限（十张卡的极端情况下并排会打架），二是远的那几张
-  // 本来就只需要认出「哦是那件事」，不需要读。
-  const G = { R1: 182, R2: 330, SQUASH: 0.80, w1: 160, h1: 46, w2: 126, h2: 32 };
-
-  function graphMap(g, centreId) {
-    const { R1, R2, SQUASH } = G;
-    const cx = 0; const cy = 0;   // 先在以中心为原点的坐标里摆，最后按实际占的范围平移
-    const pos = new Map([[centreId, [cx, cy]]]);
-    const ang = new Map([[centreId, -Math.PI / 2]]);
-    const put = (id, a, r) => {
-      pos.set(id, [cx + Math.cos(a) * r, cy + Math.sin(a) * r * SQUASH]);
-      ang.set(id, a);
-    };
-    // 一跳：绕中心一圈匀开，从正上方起
-    const one = g.nodes.filter((n) => n.hop === 1);
-    one.forEach((n, i) => put(n.id, -Math.PI / 2 + (Math.PI * 2 * i) / Math.max(1, one.length), R1));
-    // 二跳：贴着把它带进来的那一个，在它的角度上下散开
-    const two = g.nodes.filter((n) => n.hop === 2);
-    const parentOf = (id) => {
-      for (const [a, b] of g.edges) {
-        if (a === id && ang.has(b) && b !== centreId) return b;
-        if (b === id && ang.has(a) && a !== centreId) return a;
-      }
-      return one[0] ? one[0].id : centreId;
-    };
-    const grouped = new Map();
-    for (const n of two) {
-      const k = parentOf(n.id);
-      if (!grouped.has(k)) grouped.set(k, []);
-      grouped.get(k).push(n);
-    }
-    for (const [parent, list] of grouped) {
-      const base = ang.get(parent) ?? -Math.PI / 2;
-      list.forEach((n, i) => put(n.id, base + (i - (list.length - 1) / 2) * 0.42, R2));
-    }
-
-    // 圈是按最坏情况（十张卡）撑开的，真正画出来的常常只有四五张，于是下面空一大片。
-    // 所以最后按卡片实际占的范围把画布收紧——图有多大就多大，不留白撑场面。
-    const M = 10;
-    const box = g.nodes.map((n) => {
-      const w = n.entity ? Math.max(58, String(n.entity.text).length * 8 + 20) : (n.hop === 2 ? G.w2 : G.w1);
-      const h = n.entity ? 26 : (n.hop === 2 ? G.h2 : G.h1);
-      const [x, y] = pos.get(n.id) || [cx, cy];
-      return { id: n.id, x, y, w, h };
-    });
-    const lo = (k, d) => Math.min(...box.map((b) => b[k] - b[d] / 2));
-    const hi = (k, d) => Math.max(...box.map((b) => b[k] + b[d] / 2));
-    const dx = M - lo('x', 'w'); const dy = M - lo('y', 'h');
-    const mapW = Math.round(hi('x', 'w') - lo('x', 'w') + M * 2);
-    const mapH = Math.round(hi('y', 'h') - lo('y', 'h') + M * 2);
-    const at = (id) => { const [x, y] = pos.get(id) || [cx, cy]; return [x + dx, y + dy]; };
-
-    // 线画到卡片的边上就停，不画到卡片中心：中心连中心的那一段被卡片自己盖住，
-    // 两张挨得近的卡片之间就什么也看不见——而这张图要说的正是「这两张连着」。
-    const size = new Map(box.map((b) => [b.id, [b.w / 2, b.h / 2]]));
-    const rim = (id, tx, ty) => {
-      const [x, y] = at(id);
-      const [hw, hh] = size.get(id) || [0, 0];
-      const dx = tx - x; const dy = ty - y;
-      const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
-      return t >= 1 || !Number.isFinite(t) ? [x, y] : [x + dx * t, y + dy * t];
-    };
-    // 线分种类：**一条「摘自」和一条「意思相近」的把握完全不同**，画成同一根就是在说它们一样可靠。
-    // 同一处是实线（精确匹配），同一程是虚线（那一段里你还路过了什么，会捞进不相干的），
-    // 意思相近还是那根细线。
-    // 线上写**凭什么连**：一对词（完全一致就写一个，模糊一致写成 a ≈ b），或者那一页的名字。
-    // 一条说不出依据的线和「相关」没有区别，那正是这张图之前难读的原因。
-    const label = (kind, why) => {
-      if (Array.isArray(why)) return why.slice(0, 2).map((p) => (p.fuzzy ? `${p.a} ≈ ${p.b}` : p.a)).join(' · ');
-      if (kind === 'near') return t('near');
-      return String(why || '').slice(0, 22);
-    };
-    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b)).map(([a, b, kind, why]) => {
-      const [ax, ay] = at(a); const [bx, by] = at(b);
-      const [x1, y1] = rim(a, bx, by);
-      const [x2, y2] = rim(b, ax, ay);
-      const txt = label(kind, why);
-      const mx = (x1 + x2) / 2; const my = (y1 + y2) / 2;
-      // 太短的线上放不下字；放不下就不放，别让字压在卡片上
-      const room = Math.hypot(x2 - x1, y2 - y1) > 86 && txt;
-      return `<line class="gr-edge e-${esc(kind || 'near')}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`
-        + (room ? `<text class="gr-why" x="${mx.toFixed(1)}" y="${(my - 3).toFixed(1)}" text-anchor="middle">${esc(txt.slice(0, 24))}</text>` : '');
-    }).join('');
-    // 卡片是 HTML 压在这层线上面的：一张记录在图里也该长成它在网格里的样子——
-    // 缩略图认得出来、标题能读、时间在下面。画成 <rect> 的时候，一个 24px 高的灰方块里
-    // 塞十四个字符，截出来的是「English (Great」这种谁也认不出的东西。
-    const cards = g.nodes.map((n) => {
-      // 实体不是记录，是关节：一个地点、一个日期、一个数。所以它不是一张纸——
-      // 它是印在底纸上的一个词，没有影子，也没有缩略图和时间。
-      if (n.entity) {
-        const w2 = Math.max(58, String(n.entity.text).length * 8 + 20);
-        const [ex, ey] = at(n.id);
-        return `<button type="button" class="gr-ent k-${esc(n.entity.kind)}" data-node="${esc(n.id)}"`
-          + ` title="${esc(n.entity.text)} · ${esc(String(n.entity.n))}" style="left:${(ex - w2 / 2).toFixed(1)}px;top:${(ey - 13).toFixed(1)}px;width:${w2}px;height:26px">`
-          + `<span>${esc(n.entity.text)}</span></button>`;
-      }
-      const far = n.hop === 2;
-      const w = far ? G.w2 : G.w1; const h = far ? G.h2 : G.h1;
-      const [x, y] = at(n.id);
-      const title = cardTitle(n) || t('untitled');
-      const thumb = (n.type === 'screenshot' || n.type === 'image') && n.fileUrl
-        ? `<img src="${esc(n.fileUrl)}" loading="lazy" alt="" />` : (ICONS[n.type] || ICONS.file);
-      return `<button type="button" class="gr-card h${n.hop}${n.id === centreId ? ' on' : ''}" data-node="${esc(n.id)}"`
-        + ` title="${esc(title)}" style="left:${(x - w / 2).toFixed(1)}px;top:${(y - h / 2).toFixed(1)}px;width:${w}px;height:${h}px">`
-        + (far ? '' : `<span class="ct">${thumb}</span>`)
-        + `<span class="cb"><b>${esc(title)}</b>${far ? '' : `<span>${esc(fmtTime(n.createdAt))}</span>`}</span></button>`;
-    }).join('');
-    return `<div class="gr-map" style="width:${mapW}px;height:${mapH}px">`
-      + `<svg class="gr-lines" viewBox="0 0 ${mapW} ${mapH}" width="${mapW}" height="${mapH}" aria-hidden="true">${edges}</svg>${cards}</div>`;
-  }
-
-  async function openGraph(id) {
-    // 图谱和详情是同一条记录的两种看法，不该同时开着——两层弹窗叠起来谁也读不清。
-    const dm = $('#detailModal');
-    if (dm) dm.hidden = true;
-    const e = state.entries.find((x) => x.id === id) || currentEntry();
-    $('#graphTitle').textContent = t('graph');
-    $('#graphBody').innerHTML = '';
-    $('#graphModal').hidden = false;
-    let g = { nodes: [], edges: [] };
-    try { g = await ws.graph(id); } catch (_) { g = { nodes: [], edges: [] }; }
-    const centre = g.nodes.find((n) => n.hop === 0);
-    $('#graphTitle').textContent = centre ? cardTitle(centre) : (e ? cardTitle(e) : t('graph'));
-    $('#graphBody').innerHTML = g.nodes.length > 1
-      ? graphMap(g, id)
-      : `<div class="gr-note">${esc(t('graphEmpty'))}</div>`;
-  }
-
   // 打开一条记录时当场算它的邻居，不存图——存下来只会多一个会过期的东西。
   // seq 挡住过期的回应：翻得快时前一条的邻居不该落在后一条底下。
   let relSeq = 0;
   /**
-   * 这一条身上挂着的边。**三种分开列，各自说得出来路**——不合成一个「相关」。
+   * 和这一条有关的记录：**一条按远近排好的清单，每条说得出为什么**。
    *
-   * 「摘自 / 从这一页摘的」是精确的（同一个网址、或同一个标签页标题，一字不差）；
-   * 「同一程」是那一段没断过的操作里你还经过了哪几页，它会捞进不相干的东西，所以单列；
-   * 「相关」是向量，只有真的很近才出现。把它们并成一栏，就等于宣称三种把握一样大。
+   * 之前这里是四组分开列的边，外加一张图谱。图谱去掉了——十四张卡、四十多条线、线上还写着字，
+   * 那是一团乱麻，读不出任何东西。分四组也不对：你要的是「和这条最近的是哪几条」，
+   * 不是「按证据种类分好的四张小表」。
+   *
+   * 左边那一栏写**凭什么**：一对词（模糊一致写成 a ≈ b）、那一页的名字、或者「同一段操作」。
    */
   async function fillRelated(id, box) {
     const my = ++relSeq;
@@ -1407,40 +1278,20 @@
     if (my !== relSeq || !l) return;
     const slot = box.querySelector('.dt-related');
     if (!slot) return;
-    // 日期用短的：这一栏只有 84px，写全「2026年9月7日周四」会折成两行
-    const row = (e) => `<button type="button" class="rel" data-rel="${esc(e.id)}">`
-      + `<span class="tm">${esc(shortDay(e.dateKey))}</span>`
-      + `<span class="ti">${esc(cardTitle(e))}</span></button>`;
-    const group = (label, list) => (list && list.length
-      ? `<h3>${esc(t(label))}</h3>${list.map(row).join('')}` : '');
-
-    let html = '';
-    if (l.source) {
-      // 那一页你也存下来了就能点进去；没存过，它仍然是个说得出名字的来处
-      html += `<h3>${esc(t('fromPage'))}</h3>`
-        + (l.source.entry ? row(l.source.entry)
-          : `<div class="rel flat"><span class="ti">${esc(l.source.name)}</span><span class="tm">${esc(t('notSaved'))}</span></div>`);
-    }
-    html += group('clippedHere', l.clips);
-    // 同一程列的是**页面的名字**，点开的是那一页上的一条记录——那一页本身多半没被存下来
-    if (l.run && l.run.length) {
-      html += `<h3>${esc(t('sameRun'))}</h3>`
-        + l.run.map((p) => `<button type="button" class="rel" data-rel="${esc(p.entry.id)}">`
-          + `<span class="tm">${esc(fmtTime(p.entry.createdAt))}</span>`
-          + `<span class="ti">${esc(p.name)}</span></button>`).join('');
-    }
-    // 证据边：左边那一栏不写时间，写**共用的是哪几个词**。这条边的全部意义就是它说得出为什么，
-    // 藏起来它就退化成又一个「相关」了。
-    if (l.evidence && l.evidence.length) {
-      html += `<h3>${esc(t('sameWords'))}</h3>`
-        + l.evidence.map((x) => `<button type="button" class="rel ev" data-rel="${esc(x.entry.id)}">`
-          + `<span class="tm">${esc((x.pairs || []).map((p) => (p.fuzzy ? `${p.a} ≈ ${p.b}` : p.a)).join(' · '))}</span>`
-          + `<span class="ti">${esc(cardTitle(x.entry))}</span></button>`).join('');
-    }
-    html += group('related', l.near);
-    if (!html) { slot.hidden = true; slot.innerHTML = ''; return; }
+    const list = l.related || [];
+    if (!list.length) { slot.hidden = true; slot.innerHTML = ''; return; }
+    const why = (w) => {
+      if (!w) return '';
+      if (w.kind === 'word' && w.pairs) return w.pairs.map((p) => (p.fuzzy ? `${p.a} ≈ ${p.b}` : p.a)).join(' · ');
+      if (w.kind === 'page') return w.name ? `${t('fromPage')} ${w.name}` : t('samePage');
+      if (w.kind === 'run') return t('sameRun');
+      return t('near');
+    };
     slot.hidden = false;
-    slot.innerHTML = html;
+    slot.innerHTML = `<h3>${esc(t('related'))}</h3>`
+      + list.map((x) => `<button type="button" class="rel ev" data-rel="${esc(x.entry.id)}">`
+        + `<span class="tm">${esc(why(x.why))}</span>`
+        + `<span class="ti">${esc(cardTitle(x.entry))}</span></button>`).join('');
   }
 
   function renderDetailInto(box) {
@@ -1494,7 +1345,6 @@
           <div class="dt-acts">
             <button type="button" class="act${e.pinned ? ' on' : ''}" data-action="pin"
               title="${esc(t(e.pinned ? 'unpin' : 'pin'))}">${esc(t('pin'))}</button>
-            <button type="button" class="act" data-action="graph">${esc(t('graph'))}</button>
             <button type="button" class="act danger" data-action="delete">${esc(t('delete'))}</button>
             ${inModal ? `<button type="button" class="act act-close" data-close aria-label="Close">
               <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>` : ''}
@@ -1663,7 +1513,6 @@
         break;
       }
       case 'openContextUrl': await ws.openExternal(ctxOf(e) ? ctxOf(e).url : ''); break;
-      case 'graph': openGraph(e.id); break;
       case 'pin': {
         const updated = await ws.updateEntry(e.id, { pinned: !e.pinned });
         if (updated) { upsert(updated); state.pinnedCount += updated.pinned ? 1 : -1; renderDims(); renderDetail(); renderList(); }
@@ -2637,17 +2486,6 @@
     // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
 // 「相关」里点一条 = 打开那一条。委托到 document 上：这一块在详情面板里，
     // 而详情面板在列表视图和弹窗里各有一份，两处都要能点。
-$('#graphModal').addEventListener('click', (ev) => {
-      if (ev.target.closest('[data-graph-close]') || ev.target === $('#graphModal')) { $('#graphModal').hidden = true; return; }
-      // 点一张卡就是打开那条记录，只此一件事。
-      // 原来这里是「把图移到那一条上」——听着顺，用起来是：整张图拆掉、去后台算一遍、再长回来，
-      // 于是每点一下都闪一下，而你多半只是想看看那张卡到底是什么。要走链，从新开的那条记录
-      // 再点一次「图谱」就是了。
-      const n = ev.target.closest('.gr-card');
-      if (!n || !n.dataset.node) return;
-      $('#graphModal').hidden = true;
-      openDetail(n.dataset.node);
-    });
         document.addEventListener('click', (ev) => {
       const b = ev.target.closest && ev.target.closest('[data-rel]');
       if (!b) return;
