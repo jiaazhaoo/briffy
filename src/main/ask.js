@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const llm = require('./llm');
-const recall = require('./recall');
+const retrieve = require('./retrieve');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
 
@@ -64,36 +64,21 @@ async function run(question, { limit = MAX_ITEMS } = {}) {
   const today = localDateKey();
   try { refresh(); } catch (e) { console.warn('[ask] 索引没能追平', e.message); }
 
-  // 时间词归 recall.js 管——那一套有测试盯着，也是这里唯一需要「懂中文」的地方。
-  // 它挑完之后要把那些词从查询里去掉，否则索引会去找正文里真的写着「上周」的记录。
-  const found = recall.parseRange(q, today);
-  let rest = q;
-  if (found) for (const m of found.matches) rest = rest.split(m).join(' ');
-
-  const from = found ? found.from : '';
-  const to = found ? found.to : '';
-  let hit = index.search({ query: rest, from, to, limit });
-  // 问了一段时间却一条也没匹配上，就把那段时间整个给他——他问的就是那段时间。
-  // 「今天做了什么」曾经返回 0 条：日期词拿走之后剩下的「做了」成了一个内容词，正文里一次也没出现。
-  // 补停用词治不了「今天弄了些啥」，所以钉的是结果。recall.js 里有同一条规则和它的测试，
-  // 那条路现在只负责解析时间，所以这里要自己再写一遍。
-  if (!hit.ids.length && found) hit = index.search({ from, to, limit });
-  const entries = hit.ids.map((id) => store.getEntry(id)).filter(Boolean);
+  const pick = retrieve.select(index, q, { today, limit });
+  const entries = pick.ids.map((id) => store.getEntry(id)).filter(Boolean);
 
   const base = {
     question: q, answer: '', used: [], model: '',
-    sources: entries, range: found ? { from: found.from, to: found.to } : null,
-    scored: hit.scored, noProvider: false, error: '', total: index.stats().entries,
-    // 这段时间里一共有多少条。退回时间范围时给的是「最近 40 条」，界面上得说清楚是 40 还是全部
-    // ——它以前一律写「这段时间的全部记录」，而这一周实际有 208 条。
-    inRange: found ? index.days({ from, to }).reduce((n, d) => n + d.n, 0) : 0,
+    sources: entries, range: pick.range,
+    scored: pick.scored, noProvider: false, error: '', total: index.stats().entries,
+    inRange: pick.inRange,
   };
   if (!entries.length) return base;
 
   const cfg = llm.config(store);
   if (!llm.isConfigured(cfg)) return { ...base, noProvider: true };
   try {
-    const r = await llm.answerQuestion(cfg, { question: q, entries, terms: hit.terms || [] });
+    const r = await llm.answerQuestion(cfg, { question: q, entries, terms: pick.terms });
     return { ...base, answer: r.answer, used: r.used, model: r.model };
   } catch (e) {
     return { ...base, error: e.message || String(e) };
