@@ -276,6 +276,9 @@ npm run pet -- frames --from assets/pet/raw/B1.png   # 选定后画 8 帧
 `site/` 是一份双语源文件，发布出去是**两个真正的单语页面**——一个页面服务两种语言，
 链接分不开、搜索引擎收不进去、分享出去的标题永远是其中一种。
 
+入口按浏览器语言自动落到其中一页；点过语言链接之后就不再替人决定
+（否则从英文页点「中文」会被当场弹回英文）。
+
 ```bash
 node dev/preview/serve.js   # 看源文件：http://localhost:5173/site/
 npm run site                # 切成两页：site-dist/

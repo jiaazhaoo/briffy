@@ -113,59 +113,63 @@
   <p class="fine en">macOS · Windows · recognition runs locally · source-available, noncommercial</p>
 </section>
 
-<!-- ══ 一天 ════════════════════════════════════════════════════════════════
-     整个产品的主语是「一天」。这条时间带是它最短的证明：一串时刻，你一个都没经手。 -->
-<section class="sec" id="day">
-  <p class="times" aria-hidden="true">
-    <span>08:40</span><span>09:12</span><span>10:03</span><span>11:25</span><span>12:15</span><span>13:33</span><span>15:02</span><span>18:37</span><span>18:45</span>
-  </p>
-  <p class="times-note zh">这一天你没有为其中任何一条动过手。</p>
-  <p class="times-note en">You did not lift a finger for any of these.</p>
-</section>
-
-<!-- ══ 录入 ════════════════════════════════════════════════════════════════ -->
+<!-- ══ 收 ══════════════════════════════════════════════════════════════════
+     六条进来的路。写的是能力和它凭什么成立，不是"你可以点它几下"——
+     手势是操作说明，不是理由。 -->
 <section class="sec" id="input">
   <div class="sec-head">
-    <h2 class="zh">你已经在做的事，就是录入</h2>
-    <h2 class="en">What you already do is the input</h2>
+    <h2 class="zh">一直开着，什么都往里收</h2>
+    <h2 class="en">Always on, everything lands in it</h2>
     <p class="sub zh">没有「新建记录」这个按钮。</p>
     <p class="sub en">There is no “new entry” button.</p>
   </div>
 
-  <div class="ges">
-    <div class="ges-mark">
-      <span class="mark-slot" id="markGes" aria-hidden="true"></span>
-      <span class="ges-state" id="gesState"></span>
+  <div class="what">
+    <div class="it">
+      <h3 class="zh">常驻剪贴板</h3>
+      <h3 class="en">It lives on your clipboard</h3>
+      <p class="zh">你按 <kbd>Ctrl</kbd><kbd>C</kbd> 的每一次都落进来——文字、图片、文件。同一次复制只算一条，不会因为格式多就存好几份。</p>
+      <p class="en">Every <kbd>Ctrl</kbd><kbd>C</kbd> lands: text, images, files. One copy is one record — several clipboard flavours of the same thing don’t become several.</p>
     </div>
 
-    <dl class="rows">
-      <div class="row" data-state="success">
-        <dt><span class="zh">复制</span><span class="en">Copy</span> <kbd>Ctrl</kbd><kbd>C</kbd></dt>
-        <dd><span class="zh">文字、图片、文件，落下来就是一条。同一次复制只算一条。</span><span class="en">Text, images, files — each copy lands as one entry. One copy, one record.</span></dd>
-      </div>
-      <div class="row" data-state="success">
-        <dt><span class="zh">收藏</span><span class="en">Save</span></dt>
-        <dd><span class="zh">X、Reddit、小红书，或 <kbd>Ctrl</kbd><kbd>D</kbd>。标题、正文、网址一起存档。</span><span class="en">X, Reddit, or <kbd>Ctrl</kbd><kbd>D</kbd>. Title, body and URL are archived together.</span></dd>
-      </div>
-      <div class="row" data-state="capturing">
-        <dt><span class="zh">截图</span><span class="en">Capture</span></dt>
-        <dd><span class="zh">照常截，照常粘贴。它顺手留一份，不会因此记两遍。</span><span class="en">Screenshot the way you already do, paste the way you already do. A copy is kept — and not recorded twice.</span></dd>
-      </div>
-      <div class="row" data-state="recording">
-        <dt><span class="zh">说一句</span><span class="en">Say something</span></dt>
-        <dd><span class="zh">中键，或长按。转写在本机。</span><span class="en">Middle-click, or hold. Transcribed on your machine.</span></dd>
-      </div>
-      <div class="row" data-state="processing">
-        <dt><span class="zh">拖进来</span><span class="en">Drop</span></dt>
-        <dd><span class="zh">图片、文件、链接、PDF、网页。</span><span class="en">Images, files, links, PDFs, pages.</span></dd>
-      </div>
-    </dl>
+    <div class="it">
+      <h3 class="zh">拖什么进来都行</h3>
+      <h3 class="en">Drop anything on it</h3>
+      <p class="zh">图片、PDF、音频、视频、代码、一段选中的文字。超过 200 MB 的不复制，只记住它在哪儿。</p>
+      <p class="en">Images, PDFs, audio, video, code, a selected paragraph. Anything over 200 MB isn’t copied — it just remembers where it lives.</p>
+    </div>
+
+    <div class="it">
+      <h3 class="zh">任意社媒的收藏，连正文一起</h3>
+      <h3 class="en">Any site’s bookmarks, body and all</h3>
+      <p class="zh">X 的 Bookmark、Reddit 的 Save、小红书和知乎的收藏。<b>存下来的是整篇正文</b>，不是一个链接——而且是在页面里抽的，所以要登录才看得见的东西也存得下来。</p>
+      <p class="en">X’s Bookmark, Reddit’s Save, and the rest. <b>The whole article is archived, not a link</b> — and it’s extracted inside the page, so what only shows up once you’re logged in comes too.</p>
+    </div>
+
+    <div class="it">
+      <h3 class="zh">会议自己录下来</h3>
+      <h3 class="en">Meetings record themselves</h3>
+      <p class="zh">它不听房间，它跟着麦克风：<b>别的软件打开麦克风，它才录</b>（腾讯会议、Zoom、Teams、Meet⋯⋯）。录完转成文字，还分得出说话人 1 / 2 / 3。默认关着。</p>
+      <p class="en">It doesn’t listen to the room, it follows the microphone: <b>it records only when another app opens it</b> (Zoom, Teams, Meet, Tencent Meeting…). Then it’s transcribed and split into speaker 1 / 2 / 3. Off by default.</p>
+    </div>
+
+    <div class="it">
+      <h3 class="zh">任意格式变成文本</h3>
+      <h3 class="en">Anything becomes text</h3>
+      <p class="zh">截图里的字、录音里的话、PDF、网页正文——全部变成能搜的文字，识别在本机。</p>
+      <p class="en">The words inside a screenshot, the words inside a recording, a PDF, a page’s body — all of it becomes searchable text, recognised on your own machine.</p>
+    </div>
+
+    <div class="it">
+      <h3 class="zh">你的 AI 读得到</h3>
+      <h3 class="en">Your AI can read it</h3>
+      <p class="zh">一个<b>只读</b>的 MCP 服务器：Claude、Cursor、VS Code、Codex 接上就能查你的日常上下文。它直接读工作区文件，briffy 开没开都行。</p>
+      <p class="en">A <b>read-only</b> MCP server: Claude, Cursor, VS Code and Codex can query your day. It reads the workspace files directly, so it answers whether or not briffy is running.</p>
+    </div>
   </div>
 
-  <p class="keys">
-    <span class="zh"><kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> 框选 · <kbd>S</kbd> 整屏 · <kbd>V</kbd> 录音（macOS 上 <kbd>Cmd</kbd><kbd>Shift</kbd>）</span>
-    <span class="en"><kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> region · <kbd>S</kbd> full screen · <kbd>V</kbd> record (<kbd>Cmd</kbd><kbd>Shift</kbd> on macOS)</span>
-  </p>
+  <p class="keys zh">想主动记一笔也行：点它截屏、双击框选、长按说一句，或按 <kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> / <kbd>S</kbd> / <kbd>V</kbd>（macOS 上 <kbd>Cmd</kbd><kbd>Shift</kbd>）。</p>
+  <p class="keys en">You can also act on purpose: click it to capture, double-click for a region, hold to speak — or <kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> / <kbd>S</kbd> / <kbd>V</kbd> (<kbd>Cmd</kbd><kbd>Shift</kbd> on macOS).</p>
 </section>
 
 <!-- ══ 整理 ════════════════════════════════════════════════════════════════ -->
