@@ -10,7 +10,9 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', related: '相关', graph: '图谱', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
+      near: '相近', related: '相关', graph: '图谱',
+      chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
+      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
@@ -145,7 +147,9 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', related: 'Related', graph: 'Graph', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
+      near: 'related', related: 'Related', graph: 'Graph',
+      chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
+      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
@@ -287,6 +291,7 @@
     view: 'grid',
     boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
     ask: { question: '', result: null, busy: false }, ffmpeg: null,
+    chatId: '', chatList: [],      // 问过的那些对话；chatId 是正在看的那一条
   };
   const t = (k, p) => {
     let s = T[state.ui][k] ?? T.en[k] ?? k;
@@ -334,7 +339,7 @@
     for (const s of document.querySelectorAll('.tab')) s.classList.toggle('active', s.id === `tab-${tab}`);
     // 进「问」这一页要把已有的对话画出来。以前只 focus 不渲染，第一次进去就是一整片空白——
     // 而输入框那只托盘当时也被 CSS 藏着，于是那一页既没有内容也没有地方打字。
-    if (tab === 'ask') { renderAsk(); setTimeout(() => $('#askInput').focus(), 0); }
+    if (tab === 'ask') { loadChats(); renderAsk(); setTimeout(() => $('#askInput').focus(), 0); }
     // 接入的状态会自己变（同步在跑、token 过期），所以每次打开设置都重新问一次，
     // 而不是沿用启动时那一份。populateSettings 只在启动和保存后跑。
     if (tab === 'settings') renderConnect();
@@ -1571,7 +1576,14 @@
     } finally {
       state.ask.busy = false;
       $('#btnAsk').disabled = false;
-      if (state.ask.result) state.chat.push(state.ask.result);   // 问过的留在这一页上
+      if (state.ask.result) {
+        state.chat.push(state.ask.result);
+        // 落盘：一条一个文件。chatId 为空就开一条新的，回来的 id 记住，接着问就落在同一条里。
+        try {
+          const r = await ws.chatAppend(state.chatId, state.ask.result);
+          if (r && r.chat) { state.chatId = r.chat.id; loadChats(); }
+        } catch (_) { /* 存不下也不该让这次回答消失 */ }
+      }
       renderAsk();
     }
   }
@@ -1664,6 +1676,52 @@
   }
 
   // 问过的话留在这一页上，一轮一轮往下排。最后一轮引用的记录列在右边。
+  // ---------- 问过的那些对话 ----------
+  //
+  // 存在磁盘上（src/main/chats.js），一条一个文件。在这之前 state.chat 只在内存里，
+  // 切到别的页再回来就空了——问过一遍的东西第二天翻不回去。
+  //
+  // 左列只有字：按天分组，一条一行。没有框、没有线——和记录页的筛选行同一种说法。
+  async function loadChats() {
+    try { state.chatList = await ws.chats(); } catch (_) { state.chatList = []; }
+    renderChatList();
+  }
+
+  function renderChatList() {
+    const box = $('#chatItems');
+    if (!box) return;
+    if (!state.chatList.length) { box.innerHTML = `<div class="cl-note">${esc(t('chatNone'))}</div>`; return; }
+    let band = '';
+    box.innerHTML = state.chatList.map((c) => {
+      const day = String(c.at || '').slice(0, 10);
+      const label = day === todayKey() ? t('chatToday') : day === todayKey(-1) ? t('chatYesterday') : fmtDate(day);
+      const head = label !== band ? `<div class="cl-band">${esc(label)}</div>` : '';
+      band = label;
+      return head + `<div class="cl-row${c.id === state.chatId ? ' on' : ''}" data-chat="${esc(c.id)}" role="button" tabindex="0">`
+        + `<span class="ti">${esc(c.title || t('chatNone'))}</span>`
+        + `<span class="acts"><button type="button" class="mini" data-chat-rename="${esc(c.id)}">${esc(t('chatRename'))}</button>`
+        + `<button type="button" class="mini danger" data-chat-del="${esc(c.id)}">${esc(t('chatDelete'))}</button></span></div>`;
+    }).join('');
+  }
+
+  async function openChat(id) {
+    let c = null;
+    try { c = await ws.chat(id); } catch (_) { c = null; }
+    state.chatId = c ? c.id : '';
+    state.chat = c ? (c.turns || []) : [];
+    state.ask.busy = false;
+    renderChatList();
+    renderAsk();
+  }
+
+  function newChat() {
+    state.chatId = '';        // 空的：下一次提问时后端会开一条新的
+    state.chat = [];
+    renderChatList();
+    renderAsk();
+    setTimeout(() => $('#askInput').focus(), 0);
+  }
+
   function renderAsk() {
     const box = $('#askAnswer');
     const turns = state.chat;
@@ -2425,7 +2483,12 @@
     // 别写死。以前是 112px 写死在两处 CSS 里，主题那一行一出现就压在第一条记录上。
     const top = document.querySelector('.top');
     if (top && window.ResizeObserver) {
-      const fit = () => document.documentElement.style.setProperty('--top-h', `${Math.round(top.getBoundingClientRect().bottom)}px`);
+      // 顶栏只在记录页出现，别的页 display:none。那时候量到的是 0，写回去会让记录页的内容
+      // 钻到顶栏底下——所以看不见就不改，保留上一次量到的那个数。
+      const fit = () => {
+        const r = top.getBoundingClientRect();
+        if (r.height > 0) document.documentElement.style.setProperty('--top-h', `${Math.round(r.bottom)}px`);
+      };
       new ResizeObserver(fit).observe(top);
       fit();
     }
@@ -2615,7 +2678,29 @@ $('#graphModal').addEventListener('click', (ev) => {
     }
     $('#detail').addEventListener('click', detailClick);
     $('#listDetail').addEventListener('click', detailClick);
-    $('#askForm').addEventListener('submit', (e) => { e.preventDefault(); runAsk(); });
+$('#chatNew').addEventListener('click', () => newChat());
+    $('#chatItems').addEventListener('click', async (e) => {
+      const del = e.target.closest('[data-chat-del]');
+      if (del) {
+        if (!window.confirm(t('chatConfirm'))) return;
+        await ws.chatRemove(del.dataset.chatDel);
+        if (state.chatId === del.dataset.chatDel) newChat();
+        loadChats();
+        return;
+      }
+      const ren = e.target.closest('[data-chat-rename]');
+      if (ren) {
+        const cur = (state.chatList.find((c) => c.id === ren.dataset.chatRename) || {}).title || '';
+        const name = window.prompt(t('chatRename'), cur);
+        if (name === null) return;
+        await ws.chatRename(ren.dataset.chatRename, name);
+        loadChats();
+        return;
+      }
+      const row = e.target.closest('[data-chat]');
+      if (row) openChat(row.dataset.chat);
+    });
+        $('#askForm').addEventListener('submit', (e) => { e.preventDefault(); runAsk(); });
     // 回车送出，Shift+回车换行。textarea 默认回车就是换行，所以这一条必须自己写；
     // 输入法正在选字时（isComposing）不能算送出，否则打到一半就被发出去了。
     $('#askInput').addEventListener('keydown', (e) => {

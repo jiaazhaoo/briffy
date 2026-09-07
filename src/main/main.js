@@ -30,6 +30,7 @@ const apps = require('./apps');
 const connect = require('./connect');
 const importBulk = require('./import-bulk');
 const trail = require('./trail');
+const chats = require('./chats');
 const listen = require('./listen');
 const diarize = require('./diarize');
 const dayStats = require('./day-stats');
@@ -157,6 +158,7 @@ async function main() {
   ask.init({ store });
   connect.init({ store });
   trail.init({ store });
+  chats.init({ store });
   trail.start();
   connect.onProgress((p) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('ws:connect-progress', p); });
   ask.warm();                      // 后台把磁盘索引追平，第一次提问就不用等
@@ -1090,6 +1092,12 @@ function setupIpc() {
   ipcMain.handle('ws:trail', (_e, day) => trail.read(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-days', () => trail.days());
   // 和这一条讲同一件事的那几条。当场算，不存图——存下来只会多一个会过期的东西。
+  // 问过的那些对话。一条一个文件，和天文件同一个做法——追加一轮只重写那一个。
+  ipcMain.handle('ws:chats', () => chats.list());
+  ipcMain.handle('ws:chat', (_e, id) => chats.read(id));
+  ipcMain.handle('ws:chat-append', (_e, id, turn) => chats.append(String(id || ''), turn || {}));
+  ipcMain.handle('ws:chat-rename', (_e, id, title) => chats.rename(String(id || ''), String(title || '')));
+  ipcMain.handle('ws:chat-remove', (_e, id) => chats.remove(String(id || '')));
   ipcMain.handle('ws:related', (_e, id) => ask.relatedTo(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
   // 一条记录周围两跳的图。节点连同记录本身一起给，省得渲染层再问一遍。
   ipcMain.handle('ws:graph', (_e, id) => {

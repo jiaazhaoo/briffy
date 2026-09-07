@@ -70,7 +70,13 @@
       </section>
 
       <!-- 问：和主页平级的一页。问句从底栏那个输入框来，答案连着它引用的记录一起留在这里 -->
+      <!-- 「问」是两列：左边是问过的那些对话（一条一行的字），右边是这一条的来回。
+           左列只有字、没有框——和记录页的筛选行同一种说法。 -->
       <section id="tab-ask" class="tab">
+        <aside class="chatlist">
+          <button type="button" id="chatNew" class="src-chip" data-i18n="chatNew">新的一条</button>
+          <div id="chatItems"></div>
+        </aside>
         <div class="askcol"><article id="askAnswer" class="md"></article></div>
       </section>
 

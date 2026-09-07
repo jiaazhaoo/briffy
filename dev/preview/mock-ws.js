@@ -152,6 +152,22 @@
     // 主题：讲同一件事的记录归成的堆
     // 「相关」：讲同一件事的那几条，当场算出来的
     related: async (id) => entries.filter((e) => e.id !== id).slice(0, 3).map(pub),
+    // 问过的那些对话
+    _chats: [
+      { id: 'c1', title: '我最近有个 walking 挑战，你帮我看看记录', at: new Date().toISOString(), n: 2, turns: [] },
+      { id: 'c2', title: '我本机的 ollama 地址是多少', at: new Date(Date.now() - 864e5).toISOString(), n: 1, turns: [] },
+      { id: 'c3', title: '上周我干了啥', at: new Date(Date.now() - 4 * 864e5).toISOString(), n: 3, turns: [] },
+    ],
+    chats: async function () { return this._chats.map(({ turns, ...c }) => c); },
+    chat: async function (id) { return this._chats.find((c) => c.id === id) || null; },
+    chatAppend: async function (id, turn) {
+      let c = this._chats.find((x) => x.id === id);
+      if (!c) { c = { id: 'c' + Date.now(), title: turn.question || '', at: new Date().toISOString(), n: 0, turns: [] }; this._chats.unshift(c); }
+      c.turns.push(turn); c.n = c.turns.length; c.at = new Date().toISOString();
+      return { chat: c, created: false };
+    },
+    chatRename: async function (id, title) { const c = this._chats.find((x) => x.id === id); if (c) c.title = title.trim(); return c || null; },
+    chatRemove: async function (id) { this._chats = this._chats.filter((c) => c.id !== id); return true; },
     graph: async (id) => {
       const c = entries.find((e) => e.id === id) || entries[0];
       const one = entries.filter((e) => e.id !== c.id).slice(0, 3);

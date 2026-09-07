@@ -809,6 +809,22 @@ body[data-tab="settings"] .d-mid { display: none; }
 .pet-grid .pet-empty { grid-column: 1 / -1; padding: var(--a4); text-align: center; color: var(--ink-3); }
 
 /* 问的那一页：居中一栏，一轮一轮往下排。被引用的记录是回答末尾的一排小纸片，没有第二栏 */
+/* 「问」是两列：左边问过的那些对话，右边这一条的来回。左列只有字——没有框、没有线，
+   和记录页的筛选行同一种说法。分隔靠留白，不靠竖线（全仓只有输入框底下那一道发丝线）。 */
+#tab-ask { flex-direction: row; }
+/* 这一页没有顶栏，所以不吃 --top-h，用和右边那一列一样的上边距——两列的第一行才对得齐 */
+.chatlist { width: 208px; flex: none; overflow: auto; padding: 60px var(--a3) 100px var(--pad); }
+.chatlist #chatNew { margin-bottom: var(--a4); }
+.cl-band { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); margin: var(--a4) 0 var(--a2); }
+.cl-row { display: flex; align-items: baseline; gap: var(--a2); padding: var(--a1) 0; cursor: pointer; }
+.cl-row .ti { flex: 1; min-width: 0; color: var(--ink-2); font-size: var(--fs-body);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-row:hover .ti { color: var(--ink); }
+.cl-row.on .ti { color: var(--ink); font-weight: 600; }
+.cl-row .acts { display: none; gap: var(--a2); flex: none; }
+.cl-row:hover .acts { display: flex; }
+.cl-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a3) 0; }
+
 .askcol { flex: 1; min-height: 0; overflow: auto; padding: 60px var(--a4) 100px; }
 .askcol > .md { max-width: 720px; margin: 0 auto; }
 .turn { padding-bottom: var(--a5); }
