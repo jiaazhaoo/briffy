@@ -133,4 +133,47 @@ function related(index, id, { limit = 3, floor = NEAR } = {}) {
   return scored.sort((a, b) => b[1] - a[1]).slice(0, limit).map(([rid]) => rid);
 }
 
-module.exports = { fill, search, related, MODEL, NEAR };
+/**
+ * 一条记录周围两跳的那张图。
+ *
+ * 两跳就够：实测中位 4 张、四分之三位 6 张、最多 10 张，一屏放得下，不用设上限也不用折叠。
+ * 一跳只有三张，看不出形状；三跳会把半个工作区拉进来。
+ *
+ * 边是**所有节点两两之间**真的够近的那些，不只是「从中心长出去」的那几条——
+ * 图谱比清单多出来的东西就在这里：你的三个邻居彼此是不是也连着。
+ * @returns {{nodes:{id:string,hop:number}[], edges:[string,string][]}}
+ */
+function graph(index, id, { hops = 2, limit = 3, floor = NEAR } = {}) {
+  const centre = String(id || '');
+  const hop = new Map([[centre, 0]]);
+  let frontier = [centre];
+  for (let d = 1; d <= hops; d++) {
+    const next = [];
+    for (const from of frontier) {
+      for (const to of related(index, from, { limit, floor })) {
+        if (hop.has(to)) continue;
+        hop.set(to, d);
+        next.push(to);
+      }
+    }
+    frontier = next;
+    if (!frontier.length) break;
+  }
+  const ids = [...hop.keys()];
+  const set = new Set(ids);
+  const edges = [];
+  const seen = new Set();
+  for (const a of ids) {
+    // 邻居多取几个：图里这些节点彼此的连线，比「从中心长出去」那三条更能说明形状
+    for (const b of related(index, a, { limit: limit * 3, floor })) {
+      if (!set.has(b)) continue;
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push(a < b ? [a, b] : [b, a]);
+    }
+  }
+  return { nodes: ids.map((x) => ({ id: x, hop: hop.get(x) })), edges };
+}
+
+module.exports = { fill, search, related, graph, MODEL, NEAR };

@@ -1091,6 +1091,17 @@ function setupIpc() {
   ipcMain.handle('ws:trail-days', () => trail.days());
   // 和这一条讲同一件事的那几条。当场算，不存图——存下来只会多一个会过期的东西。
   ipcMain.handle('ws:related', (_e, id) => ask.relatedTo(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
+  // 一条记录周围两跳的图。节点连同记录本身一起给，省得渲染层再问一遍。
+  ipcMain.handle('ws:graph', (_e, id) => {
+    const g = ask.graphOf(id);
+    return {
+      edges: g.edges,
+      nodes: g.nodes.map((n) => {
+        const e = store.getEntry(n.id);
+        return e ? { ...publicEntry(e), hop: n.hop } : null;
+      }).filter(Boolean),
+    };
+  });
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());

@@ -10,7 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', related: '相关', topicsHint: '成堆的：', viewTrail: '路过',
+      near: '相近', related: '相关', graph: '图谱', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
@@ -145,7 +145,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', related: 'Related', topicsHint: 'Groups:', viewTrail: 'Passed by',
+      near: 'related', related: 'Related', graph: 'Graph', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
@@ -1211,6 +1211,75 @@
   const detailBox = () => (!$('#detailModal').hidden ? $('#detail') : $('#listDetail'));
   function renderDetail() { renderDetailInto(detailBox()); }
 
+  // ---------- 图谱：一条记录周围两跳 ----------
+  //
+  // 布局是**算出来的，不是模拟出来的**：节点少（实测中位 4 张、最多 10 张），一圈一圈摆开就够，
+  // 而力导向那种要跑物理、每帧重画、位置还每次都不一样——同一条记录两次打开长得不该不一样。
+  // 中心在正中，一跳一圈，二跳外面一圈，各自贴着自己的来处。
+  function graphSvg(g, centreId) {
+    const W = 680; const H = 420; const cx = W / 2; const cy = H / 2;
+    // 半径要让最外一圈也留在画布里：cy - r2 * SQUASH 得大于上下的余量，否则节点会跑出去。
+    const R1 = 130; const R2 = 218; const SQUASH = 0.66;
+    const pos = new Map([[centreId, [cx, cy]]]);
+    const ang = new Map([[centreId, -Math.PI / 2]]);
+    const put = (id, a, r) => {
+      pos.set(id, [cx + Math.cos(a) * r, cy + Math.sin(a) * r * SQUASH]);
+      ang.set(id, a);
+    };
+    // 一跳：绕中心一圈匀开，从正上方起
+    const one = g.nodes.filter((n) => n.hop === 1);
+    one.forEach((n, i) => put(n.id, -Math.PI / 2 + (Math.PI * 2 * i) / Math.max(1, one.length), R1));
+    // 二跳：贴着把它带进来的那一个，在它的角度上下散开
+    const two = g.nodes.filter((n) => n.hop === 2);
+    const parentOf = (id) => {
+      for (const [a, b] of g.edges) {
+        if (a === id && ang.has(b) && b !== centreId) return b;
+        if (b === id && ang.has(a) && a !== centreId) return a;
+      }
+      return one[0] ? one[0].id : centreId;
+    };
+    const grouped = new Map();
+    for (const n of two) {
+      const k = parentOf(n.id);
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k).push(n);
+    }
+    for (const [parent, list] of grouped) {
+      const base = ang.get(parent) ?? -Math.PI / 2;
+      list.forEach((n, i) => put(n.id, base + (i - (list.length - 1) / 2) * 0.42, R2));
+    }
+
+    const at = (id) => pos.get(id) || [cx, cy];
+    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b))
+      .map(([a, b]) => `<line class="gr-edge" x1="${at(a)[0].toFixed(1)}" y1="${at(a)[1].toFixed(1)}" x2="${at(b)[0].toFixed(1)}" y2="${at(b)[1].toFixed(1)}" />`).join('');
+    // 节点最后画，压在线上面：线从方块中心出发，不遮住字
+    const nodes = g.nodes.map((n) => {
+      const [x, y] = at(n.id);
+      const label = String(cardTitle(n) || '').slice(0, 14);
+      const w = Math.max(58, label.length * 9 + 18);
+      return `<g class="gr-node h${n.hop}" data-rel="${esc(n.id)}" transform="translate(${(x - w / 2).toFixed(1)},${(y - 12).toFixed(1)})">`
+        + `<rect width="${w}" height="24" /><text x="${(w / 2).toFixed(1)}" y="16" text-anchor="middle">${esc(label)}</text></g>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" role="img">${edges}${nodes}</svg>`;
+  }
+
+  async function openGraph(id) {
+    // 图谱和详情是同一条记录的两种看法，不该同时开着——两层弹窗叠起来谁也读不清。
+    const dm = $('#detailModal');
+    if (dm) dm.hidden = true;
+    const e = state.entries.find((x) => x.id === id) || currentEntry();
+    $('#graphTitle').textContent = t('graph');
+    $('#graphBody').innerHTML = '';
+    $('#graphModal').hidden = false;
+    let g = { nodes: [], edges: [] };
+    try { g = await ws.graph(id); } catch (_) { g = { nodes: [], edges: [] }; }
+    const centre = g.nodes.find((n) => n.hop === 0);
+    $('#graphTitle').textContent = centre ? cardTitle(centre) : (e ? cardTitle(e) : t('graph'));
+    $('#graphBody').innerHTML = g.nodes.length > 1
+      ? graphSvg(g, id)
+      : `<div class="gr-note">${esc(t('graphEmpty'))}</div>`;
+  }
+
   // 打开一条记录时当场算它的邻居，不存图——存下来只会多一个会过期的东西。
   // seq 挡住过期的回应：翻得快时前一条的邻居不该落在后一条底下。
   let relSeq = 0;
@@ -1279,6 +1348,7 @@
           <div class="dt-acts">
             <button type="button" class="act${e.pinned ? ' on' : ''}" data-action="pin"
               title="${esc(t(e.pinned ? 'unpin' : 'pin'))}">${esc(t('pin'))}</button>
+            <button type="button" class="act" data-action="graph">${esc(t('graph'))}</button>
             <button type="button" class="act danger" data-action="delete">${esc(t('delete'))}</button>
             ${inModal ? `<button type="button" class="act act-close" data-close aria-label="Close">
               <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>` : ''}
@@ -1447,6 +1517,7 @@
         break;
       }
       case 'openContextUrl': await ws.openExternal(ctxOf(e) ? ctxOf(e).url : ''); break;
+      case 'graph': openGraph(e.id); break;
       case 'pin': {
         const updated = await ws.updateEntry(e.id, { pinned: !e.pinned });
         if (updated) { upsert(updated); state.pinnedCount += updated.pinned ? 1 : -1; renderDims(); renderDetail(); renderList(); }
@@ -2361,7 +2432,13 @@
     // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
 // 「相关」里点一条 = 打开那一条。委托到 document 上：这一块在详情面板里，
     // 而详情面板在列表视图和弹窗里各有一份，两处都要能点。
-    document.addEventListener('click', (ev) => {
+$('#graphModal').addEventListener('click', (ev) => {
+      // 点背景或叉都关；点一个节点是把图移过去，不是打开那条记录——图谱的用处就是走链
+      if (ev.target.closest('[data-graph-close]') || ev.target === $('#graphModal')) { $('#graphModal').hidden = true; return; }
+      const n = ev.target.closest('.gr-node');
+      if (n && n.dataset.rel) openGraph(n.dataset.rel);
+    });
+        document.addEventListener('click', (ev) => {
       const b = ev.target.closest && ev.target.closest('[data-rel]');
       if (!b) return;
       state.selectedId = b.dataset.rel;
