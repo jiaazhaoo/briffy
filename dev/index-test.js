@@ -187,6 +187,29 @@ ok('换了工作区就重建，不会拿旧索引去答新工作区', () => {
   assert.strictEqual(idx.stats().entries, 0, '旧索引没被清掉');
 });
 
+ok('改了表结构要重建表，不是只删行', () => {
+  // 实测踩过，而且是升级路径上必踩：schema 从 5 升到 6 时只 DELETE 不 DROP，
+  // `CREATE TABLE IF NOT EXISTS` 碰到上一代的旧表整句跳过，新加的列永远长不出来。
+  // 结果是升级后第一次启动直接死在「table entries has no column named hash」，
+  // 索引一条都建不起来，而这条错只在 console 里，界面上什么都看不出来。
+  idx.close();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'briffy-schema-'));
+  const { DatabaseSync } = require('node:sqlite');
+  const old = new DatabaseSync(path.join(dir, 'index.db'));
+  old.exec('CREATE TABLE meta(k TEXT PRIMARY KEY, v TEXT); CREATE TABLE entries(rowid INTEGER PRIMARY KEY, id TEXT UNIQUE, day TEXT);');
+  old.prepare('INSERT INTO meta(k,v) VALUES(?,?)').run('schema', '1');
+  old.close();
+
+  idx.open(dir, WS);
+  const probe = new DatabaseSync(path.join(dir, 'index.db'));
+  const cols = probe.prepare('PRAGMA table_info(entries)').all().map((r) => r.name);
+  probe.close();
+  assert.ok(cols.includes('hash'), '旧表没被换掉，列还是老的：' + cols.join(','));
+  assert.ok(cols.includes('type'), cols.join(','));
+  idx.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 idx.close();
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (_) { /* 留着也行 */ }
 console.log(`index: ${pass} checks passed`);
