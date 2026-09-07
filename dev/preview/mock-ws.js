@@ -184,11 +184,18 @@
       const c = entries.find((e) => e.id === id) || entries[0];
       const one = entries.filter((e) => e.id !== c.id).slice(0, 3);
       const two = entries.filter((e) => e.id !== c.id && !one.includes(e)).slice(0, 2);
-      const nodes = [{ ...pub(c), hop: 0 }, ...one.map((e) => ({ ...pub(e), hop: 1 })), ...two.map((e) => ({ ...pub(e), hop: 2 }))];
+      // 实体节点：不是记录，是一个地点 / 日期 / 数
+      const ents = [
+        { id: 'e:place:tw20 0ae', hop: 1, entity: { text: 'TW20 0AE', kind: 'place', n: 4 } },
+        { id: 'e:qty:50km', hop: 1, entity: { text: '50km', kind: 'qty', n: 6 } },
+        { id: 'e:name:egham', hop: 1, entity: { text: 'Egham', kind: 'name', n: 5 } },
+      ];
+      const nodes = [{ ...pub(c), hop: 0 }, ...one.map((e) => ({ ...pub(e), hop: 1 })), ...ents, ...two.map((e) => ({ ...pub(e), hop: 2 }))];
       // 三种边都给上，样张才看得出线的区别
       const edges = one.map((e, i) => [c.id, e.id, ['page', 'page', 'near'][i] || 'near']);
       edges.push([one[0].id, one[1].id, 'run']);
       two.forEach((e, i) => edges.push([one[i % one.length].id, e.id, i ? 'run' : 'page']));
+      for (const x of ents) { edges.push([c.id, x.id, 'mention']); edges.push([x.id, one[0].id, 'mention']); }
       return { nodes, edges };
     },
     topics: async () => ([

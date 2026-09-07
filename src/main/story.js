@@ -20,6 +20,7 @@
 // 三跳绕过一个泛词什么也不是。
 
 const links = require('./links');
+const entity = require('./entity');
 
 // 两个旋钮都是扫出来的（dev/story-bench.js，验收标准是那一晚的十四条）。
 // 从「Ultra Challenge」长起：
@@ -31,6 +32,7 @@ const links = require('./links');
 const FLOOR = 0.34;
 const DECAY = 0.85;    // 每远一跳乘这么多
 const MAX = 40;        // 一片最多这么多条
+const ENT_PER_NODE = 8;   // 一条记录往图上挂几个实体
 
 // 边有多硬。这是「一条边只在能说出证据时才存在」在数值上的兑现：
 // 同一页是精确匹配，所以满分；同一程只是「那一段里你还路过了什么」，所以最虚。
@@ -75,14 +77,28 @@ function edgesOf(id, ctx) {
   const mineClips = l.clips.length;
   for (const c of l.clips) push(c, 'page', pageWeight(mineClips));
   for (const p of l.run.pages) if (p.first) push(p.first, 'run', W.run, { name: p.name });
-  if (ctx.ev) {
-    for (const e of links.evidenceFor(id, ctx.ev, { limit: 8 })) {
-      const best = Math.min(...e.words.map((w) => ctx.ev.df.get(w) || 99));
-      push(e.id, 'word', wordWeight(best), { words: e.words });
+  // 实体：记录 —提到→ 一个地点 / 日期 / 数 / 专名。**这一层把「共用词」那条记录↔记录的边替掉了。**
+  // 共用一个词就是共用一个实体，而实体是看得见的节点，说得出这是什么关系；
+  // 而且它把三跳变成一跳——「Windsor Road, Egham TW20 0AE」和「Runnymede Pleasure Ground」
+  // 之间原来要绕三跳，现在它们都指着 TW20 0AE 和 Egham。
+  if (ctx.ent) {
+    // 每条记录只往图上挂最罕见的这几个实体。byRecord 已经按罕见排好了。
+    // 不收口的话一条记录能挂二十个，图上就是一圈实体、记录全被挤到外面——
+    // 而实体是**关节**，不是主角。
+    for (const key of (ctx.ent.byRecord.get(id) || []).slice(0, ENT_PER_NODE)) {
+      const x = ctx.ent.ents.get(key);
+      if (x) push(`e:${key}`, 'mention', entity.weight(x.records.length), { name: x.text, ekind: x.kind });
     }
   }
   for (const n of (ctx.near ? ctx.near(id) : [])) push(n, 'near', W.near);
   return out;
+}
+
+/** 一个实体节点身上的边：提到它的那些记录。 */
+function entityEdges(key, ctx) {
+  const x = ctx.ent && ctx.ent.ents.get(key.slice(2));
+  if (!x) return [];
+  return x.records.map((rid) => ({ to: rid, kind: 'mention', w: entity.weight(x.records.length), name: x.text, ekind: x.kind }));
 }
 
 /**
@@ -109,7 +125,8 @@ function grow(seed, ctx, { floor = FLOOR, decay = DECAY, max = MAX } = {}) {
     if (!cur) break;
     done.add(cur);
     // ctx.edges 是给测试留的接缝：扩散这件事本身不该为了测它就得先搭一整张真图
-    for (const e of (ctx.edges || edgesOf)(cur, ctx)) {
+    const fn = ctx.edges || (cur.startsWith('e:') ? entityEdges : edgesOf);
+    for (const e of fn(cur, ctx)) {
       const s = score.get(cur) * e.w * decay;
       if (s < floor) continue;
       edges.push([cur, e.to, e.kind]);
@@ -204,4 +221,4 @@ function hubs(ctx, { limit = 12, min = 4 } = {}) {
   return out;
 }
 
-module.exports = { grow, hubs, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, PAGE_FULL };
+module.exports = { grow, hubs, nameOf, edgesOf, entityEdges, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, PAGE_FULL, ENT_PER_NODE };
