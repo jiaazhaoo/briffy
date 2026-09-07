@@ -84,13 +84,16 @@ async function run(question, { limit = MAX_ITEMS } = {}) {
     question: q, answer: '', used: [], model: '',
     sources: entries, range: found ? { from: found.from, to: found.to } : null,
     scored: hit.scored, noProvider: false, error: '', total: index.stats().entries,
+    // 这段时间里一共有多少条。退回时间范围时给的是「最近 40 条」，界面上得说清楚是 40 还是全部
+    // ——它以前一律写「这段时间的全部记录」，而这一周实际有 208 条。
+    inRange: found ? index.days({ from, to }).reduce((n, d) => n + d.n, 0) : 0,
   };
   if (!entries.length) return base;
 
   const cfg = llm.config(store);
   if (!llm.isConfigured(cfg)) return { ...base, noProvider: true };
   try {
-    const r = await llm.answerQuestion(cfg, { question: q, entries });
+    const r = await llm.answerQuestion(cfg, { question: q, entries, terms: hit.terms || [] });
     return { ...base, answer: r.answer, used: r.used, model: r.model };
   } catch (e) {
     return { ...base, error: e.message || String(e) };
