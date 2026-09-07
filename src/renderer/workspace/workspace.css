@@ -633,10 +633,7 @@ body[data-tab="settings"] .d-mid { display: none; }
 .md a:hover { color: var(--accent); }
 
 /* ---------- 问 ---------- */
-.ask-split { grid-template-columns: minmax(380px, 1.3fr) minmax(300px, 1fr); }
-.ask-note { margin: 0 0 var(--a4); color: var(--ink-2); }
 .ask-note.warn { color: var(--stamp); }
-.ask-q { font: 600 var(--fs-h2)/1.45 var(--content); margin: 0 0 var(--a1); word-break: break-word; }
 .sources-head { display: block; margin: 0 0 var(--a3); font-size: var(--fs-meta); color: var(--ink-3); }
 /* 答案引用的编号，盖在它指的那张便签角上 */
 .card .num { position: absolute; top: 6px; left: -7px; width: 17px; height: 17px; background: var(--ink); color: var(--slip);
@@ -813,7 +810,8 @@ body[data-tab="settings"] .d-mid { display: none; }
    和记录页的筛选行同一种说法。分隔靠留白，不靠竖线（全仓只有输入框底下那一道发丝线）。 */
 #tab-ask { flex-direction: row; }
 /* 这一页没有顶栏，所以不吃 --top-h，用和右边那一列一样的上边距——两列的第一行才对得齐 */
-.chatlist { width: 208px; flex: none; overflow: auto; padding: 60px var(--a3) 100px var(--pad); }
+:root { --chat-rail: 232px; }
+.chatlist { width: var(--chat-rail); flex: none; overflow: auto; padding: 60px var(--a3) 100px var(--pad); }
 .chatlist #chatNew { margin-bottom: var(--a4); }
 .cl-band { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); margin: var(--a4) 0 var(--a2); }
 .cl-row { display: flex; align-items: baseline; gap: var(--a2); padding: var(--a1) 0; cursor: pointer; }
@@ -825,10 +823,22 @@ body[data-tab="settings"] .d-mid { display: none; }
 .cl-row:hover .acts { display: flex; }
 .cl-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a3) 0; }
 
-.askcol { flex: 1; min-height: 0; overflow: auto; padding: 60px var(--a4) 100px; }
-.askcol > .md { max-width: 720px; margin: 0 auto; }
+/* 右边这一列要和底下那只输入托盘**同一个中心**。它自己居中的话，中心会落在
+   「减掉左边那条列表之后剩下的空间」的正中——实测答案列 464–1184、输入框 550–890，
+   两个中心差 104px，整页看着就是歪的。补一个和列表等宽的右边距，中心就回到窗口正中。 */
+.askcol { flex: 1; min-height: 0; overflow: auto;
+  padding: 60px calc(var(--chat-rail) + var(--a4)) 100px var(--a4); }
+/* 全站只有一个正文宽度（.md 660px），这一栏不另开一档 */
+.askcol > .md { max-width: 660px; margin: 0 auto; }
+/* 一条都没问过的时候，那句提示贴着输入框走：它是在说明底下那个框，
+   独自吊在半空的话，一整屏空白里就它一行，谁也不挨着谁。 */
+.askcol:has(.empty) { display: flex; flex-direction: column; justify-content: flex-end; }
+.askcol .empty { padding: 0; }
 .turn { padding-bottom: var(--a5); }
-.ask-q { font: var(--w-title) var(--fs-title)/1.6 var(--sans); color: var(--ink); margin: 0 0 var(--a2); }
+/* 一轮问答的主语是那个问题——和记录页里「一天」的地位一样，所以吃字阶最上面那一档。
+   在这之前它是 13/600，和正文同一个大小，一页读下来分不出哪句是问、哪段是答。 */
+.ask-q { font: var(--w-day) var(--fs-day)/1.35 var(--sans); color: var(--ink);
+  letter-spacing: -.01em; margin: 0 0 var(--a2); word-break: break-word; }
 .ask-note { color: var(--ink-2); margin: var(--a2) 0; }
 .cites { display: flex; flex-wrap: wrap; gap: var(--a3); margin-top: var(--a4); }
 .citecard { display: flex; align-items: center; gap: var(--a2); max-width: 260px; border: 0; text-align: left; cursor: pointer;
