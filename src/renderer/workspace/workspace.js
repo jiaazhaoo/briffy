@@ -13,10 +13,10 @@
       near: '相近', related: '相关', untitled: '无标题',
       fromPage: '摘自', samePage: '同一页', sameRun: '同一段操作',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
-      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', topicsHint: '成堆的：', viewTrail: '路过',
+      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
-      trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
+      trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源',
       fAll: '全部', fClear: '清空', fMoreN: '更多 {n}', fLess: '收起', fUnknown: '未知',
       tImage: '图片', tText: '文字', tAudio: '音频', tVideo: '视频', tPdf: 'PDF', tDoc: '文档',
       tSheet: '表格', tSlides: '幻灯片', tArchive: '压缩包', tLink: '链接', tOther: '其它',
@@ -151,10 +151,10 @@
       near: 'related', related: 'Related', untitled: 'Untitled',
       fromPage: 'Clipped from', samePage: 'Same page', sameRun: 'Same sitting',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
-      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', topicsHint: 'Groups:', viewTrail: 'Passed by',
+      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
-      trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
+      trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From',
       fAll: 'All', fClear: 'Clear', fMoreN: '{n} more', fLess: 'Less', fUnknown: 'Unknown',
       tImage: 'Pictures', tText: 'Text', tAudio: 'Audio', tVideo: 'Video', tPdf: 'PDF', tDoc: 'Documents',
       tSheet: 'Spreadsheets', tSlides: 'Slides', tArchive: 'Archives', tLink: 'Links', tOther: 'Other',
@@ -286,9 +286,8 @@
   const state = {
     meta: null, settings: null, ui: 'zh', entries: [], dates: [], selectedId: null, editing: false,
     query: '', date: '', source: '', pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
-    topics: [],
-    // 三个维度叠着筛：类型（是什么）、来源（从哪儿来）、主题（关于什么）。dim 是当前展开的那一个。
-    f: { type: '', origin: '', topic: '' }, dim: 'type', dimOpen: false,
+    // 两个维度叠着筛：类型（是什么）、来源（从哪儿来）。dim 是当前展开的那一个。
+    f: { type: '', origin: '' }, dim: 'type', dimOpen: false,
     selecting: false, picked: new Set(),
     view: 'grid',
     boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
@@ -511,23 +510,16 @@
   // ---------- entries ----------
   async function loadEntries() {
     loose.clear();       // 列表换了一批，单独取回来的那几份就过期了；要用的时候会再取一次
-    await loadTopics();
     state.dates = await ws.listDates();
-    // 主题是一份 id 清单，所以它和另外两个维度是「取交集」，不是「取代」——
-    // 「那场挑战里的图片」要求两个条件同时成立。
-    let ids = null;
-    if (state.f.topic) { try { ids = (await ws.topicEntries(state.f.topic)).map((e) => e.id); } catch (_) { ids = []; } }
     // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了。
-    // 但这条只管**没筛没搜**的那一屏——你点了一个主题、一个类型，或者打了字去搜，
-    // 那就是你明确要的东西，这条规矩不该盖过它。实测踩过：「泰晤士河步道超级马拉松挑战赛」
-    // 那个主题下面五条记录全是剪贴板存的，点进去一条都看不见。
-    const asked = state.query || state.f.type || state.f.origin || state.f.topic;
+    // 但这条只管**没筛没搜**的那一屏——你点了一个来源、一个类型，或者打了字去搜，
+    // 那就是你明确要的东西，这条规矩不该盖过它。
+    const asked = state.query || state.f.type || state.f.origin;
     state.entries = await ws.listEntries({
       query: state.query,
       dates: state.date ? [state.date] : null,
       type: state.f.type,
       origin: state.f.origin,
-      ids,
       exclude: asked ? null : ['clipboard'],
     });
     ws.stats().then((st) => { state.counts = st; state.pinnedCount = st.pinned || 0; renderDims(); }).catch(() => {});
@@ -562,16 +554,18 @@
     renderAxis();
   }
 
-  // ---------- 筛选：三个维度，叠着用 ----------
+  // ---------- 筛选：两个维度，叠着用 ----------
   //
-  // 三个维度回答三个不同的问题，混在一行里就说不清了：
+  // 两个维度回答两个不同的问题，混在一行里就说不清了：
   //   类型  这是什么   —— 图片 / 文本 / 网页 / 录音
   //   来源  从哪儿来   —— 小红书 / 哔哩哔哩 / Claude / Terminal，实在不知道就退回它是怎么进来的
-  //   主题  关于什么   —— 自动归堆的结果（topic.js）
   //
   // 它们是**叠**的：「小红书上的图片」这种要求只有叠起来才成立。所以上面那行同时也是
-  // 「现在叠了哪几个」，右端一个「清空」——三个能同时按的东西，不写出来就会丢失「现在在看什么」。
-  // 下面只展开一个维度的值：三行值会把顶栏撑高一整行记录的高度。
+  // 「现在叠了哪几个」，右端一个「清空」——两个能同时按的东西，不写出来就会丢失「现在在看什么」。
+  //
+  // 这儿本来还有第三个维度「主题」，是向量归堆的结果。2026-09-07 拿掉了：它决定谁算成员很差
+  // （一整件事只圈住五条，里面还有两个语言选择条和一个日期），而它旁边就站着一套说得出理由的
+  // 关系（详情页底下那条清单）。两套逻辑并排，读的人只会更糊涂。
   // 类型按**格式**分（store.js 的 entryFormat）：截图和网页存下来的图都是图片，随手记和邮件都是文字。
   // 「怎么进来的」是「来源」那一档的事，两件事混在一格里就都说不清。
   const TYPE_LABEL = { image: 'tImage', text: 'tText', audio: 'tAudio', video: 'tVideo', pdf: 'tPdf',
@@ -580,19 +574,17 @@
   // 「来源」里只有真的来源：站点和应用。不知道就写「未知」，不拿「剪贴板」「截图」去糊——
   // 那是「怎么进来的」，拿它当「从哪儿来的」是循环的，而且会变成这一格里最大的一块。
   const ORIGIN_LABEL = { '?': 'fUnknown' };
-  const DIMS = [['type', 'dimType'], ['origin', 'dimOrigin'], ['topic', 'dimTopic']];
+  const DIMS = [['type', 'dimType'], ['origin', 'dimOrigin']];
   const originName = (k) => (ORIGIN_LABEL[k] ? t(ORIGIN_LABEL[k]) : k);
-  const topicLabel = (id) => { const x = (state.topics || []).find((z) => z.id === id); return x ? (x.name || x.words) : id; };
   // 认不出来的类型用它自己的名字，不要都翻成「其它」——两个不同的值顶着同一个标签，
   // 界面上就成了两个一模一样的词，点哪个都说不清。
-  const valueName = (dim, k) => (dim === 'type' ? (TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k) : dim === 'origin' ? originName(k) : topicLabel(k));
+  const valueName = (dim, k) => (dim === 'type' ? (TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k) : originName(k));
 
   /** 当前维度有哪些值可选，大的在前。@returns {[string, number][]} */
   function valuesOf(dim) {
     const c = state.counts || {};
     if (dim === 'type') return Object.entries(c.byType || {}).sort((a, b) => b[1] - a[1]);
-    if (dim === 'origin') return Object.entries(c.byOrigin || {}).sort((a, b) => b[1] - a[1]);
-    return (state.topics || []).filter((x) => x.name || x.words).map((x) => [x.id, x.n]);
+    return Object.entries(c.byOrigin || {}).sort((a, b) => b[1] - a[1]);
   }
 
   function renderDims() {
@@ -620,11 +612,6 @@
         + `${esc(String(valueName(dim, k)).slice(0, 18))}<span class="n">${n}</span></button>`).join('')
       + (all.length > shown.length ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fMoreN', { n: all.length - shown.length }))}</button>`
         : (moreValues && all.length > 8 ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fLess'))}</button>` : ''));
-  }
-
-  async function loadTopics() {
-    if (state.topics.length) return;
-    try { state.topics = await ws.topics(); } catch (_) { state.topics = []; }
   }
 
   // 左边的时间轴：一天一行，相对日 + 条数。日期抬头已经不显示了，所以哪一天只由它说。
@@ -757,7 +744,7 @@
   // "Nothing here" used to mean two opposite things: nothing was worth keeping, or briffy was closed
   // and the day was never offered. It knows which now (src/main/uptime.js), so it says which.
   async function emptyReason() {
-    if (!state.date || state.query || state.f.type || state.f.origin || state.f.topic) return '';
+    if (!state.date || state.query || state.f.type || state.f.origin) return '';
     try {
       const st = await ws.dayStats(state.date);
       if (st.status === 'off') return t('dayWasOff');
@@ -2502,7 +2489,7 @@
       renderTrail();
     });
         $('#dims').addEventListener('click', (e) => {
-      if (e.target.closest('[data-clear]')) { state.f = { type: '', origin: '', topic: '' }; loadEntries(); return; }
+      if (e.target.closest('[data-clear]')) { state.f = { type: '', origin: '' }; loadEntries(); return; }
       const b = e.target.closest('[data-dim]');
       if (!b) return;
       const k = b.dataset.dim;
