@@ -1086,8 +1086,6 @@ function setupIpc() {
     } catch (_) { return []; }
   });
   // 主题：讲同一件事的记录归成的堆。空手是正常的——向量还没补齐，或者这个工作区还没有成堆的东西。
-  ipcMain.handle('ws:topics', () => ask.topicList());
-  ipcMain.handle('ws:topic-entries', (_e, id) => ask.topicEntries(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
   // 不用动手存的那一层：一天的痕迹和各应用待了多久。空手是正常的——这个功能默认关着。
   ipcMain.handle('ws:trail', (_e, day) => trail.read(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-days', () => trail.days());

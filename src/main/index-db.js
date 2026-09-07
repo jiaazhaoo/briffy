@@ -31,7 +31,7 @@ const chunk = require('./chunk');
 const fs = require('fs');
 const { segment } = require('./segment');
 
-const SCHEMA = 6;                  // 改了表结构就加一，旧库直接重建
+const SCHEMA = 7;                  // 改了表结构就加一，旧库直接重建
 const BODY_MAX = 4000;             // 一条记录进倒排的字数上限；OCR 大段的尾巴对找东西没有帮助
 
 let db = null;
@@ -107,9 +107,6 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS i_vec_id ON vec(id, hash);
     -- 主题：讲同一件事的记录归成一堆。id 是这堆的代表（最早那条记录的 id），所以重算时
     -- 堆的身份和名字不会跳。name 空着表示还没起名——起名要过模型，慢一拍，界面先显示条数。
-    CREATE TABLE IF NOT EXISTS topic(id TEXT PRIMARY KEY, name TEXT, words TEXT, n INTEGER, at TEXT);
-    CREATE TABLE IF NOT EXISTS topic_of(id TEXT PRIMARY KEY, topic TEXT);
-    CREATE INDEX IF NOT EXISTS i_topic_of ON topic_of(topic);
   `);
 }
 
@@ -128,7 +125,7 @@ function set(k, v) { db.prepare('INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k
 function dropTables() {
   db.exec(`DROP TABLE IF EXISTS vocab; DROP TABLE IF EXISTS fts;
     DROP TABLE IF EXISTS entries; DROP TABLE IF EXISTS days;
-    DROP TABLE IF EXISTS vec; DROP TABLE IF EXISTS topic; DROP TABLE IF EXISTS topic_of;`);
+    DROP TABLE IF EXISTS vec;`);
 }
 
 function wipe() {
@@ -454,42 +451,6 @@ function sweepVec(limit = 200) {
 
 // ---------- 主题 ----------
 
-/** 整批换掉。归堆是全量重算的，留着上一批只会让同一条记录同时属于两个堆。 */
-function putTopics(groups) {
-  db.exec('BEGIN');
-  try {
-    const keep = new Map(db.prepare('SELECT id, name FROM topic').all().map((r) => [r.id, r.name]));
-    db.exec('DELETE FROM topic; DELETE FROM topic_of;');
-    const ins = db.prepare('INSERT INTO topic(id,name,words,n,at) VALUES(?,?,?,?,?)');
-    const insOf = db.prepare('INSERT OR REPLACE INTO topic_of(id,topic) VALUES(?,?)');
-    const now = new Date().toISOString();
-    for (const g of groups) {
-      // 名字留着：同一个代表的堆重算之后还是它，名字不用再花一次模型调用
-      // words 是「没有模型时显示什么」，已经是一句话了（topic.js 的 centreName），别再拆再拼
-      ins.run(g.leader, keep.get(g.leader) || '', String(g.words || ''), g.members.length, now);
-      for (const m of g.members) insOf.run(m, g.leader);
-    }
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
-}
-
-/** @returns {{id:string,name:string,words:string,n:number}[]} 大的在前 */
-function topics({ named = false } = {}) {
-  const sql = `SELECT id, name, words, n FROM topic ${named ? "WHERE name <> ''" : ''} ORDER BY n DESC`;
-  return db.prepare(sql).all();
-}
-
-function topicMembers(id, limit = 500) {
-  return db.prepare('SELECT id FROM topic_of WHERE topic=? LIMIT ?').all(id, limit).map((r) => r.id);
-}
-
-function nameTopic(id, name) { db.prepare('UPDATE topic SET name=? WHERE id=?').run(String(name || ''), id); }
-
-/** 还没起名的堆，起名是要过模型的，所以一次给几个就行。 */
-function unnamedTopics(limit = 3) {
-  return db.prepare("SELECT id, n FROM topic WHERE name = '' ORDER BY n DESC LIMIT ?").all(limit);
-}
-
 /** 每天有多少条，用来做粗筛和时间轴。 */
 function days({ from = '', to = '' } = {}) {
   const where = []; const args = [];
@@ -513,6 +474,5 @@ function stats() {
 module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
   useVecModel, needVec, putVec, vecScan, vecStats, sweepVec,
-  putTopics, topics, topicMembers, nameTopic, unnamedTopics,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,
 };

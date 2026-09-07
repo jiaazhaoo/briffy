@@ -15,7 +15,6 @@ const path = require('path');
 const llm = require('./llm');
 const retrieve = require('./retrieve');
 const vector = require('./vector');
-const topic = require('./topic');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
 const story = require('./story');
@@ -110,7 +109,6 @@ function warm() {
       .then((r) => {
         if (r.error) { console.warn('[ask] 向量补不了：', r.error); return; }   // 词面那一半照常工作
         if (!r.done) { setTimeout(fillVectors, 800); return; }
-        setTimeout(groupAndName, 800);
       })
       .catch((e) => console.warn('[ask] 向量补不了：', e.message || e));
   };
@@ -119,26 +117,6 @@ function warm() {
     try { r = refresh({ budgetMs: 1500 }); } catch (e) { console.warn('[ask] 索引建不起来', e.message); return; }
     if (!r.done) { setTimeout(step, 800); return; }   // 留出空档，别把启动那几秒占满
     setTimeout(fillVectors, 800);
-  };
-  // 向量补齐之后归堆。归堆是纯本地的，两百条跑一遍毫秒级；起名要过模型，一次只起几个，
-  // 起完的名字会留着——同一个代表的堆重算之后还是它，不用再花一次调用。
-  const groupAndName = async () => {
-    try {
-      const groups = topic.build(index, (id) => store.getEntry(id));
-      index.putTopics(groups);
-    } catch (e) { console.warn('[ask] 归堆失败', e.message || e); return; }
-    const cfg = llm.config(store);
-    if (!llm.isConfigured(cfg)) return;               // 没有 provider 就只有条数和抽出来的词
-    for (const t of index.unnamedTopics(3)) {
-      const items = index.topicMembers(t.id, 20)
-        .map((id) => store.getEntry(id)).filter(Boolean)
-        .map((e) => ({ title: e.title, text: e.text }));
-      try {
-        const name = await llm.topicName(cfg, { items });
-        index.nameTopic(t.id, name);
-      } catch (e) { console.warn('[ask] 主题起名失败', e.message || e); return; }
-    }
-    if (index.unnamedTopics(1).length) setTimeout(groupAndName, 2000);
   };
   setTimeout(step, 3000);
 }
@@ -202,58 +180,10 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   return ids.filter((id) => !skip.has(id)).slice(0, limit);
 }
 
-/** 记录页上那一行主题。空手是正常的：向量还没补齐、或者这个工作区还没有成堆的东西。 */
-function topicList() {
-  // name 是模型起的，words 是没有模型时的那一份（离堆中心最近的那条的标题）。
-  // 后者已经是一句完整的话，按空格拆开会把 "GitHub - blessonism/grok-icon-study" 拆散。
-  try { return index.topics().map((t) => ({ ...t, name: t.name || t.words || '' })); }
-  catch (_) { return []; }
-}
-/**
- * 和这一条有关的记录，**一条按远近排好的清单**，每条都说得出为什么。
- *
- * 之前这里是四组分开列的边（摘自 / 从这一页摘的 / 同一程 / 同一个词），外加一张图谱。
- * 图谱做不成：十四张卡片、四十多条线，线上还写着字，实测就是一团乱麻，读不出任何东西。
- * 而分四组也不对——**你要的是「和这条最近的是哪几条」，不是「按证据种类分类的四张小表」**。
- *
- * 所以合成一条清单，用 story.grow 排：它本来就是按分数排好的，而且每条都带着
- * 它是被哪条边、哪一对词放进来的。左边写理由，右边写标题。
- * @returns {{related:{id:string, score:number, why:object}[]}}
- */
-function linksOf(id) {
-  const me = String(id || '');
-  try {
-    const s = story.grow(me, storyCtx(), { max: 14 });
-    return {
-      related: s.members
-        .filter((m) => m.id !== me)
-        .map((m) => ({ id: m.id, score: m.score, why: m.via || null })),
-    };
-  } catch (_) { return { related: [] }; }
-}
-
 /** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
 function relatedTo(id) {
   try { refresh(); } catch (_) { /* 索引没追平也照样能用已经建好的那部分 */ }
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
-function topicEntries(id) {
-  let seeds = [];
-  try { seeds = index.topicMembers(String(id || '')); } catch (_) { seeds = []; }
-  if (!seeds.length) return [];
-  try {
-    const ctx = storyCtx();
-    const score = new Map();
-    for (const seed of seeds.slice(0, 8)) {
-      for (const m of story.grow(seed, ctx, { max: 24 }).members) {
-        // 一条记录可能被好几个种子够到，取它最强的那一次
-        if ((score.get(m.id) || 0) < m.score) score.set(m.id, m.score);
-      }
-    }
-    for (const seed of seeds) if (!score.has(seed)) score.set(seed, 1);   // 种子自己一定在
-    return [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 60).map(([x]) => x);
-  } catch (_) { return seeds; }   // 长不出来就还是原来那几条，不该因此打不开
-}
-
-module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, evidenceOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, relatedTo, linksOf, evidenceOf, MAX_ITEMS };

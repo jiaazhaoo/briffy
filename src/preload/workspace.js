@@ -50,7 +50,6 @@ contextBridge.exposeInMainWorld('ws', {
   listDates: invoke('ws:list-dates'),
   listEntries: invoke('ws:list-entries'),
   searchNear: (q, exclude) => ipcRenderer.invoke('ws:search-near', q, exclude),
-  topics: invoke('ws:topics'),
   related: invoke('ws:related'),
   links: invoke('ws:links'),          // 和这一条有关的记录，按远近排好，每条带着理由
   chats: invoke('ws:chats'),
@@ -60,7 +59,6 @@ contextBridge.exposeInMainWorld('ws', {
   chatRemove: invoke('ws:chat-remove'),
   trailSessions: invoke('ws:trail-sessions'),
   trailDays: invoke('ws:trail-days'),
-  topicEntries: invoke('ws:topic-entries'),
   getEntry: invoke('ws:get-entry'),
   deleteEntry: invoke('ws:delete-entry'),
   retryEntry: invoke('ws:retry-entry'),

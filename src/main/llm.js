@@ -394,60 +394,6 @@ async function answerQuestion(cfg, { question, entries, terms = [] }) {
   return { answer, used, model: raw.model ? `${raw.model} (${providerName(cfg.provider)})` : label(cfg) };
 }
 
-const TOPIC_SCHEMA = {
-  type: 'object',
-  properties: { name: { type: 'string', description: 'A short label, at most 4 words' } },
-  required: ['name'],
-};
-
-/**
- * 给一堆记录起个名字。
- *
- * **按堆算，不是按条算**——这是它和被砍掉的那个「三个词」最要紧的区别。二十个堆就是二十次调用，
- * 而且只在堆变了才重算；按条算是两百多次，还得挂在录入路径上，那条路是不进模型的。
- * 所以这件事在后台对已经存好的东西做，没有 provider 就退回本地抽词（topic.js 的 words）。
- *
- * 标题**加一小段正文**。只给标题不够：一组报名页的标题全是 English (Great Britain)——网页自己的
- * 语言选择条——模型照着起了个「英国英语注册」；一组没标题的剪贴板图片则只能被叫成「剪贴板图片」，
- * 而它们的正文里写着这一堆到底是什么。正文只给一小段，长了又会退回本地抽词栽过的那个坑：
- * 满屏 URL 参数和 Cookie 提示。
- */
-async function topicName(cfg, { items = [] }) {
-  const list = items.slice(0, 20).map((it, i) => {
-    const title = String((it && it.title) || '').replace(/\s+/g, ' ').slice(0, 80);
-    const text = String((it && it.text) || '').replace(/\s+/g, ' ').slice(0, 160);
-    return `${i + 1}. ${title}${text && text !== title ? ` — ${text}` : ''}`;
-  }).filter((l) => l.length > 3).join('\n');
-  if (!list) return '';
-  const system = [
-    'These are saved items that were found to be about the same thing: a title, then a little of what is in it.',
-    `Return JSON: {"name": "..."} — a short label for what they have in common, at most 4 words, in ${cfg.languageName}.`,
-    'Name the subject, not the format: never "screenshots", "clipboard images", "web pages" or "notes".',
-    'Ignore anything that is a page\'s own furniture -- a language picker, a cookie line, a nav bar -- and name what the page is for.',
-    'Keep product names, place names and technical terms in their original language.',
-    'If they have nothing in common, return an empty name.',
-  ].join(' ');
-  let raw;
-  switch (cfg.provider) {
-    case 'anthropic':
-      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text: list, schema: TOPIC_SCHEMA, maxTokens: 120, effort: 'low' });
-      break;
-    case 'openrouter':
-      raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text: list, schema: TOPIC_SCHEMA, maxTokens: 120 });
-      break;
-    case 'custom':
-      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text: list, schema: TOPIC_SCHEMA, maxTokens: 120 });
-      break;
-    case 'ollama':
-      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text: list, schema: TOPIC_SCHEMA, maxTokens: 120, numCtx: 4096 });
-      break;
-    default:
-      throw new Error(`Unknown provider ${cfg.provider}`);
-  }
-  const parsed = parseJsonLoose(raw.text);
-  return String((parsed && parsed.name) || '').replace(/\s+/g, ' ').trim().slice(0, 40);
-}
-
 async function testProvider(cfg) {
   const probe = { system: 'Reply with the single word OK.', text: 'ping', maxTokens: 16 };
   switch (cfg.provider) {
@@ -459,4 +405,4 @@ async function testProvider(cfg) {
   }
 }
 
-module.exports = { config, isConfigured, label, describe, translate, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, topicName, TOPIC_SCHEMA, _windowAround: windowAround, _buildNumbered: buildNumbered };
+module.exports = { config, isConfigured, label, describe, translate, dailySummary, answerQuestion, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, _windowAround: windowAround, _buildNumbered: buildNumbered };
