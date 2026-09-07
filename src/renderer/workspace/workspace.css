@@ -364,18 +364,12 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .gr-edge.e-run { stroke-dasharray: 3 4; opacity: .5; }
 /* 共用证据词：点线。它比「同一程」实（拿得出那个词），比「同一处」虚（一个词不是同一页） */
 .gr-edge.e-word { stroke: var(--ink-2); stroke-dasharray: 1 3; opacity: .7; }
-.gr-edge.e-mention { stroke: var(--ink-2); stroke-width: 1.2; opacity: .7; }
 
-/* 实体：一个地点、一个日期、一个数。**它不是一张纸**——记录才是你存下来的物件，
-   实体只是它们共同指着的那样东西。所以它没有影子、没有缩略图、没有时间，
-   就是印在底纸上的一个词（和导航、筛选同一档：层 0）。 */
-.gr-ent { position: absolute; display: flex; align-items: center; justify-content: center;
-  border: 0; background: var(--tone); color: var(--ink-2); cursor: pointer; padding: 0 8px;
-  font: var(--w-title) var(--fs-meta)/1 var(--sans); white-space: nowrap; overflow: hidden;
-  transition: background .12s, color .12s; }
-.gr-ent:hover { background: var(--tone-2); color: var(--ink); }
-/* 一个日期、一个邮编、一个距离是**认得准**的东西，比一个反复出现的名字硬——满墨说明这件事 */
-.gr-ent.k-place, .gr-ent.k-date, .gr-ent.k-qty { color: var(--ink); }
+/* 线上那行小字：**凭什么连**。一条说不出依据的线和「相关」没有区别。
+   底下垫一层底纸色的描边，压在线上也读得出来——这不是描边风格，是让字从线里透出来。 */
+.gr-why { font: 400 10px/1 var(--sans); fill: var(--ink-3); paint-order: stroke;
+  stroke: var(--page); stroke-width: 3px; stroke-linejoin: round; }
+
 /* 图里的节点就是记录本身，所以它长成记录的样子：白便签 + 影子，和网格里那些是同一种纸。
    （层 1，hover 抬 2px 换 --e2——「只有真实物件有影子」这条在这儿是成立的，一条记录就是物件。） */
 .gr-card { position: absolute; display: flex; align-items: center; gap: var(--a2); overflow: hidden;

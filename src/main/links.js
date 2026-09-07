@@ -30,6 +30,7 @@
 // （实测：✳ ◑ ◐ 三种转圈把一个窗口拆成 10 + 8 + 5 + 4 条）。
 const { tidyTitle } = require('./trail');
 const { segment } = require('./segment');
+const entity = require('./entity');
 
 const RUN_GAP_MS = 15 * 60 * 1000;   // 隔这么久没动，就是另一段操作了
 const MIN_KEY = 4;                   // 短于这么多字的标题不算页面身份
@@ -221,163 +222,141 @@ function linksOf(id, g, { runLimit = 6 } = {}) {
 
 // ───────────────────────── 同一个词 ─────────────────────────
 //
-// A 和 B 共用一个词，B 和 C 共用另一个词。**边不是「像」，是「共用了哪个词」**，所以每条边
-// 都拿得出证据。dev/evidence-chain-bench.js 在真实工作区上量过，从「Windsor Road, Egham
-// TW20 0AE」到「报名成功」四跳走得通，每一跳的词都是真的：tw20/egham → runnymede →
-// trailblazerz/50km/ultra → thames/path/challenge。而向量在这条链上全程 0.155。
+// A 和 B 共用一个词。**边不是「像」，是「共用了哪个词」**——所以每条边都拿得出一对词，
+// 而那一对词就写在线上。dev/evidence-chain-bench.js 在真实工作区上量过，从「Windsor Road,
+// Egham TW20 0AE」到「报名成功」四跳走得通，每一跳的词都是真的；而向量在这条链上全程 0.155。
 //
-// **不做全局连通分量。** 那条路量过：要把那 14 条连成一块，门槛得放到 df≤8，代价是
-// 一个吃掉 70% 工作区的巨块。但界面要的从来不是「谁和谁在同一个分量里」，是
-// 「**这一条**最强的几个证据邻居」——逐条排序，取前几名，那个巨块的账就不存在了。
-// 排序按词的罕见程度：一个邮编比一个 the 值钱得多。
+// 词表用 entity.js 抽（邮编、日期、距离、专名、汉字词，滤掉网页家具和虚词）。
+// **实体不是节点**——节点只能是卡片；它只是这条边的依据。
+//
+// 两种配对：
+//   完全一致  tw20 ↔ tw20
+//   模糊一致  泰晤士河 ↔ thames（同一条记录里并排出现过，工作区自己就是那本对照表）
+//             staines-upon-thames ↔ thames（一个包着另一个）
+// 后者是量出来的：泰晤士河出现 3 次，3 次都和 thames 并排；tw20 出现 4 次，4 次都和 egham 并排；
+// 而三个对照组是 0 次（dev/evidence-alias-bench.js）。词向量在这一档反而不行——
+// 泰晤士河↔thames 只有 0.503，而「两个不同的地方」runnymede↔egham 是 0.459，分不开。
 const EV_MAXDF = 40;      // 出现在这么多条以上的词是这个工作区的通用词汇，不算证据
 const EV_NEEDDF = 14;     // 至少要有一个这么罕见的共用词，否则这条边不成立
-// 中文的常用二字词天生比专名泛（呈现 / 方式 / 要求 / 通过 / 而且 / 一样），而它们在一个
-// 两百多条的工作区里照样「只出现十来次」。所以汉字词要过更紧的一道——这和英文那边的道理
-// 是同一个：df 量的是这个工作区里的罕见，不是这个词有没有意思。
-const EV_NEEDDF_CJK = 7;
-// 一条记录最多拿这么多个词当指纹，只留最罕见的那些。40 是扫出来的拐点：
-//   24 太紧，一篇 5555 字的对话一条边都剩不下；
-//   40 那条对话连到「你看看我最近要去一个走路的活动」（路线·补给·严格）和「我最近有个
-//      walking 挑战」（报名），全对，平均每条 4.8 条边；
-//   60 开始混进「门槛 → GPT6一出来」，90 之后是「清楚·保持·而且」这种纯噪声。
-const EV_KEEP = 40;
-const CJK_RE = /[㐀-䶿一-鿿]/u;
-const EV_STOP = new Set(('the a an and or of to in on at for with from by is are was were be been am '
-  + 'this that these those it its as if not no yes you your i my we our they them he she his her '
-  + 'will would can could should may might must do does did done have has had get got go goes '
-  + 'there here when where what which who how why all any some more most other than then also '
-  + 'about into over under out up down off just now new see one two three hour hours '
-  + 'day days time home half back only very much many such same page click here link'
-  + ' 一个 这个 那个 可以 没有 就是 什么 我们 你们 他们 自己 已经 因为 所以 但是 如果 还是 这样 那样').split(/\s+/));
+const EV_KEEP = 20;       // 一条记录最多拿这么多个词当指纹，只留最罕见的
+const ALIAS_MIN = 2;      // 两个词一起出现过这么多次，才算一份对照
+const ALIAS_RATIO = 0.8;  // 而且要几乎总是一起出现
 
 /**
- * 一条记录拿得出的证据词：专名、邮编、汉字词。
- *
- * 不要普通词。**在一个以中文为主的工作区里，英文虚词天生就「罕见」**——hour / should / there
- * 在两百多条里只出现两三次，于是它们通过任何 df 筛，把毫不相干的两晚焊在一起（实测抓到过：
- * 「Windsor Road ↕ hour ↕ 我半小时后到家」）。df 量的是这个工作区里的罕见，不是这个词有没有意思。
- */
-// briffy 自己给的标题词，不是证据：「语音」「截图」「剪贴板图片」说的是格式，不是内容。
-// 站点后缀同理（_bilibili）——它说的是你在哪个站，不是这条讲什么。
-const EV_LABEL = new Set(['语音', '截图', '剪贴板', '剪贴板图片', '图片', 'screenshot', 'clipboard', 'audio', 'voice']);
-
-/** 一条记录的抬头（标题 + 窗口标题 + 网址）里的词。@returns {Set<string>} */
-function headWords(entry) {
-  const e = entry || {};
-  const c = e.context || {};
-  const out = new Set();
-  for (const t of segment([e.title, c.window, c.url, e.url].filter(Boolean).join(' '), '')) {
-    if (t.wordLike) out.add(String(t.w).toLowerCase());
-  }
-  return out;
-}
-
-function evWords(entry, stripped) {
-  const e = entry || {};
-  const c = e.context || {};
-  // 标题和窗口标题是这条记录**关于什么**，正文只是它**说了什么**。两者分开取，因为
-  // 一个词值不值钱主要看它长在哪：「热血 · 万字 · 拆解」写在窗口标题上（那条视频叫什么），
-  // 而「青年 · 所有 · 出来」是语音转写里飘出来的常用二字词——后者靠 df 拦不住，
-  // 它们在这个工作区里确实只出现几次，于是一段 B 站转写和一张报名页被焊在了一起。
-  const head = [e.title, c.window, c.url, e.url].filter(Boolean).join(' ');
-  const body = String(stripped === undefined ? (e.text || '') : stripped).slice(0, 1500);
-  const raw = `${head} ${body}`;
-  const inHead = new Set();
-  for (const t of segment(head, '')) if (t.wordLike) inHead.add(String(t.w).toLowerCase());
-  // titled：**整个工作区里，有没有哪一条把这个词写在标题上。**
-  //
-  // 这是「工作区自己就是那本词典」的第三次用法（前两次是网址↔标题的别名、和家具的跨记录重复）。
-  // 只看这一条自己的抬头是不够的：一张截图的内容全在 OCR 正文里，「车站」对它来说只在正文，
-  // 于是「停 Staines 车站」和那几张截图之间的边会断掉。而「青年 / 所有 / 出来 / 了一」
-  // 在两百多条记录里一次都没被谁写进标题——那才是它们和「车站」的真正区别，不是罕见程度。
-  const titled = (this && this.titled) || null;
-  const out = new Set();
-  for (const t of segment(raw, '')) {
-    if (!t.wordLike) continue;
-    const w = String(t.w).toLowerCase();
-    if (w.length < 2 || /^\d+$/.test(w) || EV_STOP.has(w)) continue;
-    // 只在正文里出现的汉字词，得有三个字才算证据。两个字的中文词太廉价——
-    // 「了一」甚至不是个词，是「当了一大批」被切出来的。抬头里的不受这条限制。
-    if (EV_LABEL.has(w) || w.startsWith('_')) continue;
-    if (CJK_RE.test(w) && w.length < 3 && !inHead.has(w) && !(titled && titled.has(w))) continue;
-    if (/^[a-z]/.test(w)) {
-      // 拉丁词只认专名（原文里首字母大写）和带数字的（TW18、0AE、50km）
-      const proper = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, '').test(raw)
-        && new RegExp(`\\b${w[0].toUpperCase()}${w.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(raw);
-      if (!proper && !/\d/.test(w)) continue;
-      if (w.length < 3) continue;
-    }
-    out.add(w);
-    // Staines-upon-Thames 里的 thames 是这整件事唯一的桥，不拆就没有
-    if (w.includes('-')) for (const p of w.split('-')) if (p.length >= 3 && !EV_STOP.has(p)) out.add(p);
-  }
-  return out;
-}
-
-/**
- * 整个工作区的证据词倒排。一次算好，之后每条记录只访问和它共用词的那些记录。
- * @returns {{post:Map<string,string[]>, df:Map<string,number>, words:Map<string,Set<string>>}}
+ * 整个工作区的词表 + 配对。一次算好，之后每条记录只访问和它共用词的那几条。
+ * @param {object[]} entries
+ * @param {(e:object)=>string} [stripOf] 剥过家具的正文
+ * @returns {{post:Map, df:Map, words:Map, text:Map, alias:Map}}
  */
 function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
-  // 先过一遍抬头：这个工作区里，哪些词曾经被谁写在标题上
-  const titled = new Set();
-  for (const e of entries || []) for (const w of headWords(e)) titled.add(w);
-  const ctx = { titled };
-
-  const raw = new Map();
+  const ix = entity.index(entries, stripOf);
   const df = new Map();
-  for (const e of entries || []) {
-    if (!e || !e.id) continue;
-    const s = evWords.call(ctx, e, stripOf ? stripOf(e) : undefined);
-    raw.set(e.id, s);
-    for (const w of s) df.set(w, (df.get(w) || 0) + 1);
-  }
-  // **一条记录只拿它最独特的那几个词当指纹。**
-  // 不这么做，长散文会互相认亲：一条 5555 字的中文对话和另一条中文对话总能共用一堆
-  // 呈现 / 方式 / 要求 / 通过——每个词都「只出现十来次」，凑够四个就压过了一个 50km。
-  // 停用词表堵不住这个口子，中文的常用二字词是无穷无尽的；限量能，而且它对所有语言一视同仁。
+  const text = new Map();
+  for (const [k, x] of ix.ents) { df.set(k, x.records.length); text.set(k, x.text); }
+
+  // 一条记录只拿它最独特的那几个词当指纹：不这么做，两篇长文总能共用一堆泛词
   const words = new Map();
   const post = new Map();
-  for (const [id, s] of raw) {
-    const top = [...s].sort((a, b) => (df.get(a) || 0) - (df.get(b) || 0)).slice(0, keep);
-    const set = new Set(top);
-    words.set(id, set);
-    for (const w of set) {
-      if (!post.has(w)) post.set(w, []);
-      post.get(w).push(id);
+  for (const [id, keys] of ix.byRecord) {
+    const top = keys.slice().sort((a, b) => (df.get(a) || 0) - (df.get(b) || 0)).slice(0, keep);
+    words.set(id, new Set(top));
+    for (const k of top) {
+      if (!post.has(k)) post.set(k, []);
+      post.get(k).push(id);
     }
   }
-  return { post, df, words };
+
+  // ── 模糊配对：谁和谁是同一样东西的两个说法
+  const alias = new Map();      // key -> Set(key)
+  const link = (a, b) => {
+    if (a === b) return;
+    if (!alias.has(a)) alias.set(a, new Set());
+    if (!alias.has(b)) alias.set(b, new Set());
+    alias.get(a).add(b); alias.get(b).add(a);
+  };
+  const keys = [...text.keys()];
+  // 一个包着另一个：staines-upon-thames ⊃ thames
+  for (const a of keys) {
+    const ta = String(text.get(a)).toLowerCase();
+    if (ta.length < 8 || !/[a-z]/.test(ta)) continue;
+    for (const b of keys) {
+      const tb = String(text.get(b)).toLowerCase();
+      if (tb.length < 4 || tb.length >= ta.length || !ta.includes(tb)) continue;
+      link(a, b);
+    }
+  }
+  // 并排出现过：泰晤士河 和 Thames 在同一条记录的**抬头**里挨着。
+  //
+  // **只看抬头，不看正文。** 建在全文同现上的时候抓到过「车站 ≈ Airports」——两个词只是碰巧
+  // 出现在同一张截图的 OCR 里。而真正的对照是并排写出来的：那个标题
+  // 「2026年泰晤士河步道超级马拉松挑战赛 --- Thames Path Ultra Challenge 2026」
+  // 一行里中英文都有，一条记录顶一部词典。
+  const together = new Map();
+  const headSets = (entries || []).map((e) => {
+    const set = new Set();
+    for (const x of entity.of({ title: e.title, url: e.url, context: e.context }, '')) {
+      if (text.has(x.key)) set.add(x.key);
+    }
+    return set;
+  });
+  for (const set of headSets) {
+    const list = [...set];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const k = list[i] < list[j] ? `${list[i]}\u0000${list[j]}` : `${list[j]}\u0000${list[i]}`;
+        together.set(k, (together.get(k) || 0) + 1);
+      }
+    }
+  }
+  for (const [k, n] of together) {
+    if (n < ALIAS_MIN) continue;
+    const [a, b] = k.split('\u0000');
+    // 中文对英文才算「同一样东西的两个说法」；两个英文词一起出现只是它们常同框
+    const cjkA = /[㐀-䶿一-鿿]/u.test(text.get(a) || '');
+    const cjkB = /[㐀-䶿一-鿿]/u.test(text.get(b) || '');
+    if (cjkA === cjkB) continue;
+    if (n < Math.min(df.get(a) || 1, df.get(b) || 1) * ALIAS_RATIO) continue;
+    link(a, b);
+  }
+  return { post, df, words, text, alias };
 }
 
 /**
- * 和这一条共用证据词最多的那几条，每条都带着它们共用的词。
- * @returns {{id:string, score:number, words:string[]}[]} 按强弱排
+ * 和这一条共用词的那几条，每条带着**那一对词**——线上写的就是它。
+ * @returns {{id:string, score:number, pairs:{a:string,b:string,fuzzy:boolean}[]}[]}
  */
 function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF } = {}) {
   const mine = idx.words.get(String(id || ''));
   if (!mine) return [];
   const hit = new Map();
-  for (const w of mine) {
-    const n = idx.df.get(w) || 0;
+  const meet = (other, a, b, fuzzy) => {
+    if (other === id) return;
+    if (!hit.has(other)) hit.set(other, []);
+    hit.get(other).push({ a, b, fuzzy });
+  };
+  for (const k of mine) {
+    const n = idx.df.get(k) || 0;
     if (n < 2 || n > maxDf) continue;
-    for (const other of idx.post.get(w) || []) {
-      if (other === id) continue;
-      if (!hit.has(other)) hit.set(other, []);
-      hit.get(other).push(w);
+    for (const other of idx.post.get(k) || []) meet(other, k, k, false);
+    for (const k2 of idx.alias.get(k) || []) {
+      const n2 = idx.df.get(k2) || 0;
+      if (n2 < 1 || n2 > maxDf) continue;
+      for (const other of idx.post.get(k2) || []) meet(other, k, k2, true);
     }
   }
   const out = [];
-  for (const [other, ws] of hit) {
-    // 至少要有一个够罕见的共用词。全是「maps」「details」「方式」这种，不算证据。
-    const ok2 = ws.filter((w) => (idx.df.get(w) || 99) <= (CJK_RE.test(w) ? EV_NEEDDF_CJK : needDf));
-    if (!ok2.length) continue;
-    const bestDf = Math.min(...ok2.map((w) => idx.df.get(w) || 99));
-    // **按最罕见的那一个词打分，不按几个词的和。** 用和的话，四个泛词（呈现·方式·要求·通过）
-    // 会压过一个「50km」——而后者才是真正说明问题的那一个。词数只当同分时的先后。
-    const score = 1 / Math.log2(2 + bestDf) + 0.05 * Math.min(ws.length, 6);
-    out.push({ id: other, score, words: ws.sort((a, b) => (idx.df.get(a) || 0) - (idx.df.get(b) || 0)).slice(0, 4) });
+  for (const [other, ps] of hit) {
+    const best = Math.min(...ps.map((p) => idx.df.get(p.a) || 99));
+    if (best > needDf) continue;
+    // **按最罕见的那一对打分，不按几对的和**：四对泛词不该压过一个 50km
+    const score = 1 / Math.log2(2 + best) + 0.05 * Math.min(ps.length, 6);
+    const seen = new Set();
+    const pairs = ps
+      .sort((x, y) => (idx.df.get(x.a) || 0) - (idx.df.get(y.a) || 0))
+      .filter((p) => { const k = `${p.a}|${p.b}`; if (seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0, 3)
+      .map((p) => ({ a: idx.text.get(p.a) || '', b: idx.text.get(p.b) || '', fuzzy: p.fuzzy }));
+    out.push({ id: other, score, pairs });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, limit);
 }
@@ -401,6 +380,6 @@ function chainOf(runIds, g, getEntry) {
 
 module.exports = {
   build, linksOf, chainOf, pageKeysOf, pageIdentityOf, normUrl, titleKey,
-  evWords, headWords, evidenceIndex, evidenceFor, EV_MAXDF, EV_NEEDDF, EV_KEEP,
+  evidenceIndex, evidenceFor, EV_MAXDF, EV_NEEDDF, EV_KEEP,
   RUN_GAP_MS, MIN_KEY, MAX_CLIPS, SHELLS,
 };

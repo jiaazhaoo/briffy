@@ -19,7 +19,6 @@ const topic = require('./topic');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
 const story = require('./story');
-const entity = require('./entity');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -76,7 +75,6 @@ function storyCtx() {
   return {
     g: links.build(all),
     ev: evIdx,
-    ent: entity.index(all, (e) => boilerplate.strip(String(e.text || ''), fur)),
     ids: all.map((e) => e.id),
     near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
   };
@@ -263,16 +261,10 @@ function graphOf(id) {
   try {
     // 图谱是一张画，不是一张清单：环形布局摆得下十来个，再多就糊成一团。
     // 长出来的那一片可以更大（story.MAX），画的时候取分最高的这些。
-    const ctx = storyCtx();
-    const s = story.grow(me, ctx, { max: 24 });
+    const s = story.grow(me, storyCtx(), { max: 14 });
     if (s.members.length > 1) {
-      // 实体节点带着它自己的名字和类型出去：图上它们不是记录，画法也不该一样
-      const nodes = s.members.map((m) => {
-        if (!m.id.startsWith('e:')) return { id: m.id, hop: m.hop };
-        const x = ctx.ent.ents.get(m.id.slice(2)) || {};
-        return { id: m.id, hop: m.hop, entity: { text: x.text || '', kind: x.kind || 'name', n: (x.records || []).length } };
-      });
-      return { nodes, edges: s.edges };
+      // 边自己带着依据：一对词，或者那一页的名字。线上写的就是它。
+      return { nodes: s.members.map((m) => ({ id: m.id, hop: m.hop })), edges: s.edges };
     }
   } catch (_) { /* 长不出来就退回向量那张图，至少还有东西看 */ }
   try {
