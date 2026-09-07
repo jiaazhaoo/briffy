@@ -34,6 +34,12 @@ contextBridge.exposeInMainWorld('ws', {
   openExtensionDir: invoke('ws:open-extension-dir'),
   extensionStatus: invoke('ws:extension-status'),
   openExtensionGuide: invoke('ws:open-extension-guide'),
+  // 接进来的东西。凭据只从这里往主进程走，回来的永远只有状态。
+  connectList: () => ipcRenderer.invoke('ws:connect-list'),
+  connectSet: (name, creds) => ipcRenderer.invoke('ws:connect-set', name, creds),
+  connectDrop: (name) => ipcRenderer.invoke('ws:connect-drop', name),
+  connectSync: (name, opts) => ipcRenderer.invoke('ws:connect-sync', name, opts),
+  onConnectProgress: listen('ws:connect-progress'),
   onExtension: listen('ws:extension'),
   exportExtension: invoke('ws:export-extension'),
   runSetup: invoke('ws:run-setup'),

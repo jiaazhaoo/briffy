@@ -538,6 +538,11 @@ body.picking .d-left, body.picking .d-mid { display: none; }
 .md blockquote { margin: var(--a3) 0; padding-left: var(--a3); color: var(--ink-2); }
 .md code { background: var(--slip-2); padding: 1px 5px; font: 400 .92em/1 var(--mono); }
 .md .meta { display: block; margin-bottom: var(--a4); font-size: var(--fs-meta); color: var(--ink-3); }
+/* 接进来：每个服务一行。没连的时候是几个输入框加一个「连接」，连上之后是状态加两个词。 */
+#connectList .fc { flex-wrap: wrap; row-gap: var(--a2); }
+#connectList input.wide { width: 240px; }
+#connectList .st { flex-basis: 100%; }
+
 /* 模型写回来的那几样。段距走空的梯子，不用浏览器默认值。 */
 .md p { margin: var(--a3) 0; }
 .md p:first-child { margin-top: 0; }

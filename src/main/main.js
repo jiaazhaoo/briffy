@@ -27,6 +27,7 @@ const uptime = require('./uptime');
 const deeplink = require('./deeplink');
 const longshot = require('./longshot');
 const apps = require('./apps');
+const connect = require('./connect');
 const listen = require('./listen');
 const diarize = require('./diarize');
 const dayStats = require('./day-stats');
@@ -152,6 +153,8 @@ async function main() {
   // the app was closed, and records saved before this existed still carry their English labels.
   workspace.relabelVision(uiLanguage(store.getSettings().languages));
   ask.init({ store });
+  connect.init({ store });
+  connect.onProgress((p) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('ws:connect-progress', p); });
   ask.warm();                      // 后台把磁盘索引追平，第一次提问就不用等
   // First launch: walk through languages, permissions and who reads the records, before the pet starts
   // silently asking the OS for things.
@@ -1036,6 +1039,14 @@ function setupIpc() {
   ipcMain.handle('ws:ask', async (_e, question) => {
     const r = await ask.run(question);
     return r ? { ...r, sources: r.sources.map(publicEntry) } : null;
+  });
+  // 接进来的东西：Notion、Gmail。凭据只往里走，list() 不会把它们带出来。
+  ipcMain.handle('ws:connect-list', () => connect.list());
+  ipcMain.handle('ws:connect-set', (_e, name, creds) => connect.connect(String(name || ''), creds || {}));
+  ipcMain.handle('ws:connect-drop', (_e, name) => connect.disconnect(String(name || '')));
+  ipcMain.handle('ws:connect-sync', async (_e, name, opts) => {
+    try { return { ok: true, ...(await connect.sync(String(name || ''), opts || {})) }; }
+    catch (e) { return { ok: false, error: e.message || String(e) }; }
   });
   ipcMain.handle('ws:stats', () => store.stats());
   // Where each line of recognised text sits on a picture; read only when a detail view opens.
