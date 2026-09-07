@@ -1321,7 +1321,7 @@
       const title = cardTitle(n) || t('untitled');
       const thumb = (n.type === 'screenshot' || n.type === 'image') && n.fileUrl
         ? `<img src="${esc(n.fileUrl)}" loading="lazy" alt="" />` : (ICONS[n.type] || ICONS.file);
-      return `<button type="button" class="gr-card h${n.hop}${n.id === centreId ? ' on' : ''}" data-rel="${esc(n.id)}"`
+      return `<button type="button" class="gr-card h${n.hop}${n.id === centreId ? ' on' : ''}" data-node="${esc(n.id)}"`
         + ` title="${esc(title)}" style="left:${(x - w / 2).toFixed(1)}px;top:${(y - h / 2).toFixed(1)}px;width:${w}px;height:${h}px">`
         + (far ? '' : `<span class="ct">${thumb}</span>`)
         + `<span class="cb"><b>${esc(title)}</b>${far ? '' : `<span>${esc(fmtTime(n.createdAt))}</span>`}</span></button>`;
@@ -2559,10 +2559,15 @@
 // 「相关」里点一条 = 打开那一条。委托到 document 上：这一块在详情面板里，
     // 而详情面板在列表视图和弹窗里各有一份，两处都要能点。
 $('#graphModal').addEventListener('click', (ev) => {
-      // 点背景或叉都关；点一个节点是把图移过去，不是打开那条记录——图谱的用处就是走链
       if (ev.target.closest('[data-graph-close]') || ev.target === $('#graphModal')) { $('#graphModal').hidden = true; return; }
+      // 点一张卡就是打开那条记录，只此一件事。
+      // 原来这里是「把图移到那一条上」——听着顺，用起来是：整张图拆掉、去后台算一遍、再长回来，
+      // 于是每点一下都闪一下，而你多半只是想看看那张卡到底是什么。要走链，从新开的那条记录
+      // 再点一次「图谱」就是了。
       const n = ev.target.closest('.gr-card');
-      if (n && n.dataset.rel) openGraph(n.dataset.rel);
+      if (!n || !n.dataset.node) return;
+      $('#graphModal').hidden = true;
+      openDetail(n.dataset.node);
     });
         document.addEventListener('click', (ev) => {
       const b = ev.target.closest && ev.target.closest('[data-rel]');
