@@ -168,14 +168,26 @@
     },
     chatRename: async function (id, title) { const c = this._chats.find((x) => x.id === id); if (c) c.title = title.trim(); return c || null; },
     chatRemove: async function (id) { this._chats = this._chats.filter((c) => c.id !== id); return true; },
+    // 三种边。样张里给全：一条摘录（有来处）、一页摘录清单、同一程、意思相近
+    links: async (id) => {
+      const me = entries.find((e) => e.id === id) || entries[0];
+      const rest = entries.filter((e) => e.id !== me.id);
+      return {
+        source: { key: 'https://claude.ai/chat/abc', name: '赛程分前后半程 - Claude', page: rest[0].id, entry: pub(rest[0]) },
+        clips: rest.slice(1, 4).map(pub),
+        run: rest.slice(4, 6).map(pub),
+        near: rest.slice(6, 8).map(pub),
+      };
+    },
     graph: async (id) => {
       const c = entries.find((e) => e.id === id) || entries[0];
       const one = entries.filter((e) => e.id !== c.id).slice(0, 3);
       const two = entries.filter((e) => e.id !== c.id && !one.includes(e)).slice(0, 2);
       const nodes = [{ ...pub(c), hop: 0 }, ...one.map((e) => ({ ...pub(e), hop: 1 })), ...two.map((e) => ({ ...pub(e), hop: 2 }))];
-      const edges = one.map((e) => [c.id, e.id]);
-      edges.push([one[0].id, one[1].id]);
-      two.forEach((e, i) => edges.push([one[i % one.length].id, e.id]));
+      // 三种边都给上，样张才看得出线的区别
+      const edges = one.map((e, i) => [c.id, e.id, ['page', 'page', 'near'][i] || 'near']);
+      edges.push([one[0].id, one[1].id, 'run']);
+      two.forEach((e, i) => edges.push([one[i % one.length].id, e.id, i ? 'run' : 'page']));
       return { nodes, edges };
     },
     topics: async () => ([

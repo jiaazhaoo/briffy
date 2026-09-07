@@ -11,6 +11,7 @@
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
       near: '相近', related: '相关', graph: '图谱', untitled: '无标题',
+      fromPage: '摘自', clippedHere: '从这一页摘的', sameRun: '同一程', notSaved: '（这一页没存下来）',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
       chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', graphEmpty: '这一条没有够近的记录，画不出图。', topicsHint: '成堆的：', viewTrail: '路过',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
@@ -148,6 +149,7 @@
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
       near: 'related', related: 'Related', graph: 'Graph', untitled: 'Untitled',
+      fromPage: 'Clipped from', clippedHere: 'Clipped from this page', sameRun: 'Same sitting', notSaved: '(page not saved)',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
       chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', graphEmpty: 'Nothing near enough to draw.', topicsHint: 'Groups:', viewTrail: 'Passed by',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
@@ -1319,11 +1321,14 @@
       const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
       return t >= 1 || !Number.isFinite(t) ? [x, y] : [x + dx * t, y + dy * t];
     };
-    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b)).map(([a, b]) => {
+    // 线分种类：**一条「摘自」和一条「意思相近」的把握完全不同**，画成同一根就是在说它们一样可靠。
+    // 同一处是实线（精确匹配），同一程是虚线（那一段里你还路过了什么，会捞进不相干的），
+    // 意思相近还是那根细线。
+    const edges = g.edges.filter(([a, b]) => pos.has(a) && pos.has(b)).map(([a, b, kind]) => {
       const [ax, ay] = at(a); const [bx, by] = at(b);
       const [x1, y1] = rim(a, bx, by);
       const [x2, y2] = rim(b, ax, ay);
-      return `<line class="gr-edge" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`;
+      return `<line class="gr-edge e-${esc(kind || 'near')}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" />`;
     }).join('');
     // 卡片是 HTML 压在这层线上面的：一张记录在图里也该长成它在网格里的样子——
     // 缩略图认得出来、标题能读、时间在下面。画成 <rect> 的时候，一个 24px 高的灰方块里
@@ -1364,18 +1369,40 @@
   // 打开一条记录时当场算它的邻居，不存图——存下来只会多一个会过期的东西。
   // seq 挡住过期的回应：翻得快时前一条的邻居不该落在后一条底下。
   let relSeq = 0;
+  /**
+   * 这一条身上挂着的边。**三种分开列，各自说得出来路**——不合成一个「相关」。
+   *
+   * 「摘自 / 从这一页摘的」是精确的（同一个网址、或同一个标签页标题，一字不差）；
+   * 「同一程」是那一段没断过的操作里你还经过了哪几页，它会捞进不相干的东西，所以单列；
+   * 「相关」是向量，只有真的很近才出现。把它们并成一栏，就等于宣称三种把握一样大。
+   */
   async function fillRelated(id, box) {
     const my = ++relSeq;
-    let list = [];
-    try { list = await ws.related(id); } catch (_) { list = []; }
-    if (my !== relSeq || !list.length) return;
+    let l = null;
+    try { l = await ws.links(id); } catch (_) { l = null; }
+    if (my !== relSeq || !l) return;
     const slot = box.querySelector('.dt-related');
     if (!slot) return;
+    // 日期用短的：这一栏只有 84px，写全「2026年9月7日周四」会折成两行
+    const row = (e) => `<button type="button" class="rel" data-rel="${esc(e.id)}">`
+      + `<span class="tm">${esc(shortDay(e.dateKey))}</span>`
+      + `<span class="ti">${esc(cardTitle(e))}</span></button>`;
+    const group = (label, list) => (list && list.length
+      ? `<h3>${esc(t(label))}</h3>${list.map(row).join('')}` : '');
+
+    let html = '';
+    if (l.source) {
+      // 那一页你也存下来了就能点进去；没存过，它仍然是个说得出名字的来处
+      html += `<h3>${esc(t('fromPage'))}</h3>`
+        + (l.source.entry ? row(l.source.entry)
+          : `<div class="rel flat"><span class="ti">${esc(l.source.name)}</span><span class="tm">${esc(t('notSaved'))}</span></div>`);
+    }
+    html += group('clippedHere', l.clips);
+    html += group('sameRun', l.run);
+    html += group('related', l.near);
+    if (!html) { slot.hidden = true; slot.innerHTML = ''; return; }
     slot.hidden = false;
-    slot.innerHTML = `<h3>${esc(t('related'))}</h3>`
-      + list.map((e) => `<button type="button" class="rel" data-rel="${esc(e.id)}">`
-        + `<span class="tm">${esc(fmtDate(e.dateKey))}</span>`
-        + `<span class="ti">${esc(cardTitle(e))}</span></button>`).join('');
+    slot.innerHTML = html;
   }
 
   function renderDetailInto(box) {

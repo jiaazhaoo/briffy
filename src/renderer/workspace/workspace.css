@@ -356,8 +356,12 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 宽高要写死：全局那条 `svg { width:16px }` 是给图标定的，不写的话这一层会缩成 16×16，
    viewBox 跟着缩三十五倍——线还在，只是细到看不见。 */
 .gr-lines { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-/* 这条线不是分隔线，它是这张图要说的那件事本身，所以比发丝线深一点、也允许它存在 */
+/* 这条线不是分隔线，它是这张图要说的那件事本身，所以比发丝线深一点、也允许它存在。
+   三种边的把握不同，线也不能一样：同一处是精确匹配（同一个网址、同一个标签页标题），
+   画满；同一程只是「那一段里你还路过了什么」，画虚；意思相近最细。 */
 .gr-edge { stroke: var(--ink-3); stroke-width: 1; fill: none; opacity: .55; }
+.gr-edge.e-page { stroke: var(--ink-2); stroke-width: 1.4; opacity: .8; }
+.gr-edge.e-run { stroke-dasharray: 3 4; opacity: .5; }
 /* 图里的节点就是记录本身，所以它长成记录的样子：白便签 + 影子，和网格里那些是同一种纸。
    （层 1，hover 抬 2px 换 --e2——「只有真实物件有影子」这条在这儿是成立的，一条记录就是物件。） */
 .gr-card { position: absolute; display: flex; align-items: center; gap: var(--a2); overflow: hidden;
@@ -391,6 +395,9 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .rel .tm { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
 .rel .ti { color: var(--ink-2); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rel:hover .ti { color: var(--ink); }
+/* 来处那一页你没存下来：它仍然说得出名字，但没有东西可以点开。名字在左，说明在右 */
+.rel.flat { grid-template-columns: 1fr auto; cursor: default; }
+.rel.flat:hover .ti { color: var(--ink-2); }
 
 /* ---------- 路过 ---------- */
 /* 一段一行，读起来是一页日记：时间在左（和网格的时间轴同一个位置），时长、应用、标题依次退墨。

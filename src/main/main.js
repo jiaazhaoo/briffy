@@ -1099,6 +1099,17 @@ function setupIpc() {
   ipcMain.handle('ws:chat-rename', (_e, id, title) => chats.rename(String(id || ''), String(title || '')));
   ipcMain.handle('ws:chat-remove', (_e, id) => chats.remove(String(id || '')));
   ipcMain.handle('ws:related', (_e, id) => ask.relatedTo(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
+  // 这一条身上挂着的全部边。三种边分开给，各自带着自己的来路——绝不合成一个「相关度」。
+  ipcMain.handle('ws:links', (_e, id) => {
+    const l = ask.linksOf(id);
+    const many = (ids) => ids.map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry);
+    return {
+      source: l.source ? { ...l.source, entry: l.source.page ? publicEntry(store.getEntry(l.source.page)) : null } : null,
+      clips: many(l.clips),
+      run: many(l.run),
+      near: many(l.near),
+    };
+  });
   // 一条记录周围两跳的图。节点连同记录本身一起给，省得渲染层再问一遍。
   ipcMain.handle('ws:graph', (_e, id) => {
     const g = ask.graphOf(id);
