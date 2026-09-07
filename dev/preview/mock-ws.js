@@ -50,8 +50,8 @@
   const originOf = (e) => {
     if (e.url) { try { const h = new URL(e.url).hostname.replace(/^www\./, ''); return SITE[h] || h; } catch (_) { /* 不是网址 */ } }
     const app = (e.context && e.context.app) || '';
-    if (app && !/chrome|safari|firefox|edge/i.test(app)) return app;
-    return srcOf(e);
+    if (/chrome|safari|firefox|edge/i.test(app)) return '?';   // 浏览器说不出是哪个站
+    return app || '?';                                          // 不知道就说不知道
   };
   const listeners = {};
   const on = (ch) => (cb) => { (listeners[ch] = listeners[ch] || []).push(cb); return () => {}; };

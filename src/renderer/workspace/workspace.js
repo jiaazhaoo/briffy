@@ -11,7 +11,7 @@
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
       near: '相近', topicsHint: '成堆的：', dimType: '类型', dimOrigin: '来源', dimTopic: '主题',
-      fAll: '全部', fClear: '清空', fMoreN: '更多 {n}', fLess: '收起',
+      fAll: '全部', fClear: '清空', fMoreN: '更多 {n}', fLess: '收起', fUnknown: '未知',
       tImage: '图片', tText: '文字', tAudio: '音频', tVideo: '视频', tPdf: 'PDF', tDoc: '文档',
       tSheet: '表格', tSlides: '幻灯片', tArchive: '压缩包', tLink: '链接', tOther: '其它',
       askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
@@ -143,7 +143,7 @@
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
       near: 'related', topicsHint: 'Groups:', dimType: 'Type', dimOrigin: 'From', dimTopic: 'Topic',
-      fAll: 'All', fClear: 'Clear', fMoreN: '{n} more', fLess: 'Less',
+      fAll: 'All', fClear: 'Clear', fMoreN: '{n} more', fLess: 'Less', fUnknown: 'Unknown',
       tImage: 'Pictures', tText: 'Text', tAudio: 'Audio', tVideo: 'Video', tPdf: 'PDF', tDoc: 'Documents',
       tSheet: 'Spreadsheets', tSlides: 'Slides', tArchive: 'Archives', tLink: 'Links', tOther: 'Other',
       askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
@@ -547,7 +547,9 @@
   const TYPE_LABEL = { image: 'tImage', text: 'tText', audio: 'tAudio', video: 'tVideo', pdf: 'tPdf',
     doc: 'tDoc', sheet: 'tSheet', slides: 'tSlides', archive: 'tArchive', link: 'tLink', other: 'tOther' };
   // 来源里那几个不是站点也不是应用的值，是「实在不知道从哪儿来」时退回的采集方式
-  const ORIGIN_LABEL = { clipboard: 'srcClipboard', screenshot: 'srcScreenshot', voice: 'srcVoice', bookmark: 'srcBookmark', browser: 'srcBrowser', other: 'srcOther' };
+  // 「来源」里只有真的来源：站点和应用。不知道就写「未知」，不拿「剪贴板」「截图」去糊——
+  // 那是「怎么进来的」，拿它当「从哪儿来的」是循环的，而且会变成这一格里最大的一块。
+  const ORIGIN_LABEL = { '?': 'fUnknown' };
   const DIMS = [['type', 'dimType'], ['origin', 'dimOrigin'], ['topic', 'dimTopic']];
   const originName = (k) => (ORIGIN_LABEL[k] ? t(ORIGIN_LABEL[k]) : k);
   const topicLabel = (id) => { const x = (state.topics || []).find((z) => z.id === id); return x ? (x.name || x.words) : id; };
