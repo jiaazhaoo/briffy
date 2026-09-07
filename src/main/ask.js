@@ -269,8 +269,33 @@ function graphOf(id) {
   } catch (_) { return { nodes: [], edges: [] }; }
 }
 
+/**
+ * 一个主题下面的全部记录。
+ *
+ * 归堆那一套（向量 + leader clustering）**决定谁算成员很差**——同一件事它只圈住 5 条，
+ * 而且圈住的那 5 条里有两个语言选择条和一个日期。但它圈住的那几条**确实都是这件事的记录**，
+ * 所以它当种子是够用的：从每一条往外长一遍（src/main/story.js），并起来就是那件事。
+ *
+ * 这样就绕开了那张一直做不对的全局清单——**清单还是它给的，只是「成员」不再由它说了算**。
+ * 实测：「泰晤士河步道超级马拉松」从 5 条变成十几条，报名页、赛程对话、以及从那条对话页上
+ * 摘下来的几条停车记录都进来了，而且每一条都说得出自己是被哪条边放进来的。
+ */
 function topicEntries(id) {
-  try { return index.topicMembers(String(id || '')); } catch (_) { return []; }
+  let seeds = [];
+  try { seeds = index.topicMembers(String(id || '')); } catch (_) { seeds = []; }
+  if (!seeds.length) return [];
+  try {
+    const ctx = storyCtx();
+    const score = new Map();
+    for (const seed of seeds.slice(0, 8)) {
+      for (const m of story.grow(seed, ctx, { max: 24 }).members) {
+        // 一条记录可能被好几个种子够到，取它最强的那一次
+        if ((score.get(m.id) || 0) < m.score) score.set(m.id, m.score);
+      }
+    }
+    for (const seed of seeds) if (!score.has(seed)) score.set(seed, 1);   // 种子自己一定在
+    return [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 60).map(([x]) => x);
+  } catch (_) { return seeds; }   // 长不出来就还是原来那几条，不该因此打不开
 }
 
 module.exports = { init, run, near, warm, refresh, topicList, topicEntries, relatedTo, linksOf, evidenceOf, graphOf, MAX_ITEMS };
