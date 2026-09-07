@@ -287,7 +287,9 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .jg-day:first-child { height: 0; }
 .jg-hour { display: flex; align-items: center; gap: 8px; margin: var(--a2) 0 var(--a3); font: 400 var(--fs-meta)/1 var(--sans);
   color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.jg-hour b { color: var(--ink-2); font-weight: 600; }
+/* 日期是一个词，不让它在汉字和数字之间自己撑开 */
+.jg-hour b { color: var(--ink-2); font-weight: 600; text-autospace: no-autospace; }
+.jg-hour .hr { color: var(--ink-2); }
 .jg-rows { position: relative; }
 
 /* 层 1 · 一条记录躺在底纸上。没有边框——纸没有轮廓线，它的边就是影子开始的地方 */

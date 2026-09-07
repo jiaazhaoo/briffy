@@ -315,6 +315,19 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
   const dayLabel = (key) => (key === todayKey() ? t('today') : key === todayKey(-1) ? t('yesterday') : fmtDate(key));
+  /**
+   * 网格里那条横带上的日期。和 dayLabel 的区别有两处，都是为了「一眼知道自己在看哪一天」：
+   * 一是永远带星期几——「今天」「昨天」自己不说星期，而人回想事情靠的常常是星期几；
+   * 二是今年的日期不写年份，那四个字在一条 11px 的灰带上只是噪音。
+   */
+  const bandDay = (key) => {
+    const [y, m, d] = key.split('-').map(Number);
+    const o = { month: 'short', day: 'numeric', weekday: 'short' };
+    if (y !== new Date().getFullYear()) o.year = 'numeric';
+    const date = new Date(y, m - 1, d).toLocaleDateString(locale(), o);
+    const rel = key === todayKey() ? t('today') : key === todayKey(-1) ? t('yesterday') : '';
+    return rel ? `${rel} ${date}` : date;
+  };
 
   let toastTimer = null;
   function toast(msg) {
@@ -904,7 +917,13 @@
       if (acc.items.length >= HOUR_MIN) { groups.push(acc); acc = null; }
     }
     if (acc) { if (groups.length) { const g = groups[groups.length - 1]; g.oldest = acc.oldest; g.items.push(...acc.items); } else groups.push(acc); }
-    return groups.map((g) => ({ items: g.items, first: g.newest, label: g.newest === g.oldest ? `${g.newest}:00` : `${g.oldest}:00–${g.newest}:59` }));
+    // 两头按大小取，不按先后取：一天之内的记录本该是新的在前，但只要有一条不是（导入回来的、
+    // 时间被改过的），`早–晚` 就会写反，带子上出现「10:00–09:59」这种读不通的区间。
+    return groups.map((g) => {
+      const lo = g.newest < g.oldest ? g.newest : g.oldest;
+      const hi = g.newest < g.oldest ? g.oldest : g.newest;
+      return { items: g.items, first: g.newest, label: lo === hi ? `${lo}:00` : `${lo}:00–${hi}:59` };
+    });
   }
   const shortDay = (key) => { const l = dayLabel(key); return l === fmtDate(key) ? fmtShortDate(key) : l; };
 
@@ -930,13 +949,16 @@
       head.setAttribute('aria-label', fmtDate(day));
       frag.appendChild(head);
       for (const group of hourGroups(all)) {
-        if (group.label) {
-          const lab = document.createElement('div');
-          lab.className = 'jg-hour';
-          lab.dataset.hour = `${day}T${group.first}`;
-          lab.innerHTML = `<b>${esc(group.label)}</b>${esc(t('dayCount', { n: group.items.length }))}`;
-          frag.appendChild(lab);
-        }
+        // 这条带子过去只写钟点，于是滚到一半只剩「23:00 · 6 条」，哪一天全靠左边那条 60px 的轴
+        // 去猜；记录少于 12 条的那种安静的一天连带子都不出现，整段没有一个字说这是几号。
+        // 现在每条带子自己说全：日期 + 星期几在前，钟点在后，安静的一天就只有日期那一半。
+        const lab = document.createElement('div');
+        lab.className = 'jg-hour';
+        lab.dataset.hour = `${day}T${group.first}`;
+        lab.innerHTML = `<b>${esc(bandDay(day))}</b>`
+          + (group.label ? `<span class="hr">${esc(group.label)}</span>` : '')
+          + `<span>${esc(t('dayCount', { n: group.items.length }))}</span>`;
+        frag.appendChild(lab);
         const items = group.items;
         const block = document.createElement('div');
         block.className = 'jg-rows';
