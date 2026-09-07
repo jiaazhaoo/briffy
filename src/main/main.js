@@ -1076,6 +1076,14 @@ function setupIpc() {
     try { return { ok: true, ...(await connect.importFiles(r.filePaths)) }; }
     catch (e) { return { ok: false, error: e.message || String(e) }; }
   });
+  // 搜索框里那些「意思相近」的。空手回来是正常的：模型没下好、这台机器跑不动、
+  // 向量还没补齐——搜索框的精确匹配那一半不受任何影响。
+  ipcMain.handle('ws:search-near', async (_e, q, exclude) => {
+    try {
+      const ids = await ask.near(String(q || ''), { exclude: Array.isArray(exclude) ? exclude : [] });
+      return ids.map((id) => store.getEntry(id)).filter(Boolean).map(publicEntry);
+    } catch (_) { return []; }
+  });
   ipcMain.handle('ws:stats', () => store.stats());
   // Where each line of recognised text sits on a picture; read only when a detail view opens.
   ipcMain.handle('ws:entry-boxes', (_e, id) => ocrBoxes.load(store.getEntry(id)));

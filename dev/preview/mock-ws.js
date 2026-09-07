@@ -120,6 +120,14 @@
     },
     openExtensionGuide: async () => ({ ok: true, url: 'http://127.0.0.1:47831/install' }),
     onExtension: on('ws:extension'),
+    // 「意思相近」：搜的时候慢一拍补上来的那几条，每条都带 near 标记
+    searchNear: async (q, skip) => {
+      await new Promise((r) => setTimeout(r, 300));
+      const seen = new Set(skip || []);
+      return entries.filter((e) => !seen.has(e.id)).slice(0, 3).map((e) => ({ ...pub(e), near: true }));
+    },
+    // 「接进来」那一格：两个服务都没连上的样子，加上一个能点的导出文件行
+
     // 「接进来」那一格：两个服务都没连上的样子，加上一个能点的导出文件行
     connectList: async () => ([
       { name: 'notion', label: 'Notion', connected: false },
