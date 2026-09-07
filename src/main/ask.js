@@ -18,6 +18,7 @@ const vector = require('./vector');
 const topic = require('./topic');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
+const story = require('./story');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -63,6 +64,19 @@ function learnFurniture() {
     const fur = boilerplate.furniture();
     evIdx = links.evidenceIndex(all, (e) => boilerplate.strip(String(e.text || ''), fur));
   } catch (_) { /* 学不到就只剩「成串短行」那一条规则，它不需要别的记录作证 */ }
+}
+
+/** 扩散要用的那一套：页面图、证据词倒排、向量邻居。都是现算的，谁也不落库。 */
+function storyCtx() {
+  try { learnFurniture(); } catch (_) { /* 用上一份 */ }
+  const all = [];
+  for (const key of store.listDates()) all.push(...store.loadDay(key));
+  return {
+    g: links.build(all),
+    ev: evIdx,
+    ids: all.map((e) => e.id),
+    near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
+  };
 }
 
 /** 和这一条共用证据词的那几条，每条带着共用的词。空手是正常的：这一条上没有够罕见的词。 */
@@ -229,64 +243,30 @@ function relatedTo(id) {
 }
 
 /**
- * 一条记录周围两跳的那张图。节点带 hop，**边带 kind**。
+ * 从这一条长出去的那一件事。图谱画的就是它。
  *
- * 语义那张图照旧（vector.graph），再把「同一处 / 同一程」并进来。边的种类要一路带到界面上：
- * 一条「摘自」和一条「意思相近」的把握完全不同，画成同一根线就是在说它们一样可靠。
+ * 这不是「周围两跳」，也不是聚类：是**带衰减的扩散**（src/main/story.js）。
+ * 一跳一个专名（tw20、runnymede、50km）是强证据，三跳绕过一个泛词什么也不是，所以每远一跳
+ * 乘一次衰减，掉到门槛以下就不再走。每一条进来的记录都带着**它是被哪条边、哪个词放进来的**。
+ *
+ * 实测（dev/story-bench.js）：从「Ultra Challenge」长出 14 条，正好是那一晚的那件事——
+ * 报名页、赛程对话、以及从那条对话页上摘下来的三条停车记录。对照它替掉的那套向量归堆：
+ * 同一件事只给 5 条，而且没有一条说得出为什么。
  * @returns {{nodes:{id:string,hop:number}[], edges:[string,string,string][]}}
  */
 function graphOf(id) {
   const me = String(id || '');
   try { refresh(); } catch (_) { /* 用已经建好的那部分 */ }
-  let base = { nodes: [], edges: [] };
-  try { base = vector.graph(index, me); } catch (_) { base = { nodes: [], edges: [] }; }
-
-  const hop = new Map(base.nodes.map((n) => [n.id, n.hop]));
-  hop.set(me, 0);
-  const edges = base.edges.map(([a, b]) => [a, b, 'near']);
-  const add = (x, h) => { if (x && !hop.has(x)) hop.set(x, h); };
-
   try {
-    const all = [];
-    for (const key of store.listDates()) all.push(...store.loadDay(key));
-    const g = links.build(all);
-    const l = links.linksOf(me, g);
-
-    if (l.source) {
-      const page = l.source.page;
-      if (page) { add(page, 1); edges.push([me, page, 'page']); }
-      // 同一页上的兄弟：它们和我是同一处来的，这是这张图里最实的一圈
-      const sibs = (g.pages.get(l.source.key) || { clips: [] }).clips;
-      for (const sib of sibs.slice(0, 8)) {
-        if (sib === me) continue;
-        add(sib, page ? 2 : 1);
-        edges.push([page || me, sib, 'page']);
-      }
-    }
-    for (const c of l.clips.slice(0, 8)) { add(c, 1); edges.push([me, c, 'page']); }
-    // 同一程连的是页面，不是那一段里的每一条记录——一段五十条两两相连没有意义
-    // 共用证据词的那几条：这是唯一一种**能传递**的边，也是把停车那半边和报名那半边
-    // 接起来的那一根（Ultra Challenge ↔ 赛程分前后半程，共用「50km」）。
-    for (const ev of evidenceOf(me).slice(0, 5)) { add(ev.id, 1); edges.push([me, ev.id, 'word']); }
-    const from = (l.source && l.source.page) || me;
-    for (const p of l.run.pages.slice(0, 4)) {
-      const to = p.first;
-      if (!to || to === from || to === me) continue;
-      add(to, 2);
-      edges.push([from, to, 'run']);
-    }
-  } catch (_) { /* 边是加分项：语义那张图照样出得来 */ }
-
-  const seen = new Set();
-  const out = [];
-  for (const [a, b, kind] of edges) {
-    if (!hop.has(a) || !hop.has(b) || a === b) continue;
-    const key = `${a < b ? a : b}|${a < b ? b : a}|${kind}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push([a, b, kind]);
-  }
-  return { nodes: [...hop].map(([nid, h]) => ({ id: nid, hop: h })), edges: out };
+    // 图谱是一张画，不是一张清单：环形布局摆得下十来个，再多就糊成一团。
+    // 长出来的那一片可以更大（story.MAX），画的时候取分最高的这些。
+    const s = story.grow(me, storyCtx(), { max: 14 });
+    if (s.members.length > 1) return { nodes: s.members.map((m) => ({ id: m.id, hop: m.hop })), edges: s.edges };
+  } catch (_) { /* 长不出来就退回向量那张图，至少还有东西看 */ }
+  try {
+    const base = vector.graph(index, me);
+    return { nodes: base.nodes, edges: base.edges.map(([a, b]) => [a, b, 'near']) };
+  } catch (_) { return { nodes: [], edges: [] }; }
 }
 
 function topicEntries(id) {
