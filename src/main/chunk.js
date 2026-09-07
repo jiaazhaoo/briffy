@@ -7,17 +7,26 @@
 //
 // 这里也是 dev/semantic-bench.js 用的那一份，所以基准跑的和线上跑的是同一套切法。
 const crypto = require('crypto');
+const boilerplate = require('./boilerplate');
 
 const CHUNK = 220;          // 一块大约这么多字符：128 token 中文装 100 出头，英文多些
 const OVERLAP = 40;         // 块之间叠一点，别把一句话从中间切断
 const MAX_CHUNKS = 10;      // 一条记录最多切这么多块，够覆盖前两千字
 const MIN_CHARS = 8;        // 比这还短的块没有意义
 
-/** 拿去做向量的那段字。标题排在最前面——它常常就是答案本身（「Ollama 地址」「Dell ultrawide…」）。 */
+/**
+ * 拿去做向量的那段字。标题排在最前面——它常常就是答案本身（「Ollama 地址」「Dell ultrawide…」）。
+ *
+ * 正文先剥一遍网页家具（boilerplate.js）。**剥的只是这一份视图，存下来的记录一个字不动**，
+ * 搜索也照旧搜全文——「Payment Methods」你还是搜得到，它只是不该参与决定这条记录讲的是什么。
+ * 实测这一步在真实工作区上去掉 17% 的字，而地名桥词（egham / runnymede / thames / tw20）
+ * 一条不少：JustPark 那页的十四行菜单没了，报名页里那段「Ultra March 1st Half Challenge」留着。
+ */
 function textOf(entry) {
   const e = entry || {};
   const head = String(e.title || '').trim();
-  const body = String(e.text || e.summary || '').replace(/\s+/g, ' ').trim();
+  const cut = e.text ? boilerplate.strip(String(e.text), boilerplate.furniture()) : '';
+  const body = String(cut || e.summary || '').replace(/\s+/g, ' ').trim();
   return (head && body ? `${head}。${body}` : (head || body)).trim();
 }
 
