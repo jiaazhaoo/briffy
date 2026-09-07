@@ -29,6 +29,7 @@ const longshot = require('./longshot');
 const apps = require('./apps');
 const connect = require('./connect');
 const importBulk = require('./import-bulk');
+const trail = require('./trail');
 const listen = require('./listen');
 const diarize = require('./diarize');
 const dayStats = require('./day-stats');
@@ -155,6 +156,8 @@ async function main() {
   workspace.relabelVision(uiLanguage(store.getSettings().languages));
   ask.init({ store });
   connect.init({ store });
+  trail.init({ store });
+  trail.start();
   connect.onProgress((p) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('ws:connect-progress', p); });
   ask.warm();                      // 后台把磁盘索引追平，第一次提问就不用等
   // First launch: walk through languages, permissions and who reads the records, before the pet starts
@@ -563,8 +566,14 @@ function syncLocalApi() {
       console.log(`[extension] connected, version ${ext.version}`);
       windows.broadcastToWorkspace('ws:extension', localApi.extensionStatus());
     },
-    onTab: (tab) => foreground.noteTab(tab),
+    onTab: (tab) => {
+      foreground.noteTab(tab);
+      // 正文只有开着那一层时才会被交上来，trail 自己按网址去重
+      if (tab && tab.text) trail.notePage(tab);
+    },
     wantsTab: () => foreground.isEnabled(),
+    // 正文要不要：这是「不用动手存的那一层」，默认关着，见 src/main/trail.js
+    wantsText: () => store.getSettings().recordTrail === true,
     onDone: (info) => {
       const n = Math.max(0, (info.count || 0) - (info.failed || 0));
       if (n) windows.setPetState('success', { message: t('mediaReceived', { n, title: (info.pageTitle || '').slice(0, 30) }), ms: 4000 });
@@ -1077,6 +1086,10 @@ function setupIpc() {
   // 主题：讲同一件事的记录归成的堆。空手是正常的——向量还没补齐，或者这个工作区还没有成堆的东西。
   ipcMain.handle('ws:topics', () => ask.topicList());
   ipcMain.handle('ws:topic-entries', (_e, id) => ask.topicEntries(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
+  // 不用动手存的那一层：一天的痕迹和各应用待了多久。空手是正常的——这个功能默认关着。
+  ipcMain.handle('ws:trail', (_e, day) => trail.read(String(day || require('./store').localDateKey())));
+  ipcMain.handle('ws:trail-days', () => trail.days());
+  ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());
   // Where each line of recognised text sits on a picture; read only when a detail view opens.
   ipcMain.handle('ws:open-viewer', (_e, id) => { viewer.open(id); return true; });

@@ -132,6 +132,8 @@ async function ping() {
 // "record where it came from" off; nothing is sent otherwise. Only the tab the user is looking at is
 // reported, one at a time, and the app keeps it in memory for half a minute -- this is not history.
 let wantTab = false;
+let wantText = false;         // 应用要不要这一页的正文（「不用动手存的那一层」，默认关着）
+let lastTextUrl = '';         // 同一页的正文只交一次；刷新、回退、SPA 来回切都不重复
 let lastSent = '';
 let lastSentAt = 0;
 // 同一个页面待久了也要再报一次，否则应用那边会认为这条标签页已经旧到不能用了。
@@ -145,13 +147,27 @@ async function reportTab(tab) {
   const key = `${tab.url}|${tab.title || ''}`;
   if (key === lastSent && Date.now() - lastSentAt < RESEND_MS) return;
   lastSent = key; lastSentAt = Date.now();
+  // 正文在页面里读，不截屏也不 OCR：innerText 一次 0.2ms 读出一万两千字，而 OCR 要 800ms
+  // 才认出一千一百字。只有换了网址才读——同一页刷新、回退、SPA 来回切，正文没变。
+  let text = '';
+  if (wantText && tab.url !== lastTextUrl) {
+    try {
+      const [r] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'ISOLATED',
+        func: () => (window.BriffyExtract ? (window.BriffyExtract.extract() || {}).text || '' : ''),
+      });
+      text = (r && r.result) || '';
+      if (text) lastTextUrl = tab.url;
+    } catch (_) { /* 有些页面不让注入（chrome://、商店页），跳过 */ }
+  }
   try {
     const res = await fetch(`${await apiBase()}/api/tab`, {
       method: 'POST',
       headers: { 'X-Briffy': '1', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: tab.url, title: tab.title || '' }),
+      body: JSON.stringify({ url: tab.url, title: tab.title || '', ...(text ? { text } : {}) }),
     });
-    if (res.ok) wantTab = !!(await res.json()).wantTab;
+    if (res.ok) { const j = await res.json(); wantTab = !!j.wantTab; wantText = !!j.wantText; }
   } catch (_) { /* the app is not running */ }
 }
 

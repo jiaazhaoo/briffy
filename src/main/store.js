@@ -40,6 +40,10 @@ const DEFAULT_SETTINGS = {
   // Stamp every record with the app / window / page the user was on when they saved it. Read at save
   // time only -- briffy never watches what is in front of you, see foreground.js.
   recordContext: true,
+  // 不用你动手存的那一层：你在哪个应用、哪个窗口、哪个网页，以及网页的正文。
+  // **默认关着。** 它记的是你路过的东西，不是你决定留下的东西——briffy 的其余部分是后者，
+  // 这一样是另一个承诺，得你自己点开。见 src/main/trail.js。
+  recordTrail: false,
   // Hold the microphone and file a recording whenever anyone talks. The one thing briffy does
   // without being asked, so it is off until it is turned on. See src/main/listen.js.
   autoRecord: false,
