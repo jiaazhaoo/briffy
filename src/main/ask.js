@@ -15,6 +15,7 @@ const path = require('path');
 const llm = require('./llm');
 const retrieve = require('./retrieve');
 const vector = require('./vector');
+const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
 
@@ -125,7 +126,10 @@ async function run(question, { limit = MAX_ITEMS } = {}) {
  */
 async function near(query, { exclude = [], limit = 12 } = {}) {
   const q = String(query || '').trim();
-  if (q.length < 2) return [];
+  // 门槛是为了别在打第一个字母时就去算向量。但**一个汉字就是一个完整的词**——「车」「猫」「书」
+  // 都是正经查询，按字符数一刀切会把它们全挡在外面（实测「车」返回 0 条，而它本该找到
+  // Ford focus 和那张接驳车的截图）。所以只对拉丁那种一个字母不成词的情况要求两个字符。
+  if (!q || (q.length < 2 && !CJK.test(q))) return [];
   try { refresh(); } catch (_) { /* 索引没追平也照样能搜已经建好的那部分 */ }
   const skip = new Set(exclude || []);
   const ids = await vector.search(index, q, { limit: limit * 3, cacheDir: store.paths().models });

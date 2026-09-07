@@ -503,7 +503,8 @@
   async function addNear() {
     const my = ++nearSeq;
     const q = state.query;
-    if (!q || q.trim().length < 2) return;
+    // 一个汉字就是一个完整的词，别按字符数一刀切（和 ask.js 里 near() 那条同一个道理）
+    if (!q || (q.trim().length < 2 && !/[぀-ヿ㐀-䶿一-鿿가-힯]/u.test(q))) return;
     let more = [];
     try { more = await ws.searchNear(q, state.entries.map((e) => e.id)); } catch (_) { more = []; }
     if (my !== nearSeq || q !== state.query || !more.length) return;
