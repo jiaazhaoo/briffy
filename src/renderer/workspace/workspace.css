@@ -341,20 +341,38 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* ---------- 图谱 ---------- */
 /* 一条记录周围两跳。三条规矩和别处一样：全直角（所以节点是方块不是圆）、
    没有颜色（远近只用墨色深浅）、线只有发丝那一档——这里的线是内容不是装饰，所以它能出现。 */
-.graph-card { width: min(720px, 92vw); height: auto; max-height: 86vh; overflow: auto; }
-.graph-body { padding: var(--a3) var(--a4) var(--a5); }
-.graph-body svg { width: 100%; height: auto; display: block; }
-.gr-edge { stroke: var(--hair); stroke-width: 1; fill: none; }
+/* 窗口跟着图走，不是图跟着窗口走：图只有四张卡的时候，一个 880 宽的空框子比图本身还显眼 */
+/* 写成 .modal-card.graph-card 是为了压过 .modal-card 的固定宽度——它在这条下面，同分就它赢 */
+.modal-card.graph-card { width: auto; max-width: min(880px, 94vw); height: auto; max-height: 86vh; overflow: auto; }
+.graph-body { padding: var(--a3) var(--a4) var(--a4); overflow: auto; }
+/* 线在下、卡片在上，两层用同一套坐标。图不缩放——把一张 680 宽的 svg 拉满一个更宽的框，
+   11px 的字会跟着放大成模糊的一团，方块也跟着变形。宁可窄窗口里横向滚。 */
+.gr-map { position: relative; margin: 0 auto; }
+/* 宽高要写死：全局那条 `svg { width:16px }` 是给图标定的，不写的话这一层会缩成 16×16，
+   viewBox 跟着缩三十五倍——线还在，只是细到看不见。 */
+.gr-lines { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+/* 这条线不是分隔线，它是这张图要说的那件事本身，所以比发丝线深一点、也允许它存在 */
+.gr-edge { stroke: var(--ink-3); stroke-width: 1; fill: none; opacity: .55; }
+/* 图里的节点就是记录本身，所以它长成记录的样子：白便签 + 影子，和网格里那些是同一种纸。
+   （层 1，hover 抬 2px 换 --e2——「只有真实物件有影子」这条在这儿是成立的，一条记录就是物件。） */
+.gr-card { position: absolute; display: flex; align-items: center; gap: var(--a2); overflow: hidden;
+  border: 0; text-align: left; cursor: pointer; padding: 0 9px; color: inherit;
+  background: var(--slip); box-shadow: var(--e1); transition: transform .12s, box-shadow .12s; }
+.gr-card:hover { transform: translateY(-2px); box-shadow: var(--e2); z-index: 2; }
+/* 中心那张是「你现在看的这一条」——荧光笔划过，纸不动。抬起来会和 hover 撞车 */
+.gr-card.on { background: var(--marker); }
+.gr-card .ct { flex: none; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; background: var(--slip-2); font-size: 13px; filter: grayscale(1); opacity: .75; }
+.gr-card .ct img { width: 100%; height: 100%; object-fit: cover; filter: none; }
+.gr-card .cb { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.gr-card .cb b { font: var(--w-title) var(--fs-act)/1.35 var(--sans);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gr-card .cb span { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+/* 二跳那圈：只留标题，淡一档。远的那几张只要认出「哦是那件事」，不需要读 */
+.gr-card.h2 { padding: 0 8px; }
+.gr-card.h2 .cb b { font: 400 var(--fs-meta)/1.35 var(--sans); color: var(--ink-2); }
 /* 节点是纸上的一块，不是浮起来的东西——所以只有底色，没有影子也没有描边。
    一跳和二跳同一个底色，远近全靠字的墨色说。 */
-.gr-node rect { fill: var(--slip-2, #f0efec); stroke: none; }
-.gr-node.h0 rect { fill: var(--ink); }
-.gr-node.h0 text { fill: var(--slip); font-weight: 600; }
-.gr-node text { font: 400 var(--fs-meta)/1 var(--sans); fill: var(--ink-2); }
-.gr-node.h2 text { fill: var(--ink-3); }
-.gr-node { cursor: pointer; }
-.gr-node:hover text { fill: var(--ink); }
-.gr-node.h0:hover text { fill: var(--slip); }
 .gr-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a5) 0; text-align: center; }
 
 /* ---------- 相关 ---------- */
