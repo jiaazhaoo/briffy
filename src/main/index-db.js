@@ -187,7 +187,11 @@ const COMMON = 0.25;      // 出现在超过这一比例记录里的词，不参
 // 十个词，把它们拼成一个相邻短语，等于要求这句话原样出现在某条记录里——那永远不成立，而且它是
 // AND 的一项，所以它会把整个查询打死。实测：「你帮我看看记录帮我生成行程单」切出十个词，拼成的
 // 短语命中 0 条，于是同一个 AND 里的 walking（6 条）和 挑战（5 条）一起陪葬。
-const PHRASE_MAX = 3;
+// 从 3 收到 2。三个词还当词组，「地址是多少」「是哪个」「谁写的」就都成了必须原样出现的短语，
+// 而它们一次也不会出现——于是同一个 AND 里的 ollama、grok、型号 全部陪葬。实测七个日常问题
+// 有五个是这么死的，包括「我本机的 ollama 地址是多少」，而工作区里就摆着一条叫「Ollama 地址」
+// 的记录。两个词还算词组（白名单、长截图），三个词就是在说话了。
+const PHRASE_MAX = 2;
 // 稀有词的门槛，和 COMMON 是一头一尾：COMMON 挡的是到处都是的词，这个挑的是真有指向性的词。
 const RARE = 0.05;
 // 稀有词要共同出现才算数。一个不够——「行程」单独命中的那条和问题多半没关系。
@@ -309,7 +313,9 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
   // 所以这一级换个判据：只看稀有词（df ≤ 5%），按**共同命中的个数**排，至少要两个。
   // 这不会把「今天做了什么」顶掉——那句话拆完只剩「什么」一个词，够不到两个，这一级根本不启动；
   // 也不会把「麦克风 完全不存在的词」凑合成答案——凑不齐两个共同命中的词。
-  const rare = sentence ? parts.filter((p) => p.rareDf > 0 && p.rareDf / total <= RARE) : [];
+  // 这一级不再看问的是几个词还是一句话。挡噪音的是下面那个 rare.length >= MIN_HITS：
+  // 一个查询里凑不出两个稀有词，这一级就根本不启动，「麦克风 完全不存在的词」照旧交白卷。
+  const rare = parts.filter((p) => p.rareDf > 0 && p.rareDf / total <= RARE);
   if (rare.length >= MIN_HITS) {
     const count = new Map();
     for (const p of rare) {
@@ -320,11 +326,11 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
       const plain = p.key.replace(/ /g, '');
       for (const r of rows) { if (!count.has(r.id)) count.set(r.id, new Set()); count.get(r.id).add(plain); }
     }
-    // 两个稀有词一起出现，才说明这一级看懂了这个问题——先要有这样的记录，这一级才算数。
-    // 有了之后，剩下的位置用只命中一个的填满：预算是 40 条，空着不比多给几条差的强。
-    // 「walking 是哪天多少钱」就是这样——报名那几条是英文的，只占得上 walking 一个词。
-    const ranked = [...count.entries()].filter(([id]) => !lead.includes(id));
-    const good = ranked.some(([, w]) => w.size >= MIN_HITS) ? ranked : [];
+    // 以前这里还要求「至少有一条记录同时占着两个稀有词」，否则整个交白卷。那一条是多余的保护，
+    // 而且很贵：「中国区的付费我当时打算怎么改」里 中国 只有 2 条记录有，命中一条已经很有指向性，
+    // 却因为凑不出第二个词被全部丢掉。真正在挡噪音的是上面那个「查询里得有两个稀有词」。
+    // 命中两个的排在只命中一个的前面，这在下面的 sort 里。
+    const good = [...count.entries()].filter(([id]) => !lead.includes(id));
     if (good.length) {
       // 命中的词多的在前；一样多就近的在前
       const at = new Map(db.prepare(`SELECT id, at FROM entries WHERE id IN (${good.map(() => '?').join(',')})`)
