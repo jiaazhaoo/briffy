@@ -580,11 +580,20 @@
   // 界面上就成了两个一模一样的词，点哪个都说不清。
   const valueName = (dim, k) => (dim === 'type' ? (TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k) : originName(k));
 
-  /** 当前维度有哪些值可选，大的在前。@returns {[string, number][]} */
+  /**
+   * 当前维度有哪些值可选，大的在前。
+   *
+   * 「未知」永远排最后，不管它多大。这一栏的标准是**一格 = 一个你会想按它筛的地方**，
+   * 而「未知」不是一个地方，是「没记下来」。它现在是这个工作区里最大的一格（119 条，
+   * 几乎一半，因为「记下是从哪个应用复制的」这件事是 09-05 傍晚才上的功能），
+   * 排在最前面就等于整行第一眼看上去全是噪声——而它恰恰是唯一一个点了也说明不了什么的格子。
+   * @returns {[string, number][]}
+   */
   function valuesOf(dim) {
     const c = state.counts || {};
     if (dim === 'type') return Object.entries(c.byType || {}).sort((a, b) => b[1] - a[1]);
-    return Object.entries(c.byOrigin || {}).sort((a, b) => b[1] - a[1]);
+    const rank = (k) => (k === '?' ? 1 : 0);
+    return Object.entries(c.byOrigin || {}).sort((a, b) => (rank(a[0]) - rank(b[0])) || (b[1] - a[1]));
   }
 
   function renderDims() {
