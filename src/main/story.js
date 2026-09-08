@@ -292,12 +292,14 @@ function events(lists, ctx) {
     const members = c.map((id) => ({ id, score: tight.get(id) || 0, tier: 'core' }));
     out.push({ id: '', members });
   }
+  // 一条记录可以是一件事的核心、同时沾着另一件（「停 Staines 车站」在那一晚里是核心，
+  // 在停车申诉里只是沾边）——所以核心成员也要过一遍，只跳过它自己那件。
   for (const id of ids) {
-    if (inCore.has(id)) continue;
+    const mine = inCore.get(id);
     const best = new Map();   // 事件 -> 最强的那条链接
     for (const x of (lists.get(id) || []).slice(0, TOUCH_K)) {
       const k = inCore.get(x.id);
-      if (k === undefined) continue;
+      if (k === undefined || k === mine) continue;
       const had = best.get(k);
       if (!had || x.score > had.score) best.set(k, x);
     }
