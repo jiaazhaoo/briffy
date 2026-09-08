@@ -69,6 +69,7 @@ async function main() {
   const vocab = require('../src/main/vocab');
   let vf; do { vf = vocab.fill(index, (id) => store.getEntry(id), { budgetMs: 3000 }); } while (!vf.done);
   let vs; do { vs = vocab.settle(index, { budgetMs: 3000 }); } while (!vs.done);
+  for (const k of store.listDates()) vocab.collectPages(index, store.loadDay(k));
   const vst = index.vocabStats();
   console.log(`词表：${vst.words} 个词 / ${vst.rows} 行 / 地名 ${vst.places} 个`);
   console.log(v && v.error ? `向量：没有（${v.error}）` : `向量：齐了 · 粗筛桶 ${b.bits} 位 × ${b.tables} 表\n`);

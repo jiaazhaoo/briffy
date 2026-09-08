@@ -110,12 +110,14 @@ let ctxCache = null;
 function storyCtx() {
   try { learnFurniture(); } catch (_) { /* 用上一份 */ }
   if (ctxCache) return ctxCache;
-  const all = [];
-  for (const key of store.listDates()) all.push(...store.loadDay(key));
+  // 四样东西现在都是懒的，一样也不用把工作区读进内存：
+  //   g   页面图 —— 表（vocab.pageGraph）
+  //   ev  词表  —— 表（vocab.lazyView）
+  //   near 向量邻居 —— LSH 粗筛桶，不再全表扫
+  // 于是这个函数本身不要钱了，缓存留着只是省几次建对象。
   ctxCache = {
-    g: links.build(all),
+    g: vocab.pageGraph(index),
     ev: evIdx,
-    ids: all.map((e) => e.id),
     near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
   };
   return ctxCache;
@@ -290,7 +292,7 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   learnFurniture();
   // onDay：建一天索引的时候顺手把这一天的抬头词和地名收进表里（vocab 的甲那一遍）。
   // 这是唯一一处天然「一天只读一次」的地方，搁在别处就得再把全库读一遍。
-  const r = index.sync({ dir: entriesDir(), loadDay: readDay, onDay: (_k, list) => vocab.collect(index, list) }, { budgetMs });
+  const r = index.sync({ dir: entriesDir(), loadDay: readDay, onDay: (_k, list) => { vocab.collect(index, list); vocab.collectPages(index, list); } }, { budgetMs });
   if (r && r.days) ctxCache = null;   // 有天被重建过，图跟着重算；没动就接着用上一份
   return r;
 }
