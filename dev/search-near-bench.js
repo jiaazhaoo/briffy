@@ -5,6 +5,18 @@
 //
 // 一半问法库里确实有，一半库里根本没有。没有的那一半，正确答案是**空手**——
 // 拿十二条不相干的记录填满第一屏，比什么都不给更糟：它让人以为自己搜过了。
+//
+// **试过、退回去的：把查询垫成一句话再去问向量**（`关于${q}的记录`）。
+// 起因是量到这个模型的对齐在句子那一层，不在词那一层：
+//   一句话  附近哪里可以停车 ↔ where can I park nearby  0.853 ／ 不相干的中文句子 0.171
+//   一个词  停车 ↔ parking                           0.485 ／ 不相干的中文词 抓紧 0.901
+// 垫一句话确实把同语种的引力拆掉了（中文噪声 0.704 → 0.356），「停车」也真的桥到了
+// Find parking。但两条腿并起来跑，「停车」从 4 条噪声变成 10 条，「二手」9 条——
+// 它捞回来的那两条真货，被它同时捞回来的噪声埋掉了。只用垫过的那一条也不行：
+// 「活动」第一名变成「选择一条记录查看详情」，「退款」整条掉到门槛以下。
+//
+// 那些噪声有个共同点，指向下一件该做的事：兄弟相残、剪贴板图片 12:39、选择一条记录查看详情、
+// 问问你的记录 → ——**是 briffy 自己的界面被截了进来**。它对任何问题都不是答案。
 const fs = require('fs'); const path = require('path'); const os = require('os');
 const { app } = require('electron');
 const HOME = os.homedir();
@@ -12,7 +24,7 @@ const WS = path.join(HOME, 'Library/Application Support/briffy/workspace');
 const DIR = path.join(WS, 'entries');
 const UD = path.join(HOME, 'Library/Application Support/briffy');
 const one = (s) => String(s || '').replace(/\s+/g, ' ').trim();
-const HAVE = ['车', '停车', '跑步', '显示器', '地址', '泰晤士河', '退款', '活动'];
+const HAVE = ['车', '停车', '跑步', '显示器', '地址', '泰晤士河', '退款', '活动', '二手', 'parking'];
 const NONE = ['房贷利率', '量子色动力学', '我奶奶的猫', 'recipe for sourdough'];
 
 function fakeStore() {
