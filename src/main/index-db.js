@@ -31,7 +31,7 @@ const chunk = require('./chunk');
 const fs = require('fs');
 const { segment } = require('./segment');
 
-const SCHEMA = 9;                  // 改了表结构就加一，旧库直接重建
+const SCHEMA = 10;                  // 改了表结构就加一，旧库直接重建
 const BODY_MAX = 4000;             // 一条记录进倒排的字数上限；OCR 大段的尾巴对找东西没有帮助
 
 let db = null;
@@ -136,6 +136,20 @@ function createTables() {
     -- settled=0 表示这条的词抽出来了，但次序还是抽的时候那一版（只按种类排，还没用上 df）。
     -- df 要等大家都抽完才数得准，所以定次序是第三遍，而它**只改 rank，不重抽词**。
     CREATE TABLE IF NOT EXISTS voc_done(entry TEXT PRIMARY KEY, settled INTEGER DEFAULT 0);
+
+    -- 页面图。同一处摘的几条记录连在一起，靠的是网址或者窗口标题。
+    -- 以前这也是每次用都把整个工作区读进内存重建一遍（links.build），而它被每开一次详情页、
+    -- 每问一次各调一次。
+    --
+    -- pg_alias 是个并查集：一条记录同时带着网址和标题，就是「这两个说法指同一页」的一份证词。
+    -- 并查集天生是增量的——每来一份证词做一次 union，永远不用从头再并一遍。
+    CREATE TABLE IF NOT EXISTS pg_alias(key TEXT PRIMARY KEY, root TEXT);
+    CREATE TABLE IF NOT EXISTS pg(key TEXT PRIMARY KEY, name TEXT, page TEXT);
+    -- 一条记录是从哪一页摘的
+    CREATE TABLE IF NOT EXISTS pg_of(entry TEXT PRIMARY KEY, page TEXT);
+    CREATE INDEX IF NOT EXISTS i_pg_of_page ON pg_of(page);
+    -- 「同一程」不用存：它就是时间上挨着，entries(at) 上一个范围查询而已
+    CREATE INDEX IF NOT EXISTS i_entries_at ON entries(at);
   `);
 }
 
@@ -456,6 +470,126 @@ function putVec(id, hash, vectors) {
  * 真到了几百万行，该换的是存储（float32 → int8），不是先上一个没人看得懂的近似结构。
  * @param {(id:string, v:Float32Array)=>void} fn
  */
+// ---------- 页面图 ----------
+
+/** 并查集：找根。路径压缩顺手做掉，链越短以后越便宜。 */
+function pgRoot(key) {
+  let k = String(key || '');
+  const seen = [];
+  for (let i = 0; i < 32; i++) {
+    const r = db.prepare('SELECT root FROM pg_alias WHERE key=?').get(k);
+    if (!r || r.root === k) break;
+    seen.push(k);
+    k = r.root;
+  }
+  const up = db.prepare('INSERT INTO pg_alias(key,root) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET root=excluded.root');
+  for (const x of seen) up.run(x, k);
+  return k;
+}
+
+/** 「这几个说法指同一页」。一条记录带来的一份证词。 */
+function pgUnion(keys) {
+  const list = (keys || []).map(String).filter(Boolean);
+  if (!list.length) return '';
+  const ins = db.prepare('INSERT OR IGNORE INTO pg_alias(key,root) VALUES(?,?)');
+  for (const k of list) ins.run(k, k);
+  let root = pgRoot(list[0]);
+  const up = db.prepare('UPDATE pg_alias SET root=? WHERE key=?');
+  for (const k of list.slice(1)) {
+    const r = pgRoot(k);
+    if (r !== root) up.run(root, r);
+  }
+  return root;
+}
+
+/** 一条记录是从哪一页摘的。name 只在还没有人读得懂的名字时才写。 */
+function putClip(entry, pageKey, name) {
+  const k = String(pageKey || '');
+  if (!k) return;
+  db.prepare('INSERT OR IGNORE INTO pg(key,name,page) VALUES(?,?,?)').run(k, name || k, '');
+  if (name && /^https?:/i.test(pgName(k))) db.prepare('UPDATE pg SET name=? WHERE key=?').run(name, k);
+  db.prepare('INSERT INTO pg_of(entry,page) VALUES(?,?) ON CONFLICT(entry) DO UPDATE SET page=excluded.page')
+    .run(String(entry || ''), k);
+}
+
+/**
+ * 这一条**就是**那一页（收藏了它）。先到先得。
+ *
+ * **不新建页**：只有已经有人从那一页摘过东西，它才是图上的一个节点。
+ * 新建的话每条记录都会用自己的标题造出一页来，252 条记录造出 252 页，图就成了一盘散沙。
+ */
+function putPage(entry, pageKey, name) {
+  const k = String(pageKey || '');
+  if (!k) return false;
+  const cur = db.prepare('SELECT page FROM pg WHERE key=?').get(k);
+  if (!cur) return false;
+  if (cur.page) return false;
+  db.prepare('UPDATE pg SET page=?, name=COALESCE(NULLIF(?, \'\'), name) WHERE key=?').run(String(entry || ''), name || '', k);
+  return true;
+}
+
+function pgName(key) { const r = db.prepare('SELECT name FROM pg WHERE key=?').get(String(key || '')); return r ? r.name : ''; }
+
+/** 一页上摘过哪几条，以及这一页本身是哪条记录。 */
+function pageInfo(key) {
+  const k = String(key || '');
+  const p = db.prepare('SELECT key, name, page FROM pg WHERE key=?').get(k);
+  if (!p) return null;
+  // **按时间排**，不是按 id。调用方拿 clips[0] 当「这一页上最早那条摘录」用
+  // （同一程里那一页你多半没存下来，就拿它当代表），按 id 排出来的第一条是随机的。
+  const clips = db.prepare(`SELECT o.entry FROM pg_of o JOIN entries e ON e.id = o.entry
+    WHERE o.page = ? ORDER BY e.at, o.entry`).all(k).map((r) => r.entry);
+  return { ...p, clips };
+}
+
+function pageOfEntry(id) {
+  const r = db.prepare('SELECT page FROM pg_of WHERE entry=?').get(String(id || ''));
+  return r ? r.page : '';
+}
+
+/** 这一条是哪一页本身。 */
+function pageOwnedBy(id) {
+  const r = db.prepare('SELECT key FROM pg WHERE page=?').get(String(id || ''));
+  return r ? r.key : '';
+}
+
+/**
+ * 同一程：从这一条往前往后，隔得不超过 gapMs 就算连着。
+ * **不存**——它就是时间上挨着，一个范围查询的事。存下来只会多一个会过期的东西。
+ */
+function runAround(id, { gapMs = 15 * 60 * 1000, max = 80 } = {}) {
+  const me = db.prepare('SELECT id, at FROM entries WHERE id=?').get(String(id || ''));
+  if (!me || !me.at) return [];
+  const out = [me.id];
+  const step = (dir) => {
+    let cur = me.at;
+    for (let i = 0; i < max; i++) {
+      const r = dir < 0
+        ? db.prepare('SELECT id, at FROM entries WHERE at < ? ORDER BY at DESC LIMIT 1').get(cur)
+        : db.prepare('SELECT id, at FROM entries WHERE at > ? ORDER BY at ASC LIMIT 1').get(cur);
+      if (!r || !r.at) break;
+      if (Math.abs(Date.parse(r.at) - Date.parse(cur)) > gapMs) break;
+      if (dir < 0) out.unshift(r.id); else out.push(r.id);
+      cur = r.at;
+    }
+  };
+  step(-1); step(1);
+  return out;
+}
+
+function pgStats() {
+  return {
+    pages: db.prepare('SELECT count(*) c FROM pg').get().c,
+    clips: db.prepare('SELECT count(*) c FROM pg_of').get().c,
+    alias: db.prepare('SELECT count(*) c FROM pg_alias').get().c,
+  };
+}
+
+function dropPageOf(id) {
+  db.prepare('DELETE FROM pg_of WHERE entry=?').run(String(id || ''));
+  db.prepare('UPDATE pg SET page=\'\' WHERE page=?').run(String(id || ''));
+}
+
 // ---------- 词表 ----------
 
 /** 一个词被谁当过标题 / 是不是地名。单调只增，进来就不出去。 */
@@ -658,5 +792,6 @@ module.exports = {
   vecOf, vecMany, putBuckets, bucketPeers, bucketStats, dropBuckets,
   addTitled, addPlaces, titledSet, placeSet, putVocab, dropVocab, vocabPending, vocabStats,
   vocabOf, vocabDf, vocabPost, vocabWords, reRank, vocabUnsettled, markSettled, unsettleAll,
+  pgRoot, pgUnion, putClip, putPage, pageInfo, pageOfEntry, pageOwnedBy, runAround, pgStats, dropPageOf,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,
 };

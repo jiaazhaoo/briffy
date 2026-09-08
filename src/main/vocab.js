@@ -26,6 +26,7 @@
 // 前者在真实工作区上只剥掉 3%（boilerplate.js 顶上量过），却要为它存下每条记录的每一行；
 // 后者是纯粹逐条的、不需要别的记录作证，而且是主力。所以这里只用后者（strip(text, null)）。
 const entity = require('./entity');
+const links = require('./links');
 const boilerplate = require('./boilerplate');
 const { segment } = require('./segment');
 
@@ -240,4 +241,85 @@ function lazyView(index, { maxDf = 30, minDf = 2, keep = 20 } = {}) {
   };
 }
 
-module.exports = { harvest, collect, fill, settle, viewFor, lazyView, aliasFor, STORE_MAX };
+// ---------- 页面图 ----------
+//
+// 和词表同一个搬法：以前 links.build 每次用都把整个工作区读进来重建（250 条 3ms，
+// 外推 20 万条 2.4 秒），而它被每开一次详情页、每问一次各调一次。
+//
+// 三样东西，各有各的存法：
+//   · 「哪几个说法指同一页」——并查集，天生增量，每来一条记录做一次 union
+//   · 「谁从哪一页摘的」——一条记录一行
+//   · 「同一程」——**根本不存**，它就是时间上挨着，entries(at) 上一个范围查询
+
+/** 建这一天索引时顺手把页面图也建了。 */
+function collectPages(index, entries) {
+  let n = 0;
+  for (const e of entries || []) {
+    if (!e || !e.id) continue;
+    const ks = links.pageKeysOf(e);
+    // 一条记录同时带着网址和标题，就是「这两个说法指同一页」的一份证词
+    if (ks.length > 1) index.pgUnion(ks);
+    if (ks.length) {
+      const root = index.pgRoot(ks[0]);
+      const readable = ks.find((x) => !/^https?:/i.test(x));
+      index.putClip(e.id, root, readable || '');
+      n++;
+    }
+    // 「它就是这一页」——收藏了那一页，书签是这个节点本身，不是它的兄弟
+    for (const raw of links.pageIdentityOf(e)) {
+      if (index.putPage(e.id, index.pgRoot(raw), String(e.title || '').replace(/\s+/g, ' ').trim())) break;
+    }
+  }
+  return n;
+}
+
+/**
+ * 一个和 links.linksOf 同形状的答案，但只碰这一条周围那几行。
+ *
+ * 「一页上摘了太多条就整组丢掉」（外壳页，比如 Google Maps、Claude）那条规矩在这儿兑现，
+ * 不在存的时候——条数会变，而重扫全库很贵。和 df 那一处是同一个道理。
+ * @returns {{source:object|null, clips:string[], run:{ids:string[], pages:object[]}}}
+ */
+function linksOfDb(index, id, { runLimit = 6, maxClips = links.MAX_CLIPS, gapMs = links.RUN_GAP_MS } = {}) {
+  const me = String(id || '');
+  const out = { source: null, clips: [], run: { ids: [], pages: [] } };
+  const page = (k) => {
+    if (!k) return null;
+    const p = index.pageInfo(k);
+    if (!p || p.clips.length > maxClips) return null;   // 外壳，整组不算
+    return p;
+  };
+  const mine = page(index.pageOfEntry(me));
+  if (mine && mine.page !== me) out.source = { key: mine.key, name: mine.name, page: mine.page };
+  const owned = page(index.pageOwnedBy(me));
+  if (owned) out.clips = owned.clips.slice();
+
+  const run = index.runAround(me, { gapMs });
+  if (run.length > 1) {
+    out.run.ids = run.filter((x) => x !== me);
+    const at = run.indexOf(me);
+    const seen = new Map();
+    const myKey = index.pageOfEntry(me);
+    for (let i = 0; i < run.length; i++) {
+      const k = index.pageOwnedBy(run[i]) || index.pageOfEntry(run[i]);
+      if (!k || seen.has(k)) continue;
+      const p = page(k);
+      if (!p || p.page === me || k === myKey) continue;
+      // first：那一页你多半没存下来，所以给一条它上面的摘录当代表——不然「同一程」永远是空的
+      seen.set(k, { key: p.key, name: p.name, page: p.page, first: p.page || p.clips[0] || '', d: Math.abs(i - at) });
+    }
+    out.run.pages = [...seen.values()].sort((a, b) => a.d - b.d).slice(0, runLimit).map(({ d, ...p }) => p);
+  }
+  return out;
+}
+
+/** 给 story.edgesOf 用的 g：它只问 linksOf 和 pages.get(key)。 */
+function pageGraph(index, opts = {}) {
+  return {
+    __db: true,
+    linksOf: (id) => linksOfDb(index, id, opts),
+    pages: { get: (k) => index.pageInfo(k) || { clips: [] }, has: (k) => !!index.pageInfo(k) },
+  };
+}
+
+module.exports = { harvest, collect, fill, settle, viewFor, lazyView, aliasFor, collectPages, linksOfDb, pageGraph, STORE_MAX };

@@ -102,6 +102,33 @@ async function main() {
   const inMem = links.evidenceFor(A, mem, { limit: 16 }).findIndex((x) => x.id === B);
   console.log(`\n  「赛程分前后半程」→「Runnymede Pleasure Ground」：内存版第 ${inMem + 1} 名，表版第 ${inTab + 1} 名（0 = 够不到）`);
 
+  // ── 页面图：表版和内存版给的答案一样吗
+  t = Date.now();
+  for (const [, list] of days) vocab.collectPages(index, list);
+  const msPg = Date.now() - t;
+  const ps = index.pgStats();
+  t = Date.now();
+  const g = links.build(all);
+  const msBuild = Date.now() - t;
+  let src = 0; let srcSame = 0; let clip = 0; let clipSame = 0; let rn = 0; let rnSame = 0;
+  for (const id of ids) {
+    const a = links.linksOf(id, g);
+    const b = vocab.linksOfDb(index, id);
+    if (a.source || b.source) { src++; if ((a.source && a.source.page) === (b.source && b.source.page)) srcSame++; }
+    if (a.clips.length || b.clips.length) {
+      clip++;
+      const B = new Set(b.clips);
+      if (a.clips.length === b.clips.length && a.clips.every((x) => B.has(x))) clipSame++;
+    }
+    const ap = a.run.pages.map((x) => x.first).join('|');
+    const bp = b.run.pages.map((x) => x.first).join('|');
+    if (ap || bp) { rn++; if (ap === bp) rnSame++; }
+  }
+  console.log(`\n  页面图：表版建 ${msPg}ms（${ps.pages} 页 / ${ps.clips} 条摘录 / ${ps.alias} 个别名）；内存版每次重建 ${msBuild}ms`);
+  console.log(`    摘自哪一页   ${srcSame}/${src} 一致`);
+  console.log(`    这一页有哪些 ${clipSame}/${clip} 一致`);
+  console.log(`    同一程       ${rnSame}/${rn} 一致`);
+
   // ── 二、加一条记录要多久
   const e0 = all[0];
   const fake = { ...e0, id: 'bench-new-1', title: `${e0.title} (bench)` };

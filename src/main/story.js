@@ -79,7 +79,9 @@ function edgesOf(id, ctx) {
     seen.add(k);
     out.push({ to, kind, w, ...extra });
   };
-  const l = links.linksOf(id, ctx.g);
+  // ctx.g 自带 linksOf 就用它（vocab.pageGraph，背后是表，只碰这一条周围那几行）；
+  // 没有就走内存版那张整图。两边形状一样，story 不需要知道自己站在哪一版上。
+  const l = ctx.g.linksOf ? ctx.g.linksOf(id) : links.linksOf(id, ctx.g);
   if (l.source) {
     const page = ctx.g.pages.get(l.source.key) || { clips: [] };
     const w = pageWeight(page.clips.length);
