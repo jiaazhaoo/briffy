@@ -25,6 +25,11 @@ const SCENES = [
     '我记下来了详细的起点和终点地址，你找一下',
   ], '库里有：1st Half Challenge (~50km) Walking Only、9月12日周六、Bishops Park→Runnymede Pleasure Ground TW20 0AE、£159、停车 Windsor Road / 3 Buckingham Court TW18 4JG、£10 接驳车'],
 
+  ['F', '用户真实问的（回声考验）', [
+    '我最近报名了一个活动，你帮我看看起点和终点的具体地址，还有开始时间',
+    '我要的是具体地址',
+  ], '正确答案：Bishops Park (Fulham) → Runnymede Pleasure Ground, Egham, Surrey TW20 0AE，07:00–09:30。考验点：工作区里躺着五条「以前问过的话」的剪贴板拷贝，它们词面上完美命中却不含答案'],
+
   ['B', '二手显示器', [
     '我最近在看二手显示器，都看了些什么？',
     '卖家在哪，说好几点见？',
@@ -89,7 +94,7 @@ async function main() {
   const cfg = llm.config(store);
   console.log(`${store.byId.size} 条记录 · ${cfg.provider} / ${(cfg[cfg.provider] || {}).model || ''} · 向量${v && v.error ? '没有' : '齐了'}`);
 
-  const only = (process.argv.find((a) => /^[A-E]$/.test(a)) || '').toUpperCase();
+  const only = (process.argv.find((a) => /^[A-F]$/.test(a)) || '').toUpperCase();
   for (const [tag, title, turns, truth] of SCENES) {
     if (only && tag !== only) continue;
     console.log(`\n\n████████ 场景 ${tag} · ${title} ████████`);

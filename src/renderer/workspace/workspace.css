@@ -849,6 +849,17 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
   letter-spacing: -.01em; margin: 0 0 var(--a2); word-break: break-word; }
 .ask-note { color: var(--ink-2); margin: var(--a2) 0; }
 .cites { display: flex; flex-wrap: wrap; gap: var(--a3); margin-top: var(--a4); }
+/* 「它还看了 N 条」：一行灰字，点开才展开那一堆没被引用的。收起来而不是丢掉——模型说自己
+   用了哪几条不一定准，而「它当时还看了什么」是你判断这个答案可不可信的依据。
+   纸上的字，所以没有框、没有影子，只有一个折起来的记号。 */
+.cites-more { margin-top: var(--a3); }
+.cites-more > summary { list-style: none; cursor: pointer; color: var(--ink-3);
+  font: 400 var(--fs-act)/1.4 var(--sans); padding: 2px 0; }
+.cites-more > summary::-webkit-details-marker { display: none; }
+.cites-more > summary::before { content: '＋ '; }
+.cites-more[open] > summary::before { content: '－ '; }
+.cites-more > summary:hover { color: var(--ink-2); }
+.cites-more .cites { margin-top: var(--a3); }
 .citecard { display: flex; align-items: center; gap: var(--a2); max-width: 260px; border: 0; text-align: left; cursor: pointer;
   background: var(--slip); box-shadow: var(--e1); padding: 8px 10px; color: inherit;
   transition: transform .12s, box-shadow .12s, background .12s; }
