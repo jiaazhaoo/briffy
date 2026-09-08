@@ -3,19 +3,31 @@
 //
 //   npx electron dev/backlinks-bench.js
 //
-// 一条清单好不好，只有两个数：**收进来几条对的**，和**顺手带进来几条不相干的**。
+// 两个数。
+//
+// **准确**：这一屏里有几条是对的。清单是给人看的，一条不相干的摆在那儿就是一条错。
+//
+// **走得通**：从种子出发，顺着清单一跳一跳走，几跳能够到那件事的全部。
+// 这一条 2026-09-08 换过——原来量的是「一屏收进来几条」，那是在问一个错的问题：
+// 那一晚有 29 条，清单只有 13 格，天花板 45%，怎么改都撞在格子上。**双链本来就不要求
+// 一屏装下一件事**，它要求的是链不断：A→B→C 走得通，你就到得了 C。所以看的是可达性，
+// 不是一屏的召回。代价也要一起看——多走一跳，路上多碰到几条不相干的。
+//
 // 「对的」得有人标，所以这里手标了两簇（那一晚的走路活动连同停车、显示器），
-// 从每簇里挑一两条当种子，看长出来的清单里有几条在簇里、几条不在。
-// 我自己以前问过的话被复制回工作区的那几条（「我记下来了详细地址，你找一下」）不算对也不算错——
-// 它们确实是那件事的一部分，但不是材料。
+// 从每簇里挑一两条当种子。我自己以前问过的话被复制回工作区的那几条（「我记下来了详细地址，
+// 你找一下」）不算对也不算错——它们确实是那件事的一部分，但不是材料。
 //
 // 全局再看四个数：每条长出几条（顶到上限的比例）、边靠什么（词 / 同一页 / 同一程 / 向量）、
 // 双向性（A 的清单里有 B，B 的清单里有没有 A）、零链接的是些什么。
 //
-// 2026-09-08 改之前的底数：60% 的记录顶到上限 13 条；清单最长的五条全是 briffy 自己的截图；
-// 「Find parking」经「1.1gb」连到「Ollama 地址」、经「London」连到四条不相干的；
-// 「Dell ultrawide monitor」八条相关里五条是 briffy 的截图（屏幕上正好显示着那条 Dell 记录）；
-// 「同一程」那条边一次也没出现过——0.34 × 0.85 永远过不了 0.34 的门槛，是条死边。
+// 2026-09-08 一天里的两轮：
+//   早上（改之前）  一屏准确 36%，60% 的记录顶到上限，清单最长的五条全是 briffy 自己的截图，
+//                 「Find parking」经「1.1gb」连到「Ollama 地址」、经「London」连到四条不相干的。
+//   下午（节点+边）  一屏准确 84%。这一轮把验收从「一屏收几条」换成「走几跳够得到」，
+//                 因为前者在问一个错的问题——那一晚 30 条、清单 13 格，天花板 45%。
+//   下午（串起来）  走得通 84% → 87%，那一晚 93% → 97%。修的是三个 bug，不是调参：
+//                 「整条都是网页家具」那条规则挡掉 8 条一条对的都没有、正文识别不出时标题没顶上、
+//                 全大写的缩写（UKPC、EDID、RGB）从来抽不出来。
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -73,7 +85,6 @@ async function main() {
   const vocab = require('../src/main/vocab');
   ask.init({ store });
   ask.refresh({ budgetMs: 30000 });
-  let ff; do { ff = ask.feedFurniture({ budgetMs: 5000 }); } while (!ff.done);
   // 应用里 warm() 在后台补的那几样，台子上得先补齐，否则量的是个残缺的系统
   const loadDay = (k) => store.loadDay(k);
   let v; do { v = await vector.fill(index, loadDay, { budgetMs: 9000, batch: 20, cacheDir: store.paths().models }); if (v.error) break; } while (!v.done);
@@ -112,8 +123,9 @@ async function main() {
   for (const id of zero) { const t = (store.getEntry(id) || {}).type; byType[t] = (byType[t] || 0) + 1; }
   console.log(`零链接 ${zero.length} 条：${JSON.stringify(byType)}`);
 
-  // ── 三簇
-  let sumP = 0; let sumR = 0; let n = 0;
+  // ── 两簇
+  const HOPS = 4;
+  let sumP = 0; let sumReach = 0; let sumStranger = 0; let n = 0;
   for (const [label, seedRe, set] of CASES) {
     const seed = ids.find((id) => seedRe.test(title(id)));
     if (!seed) { console.log(`\n（没找到种子 ${seedRe}）`); continue; }
@@ -130,13 +142,35 @@ async function main() {
       console.log(`   ${mark} ${x.score.toFixed(2)}  ${why.padEnd(24).slice(0, 24)}  ${nm(x.id)}`);
     }
     const p = good + bad ? good / (good + bad) : 0;
-    const rc = cluster.length ? got.size / cluster.length : 0;
-    sumP += p; sumR += rc; n++;
-    console.log(`   —— 准确 ${good}/${good + bad}（${(100 * p).toFixed(0)}%） 召回 ${got.size}/${cluster.length}（${(100 * rc).toFixed(0)}%）`);
-    const miss = cluster.filter((id) => !got.has(id));
-    if (miss.length) console.log(`   漏掉的：${miss.map(nm).join(' | ')}`);
+    sumP += p; n++;
+    console.log(`   —— 一屏准确 ${good}/${good + bad}（${(100 * p).toFixed(0)}%）`);
+
+    // 走得通：顺着清单一跳一跳走。**只从簇里的记录往下走**——顺着一条不相干的记录接着走，
+    // 走到的东西和这件事已经没关系了，那不叫「串起来」，那叫串到别处去了。
+    const seen = new Set([seed]);
+    const inCluster = new Set();
+    let front = [seed]; let stranger = 0;
+    const hops = [];
+    for (let h = 1; h <= HOPS && front.length; h++) {
+      const next = [];
+      for (const from of front) {
+        for (const x of (rel.get(from) || [])) {
+          if (seen.has(x.id)) continue;
+          seen.add(x.id);
+          if (inSet(x.id, set)) { inCluster.add(x.id); next.push(x.id); } else if (!inSet(x.id, ECHO)) stranger++;
+        }
+      }
+      front = next;
+      hops.push(`${h} 跳 ${inCluster.size}/${cluster.length}`);
+      if (inCluster.size >= cluster.length) break;
+    }
+    const reach = cluster.length ? inCluster.size / cluster.length : 0;
+    sumReach += reach; sumStranger += stranger;
+    console.log(`   —— 走得通 ${hops.join(' · ')}（${(100 * reach).toFixed(0)}%），路上碰到 ${stranger} 条不相干的`);
+    const miss = cluster.filter((id) => !inCluster.has(id));
+    if (miss.length) console.log(`   走不到：${miss.map(nm).join(' | ')}`);
   }
-  console.log(`\n四个种子平均：准确 ${(100 * sumP / Math.max(1, n)).toFixed(0)}% · 召回 ${(100 * sumR / Math.max(1, n)).toFixed(0)}%`);
+  console.log(`\n${n} 个种子平均：一屏准确 ${(100 * sumP / Math.max(1, n)).toFixed(0)}% · ${HOPS} 跳内走得通 ${(100 * sumReach / Math.max(1, n)).toFixed(0)}% · 路上平均碰到 ${(sumStranger / Math.max(1, n)).toFixed(0)} 条不相干的`);
   require('../src/main/embed').dispose();
   app.quit();
 }

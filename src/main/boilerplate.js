@@ -83,8 +83,7 @@ function learn(texts, opts) {
 }
 
 /**
- * 学的前半段：把这几条记录的行计进 df。可以一天一天喂——ask.feedFurniture 就是这么喂的，
- * 整个工作区不必同时在内存里。
+ * 学的前半段：把这几条记录的行计进 df。分开是为了能一天一天喂，整个工作区不必同时在内存里。
  * @param {string[]} texts
  * @param {Map<string,number>} df 行 -> 出现在几条记录里
  */
@@ -166,8 +165,6 @@ function textOf(entry, furniture) {
 // 它不需要别的记录作证，照样管用。
 let learned = null;
 function load(texts) { learned = learn(texts); return learned; }
-/** 一天一天 count 出来的 df，在这儿收成家具表并装上。 */
-function loadFrom(df, opts) { learned = finish(df, opts); return learned; }
 function furniture() { return learned; }
 
-module.exports = { learn, count, finish, load, loadFrom, furniture, strip, textOf, key, menuish, menuRuns, ACROSS, WITHIN, KEEP_LONG, RUN, MIN_LINES, KEEP_MIN };
+module.exports = { learn, count, finish, load, furniture, strip, textOf, key, menuish, menuRuns, ACROSS, WITHIN, KEEP_LONG, RUN, MIN_LINES, KEEP_MIN };
