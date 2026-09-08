@@ -187,60 +187,139 @@ const CJK_RE = /[㐀-䶿一-鿿]/u;
 
 function nameOf(members, ctx, { words = 3 } = {}) {
   if (!ctx.ev) return '';
-  const tally = new Map();
+  const tally = new Map();   // 词 -> [几条成员带着, df]
   for (const m of members) {
     for (const w of ctx.ev.words.get(m.id) || []) {
       const n = ctx.ev.df.get(w) || 0;
       if (n < 2 || n > links.EV_MAXDF) continue;
-      tally.set(ctx.ev.text.get(w) || w, (tally.get(ctx.ev.text.get(w) || w) || 0) + 1);
+      const t = ctx.ev.text.get(w) || w;
+      const had = tally.get(t) || [0, n];
+      had[0]++;
+      tally.set(t, had);
     }
   }
+  // 名字要的词：这件事里**大家都有**、而**别处少见**。只按共有排的时候，四张哔哩哔哩截图
+  // 被叫成「Thames · Staines」——浏览器的标签栏把别的标签页的标题也截了进来，四张都有，
+  // 于是它们「共有」得最多。乘上罕见度之后，首页 / 订阅（只有这几张有）压过 Thames（十几条有）。
+  const N = Math.max(members.length, ctx.total || 200);
   const scored = [...tally.entries()]
-    .filter(([, n]) => n >= 2)
-    .map(([w, n]) => [w, n / members.length])
+    .filter(([, [n]]) => n >= 2)
+    .map(([w, [n, df]]) => [w, (n / members.length) * Math.log(N / Math.max(1, df))])
     .sort((a, b) => b[1] - a[1]);
   return scored.slice(0, words).map(([w]) => w).join(' · ');
 }
 
 /**
- * 值得从它出发的那些节点。
+ * 事件：从链上整理出来的那几件事。每件带着成员，每个成员带着**参与强度**和一个层次：
+ * 核心（这件事本身）或沾边（提到了这件事）。
  *
- * 顶上那一栏列的就是它。**不叫「主题」**：主题这个词在宣称工作区能被切干净，而它不能。
- * 枢纽只是说「这个节点连得多」，那是个事实，不是一个分类。
- * @returns {{id:string, weight:number}[]}
+ * **事件的核心 = 「互为近邻」那张图的连通块。** A 在 B 的前 k 条里、B 也在 A 的前 k 条里，
+ * 这条边才算。这一条把「串起来」和「不要乱串」同时做到了，而且是同一个机制：
+ *   · 那一晚的记录互相都在对方前三里，所以连成块；
+ *   · 半个工作区是一片弥漫的背景（开发笔记、刷的视频、我自己的对话被贴回来），它们的
+ *     前三里也常有 Runnymede——因为开发笔记引用它当例子——可 Runnymede 的前三里没有它们。
+ *     单向的不算边，背景就进不了核心。
+ * 试过的、不成立的：从种子扩散再按重叠并（那一晚碎成十七件）、按共有几条记录并（背景把
+ * 所有片焊成一件，31/138）、按共有锚词并整片（同样焊死，因为片本身一半是背景）。
+ * 全在 dev/events-bench.js 顶上。
+ *
+ * **核心块再按共有的锚词并**：那一晚在互近邻图上是四块（报名 10、地址 5、车站起点 4、停车申诉 7），
+ * 报名和地址共有 Ultra / Staines / 赛程那几条，并起来；申诉和它们只共有一两个词，不并——
+ * 停车罚单是几天后另一件事，这么判是对的。
+ *
+ * **沾边**：不在核心里、但前 k 条里有核心成员的记录。开发笔记引用了那一晚的地址，它「参与」了
+ * 那一晚，只是弱。强度就是那条链接的分数，界面上和核心分开摆。
+ *
+ * 参与强度：核心成员 = 它和块里最近那条的分数（互为近邻的那条边）；沾边 = 那条单向链接的分数。
+ * 都是 grow 给的分：一跳一个邮编 0.6 以上，两跳绕过一个泛词就掉到门槛边上。
+ *
+ * @param {Map<string, {id:string, score:number, why?:object}[]>} lists 每条记录的清单（ask.linksOf）
+ * @param {{ev:object, ok?:Function}} ctx 词表视图（给锚词和起名用）
+ * @returns {{id:string, name:string, members:{id:string, score:number, tier:'core'|'touch', via?:object}[]}[]}
  */
-const ANCHOR_DF = 8;   // 一个词罕见到这个份上，才算「这条记录锚在某个具体的东西上」
+const MUTUAL_K = 3;      // 互为前几近邻才算一条边。3 的时候核心块干净（那一晚 9/1），5 就焊成一片（18/108）
+const EVENT_MIN = 3;     // 少于这么几条不算一件事，那只是一条记录和它的邻居
+const ANCHOR_DF = 8;     // 一个词罕见到这个份上，才算锚词
+const EVENT_SHARE = 3;   // 两块共有这么多个锚词才并。2 的时候显示器那件并进了 39 条背景，3 的时候 5 条
+const TOUCH_K = 5;       // 沾边看前几条
 
-function hubs(ctx, { limit = 12, min = 4 } = {}) {
-  if (!ctx.ev) return [];
-  // 候选：身上至少有一个**够具体**的共用词。
-  //
-  // 按边的总强度排是错的，实测过：终端那个窗口是一个有十七条摘录的「页面」，于是那十七条
-  // 每条都拿到十七条满分的同一处边，排出来的前十全是「模糊 · 显示 · 不需要」——
-  // 一个连得多的节点不等于一件值得看的事。锚不锚在具体的东西上，才是那个区别。
-  const cand = [];
-  for (const id of ctx.ids || []) {
-    let anchored = false;
-    for (const e of links.evidenceFor(id, ctx.ev, { limit: 4 })) {
-      if (Math.min(...e.words.map((w) => ctx.ev.df.get(w) || 99)) <= ANCHOR_DF) { anchored = true; break; }
+function events(lists, ctx) {
+  const ids = [...lists.keys()];
+  const top = new Map(ids.map((id) => [id, new Map((lists.get(id) || []).slice(0, MUTUAL_K).map((x) => [x.id, x]))]));
+  // 互为近邻的边 → 连通块
+  const parent = new Map(ids.map((id) => [id, id]));
+  const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  const tight = new Map();   // id -> 它最硬的那条互近邻边
+  for (const a of ids) {
+    for (const [b, x] of top.get(a)) {
+      const back = top.get(b);
+      if (!back || !back.has(a)) continue;
+      parent.set(find(a), find(b));
+      if (x.score > (tight.get(a) || 0)) tight.set(a, x.score);
+      if (back.get(a).score > (tight.get(b) || 0)) tight.set(b, back.get(a).score);
     }
-    if (anchored) cand.push(id);
   }
-  // 一片长得越大越值得当入口。重叠的只留最强的那个种子——同一件事不该在清单里出现三遍。
-  const grown = cand.map((id) => ({ id, s: grow(id, ctx, { max: 24 }) }))
-    .filter((x) => x.s.members.length >= min)
-    .sort((a, b) => b.s.members.length - a.s.members.length);
+  const comp = new Map();
+  for (const id of ids) { if (!tight.has(id)) continue; const r = find(id); if (!comp.has(r)) comp.set(r, []); comp.get(r).push(id); }
+  const cores = [...comp.values()].filter((c) => c.length >= EVENT_MIN);
+  // 每块的锚词：df ≤ ANCHOR_DF、块里至少两条带着
+  const anchorsOf = (c) => {
+    const t = new Map();
+    for (const id of c) for (const w of (ctx.ev && ctx.ev.words.get(id)) || []) {
+      const n = ctx.ev.df.get(w) || 0;
+      if (n >= 2 && n <= ANCHOR_DF) t.set(w, (t.get(w) || 0) + 1);
+    }
+    return new Set([...t].filter(([, n]) => n >= 2).map(([w]) => w));
+  };
+  const anc = cores.map(anchorsOf);
+  const par = cores.map((_, i) => i);
+  const f = (i) => (par[i] === i ? i : (par[i] = f(par[i])));
+  for (let i = 0; i < cores.length; i++) {
+    for (let j = i + 1; j < cores.length; j++) {
+      let n = 0;
+      for (const w of anc[i]) if (anc[j].has(w)) n++;
+      if (n >= EVENT_SHARE) par[f(i)] = f(j);
+    }
+  }
+  const groups = new Map();
+  cores.forEach((c, i) => { const r = f(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(...c); });
+  // 合成，再找沾边的
   const out = [];
-  const taken = new Set();
-  for (const x of grown) {
-    const ids = x.s.members.map((m) => m.id);
-    const overlap = ids.filter((i) => taken.has(i)).length / ids.length;
-    if (overlap > 0.5) continue;
-    for (const i of ids) taken.add(i);
-    out.push({ id: x.id, n: x.s.members.length, name: nameOf(x.s.members, ctx) });
-    if (out.length >= limit) break;
+  const inCore = new Map();
+  for (const c of groups.values()) {
+    const k = out.length;
+    for (const id of c) inCore.set(id, k);
+    const members = c.map((id) => ({ id, score: tight.get(id) || 0, tier: 'core' }));
+    out.push({ id: '', members });
   }
-  return out;
+  for (const id of ids) {
+    if (inCore.has(id)) continue;
+    const best = new Map();   // 事件 -> 最强的那条链接
+    for (const x of (lists.get(id) || []).slice(0, TOUCH_K)) {
+      const k = inCore.get(x.id);
+      if (k === undefined) continue;
+      const had = best.get(k);
+      if (!had || x.score > had.score) best.set(k, x);
+    }
+    for (const [k, x] of best) out[k].members.push({ id, score: x.score, tier: 'touch', via: x.why || null });
+  }
+  for (const e of out) {
+    e.members.sort((a, b) => (a.tier === b.tier ? b.score - a.score : a.tier === 'core' ? -1 : 1));
+    e.id = e.members[0].id;
+    e.name = nameOf(e.members.filter((m) => m.tier === 'core'), ctx);
+  }
+  return out.sort((a, b) => b.members.filter((m) => m.tier === 'core').length - a.members.filter((m) => m.tier === 'core').length);
 }
 
-module.exports = { grow, hubs, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, PAGE_FULL, EV_LIMIT };
+/** 一条记录在哪几件事里，各占多少分量。 */
+function eventsOf(id, list) {
+  const me = String(id || '');
+  const out = [];
+  for (const e of list || []) {
+    const m = e.members.find((x) => x.id === me);
+    if (m) out.push({ id: e.id, name: e.name, n: e.members.filter((x) => x.tier === 'core').length, score: m.score, tier: m.tier, via: m.via || null });
+  }
+  return out.sort((a, b) => (a.tier === b.tier ? b.score - a.score : a.tier === 'core' ? -1 : 1));
+}
+
+module.exports = { grow, events, eventsOf, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };
