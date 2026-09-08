@@ -136,6 +136,44 @@ const TITLE_OF_SCRIPT = (name) => `tell application "System Events"
   return ""
 end tell`;
 
+// 每个应用自己的 AppleScript 字典。**这一档要排在 System Events 前面。**
+//
+// System Events 走的是辅助功能那棵树，而恰恰在最要紧的几个应用上它是空的——实测：
+//   Google Chrome   有 4 个窗口，`name of window 1` 返回空（Chrome 默认不向外暴露 AX 树）
+//   Terminal        `count of windows` = 0，问窗口直接报「索引无效」
+//   Finder          正常
+// 同样这几个，问它们自己的字典全都拿得到：
+//   Chrome   → 「男孩随手扔掉中了一千万的彩票…」（就是页面标题）
+//   Safari   → 「karanow — turn any Mac audio into a backing track, live」
+//   Terminal → 「jia — -zsh — 80×24」
+// 这就是为什么工作区里 85 张截图只有 4 张带窗口标题（5%）——不是没授权，是问错了人。
+//
+// 用 bundle id 点名，不用应用名：名字会被本地化，也分不开 Chrome / Chrome Beta。
+// 只对**当前最前面那个**应用问，所以它一定在运行——`tell application id` 对装了但没开的应用
+// 会把它拉起来，那是绝对不能发生的事。
+const APP_TITLE = new Map([
+  ['com.google.Chrome', 'title of active tab of front window'],
+  ['com.google.Chrome.canary', 'title of active tab of front window'],
+  ['com.google.Chrome.beta', 'title of active tab of front window'],
+  ['com.microsoft.edgemac', 'title of active tab of front window'],
+  ['com.brave.Browser', 'title of active tab of front window'],
+  ['com.vivaldi.Vivaldi', 'title of active tab of front window'],
+  ['company.thebrowser.Browser', 'title of active tab of front window'],
+  ['com.apple.Safari', 'name of front document'],
+  ['com.apple.SafariTechnologyPreview', 'name of front document'],
+  ['com.apple.Terminal', 'name of front window'],
+  ['com.googlecode.iterm2', 'name of current window'],
+  ['com.apple.finder', 'name of front Finder window'],
+]);
+
+/** 问那个应用自己：你现在显示的是什么。拿不到就空手，让上面那条 System Events 兜底。 */
+async function appWindowTitle(bundleId) {
+  const body = APP_TITLE.get(String(bundleId || ''));
+  if (!MAC || !body || Date.now() < quietUntil) return '';
+  const out = await run('osascript', ['-e', `tell application id ${JSON.stringify(bundleId)} to return ${body}`], TITLE_TIMEOUT_MS);
+  return out === null ? '' : String(out).trim();
+}
+
 async function frontWindowOf(name) {
   if (!MAC || !name || Date.now() < quietUntil) return '';
   const out = await run('osascript', ['-e', TITLE_OF_SCRIPT(name)], TITLE_TIMEOUT_MS);
@@ -192,8 +230,10 @@ async function read({ title = true, maxAgeMs = 700, skipSelf = false } = {}) {
     if (lastTab.title) ctx.window = lastTab.title;
   }
   if (title && !ctx.window) {
-    // 「最前面那个进程的窗口」在 skipSelf 时读到的会是 briffy 自己，所以那种情况按名字点着问
-    const raw = skipSelf ? await frontWindowOf(front.app) : await frontWindow();
+    // 先问那个应用自己（见 APP_TITLE 那段账），拿不到再退回辅助功能那棵树。
+    // 「最前面那个进程的窗口」在 skipSelf 时读到的会是 briffy 自己，所以那种情况按名字点着问。
+    let raw = await appWindowTitle(front.bundleId);
+    if (!raw) raw = skipSelf ? await frontWindowOf(front.app) : await frontWindow();
     const w = trimWindowTitle(raw, front.app);
     if (w) ctx.window = w.slice(0, 300);
   }
@@ -218,8 +258,8 @@ async function probe() {
   quietUntil = 0; titleFailures = 0; cached = null;
   const front = await frontApp();
   if (!front) return { ok: false, app: '', window: '', reason: 'lsappinfo' };
-  const window = trimWindowTitle(await frontWindow(), front.app);
+  const window = trimWindowTitle(await appWindowTitle(front.bundleId) || await frontWindow(), front.app);
   return { ok: true, app: front.app, window, tab: lastTab ? lastTab.url : '', reason: window ? '' : 'accessibility' };
 }
 
-module.exports = { read, readInto, noteTab, forgetTab, currentTab, setEnabled, isEnabled, probe, trimWindowTitle, BROWSER_BUNDLES };
+module.exports = { read, readInto, noteTab, forgetTab, currentTab, setEnabled, isEnabled, probe, trimWindowTitle, appWindowTitle, BROWSER_BUNDLES, APP_TITLE };
