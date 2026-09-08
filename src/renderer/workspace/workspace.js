@@ -13,7 +13,8 @@
       near: '相近', related: '相关', untitled: '无标题',
       fromPage: '摘自', samePage: '同一页', sameRun: '同一段操作',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
-      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', modelRemote: '联网的', modelNotSet: '还没配', modelNow: '改用 {name}', citeMore: '它还看了 {n} 条',
+      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', modelRemote: '联网的', modelNotSet: '还没配', modelNow: '改用 {name}',
+      missAccount: '还没登录', missKey: '缺 API Key', missBaseUrl: '缺接口地址', missModel: '缺模型名', missHost: '缺地址', citeMore: '它还看了 {n} 条',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源',
@@ -151,7 +152,8 @@
       near: 'related', related: 'Related', untitled: 'Untitled',
       fromPage: 'Clipped from', samePage: 'Same page', sameRun: 'Same sitting',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
-      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', modelRemote: 'Remote', modelNotSet: 'not set up', modelNow: 'Now using {name}', citeMore: 'Also looked at {n}',
+      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', modelRemote: 'Remote', modelNotSet: 'not set up', modelNow: 'Now using {name}',
+      missAccount: 'not signed in', missKey: 'no API key', missBaseUrl: 'no endpoint', missModel: 'no model name', missHost: 'no host', citeMore: 'Also looked at {n}',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From',
@@ -1808,16 +1810,15 @@
     b.title = `${PROV_LABEL[(state.settings || {}).provider] || ''} · ${name}`;
   }
 
-  /** 这个服务现在能不能用。判据和 llm.isConfigured 一致，别在这儿另立一套。 */
-  function provReady(p) {
-    const s = state.settings || {};
-    const st = state.providerStatus || {};
-    if (p === 'anthropic') return s.anthropicAuth === 'account' ? !!(st.anthropic && (st.anthropic.hasProfile || st.anthropic.envKey || st.anthropic.envToken)) : !!s.hasApiKey;
-    if (p === 'openrouter') return !!s.hasOpenrouterKey;
-    if (p === 'ollama') return !!(st.ollama && st.ollama.running);
-    if (p === 'custom') return !!(s.customBaseUrl && s.customModel);
-    return false;
+  // 差什么才能用。**主进程算好了送过来**（providerStatus.missingBy），这儿不另立一套——
+  // 判「配没配好」的规矩只该有一份，抄第二遍就会漂，而漂了没人发现。
+  const MISS_LABEL = { account: 'missAccount', apiKey: 'missKey', baseUrl: 'missBaseUrl', model: 'missModel', host: 'missHost' };
+  function provMissing(p) {
+    const by = (state.providerStatus || {}).missingBy;
+    if (!by) return '';
+    return by[p] || '';
   }
+  function provReady(p) { return !provMissing(p); }
 
   async function pickModel(provider, model) {
     const patch = { provider };
@@ -1857,8 +1858,9 @@
       const ready = provReady(p);
       const name = p === 'anthropic' ? (s.model || '') : p === 'openrouter' ? (s.openrouterModel || '') : (s.customModel || '');
       const label = `${PROV_LABEL[p]}${name ? ` · ${name}` : ''}`;
+      const why = ready ? '' : t(MISS_LABEL[provMissing(p)] || 'modelNotSet');
       rows.push(`<button type="button" class="${cur === p ? 'on' : ''}" data-prov="${p}"${ready ? '' : ' disabled'}>`
-        + `${esc(label)}${ready ? '' : ` — ${esc(t('modelNotSet'))}`}</button>`);
+        + `${esc(label)}${why ? ` — ${esc(why)}` : ''}</button>`);
     }
     box.innerHTML = rows.join('');
     box.hidden = false;
