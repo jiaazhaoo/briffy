@@ -681,6 +681,12 @@ function registerHotkeys() {
 }
 
 // ---------- AI provider helpers ----------
+function which(cmd) {
+  return new Promise((resolve) => {
+    execFile(process.platform === 'win32' ? 'where' : 'which', [cmd], { windowsHide: true, timeout: 5000 },
+      (err, out) => resolve(!err && String(out).trim() ? String(out).trim().split(/\r?\n/)[0] : ''));
+  });
+}
 function anthropicConfigDir() {
   if (process.env.ANTHROPIC_CONFIG_DIR) return process.env.ANTHROPIC_CONFIG_DIR;
   return process.platform === 'win32'
