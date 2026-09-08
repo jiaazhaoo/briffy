@@ -52,6 +52,10 @@ const PER_QUERY = 3;
 // 画在 0.50，四个「库里没有」的问法全部空手而归，代价是「泰晤士河」的 Path Thames（0.410）
 // 也进不来——而它现在归词面管了（前缀那一级，0 条 → 6 条）。宁可空手，不要拿噪声填满第一屏。
 const VEC_MIN = 0.50;
+// 拿词面命中的前几条当链的种子，每条最多带回来这么几个邻居。卡得紧是有道理的：
+// 「同一段操作」里可能有几十条，全放进来就把搜索结果变成了那一小时的流水账。
+const CHAIN_SEED = 3;
+const CHAIN_HOP = 4;
 // 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
 // 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
 const CHAIN_ADD = 6;
@@ -627,7 +631,35 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   const echoed = echoFilter([q]);
   const drop = junkFilter();
   const ids = await vector.search(index, q, { limit: limit * 4, min: VEC_MIN, cacheDir: store.paths().models });
-  return ids.filter((id) => !skip.has(id) && !echoed(id) && !drop(id)).slice(0, limit);
+  const out = ids.filter((id) => !skip.has(id) && !echoed(id) && !drop(id));
+  // 第三条腿：**同一页**。只走一跳，不扩散。
+  //
+  // 搜到了一页上的一条，那一页上另外几条本来就该跟着来。这条边说得出理由（是从哪一页摘的、
+  // 那一页上还摘了哪几条），而且库大起来不会变差，向量会。
+  //
+  // 种子就是词面已经命中的那几条——调用方把它们当 exclude 传进来了，不用另外搜一遍。
+  // 所以词面空手的时候这条腿也空手：它补的是「找到了一条，把同一处的另几条带上」，
+  // 不是「什么都没找到，替我猜」。
+  //
+  // **「同一段操作」那条边不用**，试过。一段操作是连续抓下来的所有东西，实测一跳 49~53 条，
+  // 从哔哩哔哩到剪贴板图片到显示器参数全在里面；而 links.js 交出来的 run.ids 是按那一段的
+  // 先后排的，不是按离种子多远，所以取前几条等于取那一小时的开头。它在详情页那条清单里
+  // 有意义（那儿按分数排过），在搜索结果里不是。
+  const seeds = (exclude || []).slice(0, CHAIN_SEED);
+  if (seeds.length) {
+    const g = storyCtx().g;
+    for (const seed of seeds) {
+      // 页面图自己带着 linksOf（懒的那份，走表不走内存），没有才退回 links.js 那个。
+      // story.js 里是同一句——只调后者的话这里会抛异常，然后被 catch 悄悄吃掉，
+      // 表现是「这条腿一条也不加」，而不是报错。我在这儿栽过。
+      let l; try { l = g.linksOf ? g.linksOf(seed) : links.linksOf(seed, g); } catch (_) { continue; }
+      const hop = [l.source && l.source.page, ...l.clips].filter(Boolean);
+      for (const id of hop.slice(0, CHAIN_HOP)) {
+        if (!skip.has(id) && !echoed(id) && !drop(id) && !out.includes(id)) out.push(id);
+      }
+    }
+  }
+  return out.slice(0, limit);
 }
 
 /**
