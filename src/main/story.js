@@ -95,7 +95,7 @@ function edgesOf(id, ctx) {
   // （泰晤士河 ↔ Thames，staines-upon-thames ⊃ thames）。
   if (ctx.ev) {
     for (const e of links.evidenceFor(id, ctx.ev, { limit: EV_LIMIT })) {
-      push(e.id, 'word', wordWeight(1 / Math.max(0.05, e.score - 0.05)), { pairs: e.pairs });
+      push(e.id, 'word', wordWeight(e.df), { pairs: e.pairs });
     }
   }
   for (const n of (ctx.near ? ctx.near(id) : [])) push(n, 'near', W.near);

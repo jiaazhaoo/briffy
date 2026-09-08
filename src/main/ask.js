@@ -28,15 +28,22 @@ function init(deps) { store = deps.store; }
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
 // 一句话问出来的东西最多留这么几条。40 是给「把这段时间给我」用的；一个具体的问题给四十条，
 // 结果是每条只摊到五百字，而含着答案的那几条正需要一千多。少而长。
-const KEEP = 18;
+// 递给模型多少条。要装得下「每一路的第一名」（最多 MAX_QUERIES 条）加上沿链补的那几条，
+// 否则第一轮就白进了——分路的意义在于每一面都有代表，装不下就等于没分。
+const KEEP = 24;
 // 一条查询最多贡献这么几条。**卡得紧是有道理的**：一个问题有好几个面（起点、终点、停车），
 // 让第一条查询把名额吃光，剩下的面就一条也进不来——今天量到的正是这个，把词揉成一句只捞回
 // 1/7，拆成五条各取前 3 捞回 3/7。
 const PER_QUERY = 3;
 // 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
 // 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
-const CHAIN_ADD = 4;
-const CHAIN_SEEDS = 8;   // 拿前几条当种子。再多就是让排在后面的、本来就不确定的那几条去开枝散叶
+const CHAIN_ADD = 6;
+// 拿前几条当种子。这个数卡在 8 的时候实测漏过：「赛程分前后半程」——那一晚唯一一条同时写着
+// 起点和终点的记录——排在第 9，正好在种子之外，于是链没有从它长过，终点地址那条就没被带上来。
+// 同一个问题跑两遍，一遍成一遍不成，差别只是模型改写时吐没吐出「Runnymede」这个词。
+// **能算出来的路不该赌模型说不说得出那个词**，所以种子放宽到把检索够到的都算上。
+// 代价是每个种子一次 story.grow（带向量邻居约 20ms），十二个约 240ms。
+const CHAIN_SEEDS = 12;
 const CHAIN_SPAN = 16;   // 每个种子长这么大的一片就够——要的是近邻，不是整件事
 // 短问句不当回声判据：「今天呢」这种三个字，正文里随手就撞上，挡掉的会是真记录。
 const ECHO_MIN = 8;
@@ -48,6 +55,9 @@ const CARRY_EACH = 3;    // 每轮带那一轮排最前的几条
 const CARRY_ROOM = 4;    // 一共最多占这么多格
 // 手上那几条记录里最罕见的几个名字，直接当查询。**不经过模型**——名字和罕见度都是算出来的。
 const SEED_QUERIES = 10;
+const NAMES_PER_RECORD = 3;   // 轮着取的时候，每条记录先出这么几个自己的名字
+// 头几路是「人话」（原句、原句的实词），后面全是名字。只有人话那几路掺向量。
+const LANG_LANES = 2;
 // 一问最多分这么多路。分得多不贵（一路 2~5ms），贵的是名额——所以路数和 KEEP 要一起看：
 // 横着取的时候，只有前 room 条路的第一名进得来。
 const MAX_QUERIES = 16;
@@ -129,8 +139,9 @@ function storyCtx() {
 function namesIn(ids) {
   learnFurniture();
   if (!evIdx) return [];
+  const order = [...new Set(ids)].filter((id) => evIdx.words.has(id));
   const seen = new Map();     // 名字 -> {n: 手上几条提到它, df: 全库有多少条提到}
-  for (const id of new Set(ids)) {
+  for (const id of order) {
     for (const k of evIdx.words.get(id) || []) {
       const t = evIdx.text.get(k);
       if (!t) continue;
@@ -139,12 +150,40 @@ function namesIn(ids) {
       seen.set(t, x);
     }
   }
-  // 排序是「在手上这几条里出现得多」× 「在整个工作区里罕见」——就是 tf-idf 那件事。
-  // 两头都试过，两头都偏：只按罕见排，头几个是 10km / 邮件 / Visit 这种只此一份的边角料；
-  // 只按出现得多排，头几个是 Challenge / Ultra / Thames 这种整件事的泛称。
-  // 前者带不回东西，后者带回来的还是那件事本身，不是问题问的那一面。
+  // **按记录横着取，不排一张全局榜。**
+  //
+  // 全局榜怎么排都不对，两头都试过：只按罕见排，头几个是 10km / 邮件 / Visit 这种只此一份的
+  // 边角料；按 tf-idf 排，头几个是 Challenge / Ultra / Thames 这种整件事的泛称。而真正要的那个
+  // 词——「Runnymede」，那一晚唯一通向终点地址的桥——两种排法都在十六名之外。
+  // 于是它进不进得了查询，全看模型改写时随口吐没吐出这个词：同一个案子跑三遍，成一遍败两遍，
+  // 两遍的差别只有一个词（一遍说了 Runnymede，一遍说了 Park）。
+  //
+  // 病根和「按名次横着取」那个是同一个：**全局排序会把具体的东西挤掉**。一条记录里最说明它
+  // 自己是什么的那几个词，不该去和别的记录抢一张榜。所以每条记录各出几个自己的名字，轮着来。
+  // 记录内部的次序用 entity.nameRank：邮编/日期/数量/地名在前（正则认死的和从邮编邻居学来的），
+  // 然后是被谁当过标题的词，最后才比罕见。
+  const rank = (k) => {
+    const kind = (evIdx.kind && evIdx.kind.get(k)) || 'name';
+    return kind === 'name' ? 1 : 0;
+  };
+  const lanes = [];
+  for (const id of order) {
+    const mine = [...(evIdx.words.get(id) || [])]
+      .sort((a, b) => (rank(a) - rank(b)) || ((evIdx.df.get(a) || 99) - (evIdx.df.get(b) || 99)))
+      .map((k) => evIdx.text.get(k)).filter(Boolean);
+    if (mine.length) lanes.push(mine);
+  }
+  const out = [];
+  for (let i = 0; i < NAMES_PER_RECORD; i++) {
+    for (const lane of lanes) {
+      const t = lane[i];
+      if (t && !out.includes(t)) out.push(t);
+    }
+  }
+  // 轮完还不够就把剩下的按 tf-idf 补上
   const w = (x) => x.n / Math.log2(2 + x.df);
-  return [...seen.entries()].sort((a, b) => w(b[1]) - w(a[1])).map(([t]) => t);
+  for (const [t] of [...seen.entries()].sort((a, b) => w(b[1]) - w(a[1]))) if (!out.includes(t)) out.push(t);
+  return out;
 }
 
 /** 上一轮真正用上的那几条。模型自己报的 used 是 1 起的下标，对应当时给它的 sources。 */
@@ -191,19 +230,27 @@ function echoFilter(questions) {
  */
 function junkFilter() {
   const fur = boilerplate.furniture();
-  const body = new Set();
+  const body = new Map();     // 正文 -> 第一个占住它的 id
+  const verdict = new Map();  // id -> 判过没有。**同一条问两遍必须是同一个答案**
   return (id) => {
+    if (verdict.has(id)) return verdict.get(id);
+    const say = (v) => { verdict.set(id, v); return v; };
     const e = store.getEntry(id);
-    if (!e) return true;
+    if (!e) return say(true);
     const t = `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, ' ').trim().toLowerCase();
-    if (!t) return true;
-    if (body.has(t)) return true;                       // 一模一样的第二遍
+    if (!t) return say(true);
+    // 去重是**跨记录**的：两条一模一样的记录只留一条。不是「这一条出现过第二次」——
+    // 一条记录本来就会同时命中好几路查询，不记住判过的结果，它就会在自己那一路上
+    // 被当成自己的重复丢掉。实测栽在这儿：「Runnymede Pleasure Ground … TW20 0AE」在
+    // 「Runnymede」那一路上是第一名，却因为前面某一路先碰过它，在自己那一路上被滤没了。
+    const owner = body.get(t);
+    if (owner !== undefined && owner !== id) return say(true);
     if (fur && t.length <= JUNK_MAX) {
       const lines = String(e.text || '').split('\n').map((x) => boilerplate.key(x)).filter(Boolean);
-      if (lines.length && lines.every((x) => fur.has(x))) return true;
+      if (lines.length && lines.every((x) => fur.has(x))) return say(true);
     }
-    body.add(t);
-    return false;
+    body.set(t, id);
+    return say(false);
   };
 }
 
@@ -345,18 +392,29 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
   }
   const seen = new Set();
   let pick = null;
-  const room = KEEP - CHAIN_ADD;      // 给链留出位子，别让检索把格子占满
+  const room = KEEP - CHAIN_ADD;      // 第二轮往后的名额；给链留出位子
   // 每条查询各留一小串，最后**按名次横着取**：先把每条查询的第一名都收进来，再收第二名。
   // 顺着一条条查询收是错的，实测栽过：「起点地址」那条查询的第一名（Bishops Park, Fulham）
   // 排在第十六位，模型根本没读到它，回了一句「记录中未包含起点和终点的详细地址」——
   // 而答案就是它手上的最后一条。一个问题的几个面是**平级**的，收的时候就得平级。
   const lanes = [];
-  for (const sub of queries) {
+  for (let qi = 0; qi < queries.length; qi++) {
+    const sub = queries[qi];
     const p = sub === q ? plain : retrieve.select(index, sub, { today, limit, getEntry: (id) => store.getEntry(id) });
     if (!pick && p.ids.length) pick = p;                    // 时间范围和词按第一条命中的算
     if (!p.ids.length) continue;
-    const near = await vector.search(index, sub, { limit, cacheDir: store.paths().models, from: p.range ? p.range.from : '' })
-      .catch(() => []);
+    // **只有人话那两路掺向量，名字那几路不掺。**
+    //
+    // 今天量到「问得越像人话，向量越钝」（同一条记录：「详细地址」第 3 名，
+    // 「我记下来了详细地址，你找一下」第 59 名）。反过来也成立，而且更要紧：
+    // **问得越像名字，词面越准**——「Runnymede」词面第 1 名就是那条地址，精确、无歧义。
+    // 这时候再 RRF 掺一遍向量，只会把噪声顶上来，而第一轮每路只取第一名，顶掉就没了。
+    // 实测：向量关着四遍全 3/3，向量掺进每一路只剩 1/3。
+    // 所以向量留在它不可替代的那一路上——原句那种人话，词面按定义命中不了。
+    const useVec = qi < LANG_LANES;
+    const near = useVec
+      ? await vector.search(index, sub, { limit, cacheDir: store.paths().models, from: p.range ? p.range.from : '' }).catch(() => [])
+      : [];
     lanes.push(retrieve.fuse(p.ids, near, PER_QUERY * 3).filter((id) => !echoed(id) && !drop(id)));
   }
   const ids = [];
@@ -364,7 +422,17 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
     if (ids.length >= CARRY_ROOM || seen.has(id) || echoed(id) || drop(id)) continue;
     seen.add(id); ids.push(id);
   }
-  for (let r = 0; r < PER_QUERY && ids.length < room; r++) {
+  // 第一轮：**每一路的第一名都要进来，不看名额**。
+  //
+  // 这里卡过一次，卡得很蠢：名额 14 个，路 16 条，于是第 15、16 路一条也进不来。而那次模型
+  // 恰好把「Runnymede」放在第 16 路——它找到了，我没让它进门。
+  // 分路的全部意义就是「每一面都要有代表」，第一名进不来的路等于没分。所以第一轮不设限，
+  // 名额只管第二轮往后。
+  for (const lane of lanes) {
+    const id = lane[0];
+    if (id && !seen.has(id)) { seen.add(id); ids.push(id); }
+  }
+  for (let r = 1; r < PER_QUERY && ids.length < room; r++) {
     for (const lane of lanes) {
       if (ids.length >= room) break;
       const id = lane[r];
