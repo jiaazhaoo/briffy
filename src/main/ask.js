@@ -17,6 +17,7 @@ const retrieve = require('./retrieve');
 const vector = require('./vector');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
+const mirror = require('./mirror');
 const story = require('./story');
 const vocab = require('./vocab');
 const chats = require('./chats');
@@ -66,6 +67,16 @@ const ECHO_MIN = 8;
 const ASKED_MS = 60 * 1000;   // 问过的话缓存这么久
 // 只在短记录上判「整条是家具」。长记录里夹着一行家具是常态，不该因此整条丢掉。
 const JUNK_MAX = 120;
+// 一条记录的正文里，实字（字母和汉字）少于这么多个，它说不出任何一件事。
+//
+// 数字、标点、时间戳不算——识别糊了的截图正文长这样：「12:009条 A it」「00 0 Q 日 0 0 0 ² 米 8」
+// 「7 è 4 1 小」。它们不短，但一个字也没说。而它们**短、干净、在向量空间里离哪儿都不远**，
+// 于是每个查询都往里挤。
+//
+// 8 是量出来的：这个工作区里实字最少的**真**记录是「96.5% 的案件卡在源数据上」（9 个），
+// 再下面是「停 Staines 车站」（10）、「£10 接驳车直接送你回去取车」（11）——都得留着。
+// 8 以下的十五条，一条真东西也没有。
+const THIN = 8;
 // 上一轮带过来几条。带多了这一问就成了上一问的回声，带少了追问就没有主语。
 const CARRY_TURNS = 2;   // 往回带几轮
 const CARRY_EACH = 3;    // 每轮带那一轮排最前的几条
@@ -330,6 +341,11 @@ function junkFilter() {
     // 「Runnymede」那一路上是第一名，却因为前面某一路先碰过它，在自己那一路上被滤没了。
     const owner = body.get(t);
     if (owner !== undefined && owner !== id) return say(true);
+    // briffy 拍到了自己：正文整个是 briffy 的界面文案（mirror.js）。这种记录对任何问题都不是
+    // 答案，可它短、干净、离哪儿都不远，实测十个探针里六个的头几名有它。
+    if (mirror.isMirror(e.text)) return say(true);
+    // 说不出任何一件事的：识别糊了，剩下一堆数字和单个字母。
+    if (((String(e.text || '').match(/\p{L}/gu) || []).length) < THIN) return say(true);
     if (fur && t.length <= JUNK_MAX) {
       const lines = String(e.text || '').split('\n').map((x) => boilerplate.key(x)).filter(Boolean);
       if (lines.length && lines.every((x) => fur.has(x))) return say(true);
