@@ -241,6 +241,10 @@ const EV_NEEDDF = 14;     // 至少要有一个这么罕见的共用词，否则
 const EV_KEEP = 20;       // 一条记录最多拿这么多个词当指纹，只留最罕见的
 // 两个词的倒排重合到这个份上，就当它们说的是同一件事（一个地名被切成了好几段）
 const FACET_SAME = 0.8;
+// 试过给地名/邮编/日期在算罕见度时打折（让「共用一个 Runnymede」重过「共用一个『不能』」），
+// **不成，反而更差**：这个工作区里 81 个词沾着邮编，一打折，一大批只是碰巧提到 Staines /
+// Kingston 的记录全挤了上来，本来排 38 的那条直接挤没了。
+// 记在这儿免得再试一遍：边的权重不是这条路的解，靠查询把那个词直接问出来才是（见 ask.namesIn）。
 const ALIAS_MIN = 2;      // 两个词一起出现过这么多次，才算一份对照
 const ALIAS_RATIO = 0.8;  // 而且要几乎总是一起出现
 
@@ -248,13 +252,14 @@ const ALIAS_RATIO = 0.8;  // 而且要几乎总是一起出现
  * 整个工作区的词表 + 配对。一次算好，之后每条记录只访问和它共用词的那几条。
  * @param {object[]} entries
  * @param {(e:object)=>string} [stripOf] 剥过家具的正文
- * @returns {{post:Map, df:Map, words:Map, text:Map, alias:Map}}
+ * @returns {{post:Map, df:Map, words:Map, text:Map, kind:Map, alias:Map}}
  */
 function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
   const ix = entity.index(entries, stripOf);
   const df = new Map();
   const text = new Map();
-  for (const [k, x] of ix.ents) { df.set(k, x.records.length); text.set(k, x.text); }
+  const kind = new Map();
+  for (const [k, x] of ix.ents) { df.set(k, x.records.length); text.set(k, x.text); kind.set(k, x.kind); }
 
   // 一条记录只拿它最独特的那几个词当指纹：不这么做，两篇长文总能共用一堆泛词
   const words = new Map();
@@ -320,7 +325,7 @@ function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
     if (n < Math.min(df.get(a) || 1, df.get(b) || 1) * ALIAS_RATIO) continue;
     link(a, b);
   }
-  return { post, df, words, text, alias };
+  return { post, df, words, text, kind, alias };
 }
 
 /**
@@ -351,6 +356,10 @@ function facets(ps, idx) {
   return sigs.length || 1;
 }
 
+// 返回里带着 df（最罕见那一对的 df）。**别让调用方从 score 反推回去**：score 里掺了 facets
+// 那一小截加分，反推出来的是 log2(2+df) 不是 df，再被 story.wordWeight 又取一次对数，
+// 权重区间就从 0.675~0.538 挤成 0.675~0.613——一个 df=3 的虚词和一个 df=14 的泛称
+// 就此分不出来。实测那一片里第 6 到第 21 名全挤在 0.55~0.58，而真正该排上来的那条在第 38。
 function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF } = {}) {
   const mine = idx.words.get(String(id || ''));
   if (!mine) return [];
@@ -386,7 +395,7 @@ function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF 
       .filter((p) => { const k = `${p.a}|${p.b}`; if (seen.has(k)) return false; seen.add(k); return true; })
       .slice(0, 3)
       .map((p) => ({ a: idx.text.get(p.a) || '', b: idx.text.get(p.b) || '', fuzzy: p.fuzzy }));
-    out.push({ id: other, score, pairs });
+    out.push({ id: other, score, df: best, pairs });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, limit);
 }

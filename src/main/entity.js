@@ -83,9 +83,10 @@ function headOf(entry) {
  * @param {string} [body] 剥过家具的正文
  * @param {Set<string>} [titled] 整个工作区里被谁写在标题上过的词——见 links.evWords 那笔账：
  *   「车站」有记录拿它当标题，「出来」在两百多条里一次都没有，那才是它们的区别，不是罕见程度
+ * @param {Set<string>} [places] 这个工作区里挨着邮编出现过的词（placesIn 学的），升格成地名
  * @returns {{key:string, kind:string, text:string}[]}
  */
-function of(entry, body, titled) {
+function of(entry, body, titled, places) {
   const head = headOf(entry);
   const raw = `${head} ${String(body === undefined ? (entry || {}).text || '' : body).slice(0, 1500)}`;
   const out = new Map();
@@ -112,16 +113,53 @@ function of(entry, body, titled) {
       // 只在正文里出现的两字中文词太廉价（「了一」甚至不是词，是「当了一大批」切出来的），
       // 除非这个工作区里有谁把它写在过标题上
       if (low.length < 3 && !inHead.has(low) && !(titled && titled.has(low))) continue;
-      add('name', w, low);
+      add(places && places.has(low) ? 'place' : 'name', w, low);
       continue;
     }
     // 拉丁词只认专名：原文里首字母大写过的那些，而且不在网页家具那张表里
     if (low.length < 3 || CHROME.has(low)) continue;
     if (!new RegExp(`\\b${low[0].toUpperCase()}${low.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(raw)) continue;
-    add('name', w, low);
+    add(places && places.has(low) ? 'place' : 'name', w, low);
     if (low.includes('-')) for (const p of low.split('-')) if (p.length >= 3 && !STOP.has(p)) add('name', p, p);
   }
   return [...out.values()];
+}
+
+// 一个邮编前后这么多字符之内的词，算它同属一个地址
+const PLACE_SPAN = 60;
+
+/**
+ * 这个工作区里哪些词是地名。
+ *
+ * 为什么需要它：罕见度分不出「地名」和「填充词」。实测那一片里，「不能」（3 条提到）、
+ * 「Use」（3 条，来自 Terms of Use）都比「Runnymede」（6 条）更罕见，于是共用一个 Runnymede
+ * 的那条边比共用一个「不能」的还弱——而 Runnymede 恰恰是「赛程分前后半程」和
+ * 「Runnymede Pleasure Ground, Egham, Surrey TW20 0AE」之间唯一那座桥。
+ *
+ * 判据还是**工作区自己**（这个工作区已经当过三回自己的词典：网址↔标题、重复行、有没有谁
+ * 拿它当过标题）：**地名会挨着邮编出现**。「Runnymede Pleasure Ground, Egham, Surrey TW20 0AE」
+ * 这一行里，Runnymede / Pleasure / Ground / Egham / Surrey 全都挨着 TW20 0AE。
+ * 而「不能」「Use」这辈子不会站在一个邮编旁边。
+ *
+ * 不用地名词库：那是世界知识，装不下也过期。挨着邮编这件事，是你自己存的东西告诉你的。
+ */
+function placesIn(entries) {
+  const out = new Set();
+  const re = PATTERNS[0][1];
+  for (const e of entries || []) {
+    const raw = `${headOf(e)} ${String((e || {}).text || '').slice(0, 4000)}`;
+    for (const m of raw.matchAll(new RegExp(re.source, 'g'))) {
+      const a = Math.max(0, m.index - PLACE_SPAN);
+      const near = raw.slice(a, m.index + m[0].length + PLACE_SPAN).replace(new RegExp(re.source, 'g'), ' ');
+      for (const t of segment(near, '')) {
+        if (!t.wordLike) continue;
+        const w = String(t.w).toLowerCase();
+        if (w.length < 2 || /^\d+$/.test(w) || STOP.has(w) || CHROME.has(w) || LABEL.has(w)) continue;
+        out.add(w);
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -133,11 +171,12 @@ function index(entries, stripOf) {
   for (const e of entries || []) {
     for (const t of segment(headOf(e), '')) if (t.wordLike) titled.add(String(t.w).toLowerCase());
   }
+  const places = placesIn(entries);
   const ents = new Map();
   const raw = new Map();
   for (const e of entries || []) {
     if (!e || !e.id) continue;
-    const list = of(e, stripOf ? stripOf(e) : undefined, titled);
+    const list = of(e, stripOf ? stripOf(e) : undefined, titled, places);
     raw.set(e.id, list);
     for (const x of list) {
       if (!ents.has(x.key)) ents.set(x.key, { ...x, records: [] });
@@ -181,4 +220,4 @@ function nameRank(x, titled) {
 /** 提到这样东西的记录越少，这条「提到」边越硬——一个邮编比一个常见的名字值钱得多。 */
 const weight = (n) => 0.55 + 0.40 / Math.log2(2 + Math.max(1, n));
 
-module.exports = { of, index, weight, headOf, nameRank, CHROME, MIN_DF, MAX_DF, PER_RECORD, PATTERNS };
+module.exports = { of, index, weight, headOf, nameRank, placesIn, CHROME, MIN_DF, MAX_DF, PER_RECORD, PATTERNS, PLACE_SPAN };

@@ -57,6 +57,16 @@ async function main() {
   const cfg = llm.config(store);
   console.log(`${store.byId.size} 条记录 · ${cfg.provider} / ${(cfg[cfg.provider] || {}).model || ''}\n`);
 
+  // 向量得先补齐，否则测的是个残缺的系统：「意思相近」那条边实测值 9/14 对 4/14，
+  // 而 bench 不像应用那样跑 warm()，SCHEMA 一升级向量表就是空的——我在这上面白跑过好几轮。
+  const index = require('../src/main/index-db');
+  const vector = require('../src/main/vector');
+  ask.refresh({ budgetMs: 30000 });
+  const loadDay = (k) => store.loadDay(k);
+  let v; do { v = await vector.fill(index, loadDay, { budgetMs: 9000, batch: 20, cacheDir: store.paths().models }); if (v.error) break; } while (!v.done);
+  const b = v && v.error ? null : vector.buildBuckets(index);
+  console.log(v && v.error ? `向量：没有（${v.error}）` : `向量：齐了 · 粗筛桶 ${b.bits} 位 × ${b.tables} 表\n`);
+
   const history = [];
   for (let i = 0; i < TURNS.length; i++) {
     const q = TURNS[i];
