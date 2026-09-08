@@ -185,6 +185,16 @@ async function main() {
   setupIpc();
   windows.syncDock();   // the character alone stays out of the Dock; the workspace puts it back
   foreground.setEnabled(store.getSettings().recordContext);
+  // 给老记录补标题：库里三成的标题是「截图 22:46」这种时间戳，看着不知道是什么东西。
+  // 限时可中断、下次接着做，和补向量、抽词表同一个形状——一件 O(n) 的活儿不能卡在启动那几秒里。
+  const retitleLoop = () => {
+    try {
+      const r = workspace.retitle({ budgetMs: 500 });
+      if (r.n) console.log(`[title] 补了 ${r.n} 条`);
+      if (!r.done) { setTimeout(retitleLoop, 900); return; }
+    } catch (e) { console.warn('[title] 补标题没做完：', e.message || e); }
+  };
+  setTimeout(retitleLoop, 4000);
   uptime.start();      // so a quiet day can say whether it was quiet or unattended
   listen.sync();       // automatic recording, if it was left on
   resolveAutoOcrModel(hardware.quickProfile());   // cheap probe, ready before the first capture

@@ -158,6 +158,31 @@ function attachContext(entry, pending) {
   return entry;
 }
 
+/**
+ * 给已经存下的那些「截图 22:46」补个名字。
+ *
+ * 这个工作区里 255 条有 83 条（33%）的标题就是「类型 + 时间」——你看着根本不知道那是什么。
+ * 补完剩 12 条（5%）：那 12 条是真的什么材料都没有（没 OCR、没关键词、没正文）。
+ *
+ * 限时、可中断、下次接着做，和补向量、抽词表同一个形状。只动占位标题。
+ * @returns {{done:boolean, n:number}}
+ */
+function retitle({ budgetMs = 600 } = {}) {
+  const t0 = Date.now();
+  let n = 0;
+  for (const day of store.listDates()) {
+    for (const e of store.loadDay(day)) {
+      if (!e || e.titleAuto === false || !title.isPlaceholder(e.title)) continue;
+      let lines = null;
+      try { lines = (ocrBoxes.load(e) || {}).lines; } catch (_) { /* 没有就没有 */ }
+      const t2 = title.of(e, { lines, fallback: '' });
+      if (t2 && t2 !== e.title) { store.updateEntry(e.id, { title: t2, titleAuto: true }); n++; }
+      if (Date.now() - t0 > budgetMs) return { done: false, n };
+    }
+  }
+  return { done: true, n };
+}
+
 // ---------- ingestion ----------
 /** Saves a captured PNG as a screenshot entry, and puts it on the clipboard when the user wants that. */
 function saveShot(png, { width, height, displayLabel, region = false, context = null }) {
@@ -1076,8 +1101,14 @@ async function processEntry(id) {
     }
     const current = store.getEntry(id) || entry;
     const keepTitle = current.type === 'screenshot' || current.type === 'audio' || current.type === 'note';
+    // 识别做完是给它起名字最好的时机：这时候 OCR 的行、关键词、语境都齐了。
+    // 只给占位标题起（「截图 22:46」不是标题，是时间戳）；你自己起过的名字一个字不动。
+    const auto = title.isPlaceholder(current.title) && current.titleAuto !== false
+      ? title.of({ ...current, tags: result.tags || current.tags },
+        { lines: (ocrBoxes.load(current) || {}).lines, fallback: '' })
+      : '';
     store.updateEntry(id, {
-      title: result.title && !keepTitle ? result.title : (current.title || result.title),
+      title: auto || (result.title && !keepTitle ? result.title : (current.title || result.title)),
       aiTitle: result.title || '',
       summary: result.summary || '',
       tagsSource: result.source,
@@ -1131,4 +1162,4 @@ function relabelVision(ui) {
   return n;
 }
 
-module.exports = { init, relabelVision, captureScreenshot, captureRegion, ingestFiles, ingestUrl, ingestNote, ingestDrop, ingestAudio, ingestClipboardImage, ingestBrowserMedia, ingestBookmark, hasText, retry, pending, readWav };
+module.exports = { retitle, init, relabelVision, captureScreenshot, captureRegion, ingestFiles, ingestUrl, ingestNote, ingestDrop, ingestAudio, ingestClipboardImage, ingestBrowserMedia, ingestBookmark, hasText, retry, pending, readWav };
