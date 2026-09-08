@@ -19,12 +19,18 @@ const links = require('./links');
 const boilerplate = require('./boilerplate');
 const story = require('./story');
 const vocab = require('./vocab');
+const chats = require('./chats');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
 
 let store;
-function init(deps) { store = deps.store; }
+function init(deps) {
+  store = deps.store;
+  // chats 也要有 store：认「以前问过的话」要翻聊天记录（echoFilter）。main.js 已经初始化过
+  // 一次，这里再来一次是幂等的——但少了它，从 bench 或者别的入口进来就悄悄少一道闸。
+  try { chats.init({ store }); } catch (_) { /* 翻不了就只挡这一场问过的 */ }
+}
 
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
 // 一句话问出来的东西最多留这么几条。40 是给「把这段时间给我」用的；一个具体的问题给四十条，
@@ -48,6 +54,7 @@ const CHAIN_SEEDS = 12;
 const CHAIN_SPAN = 16;   // 每个种子长这么大的一片就够——要的是近邻，不是整件事
 // 短问句不当回声判据：「今天呢」这种三个字，正文里随手就撞上，挡掉的会是真记录。
 const ECHO_MIN = 8;
+const ASKED_MS = 60 * 1000;   // 问过的话缓存这么久
 // 只在短记录上判「整条是家具」。长记录里夹着一行家具是常态，不该因此整条丢掉。
 const JUNK_MAX = 120;
 // 上一轮带过来几条。带多了这一问就成了上一问的回声，带少了追问就没有主语。
@@ -164,9 +171,25 @@ function namesIn(ids) {
   // 自己是什么的那几个词，不该去和别的记录抢一张榜。所以每条记录各出几个自己的名字，轮着来。
   // 记录内部的次序用 entity.nameRank：邮编/日期/数量/地名在前（正则认死的和从邮编邻居学来的），
   // 然后是被谁当过标题的词，最后才比罕见。
+  // 一条记录里，先出什么名字。三档：
+  //   0  邮编 / 日期 / 数量 / 地名——正则认死的，和从「挨着邮编出现」学来的
+  //   1  拉丁词，或者三个字以上的中文词
+  //   2  两个字的中文词
+  //
+  // 第三档要垫底，是实测逼出来的：改写出来的十四路查询里，「向量」「概念」「回去」各占一路，
+  // 而每一路的第一名都必须进门（那条规矩本身是对的，早上正是它把 Runnymede 放进来的），
+  // 于是一路虚词就必然拖进一条无关记录。用户一眼就看出来了：二十四条里十三条不该在。
+  //
+  // 为什么按「两个字的中文词」这条线切，而不是列一张虚词表：这个工作区里的标题常常是一整句
+  // 话（剪贴板笔记的标题就是正文第一行），所以「有没有人拿它当过标题」那个信号被稀释了，
+  // 「好的」「希望」和「车站」「接驳」拿到同样的身份。而**两个字的中文词里，是名字的和不是
+  // 名字的分不开**——分不开就别硬分，让它排在后面：有更好的候选时它进不来，没有时它还在。
+  // 这是排序，不是过滤——「模型」「内存」这种真有用的两字词，位子够的时候照样上。
+  const CJK2 = /^[㐀-䶿一-鿿]{2}$/u;
   const rank = (k) => {
     const kind = (evIdx.kind && evIdx.kind.get(k)) || 'name';
-    return kind === 'name' ? 1 : 0;
+    if (kind !== 'name') return 0;
+    return CJK2.test(String(evIdx.text.get(k) || '')) ? 2 : 1;
   };
   const lanes = [];
   for (const id of order) {
@@ -220,15 +243,52 @@ function usedIds(turn) {
  * @param {string[]} questions 这一场对话里问过的话
  * @returns {(id:string)=>boolean}
  */
+// briffy 自己那一页答案被复制回工作区时留下的抬头：「… · N 条记录 · 模型名」。
+// 这是个硬标记，认它比认内容可靠。
+const ANSWER_MARK = /·\s*\d+\s*条记录\s*·/;
+// 问过的话的缓存。翻一遍聊天记录不贵，但也不必每问一次都翻。
+let askedCache = null;
+let askedAt = 0;
+
+/** 这个工作区里，你**曾经**问过的所有话。 */
+function askedBefore() {
+  if (askedCache && Date.now() - askedAt < ASKED_MS) return askedCache;
+  askedAt = Date.now();
+  const out = new Set();
+  try {
+    for (const c of chats.list(60)) {
+      const full = chats.read(c.id);
+      for (const t of (full && full.turns) || []) {
+        const q = String((t && t.question) || '').replace(/\s+/g, '').toLowerCase();
+        if (q.length >= ECHO_MIN) out.add(q);
+      }
+    }
+  } catch (_) { /* 读不到就只挡这一场对话里的 */ }
+  askedCache = out;
+  return out;
+}
+
 function echoFilter(questions) {
-  const qs = (questions || []).map((x) => String(x || '').replace(/\s+/g, '').toLowerCase())
-    .filter((x) => x.length >= ECHO_MIN);
-  if (!qs.length) return () => false;
+  // **这一场问过的，和以前每一场问过的，一起挡。**
+  //
+  // 原来只挡这一场，实测漏得厉害：问「起点和终点的具体地址」，递上去的二十四条里有五条是
+  // 我自己以前问过的话被复制回工作区留下的（「我记下来了详细地址，你找一下」「具体的开始和
+  // 结束的地址是什么」…）。它们跟这一问字面不同，所以那道闸放行了；可它们同样不是答案，
+  // 而且同样是词面上最完美的命中——问题的每个字它都有。
+  // 你问过什么，briffy 自己存着（chats.js），不用猜。
+  const qs = new Set(askedBefore());
+  for (const x of questions || []) {
+    const q = String(x || '').replace(/\s+/g, '').toLowerCase();
+    if (q.length >= ECHO_MIN) qs.add(q);
+  }
+  const list = [...qs];
   return (id) => {
     const e = store.getEntry(id);
     if (!e) return false;
-    const t = `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, '').toLowerCase();
-    return qs.some((x) => t.includes(x));
+    const raw = `${e.title || ''} ${e.text || ''}`;
+    if (ANSWER_MARK.test(raw)) return true;         // 整条就是上一次的问答
+    const t = raw.replace(/\s+/g, '').toLowerCase();
+    return list.some((x) => t.includes(x));
   };
 }
 

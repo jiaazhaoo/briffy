@@ -13,7 +13,7 @@
       near: '相近', related: '相关', untitled: '无标题',
       fromPage: '摘自', samePage: '同一页', sameRun: '同一段操作',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
-      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过',
+      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', citeMore: '它还看了 {n} 条',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源',
@@ -151,7 +151,7 @@
       near: 'related', related: 'Related', untitled: 'Untitled',
       fromPage: 'Clipped from', samePage: 'Same page', sameRun: 'Same sitting',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
-      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by',
+      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', citeMore: 'Also looked at {n}',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From',
@@ -1735,8 +1735,27 @@
       + (meta ? `<div class="meta">${esc(meta)}</div>` : '')
       + note
       + (r.answer ? withCitations(md(r.answer), r.sources.length) : '')
-      + (r.sources.length ? `<div class="cites">${r.sources.map((e, i) => citeCard(e, i + 1, r.used.includes(i + 1))).join('')}</div>` : '')
+      + citeList(r)
       + `</div>`;
+  }
+
+  /**
+   * 底下那排卡片：**用上的排在前面，没用上的收起来。**
+   *
+   * 以前是把递给模型的每一条都摆出来。一次问答递上去二十几条，模型真正引用的常常只有两三条，
+   * 于是这一排看上去就是「一堆乱七八糟的东西」——用户第一眼看见的就是这个。
+   * 但也不能只显示用上的：模型说自己用了哪几条不一定准，而「它当时还看了些什么」是你判断
+   * 这个答案可不可信的依据。所以是收起来，不是丢掉。编号保持原样，正文里的 [3] 还点得着。
+   */
+  function citeList(r) {
+    if (!r.sources.length) return '';
+    const cards = r.sources.map((e, i) => ({ html: citeCard(e, i + 1, r.used.includes(i + 1)), on: r.used.includes(i + 1) }));
+    const on = cards.filter((c) => c.on);
+    const off = cards.filter((c) => !c.on);
+    if (!on.length || !off.length) return `<div class="cites">${cards.map((c) => c.html).join('')}</div>`;
+    return `<div class="cites">${on.map((c) => c.html).join('')}</div>`
+      + `<details class="cites-more"><summary>${esc(t('citeMore', { n: off.length }))}</summary>`
+      + `<div class="cites">${off.map((c) => c.html).join('')}</div></details>`;
   }
 
   let flashTimer = null;
