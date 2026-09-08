@@ -19,9 +19,11 @@
 | 复制任何东西（Ctrl+C / Cmd+C） | 剪贴板里的文字、图片、文件都会实时存入工作区 |
 | 浏览器里按 Alt+Shift+D | 浏览器扩展列出当前网页所有图片 / 视频 / 音频，勾选后一键存入工作区 |
 
-存进工作区的东西会拿到一个标题和一句话摘要；一张没有文字的图片，还会由本机的图像分类器说出画面里有什么。每天到设定时间（默认 08:00）小猫会为昨天的记录生成一份摘要，并弹出通知。
+存进工作区的东西会拿到一个标题和一句话摘要；一张没有文字的图片，还会由本机的图像分类器说出画面里有什么。每天到设定时间（默认 08:00）小猫会为昨天的记录生成一份摘要，好了之后小猫身上出现一个角标；小猫被隐藏时改用系统通知。
 
-存进去的东西可以直接**问出来**：记录页旁边的「问」用一句话提问（「上周那个 Postgres 报错是怎么回事？」），程序先把问题里的时间和词翻成一批记录，再让 AI 只读这批记录作答，答案里每句话都标着它依据的第几条。
+存进去的东西可以直接**问出来**：记录页旁边的「问」用一句话提问（「上周那个 Postgres 报错是怎么回事？」），程序先把问题里的时间和词翻成一批记录，再让 AI 只读这批记录作答，答案里每句话都标着它依据的第几条。搜索框除了精确命中，还会另外给出**意思相近**的——搜「跑步」出得来那场 walking 挑战——但它们一律标着「相近」，不和精确命中混在一起。见 [问自己的记录](#问自己的记录)。
+
+点开工作区里的一张图，它有[自己的窗口](#看图)：画笔、马赛克、裁切、翻译、置顶、复制。另外两样**默认关着、要你自己打开**：[会议自己录下来](#会议自己录下来)（别的软件开麦克风时才跟着录，录完转成文字并分出说话人 1 / 2 / 3）和[路过](#路过)（今天都在看什么，写进工作区里另一个地方，不混进记录页）。
 
 截图会同时进系统剪贴板（像微信截图那样，截完可以直接粘贴），但**不会因此被记录两次**——程序会让剪贴板监听器跳过自己刚放进去的那张图。不想进剪贴板可以在 设置 › 截图快捷键 里关掉。
 
@@ -51,7 +53,7 @@ npm start
 
 只有打包才需要 `npm run fetch-models`（`npm run dist:*` 会自动先跑）。日常开发不用——缺什么模型程序会在第一次用到时自己下。
 
-**不需要任何配置步骤**：第一次启动时程序自己检查这台电脑并准备好本地的文字识别和语音识别引擎，需要下载时小猫会在气泡里说一声。设置 › 本机准备情况 里能看到结果，每一项都可以自己改，也能点「重新检查」再跑一遍。
+**不需要任何配置步骤**：第一次启动时程序自己检查这台电脑并准备好本地的文字识别和语音识别引擎，需要下载时小猫会切到「在忙」的样子。设置 › 本机准备情况 里能看到结果，每一项都可以自己改，也能点「重新检查」再跑一遍。
 
 其余可以手动调整的：
 
@@ -86,6 +88,7 @@ workspace/
   audio/2026-09-03/           # 录音原始 webm + 16kHz wav
   files/2026-09-03/           # 拖入的文件副本、笔记 .txt、下载的 PDF
   summaries/2026-09-02.md     # 每日摘要（Markdown）+ .json 元数据
+  trail/                      # 「路过」那一层，默认不写；不进 entries/
 ```
 
 超过 200 MB 的文件不复制，只记录原路径。
@@ -101,18 +104,108 @@ workspace/
 
 排在前面的至多 40 条送给 AI，附上时间、类型、标题和正文摘录（没有文字的图片则附上画面内容），要求它**只依据这些作答**、答不上来就直说、引用时原样保留标题和词条不做翻译。答案用问题本身的语言写。
 
-**没有配 AI 服务、或者调用失败时，这一页照样有用**：检索到的记录会照常列出来，只是没人替你读它们。检索这一层完全在本地，不联网、不用模型。
+**没有配 AI 服务、或者调用失败时，这一页照样有用**：检索到的记录会照常列出来，只是没人替你读它们。挑记录这一步**完全不经过模型**——这不是省事，是这个功能能成立的前提：换掉 OpenRouter 换成本地 Ollama，索引不受影响；断网也照样定位得到；延迟是确定的，不取决于对方的网络。
 
-回归测试：`node dev/ask-test.js`（纯 node，不需要 Electron），把日期表达式、分词和排序的行为都钉住了。
+回归测试：`node dev/ask-test.js`、`node dev/retrieval-test.js`（都是纯 node，不需要 Electron），把日期表达式、分词、排序和融合的行为都钉住了。
+
+### 记录多了以后：一个磁盘上的索引
+
+原来每问一次就 `store.listEntries({ limit: Infinity })`，把工作区每一天都读进内存拼成一个数组。20 万条实测占 **215 MB 堆、打分 707 ms**；按真实平均长度外推到 185 万条约 7 GB——那不是慢，是每问一次崩一次。而模型那头始终只看 40 条，从来不是瓶颈。
+
+所以有了 [src/main/index-db.js](src/main/index-db.js)：一个住在用户数据目录里的 SQLite 倒排索引，**不加任何依赖**——Electron 44 自带的 Node 里 `node:sqlite` 就有 FTS5。20 万条、齐夫分布的语料上实测：
+
+| | |
+| --- | --- |
+| 建索引 | 40 秒（一次性，之后只重读改过的那一天），库 115 MB，进程堆 **28 MB**（旧路径 215 MB） |
+| 稀有词 | 1 ms，全库仅有的那一条准确命中 |
+| 两个词 AND | 46 ms；常见词 73 ms；英文 14 ms |
+| 按天取一周 | 1 ms；334 天的计数 0 ms |
+
+三件量出来才知道的事：
+
+- **中文必须自己分词。** FTS5 自带的 `unicode61` 把一整串中文当成一个词，`trigram` 又要求至少三个字符——两者搜「会议」都返回 0。所以入库和查询都先过 [segment.js](src/main/segment.js)（ICU），存空格分开的词流。
+- **耗时跟命中行数走，不跟库大小走。** 命中 0.16% 时 2 ms，命中全部时 1427 ms，因为 `ORDER BY rank` 要给每一个命中打分。所以查询先用天和类型收窄范围，并丢掉过于常见的词。
+- **索引是可以扔的。** 它住在用户数据目录而不是工作区——工作区会被搬走、拷贝、换掉，而索引里的一切都能从工作区重新算出来。`meta` 里记着它是照着哪个工作区、哪一版 schema 建的，对不上就重建。
+
+### 词面之外：向量，以及它为什么不能单干
+
+搜索框和「问」还有第二条腿：把问题和记录都算成向量，找**意思相近**的（[embed.js](src/main/embed.js) / [chunk.js](src/main/chunk.js) / [vector.js](src/main/vector.js)，模型是 `paraphrase-multilingual-MiniLM-L12-v2`，约 120 MB，跑在一个 utilityProcess 里，闲 3 分钟就退）。搜「跑步」出得来那场 walking 挑战，搜「屏幕」出得来那条讲 296 PPI 的笔记。这类结果一律标着「相近」，**不和精确命中混在一起假装是同一回事**——一个搜索框安静地返回一堆不含关键词的东西，看起来就是搜坏了。
+
+`dev/semantic-bench.js` 在真实工作区上量过：六道有答案的日常题，**词面对四道、向量也对四道，但错的不是同几道**——向量找得到「显示器型号」（问题里没有一个字出现在那条英文记录里），却丢了「推荐跑哪个模型」（那条记录的标题里就写着答案）。并集是五道。所以两边都要，谁也别想单干。
+
+更硬的一条理由是**向量不会说「找不到」**：同一次实测里，一条正确答案得 0.445，而一个工作区里根本没有的问题（「我上个月去哪里旅游了」）照样能凑出 0.432。分数没有绝对意义，没有可用的阈值。所以定死一条规则：**词面交白卷时，向量也不出手**。
+
+切块不是优化，是必须的：这个模型一次只读 128 个 token，一条一万三千字的网页不切的话，只会被自己的**开头**代表——而存下来的网页开头永远是语言选择、Cookie 提示和面包屑。正文先剥一遍网页家具（[boilerplate.js](src/main/boilerplate.js)），实测去掉 17% 的字而地名桥词一条不少；**剥的只是喂给向量的那一份视图，存下来的记录一个字不动**，全文搜索照旧。
+
+### 记录之间的边
+
+[links.js](src/main/links.js) 把记录连起来，但**不是靠「一个更好的相似度」**。`dev/thames-link-probe.js` 在真实工作区上量过：「Windsor Road, Egham TW20 0AE」和它所属的那场徒步，向量相似度 **0.155**——而 0.4 上下就已经是瞎猜。门槛降到 0.30 连上 0/8，降到 0.20 连上 3/8，代价是每条记录连到全工作区 236 条里的 126 条。
+
+而那几条停车记录的窗口标题和同一小时里那条书签的标题**一字不差**。关系一直写在记录里，那是「相等」不是「相似」——而 embedding 恰恰是唯一一种专门把字符串碾成近似含义、从而销毁精确匹配的工具。所以只有一条规则，用三次：**一条边只在能说出它的证据时才存在，而证据永远不合成一个数。**
+
+| 边 | 连什么 | 怎么连 |
+| --- | --- | --- |
+| 同一处 | 页面 ↔ 从它上面摘下来的记录 | 按 key 分组。精确，无阈值无模型 |
+| 同一程 | 页面 ↔ 页面 | 时间上一遍扫。结构性，会捞进不相干的 |
+| 同一件事 | 记录 ↔ 记录 | 向量，≥ 0.70 才算数 |
+
+前两种根本不是算法，是 join 和一维分段——它们精确、便宜、可解释，正因为它们不是相似度。这个文件里没有向量也没有模型，`node dev/links-test.js` 直接跑得起来。都不落库：存下来只会多一个会过期的东西，而这两种边在一百八十万条上仍然是一张哈希表和一遍扫。
+
+## 看图
+
+工作区里点开一张图，它有**自己的窗口**（[src/main/viewer.js](src/main/viewer.js) + [src/renderer/viewer/](src/renderer/viewer/)），而不是把详情面板撑大——一张图是用来看的，看图和读它的说明是两件事。和聊天软件点开一张照片是同一个动作：一扇自己的窗，图尽可能大，工具条在下面，右边一条是工作区里所有图片的胶片。
+
+工具条：**画笔 / 方框 / 椭圆 / 马赛克 / 文字 / 裁切**，加上缩放、适应窗口、旋转、网格、撤销、置顶、复制。所有绘制都发生在图片上方的一层 canvas 里；主进程只做渲染进程做不到的四件事——把图片放进系统剪贴板、让窗口压在所有东西上面、翻译一段文字、保存一块裁切。
+
+**一键翻译走的是文字，不是图片。** 图片从不出这台电脑（这是工作区那条规矩），而 OCR 早就把字读出来了，再把原图发一遍既慢又多余。
+
+## 会议自己录下来
+
+**这是 briffy 唯一一件不用你动手的事，所以它默认关着**（设置 › 自动录音）。别的东西都在等一次按键或一次复制，只有这一件在听。打开之后，会议和通话会进工作区，不论有没有人打算让它进去——包括别人的声音。要不要打开是用它的人自己的问题。
+
+它**不听房间，它跟着麦克风**：别的软件打开了麦克风，briffy 才跟着录（[micwatch.js](src/main/micwatch.js)）。一直听着房间会把游戏语音、屋里另一个人说话、电视全都切成记录存起来——2026-09-05 就是这么录进 170 条游戏语音的。macOS 上不用写原生模块也能问到这件事：每有一个进程在采集音频，`coreaudiod` 就会持有一条带着**是谁**开的防休眠断言，`pmset -g assertions` 一次 10 ms，每 5 秒问一次的开销可以忽略，而且不需要任何权限。
+
+要排除三类：briffy 自己（不排除就永远停不下来）、24 小时占着麦克风的常驻录音器（`corespeechd`、screenpipe 这类，算进来就退回成「一直录」），以及浏览器——**浏览器不作为应用进名单**，把 Chrome 整个放行等于放行它打开的每一个网页。浏览器带来的是它对应的**会议网站**。
+
+白名单不是一串写死的名字。原来是的：Teams、Webex、Slack、飞书、钉钉……对着一台只装了 Zoom 和微信的电脑，十八项里十四项永远不会命中，打开设置看到的是一份别人的清单。现在名单从 [apps.js](src/main/apps.js) 长出来——扫一遍应用目录，把**真的装了的**会议软件作为默认白名单。
+
+代价是在动手之前量出来的：
+
+| | 一个核 |
+| --- | --- |
+| 麦克风打开、它自己的回声 / 降噪 / 增益处理都在跑 | 4.5% |
+| 在这之上再加语音检测 | 1.4% |
+| 两者都有，但关掉那些处理、采样率降到 16 kHz | **2.6%** ← 实际发布的 |
+
+所以渲染进程里定死：不要回声消除、不要降噪、不要自动增益、16 kHz 单声道。Whisper 本来就要 16 kHz，而且是拿普通的嘈杂语音训练的，什么也没损失，成本省掉一半多。有一项成本不是数字：**只要它在跑，macOS 就一直亮着那个橙色的麦克风点**。
+
+监听住在一扇自己的隐藏窗口里，不在小猫那扇——把小猫藏起来不该悄悄把它停掉。
+
+**说话人分段**（[diarize.js](src/main/diarize.js)）：sherpa-onnx 跑 pyannote 分段和一个声纹模型，回答「这段录音里谁在什么时候说话」。本机实测，57 秒四人中文录音 3.8 秒（0.07x 实时）认出正好四个人，16 秒两人英文 0.6 秒认出正好两个——五分钟的会议约二十秒，和它旁边那个转写是同一个量级。标签在文件内部是任意的（实测四个人回来的编号是 0、1、2、7），所以按各自说话的多少重排成 说话人 1 / 2 / 3。
+
+它**故意不跨录音记人**。原来有第二半：每个声音被平均成一枚声纹存下来，下次录音比对，认出来就能起名字。2026-09-06 砍掉了——**不同会议有不同的人**，周二会议里起的名字到周四就是噪音，而设置页里那份起了一半的名字清单，是应用向你要工时却不给回报。
+
+## 路过
+
+**你今天都在看什么**——这是 briffy 里第一样不是你有意存下的东西，所以它有自己的地方（`workspace/trail/`），**不进 `entries/`**。记录页是「你决定留下的」，把路过的东西混进去，那一页就不再是那个意思了。同样默认关着（设置 `recordTrail`）。
+
+两条进料，成本天差地别：
+
+- **焦点**：每两秒问一次前台是谁，变了才记一条。实测 0.31% 的一个核，每天约 0.2 MB。
+- **网页**：浏览器扩展在页面里读 DOM 直接交上来。**0.2 ms 读出 12031 个字**，不截屏、不 OCR。
+
+为什么不走 OCR：Vision 的 fast 档要 800 ms 才读出一千一百个字，而且是「认」出来的；页面内读 `innerText` 是 0.2 ms、一万两千字、原文——快四千倍，字多十倍，还准。辅助功能树那条更糟，用 AppleScript 走一遍 Chrome 是 8.8 秒、Claude 是 32 秒。
+
+所以只有微信、Telegram 这类既不交出 DOM 也不交出辅助功能树的应用是 OCR 才能读的，而那恰好是私人聊天——这一层**只记它们的窗口标题，不碰内容**。机器闲着也不记：`powerMonitor.getSystemIdleTime()` 是免费的，超过一分钟没人动就停手。
 
 ## 技术组成
 
-- **Electron 44**：浮动透明窗口（小猫）+ 免点击的气泡窗口 + 工作区窗口 + 托盘。
+- **Electron 44**：浮动透明窗口（小猫）+ 工作区窗口 + 看图窗口 + 悬停货架 + 托盘。
 - **OCR（和大模型完全无关）**：**PP-OCR（PaddleOCR）v6** 的 ONNX 模型，通过 `onnxruntime-node` 本地推理。`v6-tiny`（6 MB）和 `v6-small`（30 MB）**两个模型都内置在安装包里**，启动时自动选一个：
 
   - 判据是内存、核心数和一次约 160 ms 的 CPU 测速（`hardware.js` 里的 `cpuProbe`，跑一次 384×384 矩阵乘法）。内存 ≥ 8 GB、核心 ≥ 4、测速不超过参考机三倍（≤ 160 ms）就用 `v6-small`，否则 `v6-tiny`。
   - 结果写进设置（`ocrModelAuto`），可在设置里手动指定覆盖。
-  - 会自我纠正：如果自动选中的模型连续多次单张超过 6 秒（取中位数），自动降回 `v6-tiny` 并在气泡里说明一次。
+  - 会自我纠正：如果自动选中的模型连续多次单张超过 6 秒（取中位数），自动降回 `v6-tiny`。
   - 语言优先于性能：选了日文 / 韩文这类 tiny 覆盖不了的语言时，会用能覆盖该语言的模型（必要时下载）。
 
   其他语种（日、韩、阿拉伯、泰、俄、拉丁语系）的专用模型按需下载到 `<用户数据目录>/ocr-models`。OCR 只做文字识别，任何 AI 服务的切换都不影响识别结果。
@@ -127,7 +220,10 @@ workspace/
   用默认参数（占满所有核心、开内存池、不限尺寸）时 v6-tiny 要 750 MB 和 4.5 秒 CPU 时间，识别结果反而不比现在好。空闲 2 分钟后模型会被卸载，内存归还系统。
 - **语音转文字**：`@huggingface/transformers` + `onnxruntime-node` 本地运行 Whisper（默认 `whisper-small`，可换 tiny/base/medium）。模型首次录音时下载到 `<用户数据目录>/models`，之后离线。国内网络可在设置里填镜像 `https://hf-mirror.com/`。转写前先在两个语言包之间做一次语言判别（transformers.js 本身不会自动检测语言，不指定就会当成英文并把中文“翻译”掉）；中文结果用 `opencc-js` 统一成你选的简体 / 繁体。
 - **分片流下载**：`src/main/ffmpeg.js` 负责找到 / 安装 / 调用 ffmpeg，`src/main/stream.js` 负责按清单下载并合并。见上面「分片流怎么变回一个文件」。
-- **问记录**：`src/main/recall.js` 只做检索（时间表达式 + 加权打分，无依赖、无网络），`src/main/ask.js` 把选中的记录交给 `llm.js` 作答并要求它标注引用。见上面「问自己的记录」。
+- **检索**：三层，都在本地，都不经过模型。[recall.js](src/main/recall.js) 是时间表达式和加权打分，[retrieve.js](src/main/retrieve.js) 决定一个问题该给模型看哪几条（它不 require store 也不 require electron，所以 `dev/retrieval-test.js` 跑的就是这一份、不是它的复制品），[index-db.js](src/main/index-db.js) 是磁盘上的 SQLite/FTS5 倒排索引（`node:sqlite`，零依赖），中文先过 [segment.js](src/main/segment.js) 的 ICU 分词。[ask.js](src/main/ask.js) 把选中的记录交给 `llm.js` 作答并要求它标注引用。
+- **向量**：[embed.js](src/main/embed.js) 在一个 utilityProcess 里跑 `paraphrase-multilingual-MiniLM-L12-v2`（约 120 MB，闲 3 分钟退出，跑不起来就静静退回数词），[chunk.js](src/main/chunk.js) 按 128 token 的上限切块，[vector.js](src/main/vector.js) 补向量和查相近，[links.js](src/main/links.js) 是记录之间的边。补向量挂在 ask.js 已有的那条限时预算循环上，不新建调度：实测每条 21 ms，攒十条约 0.2 秒。见上面「问自己的记录」。
+- **自动录音**：[listen.js](src/main/listen.js) 在一扇隐藏窗口里持麦，[micwatch.js](src/main/micwatch.js) 靠 `pmset -g assertions` 问「谁在用麦克风」（一次 10 ms，不需要权限），[apps.js](src/main/apps.js) 扫应用目录长出白名单，[diarize.js](src/main/diarize.js) 用 sherpa-onnx 做录音内的说话人分段。默认全关。
+- **路过**：[trail.js](src/main/trail.js) 每两秒问一次前台是谁（[foreground.js](src/main/foreground.js)），网页正文由浏览器扩展直接交上来。写进 `workspace/trail/`，不进 `entries/`。默认关。
 - **标题 & 摘要**：`src/main/llm.js` 统一调度四种来源。Claude 走 Anthropic SDK（默认 `claude-opus-5`，结构化输出 + 服务端 refusal fallback，PDF 直接作为文档送入）；OpenRouter 和自定义接口走 OpenAI 兼容的 chat/completions（JSON schema 不支持时自动降级）；Ollama 走原生 `/api/chat`（`format` 结构化输出、自动关闭 Qwen 的 thinking、非视觉模型自动去掉图片）。截图以图片 + OCR 文本送入；PDF 先用 `pdf-parse` 本地抽文字（也用于搜索）；网页抓正文后送入。本地模型的输入会按上下文长度截断。
 - **硬件检测 & 推荐**：`src/main/hardware.js` 读取 CPU / 内存 / 显卡（Windows 用 nvidia-smi 或注册表里的显存大小，macOS 用 system_profiler，Apple Silicon 按统一内存算），按显存 / 内存预算推荐 `qwen3.5:0.8b / 2b / 4b / 9b / 27b`，备选 `gemma3:4b`。
 
@@ -155,7 +251,7 @@ npm run verify:mac     # 单独验一个已经打好的 .app
 
 `dist:*` / `release:mac` 会自动先跑 `fetch-models`。`bundled-models/` 不进版本库。
 
-原生依赖（onnxruntime、tesseract 的 wasm）已在 `package.json > build.asarUnpack` 中声明。
+原生依赖（onnxruntime、sharp、node-screenshots、sherpa-onnx）已在 `package.json > build.asarUnpack` 中声明。
 
 **macOS 发布**见 [docs/RELEASE.md](docs/RELEASE.md)：签名用 `Developer ID Application`，包 arm64、最低 macOS 13，公证要三个环境变量——**缺了 electron-builder 只打印一行 `skipped macOS notarization` 就继续**，打出来的包在本机照样打开，到别人机器上打不开。`npm run verify:mac`（[dev/mac-release-check.js](dev/mac-release-check.js)）就是拦这个的：它按 Gatekeeper 的顺序把签名、嵌进签名里的 entitlements、Info.plist 里每条权限说明、`app.asar.unpacked` 里 11 个原生库的签名、公证票和 `spctl` 判定全过一遍，全绿才发。
 
@@ -247,7 +343,7 @@ npm run pet:avatar -- --default             # 重新生成内置默认
 
 ### 想要透明底、全身、多表情的那种
 
-如果不满足于圆框头像，`.claude/skills/pet-as-character/` 里有一套完整的生成流程——改自公开项目 [ip-as-logo](https://github.com/s1dashu/ip-as-logo-skill)，但**不生成图标**：改成透明底、居中全身、一只角色画 8 帧表情（`idle` `blink` `capture` `think` `listen` `happy` `sad` `sleep`），且每帧都拿选定的那张当参考图，保证是同一只。三个方向和每帧姿势写在 [scripts/pet-brief.json](scripts/pet-brief.json)。
+如果想要一只画出来的动物而不是这根回形针，`.claude/skills/pet-as-character/` 里有一套完整的生成流程——改自公开项目 [ip-as-logo](https://github.com/s1dashu/ip-as-logo-skill)，但**不生成图标**：改成透明底、居中全身、一只角色画 8 帧表情（`idle` `blink` `capture` `think` `listen` `happy` `sad` `sleep`），且每帧都拿选定的那张当参考图，保证是同一只。三个方向和每帧姿势写在 [scripts/pet-brief.json](scripts/pet-brief.json)。
 
 ```bash
 npm run pet -- identity --dry-run   # 只写出提示词，不调 API（assets/pet/raw/*.txt）
@@ -256,7 +352,7 @@ npm run pet:cutout                  # 抠图 + 裁切 + 缩放，并拼出 asset
 npm run pet -- frames --from assets/pet/raw/B1.png   # 选定后画 8 帧
 ```
 
-需要画图模型的 Key：`OPENAI_API_KEY`（`gpt-image-2`，能直接出透明底）、`GEMINI_API_KEY` 或 `OPENROUTER_API_KEY`（出纯色底，由 `scripts/pet-cutout.js` 抠掉）。`npm run pet:electron -- identity` 会走 Electron，直接复用设置里存好的 OpenRouter Key。抠图是从四条边往里漫水填充，角色内部和背景同色的地方不会被误抠，边缘按颜色距离给半透明并反解掉溢色。走这条路要另外改 `pet.css`，把圆框换成透明贴图。
+需要画图模型的 Key：`OPENAI_API_KEY`（`gpt-image-2`，能直接出透明底）、`GEMINI_API_KEY` 或 `OPENROUTER_API_KEY`（出纯色底，由 `scripts/pet-cutout.js` 抠掉）。`npm run pet:electron -- identity` 会走 Electron，直接复用设置里存好的 OpenRouter Key。抠图是从四条边往里漫水填充，角色内部和背景同色的地方不会被误抠，边缘按颜色距离给半透明并反解掉溢色。走这条路要另外改 `pet.css`，把自绘的回形针换成透明贴图。
 
 ## 官网
 
@@ -287,7 +383,7 @@ node dev/preview/serve.js
 
 界面的视觉标准（纸质拟物、全直角、中英文排版）在 [.claude/skills/paper-ui/SKILL.md](.claude/skills/paper-ui/SKILL.md)；两张样张：http://localhost:5173/lang （版面与字）和 /system （层 / 墨 / 空）。
 
-然后在浏览器打开 http://localhost:5173/ （工作区，带假数据）、/pet （小猫，可加 `?zoom=3&state=success` 看各状态）、/bubble （气泡）。这些页面直接引用 `src/renderer` 里的真实 CSS / JS，只是把 Electron 的 IPC 换成了 `dev/preview/mock-*.js`，改完样式刷新即可看到。
+然后在浏览器打开 http://localhost:5173/ （工作区，带假数据）、/pet （小猫，可加 `?zoom=3&state=success` 看各状态）、/viewer （看图窗口）、/shelf （悬停货架）、/region （框选层）、/onboarding （引导）。这些页面直接引用 `src/renderer` 里的真实 CSS / JS，只是把 Electron 的 IPC 换成了 `dev/preview/mock-*.js`，改完样式刷新即可看到。
 
 ## 开发自检
 
@@ -312,8 +408,6 @@ $env:DAILYLOGS_SMOKE='1'; $env:DAILYLOGS_SMOKE_OUT='.\smoke.png'; npm start
 | `summary` | 生成某天的摘要 | `DAILYLOGS_SMOKE_DATE=YYYY-MM-DD` |
 
 `DAILYLOGS_SMOKE_TAB=entries|summaries|settings` 决定退出前停在哪个页面，`DAILYLOGS_SMOKE_OUT` 会把最终屏幕截图存成 PNG。
-
-开发时终端里会出现一行 tesseract 的 `Failed loading language '…'` 提示，是 tesseract.js 7 同时加载两个语言包时的已知噪音，不影响识别结果。
 
 ## 许可
 
