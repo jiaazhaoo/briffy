@@ -136,13 +136,32 @@ const SITES = {
   'youtube.com': 'YouTube', 'github.com': 'GitHub', 'reddit.com': 'Reddit',
   'facebook.com': 'Facebook', 'zoom.us': 'Zoom', 'notion.so': 'Notion', 'claude.ai': 'Claude',
   'mail.google.com': 'Gmail', 'docs.google.com': 'Google Docs',
+  // 媒体 CDN。复制一张图或者一段视频，拿到的网址常常落在这些域上——它们不是另一个站，
+  // 是同一个站放东西的地方。不认的话来源栏里就会多出一堆没人认得的机器名。
+  'bilivideo.com': '哔哩哔哩', 'hdslb.com': '哔哩哔哩',
+  'xhscdn.com': '小红书', 'twimg.com': 'X', 'fbcdn.net': 'Facebook',
+  'sinaimg.cn': '微博', 'zhimg.com': '知乎', 'ytimg.com': 'YouTube',
+  'githubusercontent.com': 'GitHub', 'googleusercontent.com': 'Google',
 };
+// 「最后两段就是域名」在多级后缀上是错的：ukpcappeals.co.uk 会被算成 co.uk。
+// 不引公共后缀表（那是一份几千行、还会过期的清单），只认这一小撮二级后缀——它是个有限的集合，
+// 而且认错的代价只是名字长一点，不是把两个站并成一个。
+const SLD = new Set(['co', 'com', 'net', 'org', 'gov', 'edu', 'ac', 'or', 'ne', 'in']);
+function baseHost(h) {
+  const p = String(h || '').split('.');
+  if (p.length <= 2) return p.join('.');
+  return (SLD.has(p[p.length - 2]) ? p.slice(-3) : p.slice(-2)).join('.');
+}
+
 function siteOf(url) {
   try {
     const h = new URL(String(url)).hostname.replace(/^www\./, '');
     if (SITES[h]) return SITES[h];
-    const base = h.split('.').slice(-2).join('.');
-    return SITES[base] || h;
+    const base = baseHost(h);
+    // **退到域名，不退到整个主机名。** 原来认不出就把主机名整个端出来，于是
+    // 「upos-sz-mirrorcosov.bilivideo.com」在来源那一栏里自成一格，还把整行撑到换行——
+    // 而它只是 B 站放视频的一台机器。子域说明的是「站里的哪一块」，不是「哪个站」。
+    return SITES[base] || base;
   } catch (_) { return ''; }
 }
 
@@ -532,4 +551,4 @@ class Store extends EventEmitter {
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, entryFormat, siteOf, siteInTitle, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
+module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, entryFormat, siteOf, baseHost, siteInTitle, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
