@@ -423,6 +423,12 @@
       </button>
       <textarea id="askInput" rows="1" data-i18n-placeholder="askPlaceholder" autocomplete="off"
         spellcheck="false" enterkeyhint="send"></textarea>
+      <!-- 用哪个模型答这一句。放在输入框旁边而不是只放设置里：换模型是问之前的决定，
+           而这是你问问题的地方。纸上的字，不是按钮——它跟导航和筛选是同一档。 -->
+      <div class="askmdl">
+        <button type="button" id="btnModel" class="mdl"></button>
+        <div class="mdl-tray" id="modelTray" hidden></div>
+      </div>
       <button type="submit" id="btnAsk" class="send" data-i18n-title="askGo">
         <svg viewBox="0 0 24 24"><path d="M5 12h13M12 5l7 7-7 7" /></svg>
       </button>
