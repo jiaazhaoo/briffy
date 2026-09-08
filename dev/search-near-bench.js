@@ -56,7 +56,13 @@ async function main() {
   ask.refresh({ budgetMs: 30000 });
   const loadDay = (k) => store.loadDay(k);
   let v; do { v = await vector.fill(index, loadDay, { budgetMs: 9000, batch: 20, cacheDir: store.paths().models }); if (v.error) break; } while (!v.done);
-  console.log(`${store.byId.size} 条记录 · ${v && v.error ? `向量没有（${v.error}）` : '向量齐了'}\n`);
+  // 页面图也得先建齐，应用里是 warm() 在后台补的。少了它，链那条腿在台子上永远空手，
+  // 而线上是有东西的——我在这上面白跑过一轮。
+  const vocab = require('../src/main/vocab');
+  for (const k of store.listDates()) vocab.collectPages(index, store.loadDay(k));
+  const pg = index.pgStats ? index.pgStats() : null;
+  console.log(`${store.byId.size} 条记录 · ${v && v.error ? `向量没有（${v.error}）` : '向量齐了'}`
+    + (pg ? ` · 页面图 ${pg.pages} 页 / ${pg.clips} 条摘录` : '') + '\n');
   const nm = (id) => one((store.getEntry(id) || {}).title).slice(0, 26) || '（无标题）';
 
   let noise = 0;
