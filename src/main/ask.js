@@ -59,6 +59,9 @@ const SEED_QUERIES = 10;
 const NAMES_PER_RECORD = 3;   // 轮着取的时候，每条记录先出这么几个自己的名字
 // 头几路是「人话」（原句、原句的实词），后面全是名字。只有人话那几路掺向量。
 const LANG_LANES = 2;
+// 一句话里有这么多「字」（汉字 + 三个字母以上的英文词）才算说得清自己。
+// 「地址是多少」5，「我最近在看二手显示器，都看了些什么？」16。卡在中间。
+const SELF_MIN = 10;
 // 一问最多分这么多路。分得多不贵（一路 2~5ms），贵的是名额——所以路数和 KEEP 要一起看：
 // 横着取的时候，只有前 room 条路的第一名进得来。
 const MAX_QUERIES = 16;
@@ -183,6 +186,20 @@ function namesIn(ids) {
   const w = (x) => x.n / Math.log2(2 + x.df);
   for (const [t] of [...seen.entries()].sort((a, b) => w(b[1]) - w(a[1]))) if (!out.includes(t)) out.push(t);
   return out;
+}
+
+/**
+ * 这句话自己说不说得清。
+ *
+ * 说得清 = 可以拿它自己去问向量；说不清 = 主语在上文里，只能靠上一轮带过来的名字。
+ * 判据是**实词的量**，不是字数：「地址是多少」五个字里实词只有一个，
+ * 「我最近在看二手显示器，都看了些什么？」实词有好几个。
+ * @param {string} q
+ */
+function selfContained(q) {
+  const t = String(q || '');
+  const words = (t.match(/[㐀-䶿一-鿿]/gu) || []).length + t.split(/[^A-Za-z0-9]+/).filter((x) => x.length > 2).length;
+  return words >= SELF_MIN;
 }
 
 /** 上一轮真正用上的那几条。模型自己报的 used 是 1 起的下标，对应当时给它的 sources。 */
@@ -417,19 +434,39 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
     const p = sub === q ? plain : retrieve.select(index, sub, { today, limit, getEntry: (id) => store.getEntry(id) });
     if (!pick && p.ids.length) pick = p;                    // 时间范围和词按第一条命中的算
     if (!p.ids.length) continue;
-    // **只有人话那两路掺向量，名字那几路不掺。**
+    // **名字那几路只走词面；人话那两路词面和向量各走各的，不融合。**
     //
-    // 今天量到「问得越像人话，向量越钝」（同一条记录：「详细地址」第 3 名，
-    // 「我记下来了详细地址，你找一下」第 59 名）。反过来也成立，而且更要紧：
-    // **问得越像名字，词面越准**——「Runnymede」词面第 1 名就是那条地址，精确、无歧义。
-    // 这时候再 RRF 掺一遍向量，只会把噪声顶上来，而第一轮每路只取第一名，顶掉就没了。
-    // 实测：向量关着四遍全 3/3，向量掺进每一路只剩 1/3。
-    // 所以向量留在它不可替代的那一路上——原句那种人话，词面按定义命中不了。
-    const useVec = qi < LANG_LANES;
-    const near = useVec
-      ? await vector.search(index, sub, { limit, cacheDir: store.paths().models, from: p.range ? p.range.from : '' }).catch(() => [])
-      : [];
-    lanes.push(retrieve.fuse(p.ids, near, PER_QUERY * 3).filter((id) => !echoed(id) && !drop(id)));
+    // 名字不掺向量：「问得越像名字，词面越准」——「Runnymede」词面第一名就是那条地址，
+    // 精确无歧义，再 RRF 掺一遍向量只会把噪声顶上来。实测向量掺进每一路，四遍里三遍答错。
+    //
+    // 人话那两路则**反过来**，而且不能靠融合解决。RRF 只看名次，于是一堆「碰巧对上字」的
+    // 词面命中会把真正对的那条向量命中压死：问「我最近在看二手显示器」，词面切出来的词
+    // 撞上了 briffy 自己的截屏开发笔记，12 条全中，而向量把 Samsung CJ89 排在第 3——
+    //   词面第 12 名  1/(20+13) = 0.030
+    //   向量第 3 名   1/(60+4)  = 0.016
+    // 十二条垃圾条条压过它，而第一轮每路只取第一名，于是那一路交出来的是垃圾。
+    // （早上那条「向量把 Windsor Road 排第 8，被十六条词面命中全部压过」是同一件事。）
+    //
+    // 融合的前提是两边都在回答同一个问题。而这里它们回答的是**两个不同的问题**：
+    // 词面答「哪几条写着这些字」，向量答「哪几条说的是这件事」。让它们各交各的第一名，
+    // 比让它们在一个分数上打架诚实得多。
+    const keep = (id) => !echoed(id) && !drop(id);
+    lanes.push(p.ids.filter(keep).slice(0, PER_QUERY * 3));
+    // 向量单独一路，但**只给说得清自己的那种问法**。
+    //
+    // 这一条是撞出来的。拆成两路之后，「我最近在看二手显示器，都看了些什么？」从全错变成
+    // 三台显示器全对；同一次改动却把「地址是多少」从答对（Ollama 的 127.0.0.1:11434）
+    // 变成了答错（Bishops Park）——因为向量对这五个字的第一名就是库里最「像地址」的东西，
+    // 而原来 RRF 把向量埋掉，反倒歪打正着地保护了它。
+    //
+    // 分界线不是长短本身，是**这句话自己说不说得清**：十八个字的那句自带主语，
+    // 五个字的那句主语在上文里。**短追问只能靠上文那几路名字，不能靠它自己的向量**——
+    // 它自己的向量指的是「地址」这个词在整个工作区里最像的东西，那和你在问什么无关。
+    if (qi < LANG_LANES && selfContained(q)) {
+      const near = await vector.search(index, sub, { limit, cacheDir: store.paths().models, from: p.range ? p.range.from : '' })
+        .catch(() => []);
+      if (near.length) lanes.push(near.filter(keep).slice(0, PER_QUERY * 3));
+    }
   }
   const ids = [];
   for (const id of carried) {                       // 上一轮的先站住位子，它们是这一问的主语
