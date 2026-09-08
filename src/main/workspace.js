@@ -832,7 +832,7 @@ function announceQueue() {
 }
 
 
-// OCR runs on a dedicated recognition engine (PP-OCR / tesseract); no language model is involved.
+// OCR runs on a dedicated recognition engine (PP-OCR); no language model is involved.
 function ocrConfig(s, langs) {
   // s.ocrModel === '' means "let the app decide": the hardware probe proposes a size, the language pair
   // can override it, and a model that turns out to be too slow here is dropped a size (see checkOcrSpeed).
