@@ -57,7 +57,11 @@ const CHROME = new Set(('privacy policy terms statement cookie cookies settings 
   + 'experience experiences levels challenges min max fee fees total subtotal '
   // google / maps：地图截图的 OCR 里每一张都有（水印和标题栏），实测「Maps·Google」把
   // 「Runnymede」连到了「Ok. Ill be home in half an hour」。它们说的是你用了哪个软件，不是内容。
-  + 'google maps').split(/\s+/));
+  + 'google maps '
+  // 菜单栏。全屏截图的 OCR 第一行永远是「Chrome File Edit View History Bookmarks Profiles Tab
+  // Window Help」，每一张都有、每个词都大写，于是「File · Window · History」自己整理成了
+  // 一件事，成员是三张毫不相干的全屏截图。这是操作系统的词汇，列得完。
+  + 'file edit view go window help history bookmarks profiles tab format insert tools reload').split(/\s+/));
 // briffy 自己的标题词说的是格式不是内容；站点后缀说的是你在哪个站
 const LABEL = new Set(['语音', '截图', '剪贴板', '剪贴板图片', '图片', 'screenshot', 'clipboard', 'audio', 'voice']);
 const STOP = new Set(('the a an and or of to in on at for with from by is are was were be been am this that these those '

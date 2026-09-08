@@ -803,6 +803,9 @@ function days({ from = '', to = '' } = {}) {
   return db.prepare(sql).all(...args);
 }
 
+/** 全部记录的 id，新的在前。给「整理事件」用——它得从每一条出发试一次。 */
+function allIds() { return db.prepare('SELECT id FROM entries ORDER BY at DESC').all().map((r) => r.id); }
+
 function stats() {
   return {
     entries: db.prepare('SELECT count(*) c FROM entries').get().c,
@@ -818,7 +821,7 @@ module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
   useVecModel, needVec, putVec, vecScan, vecStats, sweepVec,
   vecOf, vecMany, putBuckets, bucketPeers, bucketStats, dropBuckets,
-  addTitled, addPlaces, titledSet, placeSet, putVocab, dropVocab, forgetVocab, vocabPending, vocabStats,
+  addTitled, addPlaces, titledSet, placeSet, putVocab, dropVocab, forgetVocab, vocabPending, vocabStats, allIds,
   vocabOf, vocabDf, vocabPost, vocabWords, reRank, vocabUnsettled, markSettled, unsettleAll,
   pgRoot, pgUnion, putClip, putPage, pageInfo, pageOfEntry, pageOwnedBy, runAround, pgStats, dropPageOf,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,

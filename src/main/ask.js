@@ -207,6 +207,7 @@ function storyCtx() {
     g: vocab.pageGraph(index),
     ev: evIdx,
     ok: evIdx.ok,
+    total: (index.stats() || {}).entries || 0,
     near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
   };
   return ctxCache;
@@ -485,7 +486,7 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   // 有天被重建过，图跟着重算；没动就接着用上一份。
   // **词表视图也得跟着丢**：它按词缓存倒排，新记录抽出的词进不了已经缓存过的那些倒排——
   // 于是一条新记录在别人的「相关」里永远不出现，直到重启。「自动」双链自动不起来，就是这个。
-  if (r && r.days) { ctxCache = null; evIdx = null; }
+  if (r && r.days) { ctxCache = null; evIdx = null; eventsCache = null; listsCache = null; }
   return r;
 }
 
@@ -530,7 +531,16 @@ function warm() {
       if (!st2.done) { setTimeout(fillVocab, 600); return; }
       const st = index.vocabStats();
       console.log(`[ask] 词表齐了：${st.words} 个词、${st.rows} 行，地名 ${st.places} 个`);
+      // 词表齐了才整理事件——事件是从词表上长出来的，词表没齐整理出来的是残的
+      setTimeout(fillEvents, 800);
     } catch (e) { console.warn('[ask] 抽词没做完：', e.message || e); }
+  };
+  // 每条记录的清单都算一遍，然后整理事件。和补向量同一个形状：限时、可中断。
+  const fillEvents = () => {
+    let r;
+    try { r = eventsStep({ budgetMs: 400 }); } catch (e) { console.warn('[ask] 事件整理没做完：', e.message || e); return; }
+    if (!r.done) { setTimeout(fillEvents, 300); return; }
+    console.log(`[ask] 整理出 ${(eventsCache || []).length} 件事（${r.total} 条清单）`);
   };
   setTimeout(step, 3000);
 }
@@ -824,10 +834,47 @@ function linksOf(id) {
   } catch (_) { return { related: [] }; }
 }
 
+// ── 事件
+//
+// 从链上整理出来的那几件事（story.events）。算一次留着用，索引变了跟着重算——
+// 和 storyCtx 同一个失效条件。第一次算要把每条锚得住的记录各长一片，260 条上几秒；
+// 所以不在启动那几秒里算，warm() 排在最后做，界面问的时候没算好就先给空的。
+let eventsCache = null;
+let listsCache = null;     // id -> 清单。事件是从全部清单上整理出来的
+let listsAt = 0;           // 算到第几条
+
+/**
+ * 事件整理一步：把还没算的清单算几条，算齐了整理。限时、可中断、下次接着做。
+ * @returns {{done:boolean, n:number, total:number}}
+ */
+function eventsStep({ budgetMs = 400 } = {}) {
+  const ids = index.allIds();
+  if (!listsCache) { listsCache = new Map(); listsAt = 0; }
+  const t0 = Date.now();
+  while (listsAt < ids.length && Date.now() - t0 < budgetMs) {
+    const id = ids[listsAt++];
+    if (!listsCache.has(id)) listsCache.set(id, linksOf(id).related);
+  }
+  if (listsAt < ids.length) return { done: false, n: listsAt, total: ids.length };
+  try { eventsCache = story.events(listsCache, storyCtx()); } catch (e) { console.warn('[ask] 事件整理不出来：', e.message || e); eventsCache = []; }
+  return { done: true, n: listsAt, total: ids.length };
+}
+
+/** 整理好的那几件事。没算好就是空的。force：现在就算完（台子用）。 */
+function events({ force = false } = {}) {
+  if (force) { listsCache = null; let r; do { r = eventsStep({ budgetMs: 10000 }); } while (!r.done); }
+  return eventsCache || [];
+}
+
+/** 这一条在哪几件事里，各占多少分量。没算好就是空的，界面上什么也不显示。 */
+function eventsOf(id) {
+  return story.eventsOf(id, eventsCache || []);
+}
+
 /** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
 function relatedTo(id) {
   try { refresh(); } catch (_) { /* 索引没追平也照样能用已经建好的那部分 */ }
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, junkRecord, relatedTo, linksOf, evidenceOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, junkRecord, relatedTo, linksOf, events, eventsStep, eventsOf, storyCtx, evidenceOf, MAX_ITEMS };
