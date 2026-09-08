@@ -37,6 +37,10 @@ function fakeStore() {
     for (const x of list) byId.set(x.id, x);
   }
   const settings = JSON.parse(fs.readFileSync(path.join(UD, 'settings.json'), 'utf8'));
+  // **钉死用本地模型**，和 dev/ask-scenarios.js 同一个道理：应用里的 provider 是随时会在界面上
+  // 切的，切到一个没配好鉴权的上面，这个台子量到的就是「模型没答话」，不是「检索没找到」。
+  // 我在这上面白跑过一轮：回答整个是空的，而递上去的十二条清单是对的。要测别的就传参数。
+  settings.provider = (process.argv.find((a) => /^--provider=/.test(a)) || '--provider=ollama').split('=')[1];
   return {
     userData: UD, workspaceDir: WS,
     paths: () => ({ entries: DIR, models: path.join(UD, 'models') }),
