@@ -828,16 +828,20 @@
     const kind = cardKind(e);
     const name = esc(cardTitle(e));
     const mark = `${e.pinned ? '<span class="jg-pin"></span>' : ''}${statusPill(e)}`;
+    // 抬头：名字在前，来源跟在后面。**放顶上不放底下**——一眼扫过去，视线先落在卡片上沿，
+    // 名字该在那儿。来源是次要的一档，所以淡一号，而且名字挤不下时先牺牲来源。
+    const src = ctxShort(e);
+    const head = `<span class="nm">${name}</span>${src ? `<span class="src">${esc(src)}</span>` : ''}`;
 
-    // 截图 / 图片 —— 一张拍立得：白边包着画面，底边更宽，名字写在那道宽边上
+    // 截图 / 图片 —— 一张拍立得：白边包着画面，名字和来源写在上沿
     if (kind === 'shot') {
-      return `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
-        + `<span class="cap">${name}</span>${mark}`;
+      return `<span class="cap">${head}</span>`
+        + `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />${mark}`;
     }
     // 录音 —— 一条磁带：名字在顶上，底边一整条是磁粉，转写压在中间
     if (kind === 'voice') {
       const said = clipText(cardText(e) || cardTitle(e), 400);
-      return `<div class="lab"><span class="nm">${name}</span></div>`
+      return `<div class="lab">${head}</div>`
         + `<div class="said">${esc(said)}</div><div class="tape"></div>`
         + `<span class="dur">${esc(fmtDuration(e.durationSec))}</span>${mark}`;
     }
@@ -862,9 +866,10 @@
       const body = pic
         ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
         : `<div class="b"><div class="bb">${esc(clipText(cardText(e) || cardTitle(e), 300))}</div></div>`;
-      const foot = pic ? `<div class="from">${name}</div>`
-        : (where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : '');
-      return `${body}${foot}${mark}`;
+      // 图说不出自己叫什么，所以上沿那行给名字加来源；正文卡片自己就说得清，来源留在底下。
+      return pic
+        ? `<div class="cap">${head}</div>${body}${mark}`
+        : `${body}${where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : ''}${mark}`;
     }
     // 别的（文件、网页里拿来的东西）：还是那张白便签
     const more = cardExcerpt(e);
@@ -882,7 +887,8 @@
 
   function tileEl(e) {
     const el = document.createElement('div');
-    el.className = `jg-tile k-${cardKind(e)} z-${cardSize(e)}${state.picked.has(e.id) ? ' picked' : ''}`;
+    el.className = `jg-tile k-${cardKind(e)} z-${cardSize(e)}${state.picked.has(e.id) ? ' picked' : ''}`
+      + (cardKind(e) === 'clip' && isPicture(e) ? ' has-cap' : '');
     el.dataset.id = e.id;
     el.setAttribute('role', 'button');
     el.tabIndex = 0;

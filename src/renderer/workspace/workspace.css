@@ -885,6 +885,18 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 /* 名字顶掉了时间那一格。它比时间长，所以要能收尾；也不需要等宽数字了 */
 .jg-tile .lab .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-variant-numeric: normal; }
+/* 抬头那一行：名字在前，来源**紧跟在后面**（不是顶到另一头去——那样读起来是两件事）。
+   两个都不许长大（flex-grow 0），所以它们并排挨着；挤不下的时候来源先收，
+   收缩系数 6 比 1——名字是这一行的主语，来源只是补一句。 */
+.jg-tile .cap .nm, .jg-tile .lab .nm { flex: 0 1 auto; min-width: 0; color: var(--ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jg-tile .cap .src, .jg-tile .lab .src { flex: 0 6 auto; min-width: 0; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jg-tile .cap { display: flex; align-items: baseline; gap: 6px; }
+/* 剪贴板里那张图：上沿给名字，所以图往下让 */
+.k-clip .cap { position: absolute; left: 10px; right: 10px; top: 5px; height: 16px;
+  color: var(--ink-3); font-size: var(--fs-meta); }
+.k-clip.has-cap > img { top: 26px; height: calc(100% - 52px); }
 
 /* 1 · 录音 —— 一条磁带。底边一整条是磁粉，转写只留一行 */
 .k-voice { background: var(--p-voice); padding: var(--a3); }
@@ -907,13 +919,14 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 .k-shot { background: var(--p-shot); overflow: hidden; }
 /* 绝对定位的 <img> 只给 inset 是不会被拉伸的（替换元素用自己的原始尺寸），得算死宽高 */
 /* 照片是压进相纸里的，接缝处有一道极浅的凹陷——这是"贴上去"和"印进去"的区别 */
-.jg-tile.k-shot > img { position: absolute; left: 8px; top: 8px; width: calc(100% - 16px); height: calc(100% - 38px);
+.jg-tile.k-shot > img { position: absolute; left: 8px; top: 30px; width: calc(100% - 16px); height: calc(100% - 38px);
   object-fit: cover; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .07); }
-/* 底边那道宽边上写的是**名字**，不是时间：一张截图待在哪一天哪一个小时，网格已经说了；
-   而这是这张卡片上唯一一行字，它该说这是什么。名字比时间长，所以要能省略号收尾。 */
-.k-shot .cap { position: absolute; left: 10px; right: 10px; bottom: 8px; height: 20px;
-  display: flex; align-items: center; gap: 6px; color: var(--ink-3);
-  font-size: var(--fs-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 上沿那道边上写的是**名字加来源**，不是时间：一张截图待在哪一天哪一个小时，网格已经说了；
+   而这是这张卡片上唯一一行字，它该说这是什么。
+   放上沿不放底下：一眼扫过去视线先落在卡片上沿，名字该在那儿等着。 */
+.k-shot .cap { position: absolute; left: 10px; right: 10px; top: 8px; height: 20px;
+  display: flex; align-items: baseline; gap: 6px; color: var(--ink-3);
+  font-size: var(--fs-meta); min-width: 0; overflow: hidden; }
 .k-shot .cap svg { width: 12px; height: 12px; }
 
 /* 3 · 随手记 —— 一张便利贴。你的话在最上面，字更大；时间退到最下角；右下角折起 */
