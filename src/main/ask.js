@@ -18,6 +18,7 @@ const vector = require('./vector');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
 const mirror = require('./mirror');
+const title = require('./title');
 const story = require('./story');
 const vocab = require('./vocab');
 const chats = require('./chats');
@@ -93,7 +94,6 @@ const CHAIN_SPAN = 16;   // 每个种子长这么大的一片就够——要的�
 const ECHO_MIN = 8;
 const ASKED_MS = 60 * 1000;   // 问过的话缓存这么久
 // 只在短记录上判「整条是家具」。长记录里夹着一行家具是常态，不该因此整条丢掉。
-const JUNK_MAX = 120;
 // 一条记录的正文里，实字（字母和汉字）少于这么多个，它说不出任何一件事。
 //
 // 数字、标点、时间戳不算——识别糊了的截图正文长这样：「12:009条 A it」「00 0 Q 日 0 0 0 ² 米 8」
@@ -146,6 +146,16 @@ function readDay(k) {
 // 跨记录重复的家具表也一并去掉了：boilerplate 那两条规则里，它在真实工作区上只剥掉 3%
 // （boilerplate.js 顶上量过），却要为它把每条记录的每一行都存下来；而主力那条「成串的短行」
 // 是纯逐条的，不需要别的记录作证。实测证据边一致率 91%（剥 vs 不剥），这 9% 不值那张表。
+//
+// **2026-09-08 把这张表加回来过，又拿掉了。** 加的理由是 boilerplate.js 顶上写着
+// 「谁手上有记录谁来喂（ask.refresh）」而从来没人喂过。喂上之后才看清它为什么不该喂：
+//   · 抽证据词的那条路（vocab.fill）明明白白传的是 null，它从来就没用过这张表；
+//     唯一的用户是 chunk.textOf，也就是算向量前剥一道，收益就是那 3%。
+//   · 代价是每次启动把整个工作区读一遍——正是上面这段话在躲的那个 O(n)。
+//   · 更糟的是它让向量指纹跟着抖：chunk.hashOf 把剥过的正文算进去，而这张表随着记录增加
+//     一直在变，表一变，一批向量就整体作废重算。
+//   · 而它一生效就闯了祸：junkRecord 里「整条都是网页家具」那条规则第一次真的跑起来，
+//     挡掉 8 条，一条对的都没有（见那个函数的注释）。那条规则也一起拿掉了。
 let evIdx = null;
 
 function learnFurniture() {
@@ -165,42 +175,12 @@ function learnFurniture() {
     if (!memo.has(id)) {
       const e = store.getEntry(id);
       const picture = !!e && (e.type === 'screenshot' || e.type === 'image');
-      memo.set(id, !junkRecord(e, boilerplate.furniture()) && !(picture && mirror.showsSelf(e.text)) && !echoed(id));
+      memo.set(id, !junkRecord(e) && !(picture && mirror.showsSelf(e.text)) && !echoed(id));
     }
     return memo.get(id);
   };
   evIdx = vocab.lazyView(index, { ok });
   evIdx.ok = ok;
-}
-
-// ── 家具表
-//
-// boilerplate.js 顶上那句「谁手上有记录谁来喂（ask.refresh）」——**从来没人喂过**。应用里
-// furniture() 一直是 null：剥家具只剩「成串短行」那一条规则，「整条都是家具」的记录
-// （English (Great Britain) ×3，一个语言选择条）照样当材料、当节点，而台子上（dev/*-bench）
-// 各自 bp.learn 了一份，量的是一个应用根本没在跑的系统。
-//
-// 喂法和补向量、抽词同一个形状：限时、可中断、下次接着做。一天一天读，行数计进一张 Map，
-// 读完收成家具表。不存盘——它是启动后台的一次活儿，两百条是毫秒，二十万条是几秒的后台读盘。
-let furnDf = null;
-let furnAt = 0;
-
-/** 家具表喂一步。@returns {{done:boolean, days:number}} */
-function feedFurniture({ budgetMs = 600 } = {}) {
-  let days = [];
-  try { days = fs.readdirSync(entriesDir()).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort(); } catch (_) { days = []; }
-  if (!furnDf) { furnDf = new Map(); furnAt = 0; }
-  const t0 = Date.now();
-  while (furnAt < days.length && Date.now() - t0 < budgetMs) {
-    const list = readDay(days[furnAt++]);
-    boilerplate.count((list || []).map((e) => String(e.text || '')), furnDf);
-  }
-  if (furnAt < days.length) return { done: false, days: furnAt };
-  boilerplate.loadFrom(furnDf);
-  furnDf = null;
-  // 节点判据变了（家具表从无到有），词表视图和图都重来
-  evIdx = null; ctxCache = null;
-  return { done: true, days: furnAt };
 }
 
 /**
@@ -392,46 +372,55 @@ function echoFilter(questions) {
 }
 
 /**
- * 整条都是网页家具的记录，别占格子。
+ * 挑材料：不是材料的（junkRecord）不给，重复的只给一条。
  *
- * 「English (Great Britain)」这种——一个语言选择条，被复制过好几回。它对任何问题都不是答案，
- * 但它短、干净、在向量空间里离哪儿都不远，所以每次都挤进来。实测第 2 问十六格里它占了三格。
- * 判据不新造：boilerplate 已经学过「哪些行是家具」（出现在三条以上记录里的行），
- * 一条记录**整条**就是这么一行，那它就是家具本身。
- *
- * 同一段文字重复存过好几遍的也只留一条：三条一模一样的记录给模型看，它读到的信息是一样的，
+ * 同一段文字存过好几遍的只留一条：三条一模一样的记录给模型看，它读到的信息是一样的，
  * 占掉的却是三个格子。
  * @returns {(id:string)=>boolean}
  */
 /**
  * 这条记录**本身**是不是材料。纯函数，只看这一条，不看别的记录——跨记录的去重在 junkFilter 里。
  *
- * 三种不是材料的：
+ * 两种不是材料的：
  *   · briffy 拍到了自己：正文整个是 briffy 的界面文案（mirror.js）。对任何问题都不是答案，
  *     可它短、干净、离哪儿都不远，实测十个探针里六个的头几名有它。
  *   · 说不出任何一件事的：识别糊了，剩下一堆数字和单个字母。
- *   · 整条都是网页家具的：「English (Great Britain)」，一个语言选择条被复制过好几回。
+ *
+ * **正文识别不出东西的时候，标题顶上。** 一张图的窗口标题「jia — ◑ 主显示器文字模糊」是真话，
+ * 而 briffy 自己起的占位（Screenshot 11:22、剪贴板图片 12:39）和文件名（26abf35c….jpg）不是。
+ * 少了这一条，「实字 < 8」挡掉的 29 条里有 17 条是冤枉的——每日大赛、Golden Retriever Puppy、
+ * 主显示器文字模糊，正文都是空的或者一串乱码，标题却说得清清楚楚。
+ *
+ * **「整条都是网页家具」那条规则拿掉了。** 它在 2026-09-08 之前从没跑过（家具表一直是 null，
+ * 没人喂），我把家具表喂上之后它第一次真的生效，挡掉 8 条：4 条是我自己问过的话（回声那道闸
+ * 已经挡过），另 4 条是真记录——AI Engineering Skills Map、「我们这个 app 现在占用 1.8g」、
+ * 万字拆解《热血高校1》、1st Half Challenge (~50km)。它本来要挡的「English (Great Britain)」
+ * 反而没挡住。一条只做坏事的规则。（boilerplate 剥长网页的家具照旧，那是 chunk.textOf 的事。）
  *
  * 「问」那条路和搜索框用它挑材料；**图也用它挑节点**——这一点是后补的，代价量出来过：
  * 图里清单最长的五条全是 briffy 自己的截图。一张截图上正好显示着你的十几条记录，于是它
  * 和那十几条每一条都共用一个词，成了枢纽；「Dell ultrawide monitor」的八条相关里五条是它。
  */
-function junkRecord(e, fur) {
+function junkRecord(e) {
   if (!e) return true;
   const text = String(e.text || '');
-  const t = `${e.title || ''} ${text}`.replace(/\s+/g, ' ').trim().toLowerCase();
-  if (!t) return true;
+  const head = String(e.title || '').trim();
+  if (!head && !text.trim()) return true;
   if (mirror.isMirror(text)) return true;
-  if ((text.match(/\p{L}/gu) || []).length < THIN) return true;
-  if (fur && t.length <= JUNK_MAX) {
-    const lines = text.split('\n').map((x) => boilerplate.key(x)).filter(Boolean);
-    if (lines.length && lines.every((x) => fur.has(x))) return true;
-  }
-  return false;
+  return !says(text) && !says(titleWorth(head));
+}
+
+/** 这段字里有没有够多的实字。数字、标点、时间戳不算。 */
+function says(s) { return (String(s || '').match(/\p{L}/gu) || []).length >= THIN; }
+
+/** 标题里能当内容的那部分：占位和文件名不算。 */
+function titleWorth(head) {
+  if (!head || title.isPlaceholder(head)) return '';
+  const bare = head.replace(/\.[a-z0-9]{1,5}$/i, '');
+  return /^[0-9a-f]{12,}$/i.test(bare) ? '' : bare;     // 文件名就是一串哈希
 }
 
 function junkFilter() {
-  const fur = boilerplate.furniture();
   const body = new Map();     // 正文 -> 第一个占住它的 id
   const verdict = new Map();  // id -> 判过没有。**同一条问两遍必须是同一个答案**
   return (id) => {
@@ -447,7 +436,7 @@ function junkFilter() {
     // 「Runnymede」那一路上是第一名，却因为前面某一路先碰过它，在自己那一路上被滤没了。
     const owner = body.get(t);
     if (owner !== undefined && owner !== id) return say(true);
-    if (junkRecord(e, fur)) return say(true);
+    if (junkRecord(e)) return say(true);
     body.set(t, id);
     return say(false);
   };
@@ -529,14 +518,6 @@ function warm() {
     let r;
     try { r = refresh({ budgetMs: 1500 }); } catch (e) { console.warn('[ask] 索引建不起来', e.message); return; }
     if (!r.done) { setTimeout(step, 800); return; }   // 留出空档，别把启动那几秒占满
-    setTimeout(fillFurniture, 800);
-  };
-  // 家具表排在向量前面：chunk.textOf 剥家具之后才算向量，指纹里含着剥过的正文——
-  // 反过来的话向量先按没剥的算一遍，家具表一到又全部作废重算。
-  const fillFurniture = () => {
-    let r;
-    try { r = feedFurniture({ budgetMs: 600 }); } catch (e) { console.warn('[ask] 家具表学不了：', e.message || e); setTimeout(fillVectors, 800); return; }
-    if (!r.done) { setTimeout(fillFurniture, 400); return; }
     setTimeout(fillVectors, 800);
   };
   // 抽词和定次序：限时、可中断、下次接着做，和补向量同一个形状——要解的是同一个问题，
@@ -849,4 +830,4 @@ function relatedTo(id) {
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, feedFurniture, junkRecord, relatedTo, linksOf, evidenceOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, junkRecord, relatedTo, linksOf, evidenceOf, MAX_ITEMS };

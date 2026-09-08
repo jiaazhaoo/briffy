@@ -127,9 +127,17 @@ function of(entry, body, titled, places) {
       add(places && places.has(low) ? 'place' : 'name', w, low);
       continue;
     }
-    // 拉丁词只认专名：原文里首字母大写过的那些，而且不在网页家具那张表里
+    // 拉丁词只认专名：原文里首字母大写过的那些，而且不在网页家具那张表里。
+    //
+    // **判据要看原文里真实出现的那些形态，不能自己拼一个「首字母大写」去比。**
+    // 拼出来的是 Ukpc、Edid、Rgb，而原文写的是 UKPC、EDID、RGB——于是全大写的缩写一个也抽不出来。
+    // 实测被这条漏掉的：UKPC（那条停车申诉里唯一有指向性的词，它因此一条边都长不出来）、
+    // EDID、RGB、PPI。缩写恰恰是最硬的专名。
     if (low.length < 3 || CHROME.has(low)) continue;
-    if (!new RegExp(`\\b${low[0].toUpperCase()}${low.slice(1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(raw)) continue;
+    const re = new RegExp(`\\b${low.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    let capped = false;
+    for (let m = re.exec(raw); m; m = re.exec(raw)) if (/^[A-Z]/.test(m[0])) { capped = true; break; }
+    if (!capped) continue;
     add(places && places.has(low) ? 'place' : 'name', w, low);
     if (low.includes('-')) for (const p of low.split('-')) if (p.length >= 3 && !STOP.has(p)) add('name', p, p);
   }
