@@ -1071,6 +1071,9 @@ function setupIpc() {
   ipcMain.handle('ws:update-entry', (_e, id, patch) => {
     const allowed = {};
     for (const k of ['title', 'text', 'summary']) if (patch && k in patch) allowed[k] = patch[k];
+    // 你亲手改过标题之后，自动那一套就不该再碰它。titleAuto 是「这标题只是个占位」的记号，
+    // 抹掉它等于说「这是我起的名字」。
+    if (patch && 'title' in patch) allowed.titleAuto = false;
     // Pinning and the one-line note are the user's own marks on a record: the only two fields nothing
     // else in the app ever writes, so a reprocess or a language change cannot overwrite them.
     if (patch && 'pinned' in patch) allowed.pinned = !!patch.pinned;

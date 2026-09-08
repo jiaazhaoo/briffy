@@ -26,6 +26,7 @@ const ocrBoxes = require('./ocr-boxes');
 const diarize = require('./diarize');
 const { attribute, asLines, shares } = require('./attribute');
 const foreground = require('./foreground');
+const title = require('./title');
 const { clipboard, ClipboardItem } = require('electron');
 const { t } = require('./i18n');
 
@@ -139,9 +140,19 @@ function readWav(file) {
 // Where the user was when they saved this. The record is filed first and gains its context a moment
 // later, never the other way round -- reading a window title costs half a second on macOS and a save
 // must not wait for it. See foreground.js.
+// 「截图 22:46」不是标题，是时间戳。真正说得清那张图是什么的，是那一刻屏幕上那个窗口叫什么
+// ——而它恰好和语境同时到达，所以在这儿顺手换掉，不用另起一条管线。规则本身在 title.js。
 function attachContext(entry, pending) {
   if (!entry) return entry;
-  const apply = (ctx) => { if (ctx && ctx.app && store.getEntry(entry.id)) store.updateEntry(entry.id, { context: ctx }); };
+  const apply = (ctx) => {
+    if (!ctx || !ctx.app) return;
+    const cur = store.getEntry(entry.id);
+    if (!cur) return;
+    const patch = { context: ctx };
+    const t2 = title.fromContext(cur, ctx);
+    if (t2 && t2 !== cur.title) patch.title = t2;
+    store.updateEntry(entry.id, patch);
+  };
   if (pending) pending.then(apply).catch(() => {});
   else foreground.readInto(apply);
   return entry;
@@ -165,6 +176,7 @@ function saveShot(png, { width, height, displayLabel, region = false, context = 
   const entry = store.addEntry({
     type: 'screenshot',
     title: t(region ? 'regionTitle' : 'screenshotTitle', { time: fmtClock(now) }),
+    titleAuto: true,   // 「截图 22:46」只是个占位；语境到了就换成那一刻屏幕上写着什么
     path: store.relPath(file),
     mime: 'image/png',
     size: png.length,
@@ -270,6 +282,7 @@ async function captureLong(picked, context) {
   const entry = store.addEntry({
     type: 'screenshot',
     title: t('longTitle', { time: fmtClock(now) }),
+    titleAuto: true,   // 「截图 22:46」只是个占位；语境到了就换成那一刻屏幕上写着什么
     path: store.relPath(file),
     mime: 'image/png',
     size: shot.png.length,
@@ -469,6 +482,7 @@ async function ingestClipboardImage(png) {
   const entry = store.addEntry({
     type: 'image', mime: 'image/png', size: png.length, width: size.width, height: size.height, copyId,
     title: t('clipImageTitle', { time: fmtClock(now) }),
+    titleAuto: true,   // 「截图 22:46」只是个占位；语境到了就换成那一刻屏幕上写着什么
     path: store.relPath(file),
     origin: 'clipboard',
   });
@@ -709,6 +723,7 @@ async function ingestAudio({ webm, pcm, sampleRate = 16000, durationSec = 0, pea
   const entry = store.addEntry({
     type: 'audio',
     title: t('voiceTitle', { time: fmtClock(now) }),
+    titleAuto: true,   // 「截图 22:46」只是个占位；语境到了就换成那一刻屏幕上写着什么
     path: webmRel || store.relPath(wavFile),
     wavPath: store.relPath(wavFile),
     mime: webmRel ? 'audio/webm' : 'audio/wav',
