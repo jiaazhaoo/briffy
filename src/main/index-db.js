@@ -31,7 +31,7 @@ const chunk = require('./chunk');
 const fs = require('fs');
 const { segment } = require('./segment');
 
-const SCHEMA = 8;                  // 改了表结构就加一，旧库直接重建
+const SCHEMA = 9;                  // 改了表结构就加一，旧库直接重建
 const BODY_MAX = 4000;             // 一条记录进倒排的字数上限；OCR 大段的尾巴对找东西没有帮助
 
 let db = null;
@@ -112,6 +112,30 @@ function createTables() {
     -- b 是这张表上的桶号（bits 位随机投影的符号拼成的整数）。
     CREATE TABLE IF NOT EXISTS vec_b(t INTEGER, b INTEGER, id TEXT, PRIMARY KEY(t, b, id));
     CREATE INDEX IF NOT EXISTS i_vec_b_id ON vec_b(id);
+
+    -- 词表。以前这些是每五分钟把整个工作区读进内存重算一遍的三个 Map（links.evidenceIndex），
+    -- 250 条 69ms / 11MB，按 O(n) 外推到 20 万条是 55 秒 / 8.8GB——每存一条新记录就重来一次。
+    -- 落到表里之后，一条记录进来只动它自己那几十行，查的时候只碰和它共用词的那几条。
+    --
+    -- **df 不存计数，现数**（voc_of 上一次索引扫描）。存计数就要维护它，维护就会漂——
+    -- 一天被重建、一条被删、一次没跑完，计数和事实就对不上，而且不会有人发现。
+    -- 数一遍是有索引的，几十微秒；一个不会错的慢办法胜过一个会悄悄错的快办法。
+    CREATE TABLE IF NOT EXISTS voc(key TEXT PRIMARY KEY, text TEXT, kind TEXT);
+    -- rank 是这个词在**这条记录里**排第几（越小越独特）。存它是为了让 df 有个准确的含义：
+    -- 内存那一版是「先给每条记录留最独特的二十个，再数还有几条记录留着这个词」——
+    -- 也就是说一个词只在它进得了某条记录的前二十时才为那条记录的 df 出一份力。
+    -- 不记 rank 就数不出同一个 df，两版答案会差两成，而差在哪没人说得清。
+    -- 记了之后还有一个好处：改排序规则只要重排 rank，不用把词重抽一遍。
+    CREATE TABLE IF NOT EXISTS voc_of(word TEXT, entry TEXT, rank INTEGER, PRIMARY KEY(word, entry));
+    CREATE INDEX IF NOT EXISTS i_voc_of_entry ON voc_of(entry);
+    -- 这两张是**单调只增**的小表：一个词被谁当过标题、一个词有没有挨着邮编出现过（= 地名）。
+    -- 单调所以永远不用重算，也不会漂。
+    CREATE TABLE IF NOT EXISTS voc_titled(word TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS voc_place(word TEXT PRIMARY KEY);
+    -- 抽过词的记录。抽词这一步是限时可中断、下次接着做的，和 vector.fill 同一个形状。
+    -- settled=0 表示这条的词抽出来了，但次序还是抽的时候那一版（只按种类排，还没用上 df）。
+    -- df 要等大家都抽完才数得准，所以定次序是第三遍，而它**只改 rank，不重抽词**。
+    CREATE TABLE IF NOT EXISTS voc_done(entry TEXT PRIMARY KEY, settled INTEGER DEFAULT 0);
   `);
 }
 
@@ -201,6 +225,9 @@ function sync(src, { budgetMs = Infinity } = {}) {
     if (Date.now() - t0 > budgetMs) { ranOut = true; break; }
     const list = src.loadDay(dayKey) || [];
     putDay(dayKey, list, stamp);
+    // 建这一天索引的时候顺手把这一天的抬头词和地名收了（vocab.collect）。放在这儿是因为
+    // **这是唯一一处天然「一天只读一次」的地方**——搁在外面就得再把全库读一遍。
+    if (src.onDay) { try { src.onDay(dayKey, list); } catch (_) { /* 收不到不该拖垮建索引 */ } }
     days++; entries += list.length;
   }
   // 天文件被删掉了，索引也得跟着掉。没做完时先不清，否则会把还没轮到的那些当成删了。
@@ -429,6 +456,104 @@ function putVec(id, hash, vectors) {
  * 真到了几百万行，该换的是存储（float32 → int8），不是先上一个没人看得懂的近似结构。
  * @param {(id:string, v:Float32Array)=>void} fn
  */
+// ---------- 词表 ----------
+
+/** 一个词被谁当过标题 / 是不是地名。单调只增，进来就不出去。 */
+function addTitled(words) {
+  const ins = db.prepare('INSERT OR IGNORE INTO voc_titled(word) VALUES(?)');
+  for (const w of words || []) ins.run(String(w));
+}
+function addPlaces(words) {
+  const ins = db.prepare('INSERT OR IGNORE INTO voc_place(word) VALUES(?)');
+  for (const w of words || []) ins.run(String(w));
+}
+function titledSet() { return new Set(db.prepare('SELECT word FROM voc_titled').all().map((r) => r.word)); }
+function placeSet() { return new Set(db.prepare('SELECT word FROM voc_place').all().map((r) => r.word)); }
+
+/** 这一条抽出来的词。替换式写入：旧的先删干净，不然改一次抽取规则就留一地陈货。 */
+function putVocab(id, list) {
+  const key = String(id || '');
+  db.prepare('DELETE FROM voc_of WHERE entry=?').run(key);
+  const insW = db.prepare('INSERT OR IGNORE INTO voc(key,text,kind) VALUES(?,?,?)');
+  const insO = db.prepare('INSERT OR IGNORE INTO voc_of(word,entry,rank) VALUES(?,?,?)');
+  (list || []).forEach((x, i) => { insW.run(x.key, x.text, x.kind); insO.run(x.key, key, i); });
+  db.prepare('INSERT OR IGNORE INTO voc_done(entry) VALUES(?)').run(key);
+}
+
+function dropVocab(id) {
+  db.prepare('DELETE FROM voc_of WHERE entry=?').run(String(id || ''));
+  db.prepare('DELETE FROM voc_done WHERE entry=?').run(String(id || ''));
+}
+
+/** 还没抽过词的记录，新的在前——和建索引一样，先补最可能被问到的那几天。 */
+function vocabPending(limit = 200) {
+  return db.prepare(`SELECT e.id FROM entries e LEFT JOIN voc_done d ON d.entry = e.id
+    WHERE d.entry IS NULL ORDER BY e.day DESC, e.at DESC LIMIT ?`).all(limit).map((r) => r.id);
+}
+
+function vocabStats() {
+  return {
+    words: db.prepare('SELECT count(*) c FROM voc').get().c,
+    rows: db.prepare('SELECT count(*) c FROM voc_of').get().c,
+    done: db.prepare('SELECT count(*) c FROM voc_done').get().c,
+    titled: db.prepare('SELECT count(*) c FROM voc_titled').get().c,
+    places: db.prepare('SELECT count(*) c FROM voc_place').get().c,
+  };
+}
+
+/** 这一条身上有哪几个词。 */
+function vocabOf(id) {
+  return db.prepare(`SELECT v.key, v.text, v.kind, o.rank FROM voc_of o JOIN voc v ON v.key = o.word
+    WHERE o.entry = ? ORDER BY o.rank`).all(String(id || ''));
+}
+
+/**
+ * 这几个词各被多少条记录提到。**现数，不存。**
+ * @param {number} keep 只数那些进得了记录前 keep 名的——见 voc_of.rank 那段注释
+ */
+function vocabDf(keys, { keep = 20 } = {}) {
+  const out = new Map();
+  const list = [...new Set(keys || [])].filter(Boolean);
+  for (let i = 0; i < list.length; i += 400) {
+    const part = list.slice(i, i + 400);
+    const sql = `SELECT word, count(*) c FROM voc_of WHERE rank < ? AND word IN (${part.map(() => '?').join(',')}) GROUP BY word`;
+    for (const r of db.prepare(sql).all(keep, ...part)) out.set(r.word, r.c);
+  }
+  return out;
+}
+
+/** 提到这几个词的记录，连着是哪个词提的。 */
+function vocabPost(keys, { cap = 4000, keep = 20 } = {}) {
+  const out = new Map();
+  const list = [...new Set(keys || [])].filter(Boolean);
+  for (let i = 0; i < list.length; i += 400) {
+    const part = list.slice(i, i + 400);
+    const sql = `SELECT word, entry FROM voc_of WHERE rank < ? AND word IN (${part.map(() => '?').join(',')}) LIMIT ${cap}`;
+    for (const r of db.prepare(sql).all(keep, ...part)) {
+      if (!out.has(r.word)) out.set(r.word, []);
+      out.get(r.word).push(r.entry);
+    }
+  }
+  return out;
+}
+
+/** 词表里所有的词。给「模糊配对」用——它只需要词，不需要谁提过。 */
+function vocabWords() { return db.prepare('SELECT key, text, kind FROM voc').all(); }
+
+/** 重排一条记录里那几个词的次序。**只动 rank，不碰词本身。** */
+function reRank(id, keysInOrder) {
+  const up = db.prepare('UPDATE voc_of SET rank=? WHERE entry=? AND word=?');
+  (keysInOrder || []).forEach((k, i) => up.run(i, String(id || ''), k));
+}
+
+/** 还没定过次序的记录（rank 只排过一遍、还没用上 df 的那些）。 */
+function vocabUnsettled(limit = 200) {
+  return db.prepare(`SELECT e.id FROM entries e JOIN voc_done d ON d.entry = e.id
+    WHERE d.settled = 0 ORDER BY e.day DESC, e.at DESC LIMIT ?`).all(limit).map((r) => r.id);
+}
+function markSettled(id) { db.prepare('UPDATE voc_done SET settled=1 WHERE entry=?').run(String(id || '')); }
+function unsettleAll() { db.exec('UPDATE voc_done SET settled=0'); }
+
 /** 这一条自己的那几段向量。 */
 function vecOf(id) {
   return db.prepare('SELECT v FROM vec WHERE id=? ORDER BY seq').all(String(id || ''))
@@ -531,5 +656,7 @@ module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
   useVecModel, needVec, putVec, vecScan, vecStats, sweepVec,
   vecOf, vecMany, putBuckets, bucketPeers, bucketStats, dropBuckets,
+  addTitled, addPlaces, titledSet, placeSet, putVocab, dropVocab, vocabPending, vocabStats,
+  vocabOf, vocabDf, vocabPost, vocabWords, reRank, vocabUnsettled, markSettled, unsettleAll,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,
 };

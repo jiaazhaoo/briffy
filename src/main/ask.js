@@ -18,6 +18,7 @@ const vector = require('./vector');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
 const story = require('./story');
+const vocab = require('./vocab');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -78,24 +79,20 @@ function readDay(k) {
   try { return JSON.parse(fs.readFileSync(path.join(entriesDir(), `${k}.json`), 'utf8')); } catch (_) { return []; }
 }
 
-// 家具表多久重学一次。学一遍 12ms，但它要把所有天文件读一遍，所以不必每次 refresh 都学。
-const FURNITURE_MS = 5 * 60 * 1000;
-let furnitureAt = 0;
+// 证据词的倒排。
+//
+// 这以前是每五分钟把每一天读进内存重算一遍的三个 Map：250 条 56ms / 11MB，按 O(n) 外推到
+// 20 万条是 55 秒 / 8.8GB，而且**每存一条新记录就整个重来一次**。现在落在库里了（vocab.js），
+// 这里只留一个懒视图——问到哪一条才去库里取哪一条。建它不要钱，所以「多久重学一次」
+// 这个问题连同 FURNITURE_MS 一起没有了。
+//
+// 跨记录重复的家具表也一并去掉了：boilerplate 那两条规则里，它在真实工作区上只剥掉 3%
+// （boilerplate.js 顶上量过），却要为它把每条记录的每一行都存下来；而主力那条「成串的短行」
+// 是纯逐条的，不需要别的记录作证。实测证据边一致率 91%（剥 vs 不剥），这 9% 不值那张表。
+let evIdx = null;
 
-let evIdx = null;   // 证据词的倒排。82ms 建一次，之后每条记录只访问和它共用词的那几条。
-
-/** 跨记录重复的那些行（语言选择条、Cookie 提示），外加证据词的倒排。都要整个工作区才算得出来。 */
 function learnFurniture() {
-  if (Date.now() - furnitureAt < FURNITURE_MS) return;
-  furnitureAt = Date.now();
-  try {
-    const all = [];
-    for (const key of store.listDates()) all.push(...store.loadDay(key));
-    boilerplate.load(all.map((e) => String((e || {}).text || '')));
-    const fur = boilerplate.furniture();
-    evIdx = links.evidenceIndex(all, (e) => boilerplate.strip(String(e.text || ''), fur));
-    ctxCache = null;                 // 词表换了一份，图那一份也跟着作废
-  } catch (_) { /* 学不到就只剩「成串短行」那一条规则，它不需要别的记录作证 */ }
+  if (!evIdx) evIdx = vocab.lazyView(index);
 }
 
 /**
@@ -291,7 +288,9 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   index.open(store.userData, store.workspaceDir);
   index.useVecModel(vector.MODEL);
   learnFurniture();
-  const r = index.sync({ dir: entriesDir(), loadDay: readDay }, { budgetMs });
+  // onDay：建一天索引的时候顺手把这一天的抬头词和地名收进表里（vocab 的甲那一遍）。
+  // 这是唯一一处天然「一天只读一次」的地方，搁在别处就得再把全库读一遍。
+  const r = index.sync({ dir: entriesDir(), loadDay: readDay, onDay: (_k, list) => vocab.collect(index, list) }, { budgetMs });
   if (r && r.days) ctxCache = null;   // 有天被重建过，图跟着重算；没动就接着用上一份
   return r;
 }
@@ -317,6 +316,7 @@ function warm() {
           const b = vector.buildBuckets(index);
           if (b.built) console.log(`[ask] 向量粗筛桶 ${b.bits} 位 × ${b.tables} 表，${b.built} 条${b.rebuilt ? '（重建）' : ''}`);
         } catch (e) { console.warn('[ask] 桶建不起来，退回全表扫：', e.message || e); }
+        setTimeout(fillVocab, 400);
       })
       .catch((e) => console.warn('[ask] 向量补不了：', e.message || e));
   };
@@ -325,6 +325,18 @@ function warm() {
     try { r = refresh({ budgetMs: 1500 }); } catch (e) { console.warn('[ask] 索引建不起来', e.message); return; }
     if (!r.done) { setTimeout(step, 800); return; }   // 留出空档，别把启动那几秒占满
     setTimeout(fillVectors, 800);
+  };
+  // 抽词和定次序：限时、可中断、下次接着做，和补向量同一个形状——要解的是同一个问题，
+  // 一件 O(n) 的活儿不能卡在启动那几秒里。次序要等大家都抽完才定得准（df 是靠它数出来的）。
+  const fillVocab = () => {
+    try {
+      const f = vocab.fill(index, (id) => store.getEntry(id), { budgetMs: 600 });
+      if (!f.done) { setTimeout(fillVocab, 600); return; }
+      const st2 = vocab.settle(index, { budgetMs: 600 });
+      if (!st2.done) { setTimeout(fillVocab, 600); return; }
+      const st = index.vocabStats();
+      console.log(`[ask] 词表齐了：${st.words} 个词、${st.rows} 行，地名 ${st.places} 个`);
+    } catch (e) { console.warn('[ask] 抽词没做完：', e.message || e); }
   };
   setTimeout(step, 3000);
 }

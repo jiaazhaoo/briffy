@@ -65,6 +65,12 @@ async function main() {
   const loadDay = (k) => store.loadDay(k);
   let v; do { v = await vector.fill(index, loadDay, { budgetMs: 9000, batch: 20, cacheDir: store.paths().models }); if (v.error) break; } while (!v.done);
   const b = v && v.error ? null : vector.buildBuckets(index);
+  // 词表也得先建齐，应用里是 warm() 在后台慢慢补的
+  const vocab = require('../src/main/vocab');
+  let vf; do { vf = vocab.fill(index, (id) => store.getEntry(id), { budgetMs: 3000 }); } while (!vf.done);
+  let vs; do { vs = vocab.settle(index, { budgetMs: 3000 }); } while (!vs.done);
+  const vst = index.vocabStats();
+  console.log(`词表：${vst.words} 个词 / ${vst.rows} 行 / 地名 ${vst.places} 个`);
   console.log(v && v.error ? `向量：没有（${v.error}）` : `向量：齐了 · 粗筛桶 ${b.bits} 位 × ${b.tables} 表\n`);
 
   const history = [];
