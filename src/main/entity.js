@@ -61,7 +61,10 @@ const CHROME = new Set(('privacy policy terms statement cookie cookies settings 
   // 菜单栏。全屏截图的 OCR 第一行永远是「Chrome File Edit View History Bookmarks Profiles Tab
   // Window Help」，每一张都有、每个词都大写，于是「File · Window · History」自己整理成了
   // 一件事，成员是三张毫不相干的全屏截图。这是操作系统的词汇，列得完。
-  + 'file edit view go window help history bookmarks profiles tab format insert tools reload').split(/\s+/));
+  + 'file edit view go window help history bookmarks profiles tab format insert tools reload '
+  // 站点名说的是你在哪个站，不是内容。实测「Gmail」「Facebook」「GitHub」各自单独当了一条边的
+  // 全部理由——详情里「相关」那一栏就写着一个词 Gmail，读的人不知所云。
+  + 'gmail facebook github youtube twitter reddit notion bilibili 哔哩哔哩 instagram linkedin').split(/\s+/));
 // briffy 自己的标题词说的是格式不是内容；站点后缀说的是你在哪个站
 const LABEL = new Set(['语音', '截图', '剪贴板', '剪贴板图片', '图片', 'screenshot', 'clipboard', 'audio', 'voice']);
 const STOP = new Set(('the a an and or of to in on at for with from by is are was were be been am this that these those '
@@ -80,7 +83,7 @@ const STOP = new Set(('the a an and or of to in on at for with from by is are wa
 // 2026-09-08 从双链的清单上捡回来的几个（dev/backlinks-bench.js）：「不是·不到」把「Dell ultrawide」
 // 连到「不是。新记录应该是分钟级」，「谁是」把「Runnymede」连到一张哔哩哔哩首页。它们能进来是因为
 // 有人拿它们写过标题（那条规则本身是对的）——但虚词就是虚词，写进标题也不变成名字。
-for (const w of '不是 不到 不会 不能 不要 不用 谁是 这是 那是 就是 还是 也是 都是 只是 或是 可是 但是 而是 已经 应该 可以 没有 什么 怎么 这样 那样 这个 那个 这些 那些 我们 你们 他们 自己 现在 然后 因为 所以 如果 虽然 其实 还有 只有 而且 以及 或者'.split(' ')) STOP.add(w);
+for (const w of '不是 不到 不会 不能 不要 不用 谁是 这是 那是 就是 还是 也是 都是 只是 或是 可是 但是 而是 已经 应该 可以 没有 什么 怎么 这样 那样 这个 那个 这些 那些 我们 你们 他们 自己 现在 然后 因为 所以 如果 虽然 其实 还有 只有 而且 以及 或者 全部 更多 其他'.split(' ')) STOP.add(w);
 
 /** 一条记录的抬头（标题 + 窗口标题 + 网址）。 */
 function headOf(entry) {

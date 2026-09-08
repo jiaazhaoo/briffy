@@ -27,6 +27,7 @@
 // 后者是纯粹逐条的、不需要别的记录作证，而且是主力。所以这里只用后者（strip(text, null)）。
 const entity = require('./entity');
 const links = require('./links');
+const mirror = require('./mirror');
 const boilerplate = require('./boilerplate');
 const { segment } = require('./segment');
 
@@ -37,7 +38,7 @@ const STORE_MAX = 60;
 // 2026-09-08 把文件大小（1.1gb）从证据里去掉之后，「Find parking」照样经 1.1gb 连着「Ollama 地址」，
 // 因为那两条的词是改规则之前抽的，voc_done 记着「做过了」。版本对不上就把 voc_done 清掉，
 // 后台那个循环会一条条重抽——和向量换模型自动重建是同一个道理，只是向量把模型名算进了指纹。
-const RULES = 5;
+const RULES = 6;
 // 包含式别名（staines-upon-thames ⊃ thames）里，长的那个得是复合词——带连字符、空格或数字。
 // 否则英文的词形变化全成了别名（visitors ⊃ visit），和 links.js 里那条同一个规矩。
 const compound = (t) => /[a-z]/.test(t) && /[^a-z]/.test(t);
@@ -49,6 +50,10 @@ const compound = (t) => /[a-z]/.test(t) && /[^a-z]/.test(t);
 function harvest(entries) {
   const titled = new Set();
   for (const e of entries || []) {
+    // briffy 自己的截图不算数：它的抬头是「全部 截图 剪贴板 收藏 更多」，拿它当过标题，
+    // 「全部」就成了正经的抬头词，然后六条不相干的记录经「全部」连成一片。
+    if (e && (e.type === 'screenshot' || e.type === 'image') && mirror.showsSelf(e.text)) continue;
+    if (e && mirror.isMirror(e.text)) continue;
     for (const t of segment(entity.headOf(e), '')) if (t.wordLike) titled.add(String(t.w).toLowerCase());
   }
   return { titled: [...titled], places: [...entity.placesIn(entries)] };

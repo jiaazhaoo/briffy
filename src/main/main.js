@@ -1213,10 +1213,20 @@ function setupIpc() {
   }));
   // 软件从链上整理出来的那几件事，和「这一条在哪几件里、占多少分量」。
   // 整理是后台的活（warm 里排在词表之后），没做完就是空的——界面上什么也不显示，不催。
-  ipcMain.handle('ws:events', () => ask.events().map((e) => ({
-    id: e.id, name: e.name,
-    members: e.members.map((m) => ({ score: m.score, tier: m.tier, entry: publicEntry(store.getEntry(m.id)) })).filter((m) => m.entry),
-  })));
+  ipcMain.handle('ws:events', () => ask.events().map((e) => {
+    const pub = (id) => publicEntry(store.getEntry(id));
+    const g = e.lineage || { spine: [], edges: [], hang: [] };
+    return {
+      id: e.id, name: e.name,
+      members: e.members.map((m) => ({ score: m.score, tier: m.tier, entry: pub(m.id) })).filter((m) => m.entry),
+      // 谱系：主轴（按顺序）、主轴相邻两条之间的边（带理由）、挂在底下的（带它挂在谁底下和理由）
+      lineage: {
+        spine: g.spine.map(pub).filter(Boolean),
+        edges: g.edges,
+        hang: g.hang.map((h) => ({ to: h.to, tier: h.tier, why: h.why, score: h.score, entry: pub(h.id) })).filter((h) => h.entry),
+      },
+    };
+  }));
   ipcMain.handle('ws:events-of', (_e, id) => ask.eventsOf(id));
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));

@@ -118,4 +118,34 @@ ok('eventsOf：这一条在哪几件里，核心排在沾边前面', () => {
   assert.strictEqual(story.eventsOf('nobody', ev).length, 0);
 });
 
+ok('谱系：最硬的链当主轴，别的挂在连得最紧的那条底下，线上带着理由', () => {
+  const W = (w) => ({ kind: 'word', pairs: [{ a: w, b: w }] });
+  const lists = new Map(Object.entries({
+    a: [['b', 0.9, W('tw20')], ['c', 0.5, W('staines')]],
+    b: [['a', 0.9, W('tw20')], ['c', 0.7, W('runnymede')]],
+    c: [['b', 0.7, W('runnymede')], ['a', 0.5, W('staines')], ['d', 0.6, W('ultra')]],
+    d: [['c', 0.6, W('ultra')], ['b', 0.3, W('x')]],
+    h: [['c', 0.42, { kind: 'page', name: 'Claude' }]],
+  }).map(([id, arr]) => [id, arr.map(([to, score, why]) => ({ id: to, score, why }))]));
+  const ev = story.events(lists, view({}, {}));
+  assert.strictEqual(ev.length, 1);
+  const g = story.lineage(ev[0], lists);
+  // 最硬的一对是 a–b（0.9），从 b 往外走到 c（0.7），再到 d（0.6）
+  assert.deepStrictEqual(g.spine, ['a', 'b', 'c', 'd']);
+  assert.deepStrictEqual(g.edges.map((e) => e.why.pairs[0].a), ['tw20', 'runnymede', 'ultra']);
+  // h 沾边，挂在 c 底下，理由是同一页
+  assert.strictEqual(g.hang.length, 1);
+  assert.strictEqual(g.hang[0].id, 'h');
+  assert.strictEqual(g.hang[0].to, 'c');
+  assert.strictEqual(g.hang[0].why.kind, 'page');
+});
+
+ok('谱系：只有一条核心也画得出来', () => {
+  const lists = new Map([['a', []], ['h', [{ id: 'a', score: 0.5 }]]]);
+  const g = story.lineage({ members: [{ id: 'a', tier: 'core', score: 1 }, { id: 'h', tier: 'touch', score: 0.5 }] }, lists);
+  assert.deepStrictEqual(g.spine, ['a']);
+  assert.strictEqual(g.edges.length, 0);
+  assert.deepStrictEqual(g.hang.map((x) => [x.id, x.to]), [['h', 'a']]);
+});
+
 console.log(`events: ${pass} passed`);

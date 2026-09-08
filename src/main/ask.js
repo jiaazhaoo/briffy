@@ -856,7 +856,11 @@ function eventsStep({ budgetMs = 400 } = {}) {
     if (!listsCache.has(id)) listsCache.set(id, linksOf(id).related);
   }
   if (listsAt < ids.length) return { done: false, n: listsAt, total: ids.length };
-  try { eventsCache = story.events(listsCache, storyCtx()); } catch (e) { console.warn('[ask] 事件整理不出来：', e.message || e); eventsCache = []; }
+  try {
+    eventsCache = story.events(listsCache, storyCtx());
+    // 每件事画成谱系（主轴、支线、线上的理由），界面直接拿去画
+    for (const e of eventsCache) { try { e.lineage = story.lineage(e, listsCache); } catch (_) { e.lineage = null; } }
+  } catch (e) { console.warn('[ask] 事件整理不出来：', e.message || e); eventsCache = []; }
   return { done: true, n: listsAt, total: ids.length };
 }
 
