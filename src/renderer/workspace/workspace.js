@@ -1135,13 +1135,50 @@
       + (hidden > 0 ? `<button type="button" class="tv-more" data-trail-all="1">${esc(t('trailShort', { n: hidden }))} · ${esc(t('trailAll'))}</button>` : '');
   }
 
+  // 事件：软件从记录之间的链接上整理出来的那几件事（主进程 ask.events）。一件一行：名字、几条；
+  // 点开摊出成员。**核心成员满墨，沾边的铅笔色**——它「参与」了这件事只是因为提到了它
+  // （一条开发笔记引用了那晚的地址）。强度用墨说，不画条、不写数。整理没做完就是一句话。
+  const evClosed = new Set();   // 收起来的那几件
+  const evAll = new Set();      // 沾边的也摊开了的那几件
+  async function renderEvents() {
+    const box = $('#evRows');
+    if (!box) return;
+    let list = [];
+    try { list = await ws.events(); } catch (_) { list = []; }
+    if (state.view !== 'events') return;
+    if (!list.length) { box.innerHTML = `<div class="tv-note">${esc(t('evPending'))}</div>`; return; }
+    const row = (m) => `<button type="button" class="ev-m ${m.tier === 'core' ? 'core' : 'touch'}" data-id="${esc(m.entry.id)}">${esc(cardTitle(m.entry))}</button>`;
+    box.innerHTML = list.map((e) => {
+      const core = e.members.filter((m) => m.tier === 'core');
+      const touch = e.members.filter((m) => m.tier !== 'core');
+      const open = !evClosed.has(e.id);
+      return `<div class="ev-row${open ? ' open' : ''}" data-ev="${esc(e.id)}" role="button" tabindex="0">`
+        + `<span class="nm">${esc(e.name || t('untitled'))}</span>`
+        + `<span class="n">${esc(t('evCore', { n: core.length }))}${touch.length ? ` · ${esc(t('evTouch', { n: touch.length }))}` : ''}</span>`
+        + `</div>`
+        + (open ? `<div class="ev-members">${core.map(row).join('')}`
+          + (touch.length ? (evAll.has(e.id) ? touch.map(row).join('')
+            : `<button type="button" class="tv-more" data-ev-all="${esc(e.id)}">${esc(t('evTouch', { n: touch.length }))}</button>`) : '')
+          + `</div>` : '');
+    }).join('');
+  }
+  /** 从详情里点了一件事：换到事件那种看法，把那件摊开 */
+  function openEvent(id) {
+    closeDetail();
+    evClosed.delete(id);
+    applyView('events');
+    renderEvents().then(() => { const r = document.querySelector(`.ev-row[data-ev="${CSS.escape(id)}"]`); if (r) r.scrollIntoView({ block: 'start' }); });
+  }
+
   function applyView(view) {
-    state.view = ['list', 'trail'].includes(view) ? view : 'grid';
+    state.view = ['list', 'trail', 'events'].includes(view) ? view : 'grid';
     try { localStorage.setItem('briffy.view', state.view); } catch (_) { /* storage unavailable */ }
     $('#entryGrid').hidden = state.view !== 'grid';
     $('#entryList').hidden = state.view !== 'list';
     $('#entryTrail').hidden = state.view !== 'trail';
+    $('#entryEvents').hidden = state.view !== 'events';
     if (state.view === 'trail') renderTrail();
+    if (state.view === 'events') renderEvents();
     for (const b of document.querySelectorAll('#viewSeg button')) b.classList.toggle('active', b.dataset.view === state.view);
     if (state.view === 'grid') jgIds = '';          // dealt while hidden, if at all: deal it again at its real width
     renderList();
@@ -1326,6 +1363,21 @@
         + `<span class="ti">${esc(cardTitle(x.entry))}</span></button>`).join('');
   }
 
+  // 「参与」——这一条在哪几件事里。核心满墨、沾边铅笔色；点一个就去看那件事。空手就整行不出现。
+  let evSeq = 0;
+  async function fillEvents(id, box) {
+    const my = ++evSeq;
+    let list = [];
+    try { list = await ws.eventsOf(id); } catch (_) { list = []; }
+    if (my !== evSeq) return;
+    const slot = box.querySelector('.dt-events');
+    if (!slot) return;
+    if (!list.length) { slot.hidden = true; slot.innerHTML = ''; return; }
+    slot.hidden = false;
+    slot.innerHTML = `<span class="lb">${esc(t('evOf'))}</span>`
+      + list.map((x) => `<button type="button" class="ev-tag ${x.tier === 'core' ? 'core' : 'touch'}" data-evtag="${esc(x.id)}" title="${esc(t('evCore', { n: x.n }))}">${esc(x.name || t('untitled'))}</button>`).join('');
+  }
+
   function renderDetailInto(box) {
     const e = currentEntry();
     if (!e) { box.innerHTML = `<div class="empty"><div class="empty-art">🐾</div><span>${esc(t('selectEntry'))}</span></div>`; return; }
@@ -1386,6 +1438,7 @@
              翻到哪儿都要在手边；日期和你写的那一句读一遍就够了 -->
         <div class="dt-sub">
           <div class="time">${meta.join(' · ')}${ctxUrl}</div>
+          <div class="dt-events" hidden></div>
           <div class="dt-note">
             <input id="noteField" class="note-line" readonly value="${esc(e.note || '')}"
               placeholder="${esc(t('notePlaceholder'))}" aria-label="${esc(t('noteLabel'))}" />
@@ -1406,6 +1459,7 @@
     // 「相关」——讲同一件事的那几条。慢一拍补上来（要算向量），空手就整块不出现：
     // 向量分数没有绝对意义，硬凑三条只会给出三条不相干的东西，那比没有更糟。
     fillRelated(e.id, box);
+    fillEvents(e.id, box);
 
     // The note is the user's own line and nothing else writes it, so it saves itself when they leave it.
     // 一行主题。默认是只读的一句说明，点一下才交出光标——省得一打开详情就有个输入框在等你打字。
@@ -2742,6 +2796,20 @@
       if (state.selecting) pressEntry(row.dataset.id, e); else openDetail(row.dataset.id);
     });
     $('#viewSeg').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-view]'); if (b) applyView(b.dataset.view); });
+    // 事件那种看法：点一行收起 / 摊开，点一条成员开详情，点「沾边 N 条」把沾边的也摊开
+    $('#evRows').addEventListener('click', (e) => {
+      const all = e.target.closest('[data-ev-all]');
+      if (all) { evAll.add(all.dataset.evAll); renderEvents(); return; }
+      const m = e.target.closest('.ev-m');
+      if (m) { openDetail(m.dataset.id); return; }
+      const row = e.target.closest('.ev-row');
+      if (row) { const id = row.dataset.ev; if (evClosed.has(id)) evClosed.delete(id); else evClosed.add(id); renderEvents(); }
+    });
+    // 详情里「参与」那一行：点一件事就去看它
+    document.addEventListener('click', (e) => {
+      const tag = e.target.closest && e.target.closest('.ev-tag[data-evtag]');
+      if (tag) openEvent(tag.dataset.evtag);
+    });
     $('#selectToggle').addEventListener('click', () => setSelecting(!state.selecting));
     $('#bulkBar').addEventListener('click', async (ev) => {
       const b = ev.target.closest('[data-bulk]');
