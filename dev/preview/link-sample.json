@@ -1,0 +1,377 @@
+[
+ {
+  "id": "e6d58797",
+  "title": "Ultra Challenge",
+  "type": "url",
+  "at": "20:50",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 1,
+  "hop": 0,
+  "why": null
+ },
+ {
+  "id": "3b5109bd",
+  "title": "我最近有个 walking 挑战，你帮我看看记录帮我生成行程单",
+  "type": "note",
+  "at": "00:47",
+  "day": "2026-09-07",
+  "app": "",
+  "score": 0.57,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "25km",
+   "pairs": [
+    "25km",
+    "10km",
+    "100km"
+   ]
+  }
+ },
+ {
+  "id": "f018b7ee",
+  "title": "Thank you! Your registration is complete.",
+  "type": "note",
+  "at": "20:56",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.57,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "Visit",
+   "pairs": [
+    "Visit",
+    "registration",
+    "Ultra"
+   ]
+  }
+ },
+ {
+  "id": "c6c1c941",
+  "title": "English (Great Britain)",
+  "type": "note",
+  "at": "20:50",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.57,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "Self",
+   "pairs": [
+    "Self",
+    "Funding",
+    "50km"
+   ]
+  }
+ },
+ {
+  "id": "66a6ed51",
+  "title": "两份证据的 PDF 我做不了，只能你自己导：在 Gmail 里打开那两封 Playtomic 邮件（Receipt 和…",
+  "type": "note",
+  "at": "16:36",
+  "day": "2026-09-07",
+  "app": "Claude",
+  "score": 0.54,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "registration",
+   "pairs": [
+    "registration"
+   ]
+  }
+ },
+ {
+  "id": "07147ed6",
+  "title": "English (Great Britain)",
+  "type": "note",
+  "at": "20:36",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.52,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "100km",
+   "pairs": [
+    "100km",
+    "Platform",
+    "Great"
+   ]
+  }
+ },
+ {
+  "id": "34d0cc6f",
+  "title": "Sat・12 Sep 2026 2026年9月12日星期六",
+  "type": "note",
+  "at": "20:38",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.52,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "Platform",
+   "pairs": [
+    "Platform",
+    "50km",
+    "Ultra"
+   ]
+  }
+ },
+ {
+  "id": "a08bade7",
+  "title": "English (Great Britain)",
+  "type": "note",
+  "at": "20:37",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.52,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "100km",
+   "pairs": [
+    "100km",
+    "Platform",
+    "Ultra"
+   ]
+  }
+ },
+ {
+  "id": "c87ecb99",
+  "title": "截图 22:46",
+  "type": "screenshot",
+  "at": "21:46",
+  "day": "2026-09-07",
+  "app": "WeChat",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "50km",
+   "pairs": [
+    "50km",
+    "Great",
+    "Ultra"
+   ]
+  }
+ },
+ {
+  "id": "c77d8596",
+  "title": "赛程分前后半程 - Claude",
+  "type": "url",
+  "at": "21:05",
+  "day": "2026-09-06",
+  "app": "",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "50km",
+   "pairs": [
+    "50km",
+    "Ultra"
+   ]
+  }
+ },
+ {
+  "id": "47c6adb4",
+  "title": "1st Half Challenge (~50km)",
+  "type": "note",
+  "at": "20:38",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "50km",
+   "pairs": [
+    "50km",
+    "Ultra",
+    "Challenge"
+   ]
+  }
+ },
+ {
+  "id": "91fdd86f",
+  "title": "截图 22:38",
+  "type": "screenshot",
+  "at": "21:38",
+  "day": "2026-09-07",
+  "app": "Claude",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "Great",
+   "pairs": [
+    "Great",
+    "Ultra",
+    "Challenge"
+   ]
+  }
+ },
+ {
+  "id": "1a893b23",
+  "title": "截图 21:43",
+  "type": "screenshot",
+  "at": "20:43",
+  "day": "2026-09-07",
+  "app": "Claude",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "Great",
+   "pairs": [
+    "Great",
+    "Challenge"
+   ]
+  }
+ },
+ {
+  "id": "277873fa",
+  "title": "截图 20:12",
+  "type": "screenshot",
+  "at": "19:12",
+  "day": "2026-09-07",
+  "app": "Claude",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "Great",
+   "pairs": [
+    "Great",
+    "Ultra",
+    "Challenge"
+   ]
+  }
+ },
+ {
+  "id": "68fcd2d6",
+  "title": "你看看我最近要去一个走路的活动你帮我做个行程单",
+  "type": "note",
+  "at": "22:16",
+  "day": "2026-09-07",
+  "app": "Claude",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "50km",
+   "pairs": [
+    "50km"
+   ]
+  }
+ },
+ {
+  "id": "3e4a4683",
+  "title": "你看看我最近要去一个走路的活动你帮我做个行程单",
+  "type": "note",
+  "at": "19:33",
+  "day": "2026-09-07",
+  "app": "Claude",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "50km",
+   "pairs": [
+    "50km"
+   ]
+  }
+ },
+ {
+  "id": "2207997e",
+  "title": "我最近报名了一个活动，你帮我看看起点和终点的具体地址，还有开始时间",
+  "type": "note",
+  "at": "00:53",
+  "day": "2026-09-08",
+  "app": "Claude",
+  "score": 0.47,
+  "hop": 1,
+  "why": {
+   "kind": "word",
+   "label": "50km",
+   "pairs": [
+    "50km"
+   ]
+  }
+ },
+ {
+  "id": "d12fef59",
+  "title": "Ultra March reddit",
+  "type": "note",
+  "at": "20:42",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.44,
+  "hop": 2,
+  "why": {
+   "kind": "page",
+   "label": "2026年泰晤士河步道超级马拉松挑战赛 --- Thames Path Ultra Challenge 2026"
+  }
+ },
+ {
+  "id": "5030ffdc",
+  "title": "1st Half Challenge",
+  "type": "note",
+  "at": "20:40",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.4,
+  "hop": 2,
+  "why": {
+   "kind": "page",
+   "label": "同一页"
+  }
+ },
+ {
+  "id": "07a2aaf2",
+  "title": "Bishops Park, Fulham",
+  "type": "note",
+  "at": "21:03",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.4,
+  "hop": 2,
+  "why": {
+   "kind": "page",
+   "label": "同一页"
+  }
+ },
+ {
+  "id": "21fb5a7b",
+  "title": "停 Staines 车站",
+  "type": "note",
+  "at": "21:14",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.4,
+  "hop": 2,
+  "why": {
+   "kind": "page",
+   "label": "同一页"
+  }
+ },
+ {
+  "id": "2b515ead",
+  "title": "£10 接驳车直接送你回去取车",
+  "type": "note",
+  "at": "21:15",
+  "day": "2026-09-06",
+  "app": "Google Chrome",
+  "score": 0.4,
+  "hop": 2,
+  "why": {
+   "kind": "page",
+   "label": "同一页"
+  }
+ }
+]

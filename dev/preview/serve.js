@@ -8,6 +8,7 @@
 //                                   http://localhost:5173/lang      the design language, three papers x three hierarchies
 //                                   http://localhost:5173/system    the design hierarchy: 层 / 墨 / 空
 //                                   http://localhost:5173/cards     五种记录，五张纸：各自的物证和纸色
+//                                   http://localhost:5173/links     双链怎么给：四种方案摆一起比
 //                                   http://localhost:5173/site      官网（site/，可整个目录单独部署）
 //                                   http://localhost:5173/site-dist/     发布出去的中文页（先跑 npm run site）
 //                                   http://localhost:5173/site-dist/en/  英文页
@@ -51,6 +52,7 @@ http.createServer((req, res) => {
   if (url === '/system') return send(path.join(__dirname, 'system.html'));
   if (url === '/cards') return send(path.join(__dirname, 'cards.html'));
   if (url === '/palette') return send(path.join(__dirname, 'palette.html'));
+  if (url === '/links') return send(path.join(__dirname, 'links.html'));
   if (url === '/ground') return send(path.join(__dirname, 'ground.html'));
   if (url === '/briffy') return send(path.join(__dirname, 'briffy.html'));
   // 官网。/site 必须先跳到 /site/：没有那道斜杠，页面里 paper/tokens.css 这些相对地址会落到站点根上。

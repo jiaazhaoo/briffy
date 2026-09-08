@@ -4,9 +4,7 @@
     {
       "name": "preview",
       "runtimeExecutable": "node",
-      "runtimeArgs": [
-        "dev/preview/serve.js"
-      ],
+      "runtimeArgs": ["dev/preview/serve.js"],
       "port": 5173,
       "autoPort": true
     }
