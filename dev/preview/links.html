@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>双链：四种给法</title>
+<link rel="stylesheet" href="/assets/paper/tokens.css" />
+<style>
+  /* 这一页是样张，不是产品。四种把「这条记录连着谁」摆出来的方式，用的是真实工作区里
+     从「Ultra Challenge」长出来的那 22 条。规矩照 paper-ui：全直角、无边框无分隔线、
+     只有记录有影子、一种字体、分组只靠留白。 */
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 var(--fs-body)/1.6 var(--sans); text-autospace: normal; line-break: strict;
+    -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: var(--pad); }
+  h1 { font: 600 var(--fs-day)/1.3 var(--sans); margin: 0 0 var(--a2); text-autospace: no-autospace; }
+  .lede { color: var(--ink-2); margin: 0 0 var(--a5); max-width: 66ch; }
+  .opt { margin: 0 0 var(--a5); }
+  .opt > h2 { font: 600 var(--fs-h2)/1.4 var(--sans); margin: 0 0 var(--a1); }
+  .opt > .note { color: var(--ink-3); font-size: var(--fs-act); margin: 0 0 var(--a4); max-width: 62ch; }
+  .stage { background: var(--slip); box-shadow: var(--e1); padding: var(--a4); }
+
+  /* 一条记录 = 一张便签。四个方案共用。 */
+  .rec { display: flex; align-items: baseline; gap: var(--a3); padding: 7px 0; }
+  .rec .t { font-weight: var(--w-title); flex: 1; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .rec .m { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; flex: none; }
+  .rec .why { color: var(--ink-3); font-size: var(--fs-meta); flex: none; width: 190px; text-align: right; }
+
+  /* 甲 */
+  .flat .rec .t { font-weight: 400; }
+
+  /* 乙 —— 分组标题是一行字，不是一个框 */
+  .grp { margin: 0 0 var(--a4); }
+  .grp:last-child { margin-bottom: 0; }
+  .grp > .h { font-weight: var(--w-title); margin-bottom: var(--a1); }
+  .grp > .h .n { color: var(--ink-3); font-weight: 400; font-size: var(--fs-meta); margin-left: var(--a2); }
+  .grp .rec { padding: 5px 0 5px var(--a4); }
+  .grp.weak > .h { color: var(--ink-3); }
+  .grp.weak .rec .t { color: var(--ink-3); }
+
+  /* 丙 —— 放射图 */
+  .radial { display: block; margin: 0 auto; }
+  .radial .lk { stroke: var(--hair); fill: none; }
+  .radial .nd { fill: var(--slip); stroke: none; }
+  .radial text { font: 400 10px/1 var(--sans); fill: var(--ink-2); }
+  .radial .hub text { font-weight: 600; fill: var(--ink); }
+  .radial .el { font-size: 9px; fill: var(--ink-3); }
+
+  /* 丁 —— 时间轴 */
+  .sit { margin: 0 0 var(--a4); }
+  .sit:last-child { margin-bottom: 0; }
+  .sit > .h { font: 600 var(--fs-title)/1.4 var(--sans); }
+  .sit > .h .n { color: var(--ink-3); font-weight: 400; font-size: var(--fs-meta); margin-left: var(--a2); }
+  .sit .rec { padding: 5px 0 5px var(--a4); }
+  .sit .rec .clock { color: var(--ink-3); font-size: var(--fs-meta); width: 42px; flex: none;
+    font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>这条记录连着谁 · 四种给法</h1>
+  <p class="lede">用的是真实工作区里从「Ultra Challenge」长出来的那 22 条。<br />
+    这堆数据的形状是 <b>22 个点、26 条线、度数中位数 1</b> —— 一个中心加一圈，不是网。</p>
+
+  <section class="opt"><h2>甲 · 一条清单（现在详情页就是这样）</h2>
+    <p class="note">按远近排，理由写在右边。好处是简单；坏处是十几行同样的字排下来，看不出「为什么」有几种。</p>
+    <div class="stage flat" id="a"></div></section>
+
+  <section class="opt"><h2>乙 · 按你们共用的东西分组</h2>
+    <p class="note">抄 Roam 的 linked references，但分组维度换成「共用什么」。副作用是好的：噪声一眼可见——「Great」来自那个语言选择条，灰掉的那组就是。</p>
+    <div class="stage" id="b"></div></section>
+
+  <section class="opt"><h2>丙 · 放射图（只画一跳）</h2>
+    <p class="note">学术上 ego network 该用 radial，不是力导向。但 17 个点各连一条线到中心，画出来就是个车轮——信息量和一个列表一样。</p>
+    <div class="stage" id="c"></div></section>
+
+  <section class="opt"><h2>丁 · 时间轴（按「一次坐下来」分段）</h2>
+    <p class="note">这堆记录其实是三个晚上攒出来的。不问「谁连着谁」，问「那天晚上你在干什么」——而时间这条边 O(1)，库多大都不变差。</p>
+    <div class="stage" id="d"></div></section>
+</div>
+
+<script>
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const WEAK = /^(Great|Platform|Self|Visit|Britain|Funding)$/i;   // 那个语言选择条带来的噪声词
+const rec = (x, extra = '') => `<div class="rec">${extra}<span class="t">${esc(x.title)}</span>`
+  + `<span class="m">${esc(x.day.slice(5))} ${esc(x.at)}</span></div>`;
+
+fetch('/dev/preview/link-sample.json').then((r) => r.json()).then((data) => {
+  const rest = data.filter((x) => x.hop > 0);
+
+  // 甲
+  document.getElementById('a').innerHTML = rest.map((x) =>
+    `<div class="rec"><span class="why">${esc(x.why ? x.why.label : '')}</span>`
+    + `<span class="t">${esc(x.title)}</span><span class="m">${esc(x.at)}</span></div>`).join('');
+
+  // 乙
+  const g = new Map();
+  for (const x of rest) {
+    const k = x.why ? (x.why.kind === 'word' ? x.why.label : x.why.label || '同一页') : '其它';
+    if (!g.has(k)) g.set(k, []);
+    g.get(k).push(x);
+  }
+  const groups = [...g.entries()].sort((p, q) => q[1].length - p[1].length);
+  document.getElementById('b').innerHTML = groups.map(([k, xs]) => {
+    const weak = WEAK.test(k) ? ' weak' : '';
+    const head = xs[0].why && xs[0].why.kind === 'word' ? `共用「${esc(k)}」` : `同一处 · ${esc(k)}`;
+    return `<div class="grp${weak}"><div class="h">${head}<span class="n">${xs.length} 条</span></div>`
+      + xs.map((x) => rec(x)).join('') + '</div>';
+  }).join('');
+
+  // 丙
+  const one = rest.filter((x) => x.hop === 1);
+  const R = 190, CX = 440, CY = 215;
+  const pts = one.map((x, i) => {
+    const a = (i / one.length) * Math.PI * 2 - Math.PI / 2;
+    return { x: CX + Math.cos(a) * R, y: CY + Math.sin(a) * R, a, d: x };
+  });
+  document.getElementById('c').innerHTML = `<svg class="radial" viewBox="0 0 880 430" width="100%" height="430">`
+    + pts.map((p) => `<line class="lk" x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" />`).join('')
+    + pts.map((p) => {
+      const right = Math.cos(p.a) > -0.01;
+      return `<g><circle class="nd" cx="${p.x}" cy="${p.y}" r="4" />`
+        + `<text x="${p.x + (right ? 9 : -9)}" y="${p.y + 3}" text-anchor="${right ? 'start' : 'end'}">`
+        + `${esc(p.d.title.slice(0, 20))}</text></g>`;
+    }).join('')
+    + `<g class="hub"><circle class="nd" cx="${CX}" cy="${CY}" r="7" />`
+    + `<text x="${CX}" y="${CY + 24}" text-anchor="middle">Ultra Challenge</text></g></svg>`;
+
+  // 丁
+  const sits = new Map();
+  for (const x of rest) {
+    const k = x.day;
+    if (!sits.has(k)) sits.set(k, []);
+    sits.get(k).push(x);
+  }
+  document.getElementById('d').innerHTML = [...sits.entries()].sort().map(([day, xs]) => {
+    xs.sort((p, q) => p.at.localeCompare(q.at));
+    const d = new Date(day + 'T00:00:00');
+    const wd = '日一二三四五六'[d.getDay()];
+    return `<div class="sit"><div class="h">${day.slice(5).replace('-', '月')}日 周${wd}`
+      + `<span class="n">${xs[0].at}–${xs[xs.length - 1].at} · ${xs.length} 条</span></div>`
+      + xs.map((x) => `<div class="rec"><span class="clock">${esc(x.at)}</span>`
+        + `<span class="t">${esc(x.title)}</span></div>`).join('') + '</div>';
+  }).join('');
+});
+</script>
+</body>
+</html>
