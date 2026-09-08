@@ -1,6 +1,9 @@
 'use strict';
 // Provider-independent titling and daily recap. Dispatches to Anthropic, OpenRouter,
 // a local Ollama model, or any OpenAI-compatible endpoint. Prompts enforce the no-translation rule.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const ai = require('./ai');
 const oai = require('./openai-compat');
 const ollama = require('./ollama');
@@ -72,20 +75,61 @@ function config(store, override = {}) {
   return {
     provider: PROVIDERS.includes(s.provider) ? s.provider : 'anthropic',
     languageName: promptLanguageName(s.languages),
-    anthropic: { auth: s.anthropicAuth === 'account' ? 'account' : 'apiKey', apiKey: secret('apiKey', 'apiKey'), model: s.model || 'claude-opus-5' },
+    anthropic: { auth: s.anthropicAuth === 'account' ? 'account' : 'apiKey', apiKey: secret('apiKey', 'apiKey'), model: s.model || 'claude-opus-5', account: accountAvailable() },
     openrouter: { apiKey: secret('openrouterKey', 'openrouterKey'), model: s.openrouterModel || 'anthropic/claude-opus-5' },
     ollama: { host: s.ollamaHost || ollama.DEFAULT_HOST, model: s.ollamaModel || rec.model, recommended: !s.ollamaModel },
     custom: { baseUrl: s.customBaseUrl || '', apiKey: secret('customKey', 'customKey'), model: s.customModel || '' },
   };
 }
 
+/**
+ * 「用已登录的账号」这一档，凭据到底在不在。
+ *
+ * SDK 认三样：两个环境变量，和 `ant auth login` 写在 ~/.config/anthropic/ 底下的 profile。
+ * **它不认 Claude Code 的登录**——那份在 ~/.claude，是 Claude Code 自己用的（踩过，
+ * 见 main.js 里 findAntCli 那段）。所以这儿只查 SDK 真正会去读的那三处。
+ *
+ * 同步、只碰文件系统一次，因为 isConfigured 是同步的、而且到处在调。
+ */
+function accountAvailable() {
+  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_PROFILE) return true;
+  const dir = process.env.ANTHROPIC_CONFIG_DIR || (process.platform === 'win32'
+    ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Anthropic')
+    : path.join(os.homedir(), '.config', 'anthropic'));
+  try { return fs.existsSync(dir); } catch (_) { return false; }
+}
+
+/**
+ * 这一家现在能不能真的发出一个请求。
+ *
+ * anthropic 那一行以前是 `auth === 'account' || apiKey` —— 选了「已登录的账号」就无条件为真，
+ * **从来没查过那份凭据存不存在**。于是界面说「已配好」，一问就在运行时炸出 SDK 的原始报错
+ * 「Could not resolve authentication method」。一个设置项是一句声明，不是证据。
+ */
 function isConfigured(cfg) {
   switch (cfg.provider) {
-    case 'anthropic': return cfg.anthropic.auth === 'account' || !!cfg.anthropic.apiKey;
+    case 'anthropic': return cfg.anthropic.auth === 'account' ? !!cfg.anthropic.account : !!cfg.anthropic.apiKey;
     case 'openrouter': return !!cfg.openrouter.apiKey;
     case 'ollama': return !!cfg.ollama.host && !!cfg.ollama.model;
     case 'custom': return !!cfg.custom.baseUrl && !!cfg.custom.model;
     default: return false;
+  }
+}
+
+/**
+ * 差什么才能用。界面上「还没配」三个字说明不了任何事——缺 baseUrl 还是缺模型名，
+ * 是两个完全不同的下一步。
+ * @returns {string} 空字符串 = 现在就能用
+ */
+function missing(cfg) {
+  switch (cfg.provider) {
+    case 'anthropic':
+      if (cfg.anthropic.auth === 'account') return cfg.anthropic.account ? '' : 'account';
+      return cfg.anthropic.apiKey ? '' : 'apiKey';
+    case 'openrouter': return cfg.openrouter.apiKey ? '' : 'apiKey';
+    case 'ollama': return cfg.ollama.host ? (cfg.ollama.model ? '' : 'model') : 'host';
+    case 'custom': return cfg.custom.baseUrl ? (cfg.custom.model ? '' : 'model') : 'baseUrl';
+    default: return 'provider';
   }
 }
 
@@ -522,4 +566,4 @@ async function testProvider(cfg) {
   }
 }
 
-module.exports = { config, isConfigured, label, describe, translate, dailySummary, answerQuestion, searchPlan, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, PLAN_SCHEMA, PLAN_MAX, _windowAround: windowAround, _buildNumbered: buildNumbered };
+module.exports = { config, isConfigured, missing, accountAvailable, label, describe, translate, dailySummary, answerQuestion, searchPlan, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, PLAN_SCHEMA, PLAN_MAX, _windowAround: windowAround, _buildNumbered: buildNumbered };

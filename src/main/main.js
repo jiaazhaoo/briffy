@@ -826,6 +826,11 @@ async function providerStatus(refresh = false) {
     ollama: { host: s.ollamaHost || ollama.DEFAULT_HOST, ...ol },
     anthropic,
     configured: llm.isConfigured(cfg),
+    // 差的是哪一项。界面上光说「没配好」说明不了任何事——缺 baseUrl 还是缺模型名，
+    // 是两个完全不同的下一步。
+    missing: llm.missing(cfg),
+    // 每一家各自缺什么，好让输入框旁边那个切换器一次把话说全
+    missingBy: Object.fromEntries(llm.PROVIDERS.map((x) => [x, llm.missing(llm.config(store, { provider: x }))])),
     label: llm.label(cfg),
     provider: cfg.provider,
   };
