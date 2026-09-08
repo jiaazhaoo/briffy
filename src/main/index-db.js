@@ -436,6 +436,32 @@ function search({ query = '', from = '', to = '', type = '', app = '', pinned = 
     }
   }
   if (lead.length) return { ids: lead, scored: true, ms: Date.now() - t0, terms: needles };
+
+  //   4  前缀 —— 只在上面全部交白卷之后才走
+  //
+  // FTS5 匹配的是**整个词**，不是开头。ICU 把「泰晤士河」切成一个词存进去，于是搜「泰晤士」
+  // 一条也搜不到——库里明明有六条。同样死法的还有 停车（存的是「停车场」）、退款、Runnyme。
+  // 中文尤其吃亏：中文没有空格，切词器切多长就是多长，用户脑子里的词和它切出来的词对不齐是常态。
+  //
+  // 放在最后一级，是因为前缀是**放宽**：「显示」加个星号会把「显示器」「显示屏」「显示不出来」
+  // 全捞进来。前面任何一级有结果，那个结果都比这个准。只有全空了，宽一点才是净赚——
+  // 反正另一个选择是交白卷。
+  //
+  // 只给「整词从来没出现过」的词加星号（rareDf === 0）：已经能对上整词的词不需要放宽，
+  // 放宽只会把它稀释掉。单字不加——「的」* 会命中半个库。
+  const pfx = parts.filter((p) => p.rareDf === 0 && p.key.replace(/ /g, '').length >= 2);
+  if (pfx.length) {
+    const expr = parts.map((p) => {
+      const k = `"${p.key.replace(/"/g, '""')}"`;
+      return p.rareDf === 0 && p.key.replace(/ /g, '').length >= 2 ? `${k}*` : k;
+    }).join(' AND ');
+    const sql = `SELECT e.id FROM fts f JOIN entries e ON e.rowid = f.rowid
+      WHERE f.fts MATCH ? ${where.length ? `AND ${where.join(' AND ')}` : ''}
+      ORDER BY rank LIMIT ?`;
+    let ids = [];
+    try { ids = db.prepare(sql).all(expr, ...args, limit).map((r) => r.id); } catch (_) { ids = []; }
+    if (ids.length) return { ids, scored: true, ms: Date.now() - t0, terms: needles };
+  }
   return { ids: [], scored: true, ms: Date.now() - t0, terms: needles };
 }
 

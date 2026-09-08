@@ -74,7 +74,7 @@ const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] 
  * 一条记录取它最好的那一块的分：一篇长文章里只要有一段说到了，这条就算说到了。
  * @returns {Promise<string[]>}
  */
-async function search(index, question, { limit = 40, cacheDir, mirror = '', from = '' } = {}) {
+async function search(index, question, { limit = 40, min = 0, cacheDir, mirror = '', from = '' } = {}) {
   if (!embed.available()) return [];
   const q = String(question || '').trim();
   if (!q) return [];
@@ -88,7 +88,10 @@ async function search(index, question, { limit = 40, cacheDir, mirror = '', from
     const had = best.get(id);
     if (had === undefined || s > had) best.set(id, s);
   }, { day: from });
-  return [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
+  // min 是**在里面**用掉的，不往外交分数。外面拿不到分数就不会拿它当阈值乱用，
+  // 而「够不够近」这个判断本来就该和算分的人待在一起。
+  return [...best.entries()].filter(([, s]) => s >= min).sort((a, b) => b[1] - a[1])
+    .slice(0, limit).map(([id]) => id);
 }
 
 // 一条记录的邻居要多像才算「相关」。实测：0.7 以上是真的同一件事

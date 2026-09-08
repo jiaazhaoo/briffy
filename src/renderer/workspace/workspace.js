@@ -33,6 +33,7 @@
       copyLink: '复制链接', linkCopied: '链接已复制',
       showBoxes: '文字位置', hideBoxes: '收起文字位置', copyLine: '点一行复制这行文字', lineCopied: '这行已复制',
       dayWasOff: '这一天 briffy 没有运行，所以什么都没能记下。', dayWasIdle: 'briffy 运行了约 {min} 分钟，这一天你没有存下东西。',
+      searchNone: '没有一条记录写着「{q}」。', searchNoneNear: '没有一条记录写着「{q}」，意思相近的也没有。',
       sContext: '记录来源', sContextOn: '保存时记下当时的应用、窗口和网页地址',
       sContextHint: '只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。',
       sContextTest: '看看现在能读到什么',
@@ -176,6 +177,7 @@
       copyLink: 'Copy link', linkCopied: 'Link copied',
       showBoxes: 'Text regions', hideBoxes: 'Hide text regions', copyLine: 'Click a line to copy it', lineCopied: 'Line copied',
       dayWasOff: 'briffy was not running on this day, so nothing could be saved.', dayWasIdle: 'briffy ran for about {min} minutes; you saved nothing on this day.',
+      searchNone: 'Nothing here says “{q}”.', searchNoneNear: 'Nothing here says “{q}”, and nothing comes close in meaning either.',
       sContext: 'Where it came from', sContextOn: 'Record the app, window and page address at the moment of a save',
       sContextHint: 'Asked once, at the instant you save something -- briffy never watches your screen. The window title needs Accessibility permission; the page address comes from the browser extension, and turning this off stops asking for both.',
       sContextTest: 'See what it can read now',
@@ -552,7 +554,15 @@
     if (!q || (q.trim().length < 2 && !/[぀-ヿ㐀-䶿一-鿿가-힯]/u.test(q))) return;
     let more = [];
     try { more = await ws.searchNear(q, state.entries.map((e) => e.id)); } catch (_) { more = []; }
-    if (my !== nearSeq || q !== state.query || !more.length) return;
+    if (my !== nearSeq || q !== state.query) return;
+    // 两条腿都空了才说得出「意思相近的也没有」——这句话得等这条腿跑完才是真的。
+    if (!more.length) {
+      if (!state.entries.length) {
+        const span = document.querySelector('#tab-entries .empty span');
+        if (span) span.textContent = t('searchNoneNear', { q });
+      }
+      return;
+    }
     for (const e of more) e.near = true;
     state.entries = [...state.entries, ...more]
       .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
@@ -754,7 +764,10 @@
   }
   const cardText = (e) => String(e.text || e.summary || '').trim();
   const isPicture = (e) => (e.type === 'screenshot' || e.type === 'image') && !!e.fileUrl;
-  const emptyMarkup = (extra = '') => `<div class="empty"><div class="empty-art">🐱</div><span>${esc(extra || t('noEntries'))}</span></div>`;
+  // 「还没有记录」和「这一次没搜着」是两件事，以前说的都是前一句——而搜索框空手的时候屏幕上写着
+  // 「按快捷键截图、双击 briffy 录音」，等于告诉你库是空的。库不空，是这次没找到。
+  const emptyMarkup = (extra = '') => `<div class="empty"><div class="empty-art">🐱</div><span>${esc(extra
+    || (state.query ? t('searchNone', { q: state.query }) : t('noEntries')))}</span></div>`;
 
   // "Nothing here" used to mean two opposite things: nothing was worth keeping, or briffy was closed
   // and the day was never offered. It knows which now (src/main/uptime.js), so it says which.

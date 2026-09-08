@@ -42,6 +42,15 @@ const KEEP = 24;
 // 让第一条查询把名额吃光，剩下的面就一条也进不来——今天量到的正是这个，把词揉成一句只捞回
 // 1/7，拆成五条各取前 3 捞回 3/7。
 const PER_QUERY = 3;
+// 搜索框那条语义腿的最低分。**这不是「问」那条路的门槛**——那儿有词面命中兜着，捞宽一点无妨；
+// 搜索框是直接给人看的，一条不相干的记录摆在那儿就是一条错。
+//
+// 0.50 是量出来的，不是拍的（dev/embed-bakeoff.js 和当时那次探针）：库里确实有的问法，最好的
+// 那条落在 0.41~0.64；库里根本没有的问法（房贷利率、量子色动力学、我奶奶的猫、sourdough），
+// 最好的那条落在 0.28~0.49。两段是叠着的，**没有一条线能把它们完全分开**，所以这条线是取舍：
+// 画在 0.50，四个「库里没有」的问法全部空手而归，代价是「泰晤士河」的 Path Thames（0.410）
+// 也进不来——而它现在归词面管了（前缀那一级，0 条 → 6 条）。宁可空手，不要拿噪声填满第一屏。
+const VEC_MIN = 0.50;
 // 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
 // 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
 const CHAIN_ADD = 6;
@@ -594,8 +603,15 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   if (!q || (q.length < 2 && !CJK.test(q))) return [];
   try { refresh(); } catch (_) { /* 索引没追平也照样能搜已经建好的那部分 */ }
   const skip = new Set(exclude || []);
-  const ids = await vector.search(index, q, { limit: limit * 3, cacheDir: store.paths().models });
-  return ids.filter((id) => !skip.has(id)).slice(0, limit);
+  // 和「问」那条路用同两道闸。搜索框以前一道都没有，于是量出来这些：
+  //   「地址」前四名里两名是**我自己以前问过的话**（「我记下来了详细地址，你找一下」）——
+  //         它们被复制回工作区，成了词面和向量上都最完美的命中，可它们不是答案。
+  //   「停车」「活动」的前几名是「选择一条记录查看详情」「问问你的记录 →」「剪贴板图片 12:39」——
+  //         briffy 自己的界面被截进来了。boilerplate 早就认得这种东西，只是搜索框没问过它。
+  const echoed = echoFilter([q]);
+  const drop = junkFilter();
+  const ids = await vector.search(index, q, { limit: limit * 4, min: VEC_MIN, cacheDir: store.paths().models });
+  return ids.filter((id) => !skip.has(id) && !echoed(id) && !drop(id)).slice(0, limit);
 }
 
 /**
