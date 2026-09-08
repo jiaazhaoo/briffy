@@ -99,7 +99,9 @@
       configured: '当前使用：{label}', notConfigured: '还没配置，标题先用文件名',
       accountFound: '已检测到登录配置：{profiles}', accountEnv: '已通过环境变量提供凭据', accountNotFound: '未检测到登录，点右侧按钮在终端里完成 ant auth login',
       cliMissing: '未安装 ant 命令行工具。**注意它不是 Claude Code**：SDK 只认 ant auth login 存下的那份（在 ~/.config/anthropic/），认不了 claude auth login 的（在 ~/.claude）',
-      cliMissingCmd: '没找到 ant 命令，装好之后再点一次；或者自己在终端运行：{cmd}', loginStarted: '已打开终端，按提示在浏览器里登录，完成后回来点「重新检测」',
+      cliMissingCmd: '装不了，你自己在终端跑一句：{cmd}',
+      sInstallAnt: '装 ant 命令行工具', installing: '正在装…', installed: '装好了，现在可以登录',
+      installFailed: '装失败了，你自己在终端跑一句：{cmd}', loginStarted: '已打开终端，按提示在浏览器里登录，完成后回来点「重新检测」',
       loginWaiting: '已打开浏览器，请在页面里完成登录…', loginOk: '登录成功，Key 已保存',
       hwLocal: '本机', hwCores: '{n} 线程', hwNoGpu: '未检测到', hwRecommend: '推荐', hwAlternatives: '备选',
       ollamaRunning: '运行中 {version}', ollamaInstalled: '已安装：{models}', ollamaNoModels: '还没有模型，点「下载模型」',
@@ -240,7 +242,9 @@
       configured: 'In use: {label}', notConfigured: 'Not configured yet – titles fall back to the file name',
       accountFound: 'Sign-in profile found: {profiles}', accountEnv: 'Credentials provided via environment variables', accountNotFound: 'Not signed in – click the button to run ant auth login in a terminal',
       cliMissing: 'The ant CLI is not installed. **It is not Claude Code**: the SDK only reads what `ant auth login` stores (in ~/.config/anthropic/), not what `claude auth login` stores (in ~/.claude)',
-      cliMissingCmd: 'ant command not found – install it and click again, or run it yourself: {cmd}', loginStarted: 'A terminal was opened – finish the browser sign-in, then click "Detect again"',
+      cliMissingCmd: "Can't install it here – run this in a terminal: {cmd}",
+      sInstallAnt: 'Install the ant CLI', installing: 'Installing…', installed: 'Installed – you can sign in now',
+      installFailed: 'Install failed – run this in a terminal: {cmd}', loginStarted: 'A terminal was opened – finish the browser sign-in, then click "Detect again"',
       loginWaiting: 'Browser opened – finish signing in there…', loginOk: 'Signed in, key saved',
       hwLocal: 'This machine', hwCores: '{n} threads', hwNoGpu: 'none detected', hwRecommend: 'Recommendation', hwAlternatives: 'Alternatives',
       ollamaRunning: 'running {version}', ollamaInstalled: 'installed: {models}', ollamaNoModels: 'no models yet – click "Download model"',
@@ -2283,6 +2287,9 @@
     const a = st.anthropic || {};
     $('#anthropicAccountStatus').textContent = a.hasProfile ? t('accountFound', { profiles: (a.profiles || []).join(', ') })
       : (a.envKey || a.envToken) ? t('accountEnv') : a.cliInstalled ? t('accountNotFound') : t('cliMissing');
+    // 没装就先给「装」，装好了才给「登录」。给一个点了只会说「你先去装」的按钮，等于没给。
+    $('#btnAnthropicInstall').hidden = !!a.cliInstalled;
+    $('#btnAnthropicLogin').hidden = !a.cliInstalled;
     const hw = st.hardware || { gpus: [], cpu: '', cores: 0, ramGB: 0 };
     const rec = st.recommendation || { reason: '', notes: [], alternatives: [], model: '' };
     const ol = st.ollama || { running: false, models: [] };
@@ -2880,6 +2887,24 @@ $('#chatNew').addEventListener('click', () => newChat());
     $('#btnClearKey').addEventListener('click', clearSecret('apiKey'));
     $('#btnClearOpenrouterKey').addEventListener('click', clearSecret('openrouterKey'));
     $('#btnClearCustomKey').addEventListener('click', clearSecret('customKey'));
+    $('#btnAnthropicInstall').addEventListener('click', async () => {
+      const btn = $('#btnAnthropicInstall');
+      const st = $('#anthropicAccountStatus');
+      btn.disabled = true;
+      st.textContent = t('installing');
+      const off = ws.onAnthropicInstall((line) => { st.textContent = String(line).slice(0, 120); });
+      try {
+        const r = await ws.anthropicInstall();
+        if (r.manual) st.textContent = t('cliMissingCmd', { cmd: r.command });
+        else if (!r.ok) st.textContent = t('installFailed', { cmd: r.command });
+        else { st.textContent = t('installed'); await loadProviderStatus(true); }
+      } catch (e) {
+        st.textContent = String(e && e.message || e);
+      } finally {
+        if (typeof off === 'function') off();
+        btn.disabled = false;
+      }
+    });
     $('#btnAnthropicLogin').addEventListener('click', async () => {
       const r = await ws.anthropicLogin();
       toast(r.launched ? t('loginStarted') : t('cliMissingCmd', { cmd: r.command }));

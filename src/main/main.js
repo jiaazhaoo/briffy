@@ -737,6 +737,46 @@ async function anthropicAccountStatus() {
   return { configDir: dir, profiles, hasProfile: profiles.length > 0, envKey: !!process.env.ANTHROPIC_API_KEY, envToken: !!process.env.ANTHROPIC_AUTH_TOKEN, cliInstalled: !!cli, cliPath: cli };
 }
 
+/**
+ * 装 Anthropic 的命令行工具。
+ *
+ * 光说「没找到 ant 命令，装好之后再点一次」是个死胡同——它没说怎么装。而 briffy 早就有
+ * 一套帮你装命令行工具的流程（ollama.install），照抄它就是：按平台挑包管理器，把输出
+ * 一行行报上去，装不了就老实说「你自己装吧」并给出命令。
+ *
+ * 装软件是件不该背着人做的事，所以这条只由用户点那个按钮触发，不会自己跑。
+ */
+async function installAntCli(onLine) {
+  const say = (raw) => {
+    for (const line of String(raw || '').replace(/\r/g, '\n').split('\n')) {
+      const t2 = line.trim();
+      if (t2 && onLine) onLine(t2);
+    }
+  };
+  let cmd = null;
+  if (process.platform === 'darwin' && await which('brew')) {
+    cmd = { file: 'brew', args: ['install', 'anthropics/tap/ant'] };
+  } else if (await which('go')) {
+    cmd = { file: 'go', args: ['install', 'github.com/anthropics/anthropic-cli/cmd/ant@latest'] };
+  }
+  const manualCmd = process.platform === 'darwin'
+    ? 'brew install anthropics/tap/ant'
+    : 'go install github.com/anthropics/anthropic-cli/cmd/ant@latest';
+  if (!cmd) return { ok: false, manual: true, command: manualCmd };
+  say(`$ ${cmd.file} ${cmd.args.join(' ')}`);
+  const code = await new Promise((resolve) => {
+    const child = spawn(cmd.file, cmd.args, { windowsHide: true });
+    child.stdout.on('data', (d) => say(d.toString()));
+    child.stderr.on('data', (d) => say(d.toString()));
+    child.on('error', (e) => { say(e.message); resolve(-1); });
+    child.on('close', (c) => resolve(c));
+  });
+  // go install 把二进制放在 $(go env GOPATH)/bin，那儿常常不在 PATH 上——
+  // 装完了却「找不到」比没装更让人摸不着头脑，所以这里直接把路径找出来告诉调用方。
+  const cli = await findAntCli();
+  return { ok: code === 0 && !!cli, code, cliPath: cli, command: manualCmd };
+}
+
 // 开一个终端跑 `ant auth login`（登完 SDK 自己就认得，不用再回来填什么）。
 async function launchAnthropicLogin() {
   const cli = await findAntCli();
@@ -977,6 +1017,7 @@ function setupIpc() {
   });
   ipcMain.handle('ws:openrouter-cancel-login', () => orAuth.cancel());
   ipcMain.handle('ws:anthropic-login', () => launchAnthropicLogin());
+  ipcMain.handle('ws:anthropic-install', () => installAntCli((line) => windows.broadcastToWorkspace('ws:anthropic-install-progress', line)));
   ipcMain.handle('ws:extension-status', () => ({ ...localApi.status(), extensionDir: extensionDir() }));
   ipcMain.handle('ws:open-extension-guide', async () => {
     const api = localApi.status();
