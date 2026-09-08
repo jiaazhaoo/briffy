@@ -675,28 +675,65 @@ function anthropicConfigDir() {
   if (process.env.ANTHROPIC_CONFIG_DIR) return process.env.ANTHROPIC_CONFIG_DIR;
   return process.platform === 'win32'
     ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Anthropic')
-    : path.join(os.homedir(), '.config', 'anthropic');
+    : path.join(os.homedir(), '.claude');
+}
+
+/**
+ * 找到 Claude Code 的可执行文件。
+ *
+ * **不能只靠 which。** 打包之后从访达启动的应用拿到的是一个很短的 PATH（大致只有
+ * /usr/bin:/bin:/usr/sbin:/sbin），而这个 CLI 常装在 ~/.local/bin 或 homebrew 底下——
+ * 于是「明明装了却说没装」。ollama.js 早就踩过同一个坑，那儿的 findBinary 是同一个写法。
+ */
+async function findClaudeCli() {
+  const onPath = await which('claude');
+  if (onPath) return onPath;
+  const home = os.homedir();
+  const guesses = process.platform === 'win32'
+    ? [path.join(process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Programs', 'claude', 'claude.exe')]
+    : [path.join(home, '.local', 'bin', 'claude'), '/opt/homebrew/bin/claude', '/usr/local/bin/claude', path.join(home, '.bun', 'bin', 'claude')];
+  for (const g of guesses) { try { if (fs.existsSync(g)) return g; } catch (_) { /* next */ } }
+  return '';
 }
 function which(cmd) {
   return new Promise((resolve) => {
     execFile(process.platform === 'win32' ? 'where' : 'which', [cmd], { windowsHide: true, timeout: 5000 }, (err, out) => resolve(!err && String(out).trim() ? String(out).trim().split(/\r?\n/)[0] : ''));
   });
 }
+/**
+ * 登没登录，**问 CLI，不猜文件**。
+ *
+ * 原来是去 ~/.config/anthropic/credentials/ 底下数 json 文件，而且找的命令叫 ant。
+ * 三处全错：命令是 claude，配置在 ~/.claude，而凭据放在哪儿是它的内部实现，会变。
+ * 结果是用户明明 `loggedIn: true`，briffy 说没检测到；点「登录」也什么都不发生
+ * （找不到 ant 就直接返回了）。
+ * `claude auth status --json` 是它公开的接口，问它就完了。
+ */
 async function anthropicAccountStatus() {
   const dir = anthropicConfigDir();
+  const cli = await findClaudeCli();
   let profiles = [];
-  try { profiles = fs.readdirSync(path.join(dir, 'credentials')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)); } catch (_) { /* none */ }
-  const cli = await which('ant');
-  return { configDir: dir, profiles, hasProfile: profiles.length > 0, envKey: !!process.env.ANTHROPIC_API_KEY, envToken: !!process.env.ANTHROPIC_AUTH_TOKEN, cliInstalled: !!cli, cliPath: cli };
+  let loggedIn = false;
+  if (cli) {
+    const out = await new Promise((r) => execFile(cli, ['auth', 'status', '--json'],
+      { timeout: 8000, windowsHide: true }, (err, so) => r(err ? '' : String(so || ''))));
+    try {
+      const j = JSON.parse(out);
+      loggedIn = !!j.loggedIn;
+      if (loggedIn) profiles = [String(j.authMethod || 'claude.ai')];
+    } catch (_) { /* 版本对不上就当没登录，下面还有环境变量那两条路 */ }
+  }
+  return { configDir: dir, profiles, hasProfile: loggedIn, envKey: !!process.env.ANTHROPIC_API_KEY, envToken: !!process.env.ANTHROPIC_AUTH_TOKEN, cliInstalled: !!cli, cliPath: cli };
 }
-// Opens a terminal running `ant auth login` (the CLI stores an OAuth profile the SDK picks up automatically).
+// 开一个终端跑 `claude auth login`（登完 SDK 自己就认得，不用再回来填什么）。
 async function launchAnthropicLogin() {
-  const cli = await which('ant');
-  const command = 'ant auth login';
+  const cli = await findClaudeCli();
+  // 用找到的**全路径**，不用裸命令：终端里的 PATH 和这里未必一样，而我们已经知道它在哪儿了。
+  const command = cli ? `${cli.includes(' ') ? `'${cli}'` : cli} auth login` : 'claude auth login';
   if (!cli) return { launched: false, cliInstalled: false, command };
   try {
     if (process.platform === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', '"briffy – ant auth login"', 'cmd', '/k', command], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
+      spawn('cmd.exe', ['/c', 'start', '"briffy – claude auth login"', 'cmd', '/k', command], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
     } else if (process.platform === 'darwin') {
       spawn('osascript', ['-e', `tell application "Terminal" to do script "${command}"`, '-e', 'tell application "Terminal" to activate'], { detached: true, stdio: 'ignore' }).unref();
     } else {

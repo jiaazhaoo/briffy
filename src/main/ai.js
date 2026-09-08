@@ -20,7 +20,7 @@ function supportsEffort(model) { return !/haiku|sonnet-4-5/.test(model); }
 
 /**
  * @param {{apiKey?:string, account?:boolean}} auth  `apiKey` for a static key; `account: true` lets the SDK
- *        resolve the profile created by `ant auth login` (or ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN).
+ *        resolve the account signed in via `claude auth login` (or ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN).
  */
 function makeClient(auth = {}) {
   const opts = { timeout: 120000, maxRetries: 2 };
