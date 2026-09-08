@@ -386,12 +386,19 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .ev-row .nm { color: var(--ink); font: 600 var(--fs-title)/1.5 var(--sans); }
 .ev-row .n { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; }
 .ev-row + .ev-row, .ev-members + .ev-row { margin-top: var(--a4); }
-.ev-members { display: flex; flex-wrap: wrap; gap: var(--a1) var(--a3); padding: 0 0 var(--a2) 0; }
-.ev-m { border: 0; background: transparent; padding: 0; cursor: pointer; text-align: left;
-  font: 400 var(--fs-body)/1.6 var(--sans); color: var(--ink); max-width: 36ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ev-m.touch { color: var(--ink-3); }
-.ev-m:hover { text-decoration: underline; text-underline-offset: 3px; }
-.ev-members .tv-more { padding: 0; }
+/* 谱系图：主轴一行，支线往下垂。线是铅笔色的细线——这里的线是内容（双链的证据），不是装饰。
+   宽的在自己的框里横着滚，页面不横滚。 */
+.ev-graph { overflow-x: auto; overflow-y: hidden; padding: var(--a1) 0 var(--a3); }
+.ev-graph svg { display: block; width: auto; height: auto; }
+.ev-graph text { font-family: var(--sans); stroke: none; }   /* 顶上那条 svg 规则给图标描的边，字不要 */
+.ev-graph text.core { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.ev-graph text.touch { fill: var(--ink-3); font-size: 12px; }
+.ev-graph text.why { fill: var(--ink-3); font-size: 11px; }
+.ev-graph line { stroke: var(--ink-3); stroke-width: 1; stroke-linecap: square; }
+.ev-node { cursor: pointer; }
+.ev-node:hover text { text-decoration: underline; }
+.ev-back { padding: 0 0 var(--a3) 0; }
+.dt-events .why { color: var(--ink-3); font-size: var(--fs-meta); margin-left: -2px; }
 /* 详情里「参与」那一行：日期底下、备注上面。核心满墨半粗，沾边铅笔色 */
 .dt-events { display: flex; flex-wrap: wrap; gap: var(--a1) var(--a2); align-items: baseline; }
 .dt-events .lb { color: var(--ink-3); font-size: var(--fs-meta); }

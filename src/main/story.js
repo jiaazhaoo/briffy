@@ -313,6 +313,78 @@ function events(lists, ctx) {
   return out.sort((a, b) => b.members.filter((m) => m.tier === 'core').length - a.members.filter((m) => m.tier === 'core').length);
 }
 
+/**
+ * 一件事画成谱系：**横向一根主轴，纵向是支线，线上写着为什么连着。**
+ *
+ * 主轴是最硬的那条链（用户定的，不按时间）：从分最高的一对互近邻开始，两头各沿着最强的、
+ * 还没用过的互近邻边往外走，走到没有为止。不在主轴上的核心和沾边的，各挂在它连得最紧的
+ * 那条主轴（或已挂上的）记录底下——主轴读故事，支线读证据。
+ * 每条线带着它的理由：共用的那几个词、「同一页 · 页名」、「同一程」——就是清单里那条链接的 why。
+ *
+ * @param {{members:{id,score,tier,via}[]}} event
+ * @param {Map<string,{id,score,why}[]>} lists 每条记录的清单
+ * @returns {{spine:string[], edges:{a:string,b:string,why:object|null,score:number}[],
+ *            hang:{id:string, to:string, tier:string, why:object|null, score:number}[]}}
+ */
+function lineage(event, lists) {
+  const core = event.members.filter((m) => m.tier === 'core').map((m) => m.id);
+  const coreSet = new Set(core);
+  const link = (a, b) => (lists.get(a) || []).find((x) => x.id === b) || null;
+  // 核心之间互为前 MUTUAL_K 近邻的边，取两个方向里分高的那条当代表
+  const edges = new Map();   // "a|b" -> {a,b,why,score}
+  for (const a of core) {
+    for (const x of (lists.get(a) || []).slice(0, MUTUAL_K)) {
+      if (!coreSet.has(x.id)) continue;
+      const back = (lists.get(x.id) || []).slice(0, MUTUAL_K).find((y) => y.id === a);
+      if (!back) continue;
+      const k = a < x.id ? `${a}|${x.id}` : `${x.id}|${a}`;
+      const best = x.score >= back.score ? { a, b: x.id, why: x.why || null, score: x.score } : { a: x.id, b: a, why: back.why || null, score: back.score };
+      const had = edges.get(k);
+      if (!had || best.score > had.score) edges.set(k, best);
+    }
+  }
+  const all = [...edges.values()].sort((x, y) => y.score - x.score);
+  const spine = [];
+  const used = new Set();
+  const onSpine = new Set();
+  if (all.length) {
+    spine.push(all[0].a, all[0].b); onSpine.add(all[0].a); onSpine.add(all[0].b); used.add(all[0]);
+    // 往外走：每一步在**两头里**挑那条最强的、另一端还不在主轴上的边。
+    // 不能两头轮流各挑各的——那样头那边会先拿走一条 0.5 的，而尾那边明明有一条 0.7 的。
+    for (;;) {
+      const head = spine[0]; const tail = spine[spine.length - 1];
+      const next = all.find((e) => !used.has(e)
+        && ((e.a === head || e.b === head || e.a === tail || e.b === tail))
+        && !onSpine.has(e.a === head || e.a === tail ? e.b : e.a));
+      if (!next) break;
+      const atHead = next.a === head || next.b === head;
+      const other = (next.a === head || next.a === tail) ? next.b : next.a;
+      if (atHead) spine.unshift(other); else spine.push(other);
+      onSpine.add(other); used.add(next);
+    }
+  } else if (core.length) {
+    spine.push(core[0]); onSpine.add(core[0]);
+  }
+  const spineEdges = [];
+  for (let i = 0; i + 1 < spine.length; i++) {
+    const k = spine[i] < spine[i + 1] ? `${spine[i]}|${spine[i + 1]}` : `${spine[i + 1]}|${spine[i]}`;
+    const e = edges.get(k);
+    spineEdges.push({ a: spine[i], b: spine[i + 1], why: e ? e.why : null, score: e ? e.score : 0 });
+  }
+  // 剩下的挂上去：先核心后沾边，各挂在它清单里分最高的、已经在图上的那条底下
+  const placed = new Set(spine);
+  const hang = [];
+  const rest = event.members.filter((m) => !placed.has(m.id))
+    .sort((x, y) => (x.tier === y.tier ? y.score - x.score : x.tier === 'core' ? -1 : 1));
+  for (const m of rest) {
+    const to = (lists.get(m.id) || []).find((x) => placed.has(x.id));
+    if (!to) continue;
+    hang.push({ id: m.id, to: to.id, tier: m.tier, why: to.why || null, score: to.score });
+    placed.add(m.id);
+  }
+  return { spine, edges: spineEdges, hang };
+}
+
 /** 一条记录在哪几件事里，各占多少分量。 */
 function eventsOf(id, list) {
   const me = String(id || '');
@@ -324,4 +396,4 @@ function eventsOf(id, list) {
   return out.sort((a, b) => (a.tier === b.tier ? b.score - a.score : a.tier === 'core' ? -1 : 1));
 }
 
-module.exports = { grow, events, eventsOf, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };
+module.exports = { grow, events, eventsOf, lineage, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };
