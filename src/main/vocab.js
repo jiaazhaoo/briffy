@@ -33,6 +33,14 @@ const { segment } = require('./segment');
 // 一条记录一次最多抽这么多词写进表。**比 entity.PER_RECORD 宽**：那个是「挂几个」，
 // 是排序问题，该在查的时候定；这里是「存几个」。存窄了，以后改一次排序规则就得重扫全库。
 const STORE_MAX = 60;
+// 抽词规则的版本。**改了 entity.js 的规则就改这个数**，否则已经抽过的记录永远带着旧词：
+// 2026-09-08 把文件大小（1.1gb）从证据里去掉之后，「Find parking」照样经 1.1gb 连着「Ollama 地址」，
+// 因为那两条的词是改规则之前抽的，voc_done 记着「做过了」。版本对不上就把 voc_done 清掉，
+// 后台那个循环会一条条重抽——和向量换模型自动重建是同一个道理，只是向量把模型名算进了指纹。
+const RULES = 3;
+// 包含式别名（staines-upon-thames ⊃ thames）里，长的那个得是复合词——带连字符、空格或数字。
+// 否则英文的词形变化全成了别名（visitors ⊃ visit），和 links.js 里那条同一个规矩。
+const compound = (t) => /[a-z]/.test(t) && /[^a-z]/.test(t);
 
 /**
  * 甲：这一天里能收集到的抬头词和地名。不碰正文，只切抬头 + 邮编附近。
@@ -63,6 +71,10 @@ function collect(index, entries) {
 function fill(index, getEntry, { budgetMs = 800, batch = 60 } = {}) {
   const t0 = Date.now();
   let n = 0;
+  if (String(index.get('vocabRules') || '') !== String(RULES)) {
+    index.forgetVocab();
+    index.set('vocabRules', String(RULES));
+  }
   const titled = index.titledSet();
   const places = index.placeSet();
   for (;;) {
@@ -140,8 +152,8 @@ function aliasFor(index, keys, text) {
     for (const r of all) {
       const tr = String(r.text || '').toLowerCase();
       if (tr === tk) continue;
-      if (tk.length >= 8 && /[a-z]/.test(tk) && tr.length >= 4 && tk.includes(tr)) link(k, r.key);
-      else if (tr.length >= 8 && /[a-z]/.test(tr) && tk.length >= 4 && tr.includes(tk)) link(k, r.key);
+      if (tk.length >= 8 && compound(tk) && tr.length >= 4 && tk.includes(tr)) link(k, r.key);
+      else if (tr.length >= 8 && compound(tr) && tk.length >= 4 && tr.includes(tk)) link(k, r.key);
     }
   }
   return alias;
@@ -184,7 +196,7 @@ function settle(index, { budgetMs = 800, batch = 100, keep = 20 } = {}) {
  * 只实现 get/has：evidenceFor、story.nameOf、ask.namesIn 只用这两个。
  * @returns {{post:Map, df:Map, words:Map, text:Map, kind:Map, alias:Map}}
  */
-function lazyView(index, { maxDf = 30, minDf = 2, keep = 20 } = {}) {
+function lazyView(index, { maxDf = 30, minDf = 2, keep = 20, ok = null } = {}) {
   const text = new Map();
   const kind = new Map();
   const dfC = new Map();
@@ -193,26 +205,35 @@ function lazyView(index, { maxDf = 30, minDf = 2, keep = 20 } = {}) {
   const aliasC = new Map();
   let allWords = null;     // 模糊配对要整张词表，但只在真的用到时取一次
 
+  // ok：哪些记录算材料。给了它，不是材料的记录既不出词、也不进任何倒排，df 也只数材料。
+  //
+  // df 必须跟着倒排一起过滤，不能只滤倒排。briffy 自己的截图上正好显示着你的十几条记录，
+  // 于是你每一条的标题词它都占——df 被系统性地抬高，抬的正是那些本该最罕见的词：
+  // 「dell」实际 4 条，算上倒影 9 条；一个真正罕见的词被抬过 EV_NEEDDF 就不再算证据。
+  const postOf = (k) => {
+    if (!postC.has(k)) {
+      const list = index.vocabPost([k], { keep }).get(k) || [];
+      postC.set(k, ok ? list.filter(ok) : list);
+    }
+    return postC.get(k);
+  };
   const dfOf = (k) => {
-    if (!dfC.has(k)) dfC.set(k, index.vocabDf([k], { keep }).get(k) || 0);
+    if (!dfC.has(k)) dfC.set(k, ok ? postOf(k).length : (index.vocabDf([k], { keep }).get(k) || 0));
     return dfC.get(k);
   };
   const wordsOf = (id) => {
     if (wordsC.has(id)) return wordsC.get(id);
+    if (ok && !ok(id)) { wordsC.set(id, new Set()); return wordsC.get(id); }
     const rows = index.vocabOf(id);                       // 已按 rank 排好
     for (const r of rows) { text.set(r.key, r.text); kind.set(r.key, r.kind); }
     const keys = rows.slice(0, keep).map((r) => r.key);
     // 全库门槛在这儿兑现，不在存的时候——df 会变，而重扫全库很贵
-    const dfs = index.vocabDf(keys, { keep });
+    const dfs = ok ? new Map(keys.map((k) => [k, postOf(k).length])) : index.vocabDf(keys, { keep });
     for (const [k, n] of dfs) dfC.set(k, n);
     for (const k of keys) if (!dfC.has(k)) dfC.set(k, 0);
     const out = new Set(keys.filter((k) => { const n = dfC.get(k) || 0; return n >= minDf && n <= maxDf; }));
     wordsC.set(id, out);
     return out;
-  };
-  const postOf = (k) => {
-    if (!postC.has(k)) postC.set(k, index.vocabPost([k], { keep }).get(k) || []);
-    return postC.get(k);
   };
   const aliasOf = (k) => {
     if (aliasC.has(k)) return aliasC.get(k);
@@ -223,8 +244,8 @@ function lazyView(index, { maxDf = 30, minDf = 2, keep = 20 } = {}) {
       for (const r of allWords) {
         const tr = String(r.text || '').toLowerCase();
         if (tr === tk) continue;
-        if ((tk.length >= 8 && /[a-z]/.test(tk) && tr.length >= 4 && tk.includes(tr))
-          || (tr.length >= 8 && /[a-z]/.test(tr) && tk.length >= 4 && tr.includes(tk))) out.add(r.key);
+        if ((tk.length >= 8 && compound(tk) && tr.length >= 4 && tk.includes(tr))
+          || (tr.length >= 8 && compound(tr) && tk.length >= 4 && tr.includes(tk))) out.add(r.key);
       }
     }
     aliasC.set(k, out);
@@ -322,4 +343,4 @@ function pageGraph(index, opts = {}) {
   };
 }
 
-module.exports = { harvest, collect, fill, settle, viewFor, lazyView, aliasFor, collectPages, linksOfDb, pageGraph, STORE_MAX };
+module.exports = { harvest, collect, fill, settle, viewFor, lazyView, aliasFor, collectPages, linksOfDb, pageGraph, STORE_MAX, RULES };

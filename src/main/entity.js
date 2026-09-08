@@ -39,7 +39,9 @@ const PATTERNS = [
   ['date', /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\b/gi, (m) => m.replace(/\s+/g, ' ')],
   ['date', /\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/g, (m) => m.replace(/\s+/g, '')],
   // 距离和钱：50km、100km、£139、£10
-  ['qty', /\b\d+(?:\.\d+)?\s?(?:km|mi|miles|kg|gb|mb)\b/gi, (m) => m.replace(/\s+/g, '').toLowerCase()],
+  // 文件大小（1.1gb、818mb）不算：那是下载框里的数字，不是你存这条记录的理由。实测它把
+  // 「Find parking」和「Ollama 地址」连在了一起——两张不相干的截图上各有一个 1.1gb。
+  ['qty', /\b\d+(?:\.\d+)?\s?(?:km|mi|miles|kg)\b/gi, (m) => m.replace(/\s+/g, '').toLowerCase()],
   ['qty', /[£$€¥]\s?\d+(?:[.,]\d+)?/g, (m) => m.replace(/\s+/g, '')],
 ];
 
@@ -52,7 +54,10 @@ const CHROME = new Set(('privacy policy terms statement cookie cookies settings 
   + 'transactions payment methods profile preferences available select submit continue next previous close '
   + 'download upload share copy edit delete cancel confirm accept decline agree back forward loading error '
   + 'company careers press blog news events legal notice disclaimer copyright reserved rights inc ltd '
-  + 'experience experiences levels challenges min max fee fees total subtotal').split(/\s+/));
+  + 'experience experiences levels challenges min max fee fees total subtotal '
+  // google / maps：地图截图的 OCR 里每一张都有（水印和标题栏），实测「Maps·Google」把
+  // 「Runnymede」连到了「Ok. Ill be home in half an hour」。它们说的是你用了哪个软件，不是内容。
+  + 'google maps').split(/\s+/));
 // briffy 自己的标题词说的是格式不是内容；站点后缀说的是你在哪个站
 const LABEL = new Set(['语音', '截图', '剪贴板', '剪贴板图片', '图片', 'screenshot', 'clipboard', 'audio', 'voice']);
 const STOP = new Set(('the a an and or of to in on at for with from by is are was were be been am this that these those '
@@ -68,6 +73,10 @@ const STOP = new Set(('the a an and or of to in on at for with from by is are wa
   + '出来 进来 起来 下去 必须 应该 需要 可能 也许 大概 为什么 怎么 怎样 多少 哪个 哪些 所有 每个 '
   + '觉得 知道 认为 时候 现在 以后 之前 之后 而且 并且 或者 然后 于是 虽然 尽管 不过 只是 还有 '
   + '一下 一点 一些 有些 那些 这些 这么 那么 非常 特别 真的 确实 其实 当然 反正 到底').split(/\s+/));
+// 2026-09-08 从双链的清单上捡回来的几个（dev/backlinks-bench.js）：「不是·不到」把「Dell ultrawide」
+// 连到「不是。新记录应该是分钟级」，「谁是」把「Runnymede」连到一张哔哩哔哩首页。它们能进来是因为
+// 有人拿它们写过标题（那条规则本身是对的）——但虚词就是虚词，写进标题也不变成名字。
+for (const w of '不是 不到 不会 不能 不要 不用 谁是 这是 那是 就是 还是 也是 都是 只是 或是 可是 但是 而是 已经 应该 可以 没有 什么 怎么 这样 那样 这个 那个 这些 那些 我们 你们 他们 自己 现在 然后 因为 所以 如果 虽然 其实 还有 只有 而且 以及 或者'.split(' ')) STOP.add(w);
 
 /** 一条记录的抬头（标题 + 窗口标题 + 网址）。 */
 function headOf(entry) {
@@ -108,7 +117,9 @@ function of(entry, body, titled, places) {
     if (!t.wordLike) continue;
     const w = String(t.w);
     const low = w.toLowerCase();
-    if (low.length < 2 || /^\d+$/.test(low) || STOP.has(low) || LABEL.has(low) || low.startsWith('_')) continue;
+    // 没有一个字母的不是名字：1.1、3.5、10:48。以前只挡纯数字，「1.1」（1.1gb 剩下的那一截）
+    // 就当成了词，把「Find parking」和「Ollama 地址」连在一起——两张截图的下载框里各有一个 1.1。
+    if (low.length < 2 || !/\p{L}/u.test(low) || STOP.has(low) || LABEL.has(low) || low.startsWith('_')) continue;
     if (CJK_RE.test(low)) {
       // 只在正文里出现的两字中文词太廉价（「了一」甚至不是词，是「当了一大批」切出来的），
       // 除非这个工作区里有谁把它写在过标题上

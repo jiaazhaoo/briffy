@@ -149,7 +149,58 @@ function readDay(k) {
 let evIdx = null;
 
 function learnFurniture() {
-  if (!evIdx) evIdx = vocab.lazyView(index);
+  if (evIdx) return;
+  // 图里的节点得是材料（junkRecord）。判过的记住——一次扩散要问几百次。
+  // 家具那张表不在这儿取：它是后台慢慢学的，这会儿可能还没有；每条记录第一次被问到时再取。
+  //
+  // 节点比答案材料**更严一档**：一张画面里有 briffy 的截图（mirror.showsSelf）也不当节点。
+  // 它上面显示着你的十几条记录，和那十几条每一条都共用一个词，于是它连着的是屏幕上碰巧
+  // 显示的东西，不是它自己说的东西——实测图里清单最长的五条全是它。只对图片这么严：
+  // 一条记事里抄着 briffy 的设置页是你写的，里面有你要的东西，它当材料、也当节点。
+  // 以前问过的话（被复制回工作区的那几条）也不当节点：它们是问题，不是材料，却和那件事的
+  // 每条记录都共用词。实测一条清单十三个格子里它们占三四个，把两跳才够得到的真货挤了出去。
+  const echoed = echoFilter([]);
+  const memo = new Map();
+  const ok = (id) => {
+    if (!memo.has(id)) {
+      const e = store.getEntry(id);
+      const picture = !!e && (e.type === 'screenshot' || e.type === 'image');
+      memo.set(id, !junkRecord(e, boilerplate.furniture()) && !(picture && mirror.showsSelf(e.text)) && !echoed(id));
+    }
+    return memo.get(id);
+  };
+  evIdx = vocab.lazyView(index, { ok });
+  evIdx.ok = ok;
+}
+
+// ── 家具表
+//
+// boilerplate.js 顶上那句「谁手上有记录谁来喂（ask.refresh）」——**从来没人喂过**。应用里
+// furniture() 一直是 null：剥家具只剩「成串短行」那一条规则，「整条都是家具」的记录
+// （English (Great Britain) ×3，一个语言选择条）照样当材料、当节点，而台子上（dev/*-bench）
+// 各自 bp.learn 了一份，量的是一个应用根本没在跑的系统。
+//
+// 喂法和补向量、抽词同一个形状：限时、可中断、下次接着做。一天一天读，行数计进一张 Map，
+// 读完收成家具表。不存盘——它是启动后台的一次活儿，两百条是毫秒，二十万条是几秒的后台读盘。
+let furnDf = null;
+let furnAt = 0;
+
+/** 家具表喂一步。@returns {{done:boolean, days:number}} */
+function feedFurniture({ budgetMs = 600 } = {}) {
+  let days = [];
+  try { days = fs.readdirSync(entriesDir()).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort(); } catch (_) { days = []; }
+  if (!furnDf) { furnDf = new Map(); furnAt = 0; }
+  const t0 = Date.now();
+  while (furnAt < days.length && Date.now() - t0 < budgetMs) {
+    const list = readDay(days[furnAt++]);
+    boilerplate.count((list || []).map((e) => String(e.text || '')), furnDf);
+  }
+  if (furnAt < days.length) return { done: false, days: furnAt };
+  boilerplate.loadFrom(furnDf);
+  furnDf = null;
+  // 节点判据变了（家具表从无到有），词表视图和图都重来
+  evIdx = null; ctxCache = null;
+  return { done: true, days: furnAt };
 }
 
 /**
@@ -175,6 +226,7 @@ function storyCtx() {
   ctxCache = {
     g: vocab.pageGraph(index),
     ev: evIdx,
+    ok: evIdx.ok,
     near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
   };
   return ctxCache;
@@ -351,6 +403,33 @@ function echoFilter(questions) {
  * 占掉的却是三个格子。
  * @returns {(id:string)=>boolean}
  */
+/**
+ * 这条记录**本身**是不是材料。纯函数，只看这一条，不看别的记录——跨记录的去重在 junkFilter 里。
+ *
+ * 三种不是材料的：
+ *   · briffy 拍到了自己：正文整个是 briffy 的界面文案（mirror.js）。对任何问题都不是答案，
+ *     可它短、干净、离哪儿都不远，实测十个探针里六个的头几名有它。
+ *   · 说不出任何一件事的：识别糊了，剩下一堆数字和单个字母。
+ *   · 整条都是网页家具的：「English (Great Britain)」，一个语言选择条被复制过好几回。
+ *
+ * 「问」那条路和搜索框用它挑材料；**图也用它挑节点**——这一点是后补的，代价量出来过：
+ * 图里清单最长的五条全是 briffy 自己的截图。一张截图上正好显示着你的十几条记录，于是它
+ * 和那十几条每一条都共用一个词，成了枢纽；「Dell ultrawide monitor」的八条相关里五条是它。
+ */
+function junkRecord(e, fur) {
+  if (!e) return true;
+  const text = String(e.text || '');
+  const t = `${e.title || ''} ${text}`.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!t) return true;
+  if (mirror.isMirror(text)) return true;
+  if ((text.match(/\p{L}/gu) || []).length < THIN) return true;
+  if (fur && t.length <= JUNK_MAX) {
+    const lines = text.split('\n').map((x) => boilerplate.key(x)).filter(Boolean);
+    if (lines.length && lines.every((x) => fur.has(x))) return true;
+  }
+  return false;
+}
+
 function junkFilter() {
   const fur = boilerplate.furniture();
   const body = new Map();     // 正文 -> 第一个占住它的 id
@@ -368,15 +447,7 @@ function junkFilter() {
     // 「Runnymede」那一路上是第一名，却因为前面某一路先碰过它，在自己那一路上被滤没了。
     const owner = body.get(t);
     if (owner !== undefined && owner !== id) return say(true);
-    // briffy 拍到了自己：正文整个是 briffy 的界面文案（mirror.js）。这种记录对任何问题都不是
-    // 答案，可它短、干净、离哪儿都不远，实测十个探针里六个的头几名有它。
-    if (mirror.isMirror(e.text)) return say(true);
-    // 说不出任何一件事的：识别糊了，剩下一堆数字和单个字母。
-    if (((String(e.text || '').match(/\p{L}/gu) || []).length) < THIN) return say(true);
-    if (fur && t.length <= JUNK_MAX) {
-      const lines = String(e.text || '').split('\n').map((x) => boilerplate.key(x)).filter(Boolean);
-      if (lines.length && lines.every((x) => fur.has(x))) return say(true);
-    }
+    if (junkRecord(e, fur)) return say(true);
     body.set(t, id);
     return say(false);
   };
@@ -422,7 +493,10 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   // onDay：建一天索引的时候顺手把这一天的抬头词和地名收进表里（vocab 的甲那一遍）。
   // 这是唯一一处天然「一天只读一次」的地方，搁在别处就得再把全库读一遍。
   const r = index.sync({ dir: entriesDir(), loadDay: readDay, onDay: (_k, list) => { vocab.collect(index, list); vocab.collectPages(index, list); } }, { budgetMs });
-  if (r && r.days) ctxCache = null;   // 有天被重建过，图跟着重算；没动就接着用上一份
+  // 有天被重建过，图跟着重算；没动就接着用上一份。
+  // **词表视图也得跟着丢**：它按词缓存倒排，新记录抽出的词进不了已经缓存过的那些倒排——
+  // 于是一条新记录在别人的「相关」里永远不出现，直到重启。「自动」双链自动不起来，就是这个。
+  if (r && r.days) { ctxCache = null; evIdx = null; }
   return r;
 }
 
@@ -455,6 +529,14 @@ function warm() {
     let r;
     try { r = refresh({ budgetMs: 1500 }); } catch (e) { console.warn('[ask] 索引建不起来', e.message); return; }
     if (!r.done) { setTimeout(step, 800); return; }   // 留出空档，别把启动那几秒占满
+    setTimeout(fillFurniture, 800);
+  };
+  // 家具表排在向量前面：chunk.textOf 剥家具之后才算向量，指纹里含着剥过的正文——
+  // 反过来的话向量先按没剥的算一遍，家具表一到又全部作废重算。
+  const fillFurniture = () => {
+    let r;
+    try { r = feedFurniture({ budgetMs: 600 }); } catch (e) { console.warn('[ask] 家具表学不了：', e.message || e); setTimeout(fillVectors, 800); return; }
+    if (!r.done) { setTimeout(fillFurniture, 400); return; }
     setTimeout(fillVectors, 800);
   };
   // 抽词和定次序：限时、可中断、下次接着做，和补向量同一个形状——要解的是同一个问题，
@@ -730,15 +812,34 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
  * 它是被哪条边、哪一对词放进来的。左边写理由，右边写标题。
  * @returns {{related:{id:string, score:number, why:object}[]}}
  */
+// 详情页底下那条清单最多这么几条。长的时候多长一些**再并副本、再截**：同一页存过三次的副本
+// 要并成一条——实测「Ultra Challenge」的十三个格子里七个是副本（English (Great Britain) ×3、
+// Ultra Challenge ×2、Ultra March reddit ×2），两跳才够得到的 Bishops Park 排在后面被截掉。
+const LINKS_MAX = 13;
+const LINKS_GROW = 40;
+// 副本的判据是正文，不是页面图：页面图里一条摘录和它来自的那一页共用一个 key，按它并会把
+// 「这条是从哪一页摘的」那条最值钱的边并没了。同一次存下来的两份，正文开头一字不差。
+const SAME_HEAD = 240;
+function sameKey(id) {
+  const e = store.getEntry(id);
+  if (!e) return '';
+  return `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, SAME_HEAD);
+}
+
 function linksOf(id) {
   const me = String(id || '');
   try {
-    const s = story.grow(me, storyCtx(), { max: 14 });
-    return {
-      related: s.members
-        .filter((m) => m.id !== me)
-        .map((m) => ({ id: m.id, score: m.score, why: m.via || null })),
-    };
+    const s = story.grow(me, storyCtx(), { max: LINKS_GROW });
+    const seen = new Set([sameKey(me)].filter(Boolean));   // 种子自己的副本也不用列
+    const related = [];
+    for (const m of s.members) {
+      if (m.id === me) continue;
+      const k = sameKey(m.id);
+      if (k) { if (seen.has(k)) continue; seen.add(k); }
+      related.push({ id: m.id, score: m.score, why: m.via || null });
+      if (related.length >= LINKS_MAX) break;
+    }
+    return { related };
   } catch (_) { return { related: [] }; }
 }
 
@@ -748,4 +849,4 @@ function relatedTo(id) {
   try { return vector.related(index, String(id || '')); } catch (_) { return []; }
 }
 
-module.exports = { init, run, near, warm, refresh, relatedTo, linksOf, evidenceOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, feedFurniture, junkRecord, relatedTo, linksOf, evidenceOf, MAX_ITEMS };

@@ -78,8 +78,17 @@ function menuRuns(lines, { run = RUN } = {}) {
  * @param {{across?:number}} [opts]
  * @returns {Set<string>} 行的归一化形式
  */
-function learn(texts, { across = ACROSS } = {}) {
-  const df = new Map();
+function learn(texts, opts) {
+  return finish(count(texts, new Map()), opts);
+}
+
+/**
+ * 学的前半段：把这几条记录的行计进 df。可以一天一天喂——ask.feedFurniture 就是这么喂的，
+ * 整个工作区不必同时在内存里。
+ * @param {string[]} texts
+ * @param {Map<string,number>} df 行 -> 出现在几条记录里
+ */
+function count(texts, df) {
   for (const t of texts || []) {
     const seen = new Set();
     for (const line of String(t || '').split('\n')) {
@@ -89,6 +98,11 @@ function learn(texts, { across = ACROSS } = {}) {
     }
     for (const k of seen) df.set(k, (df.get(k) || 0) + 1);
   }
+  return df;
+}
+
+/** 学的后半段：从计好的 df 里收出家具表。 */
+function finish(df, { across = ACROSS } = {}) {
   const out = new Set();
   // 一个字符、纯数字、纯标点的行不算家具：它们到处都是，但剥掉它们什么也没解决，
   // 反而会把「6 页」「£139」这种内容里的数字连坐。
@@ -152,6 +166,8 @@ function textOf(entry, furniture) {
 // 它不需要别的记录作证，照样管用。
 let learned = null;
 function load(texts) { learned = learn(texts); return learned; }
+/** 一天一天 count 出来的 df，在这儿收成家具表并装上。 */
+function loadFrom(df, opts) { learned = finish(df, opts); return learned; }
 function furniture() { return learned; }
 
-module.exports = { learn, load, furniture, strip, textOf, key, menuish, menuRuns, ACROSS, WITHIN, KEEP_LONG, RUN, MIN_LINES, KEEP_MIN };
+module.exports = { learn, count, finish, load, loadFrom, furniture, strip, textOf, key, menuish, menuRuns, ACROSS, WITHIN, KEEP_LONG, RUN, MIN_LINES, KEEP_MIN };

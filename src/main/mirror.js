@@ -140,7 +140,36 @@ function isMirror(text) {
   return total > 0 && n / total >= MIN_COVER;
 }
 
+/**
+ * 画面里有 briffy 的界面——不是「整条都是界面」，是「界面在画面里」。
+ *
+ * 一张 briffy 的列表截图上正好显示着你的十几条记录：它的正文大半是那十几条的字，界面文案只占
+ * 一两成，isMirror 判不出来（实测覆盖率 7%~19%）。可它撞上的**不同**界面短语有三到十三条，
+ * 而任何不是 briffy 的画面一条也撞不上（Ultra Challenge 那页、grok-icon、赛程那页全是 0；
+ * 最多的是一条语音记录的详情页被复制成记事，2 条）。
+ *
+ * 数的是**不互相包含**的短语：「搜索标题/文字/画面内容」里含着「画面内容」，那是一条不是两条。
+ * 不去嵌套的话计数虚高一截，门槛就得定在一个碰巧的数上。
+ *
+ * 这个判据**只该用在图片上**（调用方管）：一条记事里抄着 briffy 的设置页（「Ollama 地址」，
+ * 撞 9 条）是你写的，不是拍的，里面有你要的东西。
+ *
+ * 用在哪：图的节点。一张显示着十几条记录的截图，和那十几条每一条都共用一个词，于是它成了
+ * 枢纽——实测清单最长的五条全是它。它作为答案材料倒无妨（isMirror 管那个），作为节点不行。
+ */
+const SELF_HITS = 3;
+
+function showsSelf(text) {
+  const raw = String(text || '').replace(/\s+/g, '').toLowerCase();
+  if (!raw) return false;
+  const got = [];
+  for (const p of phrases()) if (raw.includes(p)) got.push(p);
+  if (got.length < SELF_HITS) return false;
+  const outer = got.filter((p) => !got.some((q) => q !== p && q.includes(p)));
+  return outer.length >= SELF_HITS;
+}
+
 /** 测试用：把缓存丢掉。 */
 function forget() { cache = null; }
 
-module.exports = { isMirror, phrases, forget, MIN_HITS, MIN_COVER, MIN_CJK, MIN_LATIN };
+module.exports = { isMirror, showsSelf, phrases, forget, MIN_HITS, MIN_COVER, MIN_CJK, MIN_LATIN, SELF_HITS };
