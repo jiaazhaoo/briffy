@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('ws', {
   searchNear: (q, exclude) => ipcRenderer.invoke('ws:search-near', q, exclude),
   related: invoke('ws:related'),
   links: invoke('ws:links'),          // 和这一条有关的记录，按远近排好，每条带着理由
+  events: invoke('ws:events'),        // 整理出来的那几件事，每件带成员和成员的分量
+  eventsOf: invoke('ws:events-of'),   // 这一条在哪几件事里
   chats: invoke('ws:chats'),
   chat: invoke('ws:chat'),
   chatAppend: invoke('ws:chat-append'),

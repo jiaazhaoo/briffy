@@ -378,6 +378,27 @@ body:not([data-tab="entries"]) .axis { display: none; }
   padding: var(--a3) 0; cursor: pointer; }
 .tv-more:hover { color: var(--ink); }
 
+/* 事件：软件从链上整理出来的那几件事。一件一行——名字满墨半粗、几条铅笔色——点开摊出成员，
+   成员是一片并排的词（和筛选托盘同一种说法）。核心成员满墨，沾边的铅笔色：
+   强度用墨说，不画条、不写数。没有框、没有线。 */
+.ev .lv-rows { grid-column: 1 / -1; }
+.ev-row { display: flex; align-items: baseline; gap: var(--a3); padding: var(--a2) 0; cursor: pointer; }
+.ev-row .nm { color: var(--ink); font: 600 var(--fs-title)/1.5 var(--sans); }
+.ev-row .n { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; }
+.ev-row + .ev-row, .ev-members + .ev-row { margin-top: var(--a4); }
+.ev-members { display: flex; flex-wrap: wrap; gap: var(--a1) var(--a3); padding: 0 0 var(--a2) 0; }
+.ev-m { border: 0; background: transparent; padding: 0; cursor: pointer; text-align: left;
+  font: 400 var(--fs-body)/1.6 var(--sans); color: var(--ink); max-width: 36ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-m.touch { color: var(--ink-3); }
+.ev-m:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ev-members .tv-more { padding: 0; }
+/* 详情里「参与」那一行：日期底下、备注上面。核心满墨半粗，沾边铅笔色 */
+.dt-events { display: flex; flex-wrap: wrap; gap: var(--a1) var(--a2); align-items: baseline; }
+.dt-events .lb { color: var(--ink-3); font-size: var(--fs-meta); }
+.ev-tag { border: 0; background: transparent; padding: 0; cursor: pointer; font: 600 var(--fs-act)/1.5 var(--sans); color: var(--ink); }
+.ev-tag.touch { font-weight: 400; color: var(--ink-3); }
+.ev-tag:hover { text-decoration: underline; text-underline-offset: 3px; }
+
 .lv-rows { overflow: auto; padding: 0 var(--a3) 92px calc(var(--pad) - 12px); scrollbar-width: none; }
 .lv-rows::-webkit-scrollbar, .lv-prev::-webkit-scrollbar { width: 0; height: 0; }
 /* 日期抬头不显示——哪一天由右边的时间轴说。和 .jg-day 同一条规矩：

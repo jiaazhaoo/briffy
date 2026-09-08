@@ -1211,6 +1211,13 @@ function setupIpc() {
       .map((x) => ({ score: x.score, why: x.why, entry: publicEntry(store.getEntry(x.id)) }))
       .filter((x) => x.entry),
   }));
+  // 软件从链上整理出来的那几件事，和「这一条在哪几件里、占多少分量」。
+  // 整理是后台的活（warm 里排在词表之后），没做完就是空的——界面上什么也不显示，不催。
+  ipcMain.handle('ws:events', () => ask.events().map((e) => ({
+    id: e.id, name: e.name,
+    members: e.members.map((m) => ({ score: m.score, tier: m.tier, entry: publicEntry(store.getEntry(m.id)) })).filter((m) => m.entry),
+  })));
+  ipcMain.handle('ws:events-of', (_e, id) => ask.eventsOf(id));
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());
