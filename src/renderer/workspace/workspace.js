@@ -815,20 +815,29 @@
     return rows;
   }
 
+  // 卡片上不写时间。
+  //
+  // 时间在卡片上说不了什么——网格本来就按天分段、按小时打标（「23:00 6条」），一张卡片
+  // 待在哪儿就已经说了它是什么时候的。而它占掉的正是那一行唯一的位置：**名字**。
+  // 「截图 22:46」这种卡片你看着不知道是什么东西，就是因为那一行写的是时间戳不是名字。
+  //
+  // 所以：**卡片自己说不出名字的（截图、录音、剪贴板图片），那一行给标题**；
+  // 本来就以正文开头的（随手记、剪贴板文字、收藏），正文就是它的名字，去掉时间即可——
+  // 再放一遍标题是重复，因为标题正是从那段正文里来的。
   function tileMarkup(e) {
     const kind = cardKind(e);
-    const time = esc(fmtTime(e.createdAt));
+    const name = esc(cardTitle(e));
     const mark = `${e.pinned ? '<span class="jg-pin"></span>' : ''}${statusPill(e)}`;
 
-    // 截图 / 图片 —— 一张拍立得：白边包着画面，底边更宽，时间写在那道宽边上
+    // 截图 / 图片 —— 一张拍立得：白边包着画面，底边更宽，名字写在那道宽边上
     if (kind === 'shot') {
       return `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
-        + `<span class="cap">${time}</span>${mark}`;
+        + `<span class="cap">${name}</span>${mark}`;
     }
-    // 录音 —— 一条磁带：没有标题，底边一整条是磁粉，转写只留一行压在时间后面
+    // 录音 —— 一条磁带：名字在顶上，底边一整条是磁粉，转写压在中间
     if (kind === 'voice') {
       const said = clipText(cardText(e) || cardTitle(e), 400);
-      return `<div class="lab"><span class="tm">${time}</span></div>`
+      return `<div class="lab"><span class="nm">${name}</span></div>`
         + `<div class="said">${esc(said)}</div><div class="tape"></div>`
         + `<span class="dur">${esc(fmtDuration(e.durationSec))}</span>${mark}`;
     }
@@ -836,24 +845,26 @@
     if (kind === 'mark') {
       let host = '';
       if (e.url) { try { host = new URL(e.url).host; } catch (_) { host = ''; } }
-      return `<span class="ribbon"></span><div class="lab"><span class="tm">${time}</span></div>`
+      return `<span class="ribbon"></span>`
         + `<div class="ttl">${esc(cardTitle(e))}</div>${host ? `<div class="host">${esc(host)}</div>` : ''}${mark}`;
     }
-    // 随手记 —— 一张便利贴：你的话在最上面，字更大；时间退到最下角；右下角折起
+    // 随手记 —— 一张便利贴：你的话在最上面，字更大；右下角折起
     if (kind === 'note') {
       return `<div class="said">${esc(clipText(cardText(e) || cardTitle(e), 400))}</div>`
-        + `<div class="lab"><span class="tm">${time}</span></div><span class="fold"></span>${mark}`;
+        + `<span class="fold"></span>${mark}`;
     }
     // 剪贴板 —— 一片撕下来的纸：原文加引号，底下写从哪个应用来
     if (kind === 'clip') {
       const where = ctxShort(e);
-      // 复制来的要是一张图，那就把图嵌在这片纸里——纸边留着，时间和来源还写在纸上
-      const body = isPicture(e)
+      // 复制来的要是一张图，那就把图嵌在这片纸里。图说不出自己叫什么，所以底边那行给名字，
+      // 「来自哪个应用」让位——它在详情页里还在，而这一行只够写一样东西。
+      const pic = isPicture(e);
+      const body = pic
         ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
         : `<div class="b"><div class="bb">${esc(clipText(cardText(e) || cardTitle(e), 300))}</div></div>`;
-      return body
-        + `<div class="lab"><span class="tm">${time}</span></div>`
-        + `${where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : ''}${mark}`;
+      const foot = pic ? `<div class="from">${name}</div>`
+        : (where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : '');
+      return `${body}${foot}${mark}`;
     }
     // 别的（文件、网页里拿来的东西）：还是那张白便签
     const more = cardExcerpt(e);
@@ -861,7 +872,7 @@
     if (e.url) { try { host = new URL(e.url).host; } catch (_) { host = ''; } }
     const body = `<b>${esc(cardTitle(e))}</b>${host ? `\n<span class="host">${esc(host)}</span>` : ''}`
       + `${more ? `\n${esc(clipText(more, 300))}` : (!host && (e.path || e.url) ? `\n<span class="host">${esc(e.path || e.url)}</span>` : '')}`;
-    return `<div class="jg-txt"><div class="k"><span>${time}</span>${mark}</div>`
+    return `<div class="jg-txt">${mark ? `<div class="k">${mark}</div>` : ''}`
       + `<div class="b"><div class="bb">${body}</div></div></div>`;
   }
   const fmtDuration = (s) => {
