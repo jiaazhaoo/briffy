@@ -56,6 +56,29 @@ const VEC_MIN = 0.50;
 // 「同一段操作」里可能有几十条，全放进来就把搜索结果变成了那一小时的流水账。
 const CHAIN_SEED = 3;
 const CHAIN_HOP = 4;
+// 词面空手的时候，拿向量猜的那几条当**线索**：从它们身上挑几个有指向性的词，再走一遍精确匹配。
+// 这是 IR 里的伪相关反馈（Rocchio/RM3），不是新东西。
+//
+// 为什么这样绕一圈：这个模型跨语言的对齐在句子那一层，不在词那一层（量在 dev/search-near-bench.js
+// 顶上）——「停车 ↔ parking」0.485，而「停车 ↔ 抓紧」0.901。所以直接拿它的名次当答案不行，
+// 噪声和真货混在同一个分数带里。但它**只要在前几名里蒙对一次**就够了：那一条身上写着 parking、
+// Buckingham、TW18，这些词交给 FTS5 是精确的活儿。蒙错的那些种子贡献的词在词面上什么也找不到，
+// 自己就死了——所以这条腿的错误是安静的。
+const RF_SEED = 5;     // 拿前几条当线索
+const RF_TEXT = 400;   // 每条只看开头这么多字，够挑词了
+const RF_WORDS = 3;    // 最多挑这么几个词
+const RF_HITS = 3;     // 每个词最多带回来这么几条
+// 一个词要在**几条种子里同时出现**才算数。
+//
+// **按 df 从小到大挑是错的，我第一版就这么写的**：一条记录里最罕见的词几乎总是 hapax——
+// 案件编号 9586726235593、OCR 出来的 mr、rd、town。「停车」那五条种子里 Find parking 和
+// Parking space 都在，可挑出来的三个词一个有用的都没有。
+// 「在几条种子里都出现」才是要的那个判据（RM3 就是这么做的）：parking 在三条种子里都有。
+const RF_MIN_SEEDS = 2;
+// 而且这个词不能到处都是。按比例卡，不按条数：实测「停车」那一轮，on 出现在四条种子里
+// （df 30 = 12%）、of 三条（7%）、to 三条（16%），全是虚词；parking 三条（df 11 = 4.3%）、
+// charge 4 条（1.6%）、reading（1.9%）是真的。5% 这条线正好把两边分开。
+const RF_DF = 0.05;
 // 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
 // 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
 const CHAIN_ADD = 6;
@@ -655,6 +678,40 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
       let l; try { l = g.linksOf ? g.linksOf(seed) : links.linksOf(seed, g); } catch (_) { continue; }
       const hop = [l.source && l.source.page, ...l.clips].filter(Boolean);
       for (const id of hop.slice(0, CHAIN_HOP)) {
+        if (!skip.has(id) && !echoed(id) && !drop(id) && !out.includes(id)) out.push(id);
+      }
+    }
+  }
+  // 第四条腿：伪相关反馈。**只在词面完全空手的时候出手**——那正是跨语言那道坎所在的地方
+  // （「停车」找不到 parking，「退款」找不到 refund）。词面有结果的时候不出手：它比这条腿准。
+  if (!seeds.length && out.length < limit) {
+    // 问向量的时候把查询垫成一句话。一个光秃秃的词不在这个模型见过的分布里，垫成句子能把
+    // **同语种的引力**拆掉（实测中文噪声 0.704 → 0.356），「停车」这才够得到 Find parking。
+    const guess = await vector.search(index, `关于${q}的记录`, { limit: RF_SEED, min: VEC_MIN, cacheDir: store.paths().models })
+      .catch(() => []);
+    const asked = new Set(index.termsOf(q).map((p) => p.key));
+    const total = index.stats().entries || 1;
+    const words = new Map();          // 词 -> {n: 在几条种子里出现, df}
+    for (const id of guess) {
+      const e = store.getEntry(id);
+      if (!e) continue;
+      const head = `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, ' ').slice(0, RF_TEXT);
+      const seen = new Set();         // 同一条种子里出现两次不算两条
+      for (const p of index.termsOf(head)) {
+        if (p.rareDf <= 0 || asked.has(p.key) || seen.has(p.key)) continue;
+        if (p.rareDf / total > RF_DF) continue;
+        seen.add(p.key);
+        const w = words.get(p.key) || { n: 0, df: p.rareDf };
+        w.n++;
+        words.set(p.key, w);
+      }
+    }
+    const pick = [...words.entries()].filter(([, w]) => w.n >= RF_MIN_SEEDS)
+      .sort((a, b) => (b[1].n - a[1].n) || (a[1].df - b[1].df))
+      .slice(0, RF_WORDS);
+    for (const [w] of pick) {
+      let hit = []; try { hit = index.search({ query: w, limit: RF_HITS }).ids; } catch (_) { hit = []; }
+      for (const id of hit) {
         if (!skip.has(id) && !echoed(id) && !drop(id) && !out.includes(id)) out.push(id);
       }
     }

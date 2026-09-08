@@ -73,7 +73,7 @@ async function main() {
       const nr = await ask.near(q, { exclude: lex, limit: 12 });
       if (!want) noise += nr.length;
       console.log(`「${q}」  词面 ${String(lex.length).padStart(2)} 条   意思相近 ${String(nr.length).padStart(2)} 条`);
-      if (nr.length) console.log(`      ${nr.slice(0, 4).map(nm).join('  |  ')}`);
+      if (nr.length) console.log(`      ${nr.map(nm).join('  |  ')}`);
     }
   }
   console.log(`\n库里没有的四个问法，一共冒出来 ${noise} 条「意思相近」。这个数该是 0。`);
