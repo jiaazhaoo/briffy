@@ -73,7 +73,9 @@ async function login(opts = {}) {
       const callback = `http://localhost:${port}/callback`;
       const authUrl = `${AUTH_URL}?callback_url=${encodeURIComponent(callback)}&code_challenge=${challenge}&code_challenge_method=S256`;
       if (opts.onUrl) opts.onUrl(authUrl);
-      shell.openExternal(authUrl).catch((e) => finish(e));
+      // 打不开浏览器时把地址一起报出去。默认浏览器没设、被策略拦住、openExternal 抛异常——
+      // 这些情况用户看到的都是「点了没反应」，而他其实只要能看见这个地址就能自己走完。
+      shell.openExternal(authUrl).catch((e) => finish(new Error(`${e.message}｜手动打开：${authUrl}`)));
     });
   });
 }

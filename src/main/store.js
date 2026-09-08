@@ -74,7 +74,7 @@ const DEFAULT_SETTINGS = {
   localApiPort: 47831,
   // ---- AI provider ----
   provider: 'anthropic',          // 'anthropic' | 'openrouter' | 'ollama' | 'custom'
-  anthropicAuth: 'apiKey',        // 'apiKey' | 'account' (profile created by `ant auth login`)
+  anthropicAuth: 'apiKey',        // 'apiKey' | 'account' (signed in via `claude auth login`)
   openrouterModel: 'anthropic/claude-opus-5',
   ollamaHost: 'http://127.0.0.1:11434',
   ollamaModel: '',                // '' => use the hardware recommendation
