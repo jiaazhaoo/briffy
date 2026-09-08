@@ -1040,3 +1040,25 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 /* 用过麦克风的应用，点一下加进白名单 */
 .st .add-app { cursor: pointer; margin-right: var(--a2); }
 .st .add-app:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── 输入框旁边那个「用哪个模型」 ───────────────────────────────────────
+   纸上的字，和导航、筛选同一档：无框、无影、永远层 0。落下来的托盘才是物件。 */
+.askmdl { position: relative; flex: none; }
+.mdl { border: 0; background: none; padding: 4px 6px; cursor: pointer; max-width: 190px;
+  color: var(--ink-3); font: 400 var(--fs-act)/1.4 var(--sans);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mdl:hover, .askmdl.open .mdl { color: var(--ink); }
+.mdl::after { content: ' ⌄'; }
+/* 托盘：--slip 的纸、直角、有影子，和这套里别的托盘同一种材料 */
+.mdl-tray { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 40;
+  min-width: 280px; max-width: 360px; max-height: 300px; overflow: auto;
+  background: var(--slip); box-shadow: var(--e3); padding: var(--a2) 0; }
+.mdl-tray .grp { padding: 6px var(--a3) 2px; color: var(--ink-3); font: 400 var(--fs-meta)/1.4 var(--sans); }
+.mdl-tray button { display: block; width: 100%; text-align: left; border: 0; background: none;
+  padding: 5px var(--a3); cursor: pointer; color: var(--ink-2);
+  font: 400 var(--fs-act)/1.5 var(--sans);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mdl-tray button:hover { background: var(--tone); color: var(--ink); }
+.mdl-tray button.on { color: var(--ink); font-weight: var(--w-title); }
+.mdl-tray button[disabled] { color: var(--ink-3); cursor: default; }
+.mdl-tray button[disabled]:hover { background: none; }

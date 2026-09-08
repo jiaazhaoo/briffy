@@ -13,7 +13,7 @@
       near: '相近', related: '相关', untitled: '无标题',
       fromPage: '摘自', samePage: '同一页', sameRun: '同一段操作',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
-      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', citeMore: '它还看了 {n} 条',
+      chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', modelRemote: '联网的', modelNotSet: '还没配', modelNow: '改用 {name}', citeMore: '它还看了 {n} 条',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
       trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
       trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源',
@@ -151,7 +151,7 @@
       near: 'related', related: 'Related', untitled: 'Untitled',
       fromPage: 'Clipped from', samePage: 'Same page', sameRun: 'Same sitting',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
-      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', citeMore: 'Also looked at {n}',
+      chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', modelRemote: 'Remote', modelNotSet: 'not set up', modelNow: 'Now using {name}', citeMore: 'Also looked at {n}',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
       trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
       trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From',
@@ -1784,6 +1784,87 @@
       + `<div class="cites">${off.map((c) => c.html).join('')}</div></details>`;
   }
 
+  // ── 输入框旁边那个「用哪个模型」
+  //
+  // 换模型是**问之前**的决定，而这儿是你问问题的地方；藏在设置里等于每次都要走一趟。
+  // 只列**现在就能用**的：配好了的服务，加上本地已经下好的那几个模型。
+  // 没配好的也列出来但点不动——「这里为什么没有 Anthropic」比「点了没反应」更难查。
+  const PROV_LABEL = { anthropic: 'Anthropic', openrouter: 'OpenRouter', ollama: 'Ollama', custom: 'OpenAI 兼容' };
+
+  /** 当前用的是哪个，短的那种写法。 */
+  function modelLabel() {
+    const s = state.settings || {};
+    const p = s.provider || 'anthropic';
+    if (p === 'ollama') return s.ollamaModel || (state.providerStatus?.recommendation?.model) || 'Ollama';
+    if (p === 'openrouter') return (s.openrouterModel || '').split('/').pop() || 'OpenRouter';
+    if (p === 'custom') return s.customModel || 'OpenAI 兼容';
+    return s.model || 'Anthropic';
+  }
+  function renderModelBtn() {
+    const b = $('#btnModel');
+    if (!b) return;
+    const name = modelLabel();
+    b.textContent = name;
+    b.title = `${PROV_LABEL[(state.settings || {}).provider] || ''} · ${name}`;
+  }
+
+  /** 这个服务现在能不能用。判据和 llm.isConfigured 一致，别在这儿另立一套。 */
+  function provReady(p) {
+    const s = state.settings || {};
+    const st = state.providerStatus || {};
+    if (p === 'anthropic') return s.anthropicAuth === 'account' ? !!(st.anthropic && (st.anthropic.hasProfile || st.anthropic.envKey || st.anthropic.envToken)) : !!s.hasApiKey;
+    if (p === 'openrouter') return !!s.hasOpenrouterKey;
+    if (p === 'ollama') return !!(st.ollama && st.ollama.running);
+    if (p === 'custom') return !!(s.customBaseUrl && s.customModel);
+    return false;
+  }
+
+  async function pickModel(provider, model) {
+    const patch = { provider };
+    if (provider === 'ollama' && model) patch.ollamaModel = model;
+    closeModelTray();
+    try {
+      const u = await ws.saveSettings(patch);
+      await refreshMeta(u);                      // 和设置页走同一条路，按钮上的字也跟着换
+      toast(t('modelNow', { name: modelLabel() }));
+    } catch (e) { toast(String(e && e.message || e)); }
+  }
+
+  function closeModelTray() {
+    const t2 = $('#modelTray');
+    if (t2) t2.hidden = true;
+    $('#btnModel')?.parentElement.classList.remove('open');
+  }
+
+  async function openModelTray() {
+    const box = $('#modelTray');
+    if (!box) return;
+    if (!state.providerStatus) { try { await loadProviderStatus(); } catch (_) { /* 拿不到就按已知的画 */ } }
+    const s = state.settings || {};
+    const cur = s.provider || 'anthropic';
+    const rows = [];
+    const local = (state.providerStatus?.ollama?.models || []).map((m) => (typeof m === 'string' ? m : m.name)).filter(Boolean);
+    if (local.length) {
+      rows.push(`<div class="grp">${esc(PROV_LABEL.ollama)}</div>`);
+      for (const m of local) {
+        const on = cur === 'ollama' && (s.ollamaModel === m || (!s.ollamaModel && modelLabel() === m));
+        rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="ollama" data-model="${esc(m)}">${esc(m)}</button>`);
+      }
+    }
+    const others = ['anthropic', 'openrouter', 'custom'].filter((p) => p !== 'ollama');
+    rows.push(`<div class="grp">${esc(t('modelRemote'))}</div>`);
+    for (const p of others) {
+      const ready = provReady(p);
+      const name = p === 'anthropic' ? (s.model || '') : p === 'openrouter' ? (s.openrouterModel || '') : (s.customModel || '');
+      const label = `${PROV_LABEL[p]}${name ? ` · ${name}` : ''}`;
+      rows.push(`<button type="button" class="${cur === p ? 'on' : ''}" data-prov="${p}"${ready ? '' : ' disabled'}>`
+        + `${esc(label)}${ready ? '' : ` — ${esc(t('modelNotSet'))}`}</button>`);
+    }
+    box.innerHTML = rows.join('');
+    box.hidden = false;
+    $('#btnModel').parentElement.classList.add('open');
+  }
+
   let flashTimer = null;
   function flashSource(n) {
     const turn = $('#askAnswer').lastElementChild;
@@ -2062,6 +2143,7 @@
     state.ui = state.settings.languages[0].startsWith('zh') ? 'zh' : 'en';
     applyI18n();
     populateSettings();
+    renderModelBtn();
     renderList(); renderDetail();
   }
 
@@ -2457,6 +2539,7 @@
     state.ui = state.settings.languages[0].startsWith('zh') ? 'zh' : 'en';
     applyI18n();
     populateSettings();
+    renderModelBtn();
     let savedView = 'grid';
     try { savedView = localStorage.getItem('briffy.view') || 'grid'; } catch (_) { /* storage unavailable */ }
     applyView(savedView === 'list' ? 'list' : 'grid');
@@ -2811,6 +2894,16 @@ $('#chatNew').addEventListener('click', () => newChat());
     });
     $('#btnOpenrouterModels').addEventListener('click', () => loadOpenrouterModels(true));
     $('#openrouterModel').addEventListener('input', updateOpenrouterInfo);
+    $('#btnModel').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if ($('#modelTray').hidden) openModelTray(); else closeModelTray();
+    });
+    $('#modelTray').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-prov]');
+      if (b && !b.disabled) pickModel(b.dataset.prov, b.dataset.model || '');
+    });
+    // 点别处就收起来。托盘是落下来的东西，不是一个你要再点一次才关得掉的面板。
+    document.addEventListener('click', (e) => { if (!e.target.closest('.askmdl')) closeModelTray(); });
     $('#btnDetect').addEventListener('click', () => loadProviderStatus(true));
     $('#btnUseRecommended').addEventListener('click', () => { if (state.providerStatus) $('#ollamaModel').value = state.providerStatus.recommendation.model; });
     $('#btnPull').addEventListener('click', pullModel);
