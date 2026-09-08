@@ -62,4 +62,21 @@ ok('缓存能丢掉', () => {
   assert.strictEqual(mirror.phrases().size, n);
 });
 
+// 画面里有 briffy：列表截图的正文大半是别的记录的字，覆盖率判不出，但撞上的短语多
+const LIST_SHOT = '搜索标题/文字/画面内容 全部日期 网格 列表 选择 记一句话 文件/链接/笔记 '
+  + 'Dell ultrawide monitor p3425we 显示器文字模糊 296 PPI Samsung CJ89 series 49 curved '
+  + 'Find parking Buckingham Court Kingston Road Staines-upon-thames TW18 4JG 赛程分前后半程 '
+  + 'Runnymede Pleasure Ground Egham Surrey TW20 0AE Bishops Park Fulham 停 Staines 车站';
+ok('列表截图：覆盖率判不出（那是内容），但画面里有 briffy', () => {
+  assert.strictEqual(mirror.isMirror(LIST_SHOT), false);
+  assert.strictEqual(mirror.showsSelf(LIST_SHOT), true);
+});
+ok('两条不算；嵌套的短语只算一条（「搜索标题/文字/画面内容」含着「画面内容」）', () => {
+  assert.strictEqual(mirror.showsSelf('搜索标题/文字/画面内容 这一行我觉得应该改成 全部日期'), false);
+});
+ok('三条不互相包含的就算', () => {
+  assert.strictEqual(mirror.showsSelf('搜索标题/文字/画面内容 全部日期 记一句话'), true);
+});
+ok('空的不算', () => { assert.strictEqual(mirror.showsSelf(''), false); });
+
 console.log(`mirror: ${pass} passed`);

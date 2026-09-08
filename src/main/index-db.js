@@ -713,6 +713,8 @@ function vocabUnsettled(limit = 200) {
 }
 function markSettled(id) { db.prepare('UPDATE voc_done SET settled=1 WHERE entry=?').run(String(id || '')); }
 function unsettleAll() { db.exec('UPDATE voc_done SET settled=0'); }
+/** 全部记录重新抽词。旧词先留着，每条重抽时 putVocab 会整批换掉——中间那一会儿 df 新旧混着，能忍。 */
+function forgetVocab() { db.exec('DELETE FROM voc_done'); }
 
 /** 这一条自己的那几段向量。 */
 function vecOf(id) {
@@ -816,7 +818,7 @@ module.exports = {
   open, close, wipe, sync, putDay, search, days, stats,
   useVecModel, needVec, putVec, vecScan, vecStats, sweepVec,
   vecOf, vecMany, putBuckets, bucketPeers, bucketStats, dropBuckets,
-  addTitled, addPlaces, titledSet, placeSet, putVocab, dropVocab, vocabPending, vocabStats,
+  addTitled, addPlaces, titledSet, placeSet, putVocab, dropVocab, forgetVocab, vocabPending, vocabStats,
   vocabOf, vocabDf, vocabPost, vocabWords, reRank, vocabUnsettled, markSettled, unsettleAll,
   pgRoot, pgUnion, putClip, putPage, pageInfo, pageOfEntry, pageOwnedBy, runAround, pgStats, dropPageOf,
   tokens, bodyOf, matchExpr, termsOf, SCHEMA, get, set, file: () => file, COMMON,

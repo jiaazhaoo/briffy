@@ -282,10 +282,13 @@ function evidenceIndex(entries, stripOf, { keep = EV_KEEP } = {}) {
     alias.get(a).add(b); alias.get(b).add(a);
   };
   const keys = [...text.keys()];
-  // 一个包着另一个：staines-upon-thames ⊃ thames
+  // 一个包着另一个：staines-upon-thames ⊃ thames、thames path ⊃ thames。
+  // **长的那个得是复合词**（带连字符、空格或数字）。不加这一条，英文的词形变化全成了别名：
+  // visitors ⊃ visit、registration ⊃ registr…，实测「Visit ≈ Visitors」把 Ultra Challenge
+  // 连到了一条毫不相干的记事。
   for (const a of keys) {
     const ta = String(text.get(a)).toLowerCase();
-    if (ta.length < 8 || !/[a-z]/.test(ta)) continue;
+    if (ta.length < 8 || !/[a-z]/.test(ta) || !/[^a-z]/.test(ta)) continue;
     for (const b of keys) {
       const tb = String(text.get(b)).toLowerCase();
       if (tb.length < 4 || tb.length >= ta.length || !ta.includes(tb)) continue;
@@ -388,14 +391,15 @@ function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF 
     // 「Bishops Park, Fulham」被切成三个词，三个词的倒排几乎一模一样（它们本来就是一个地名），
     // 按词算就成了三份证据，0.05×3 把它抬到 0.506；而共用一个 Runnymede 只有 0.383。
     // 于是那条写着起点和终点的记录，反倒够不到写着终点地址的那一条。同现的词是一件事，不是三件。
-    const score = 1 / Math.log2(2 + best) + 0.05 * Math.min(facets(ps, idx), 6);
+    const f = facets(ps, idx);
+    const score = 1 / Math.log2(2 + best) + 0.05 * Math.min(f, 6);
     const seen = new Set();
     const pairs = ps
       .sort((x, y) => (idx.df.get(x.a) || 0) - (idx.df.get(y.a) || 0))
       .filter((p) => { const k = `${p.a}|${p.b}`; if (seen.has(k)) return false; seen.add(k); return true; })
       .slice(0, 3)
       .map((p) => ({ a: idx.text.get(p.a) || '', b: idx.text.get(p.b) || '', fuzzy: p.fuzzy }));
-    out.push({ id: other, score, df: best, pairs });
+    out.push({ id: other, score, df: best, facets: f, pairs });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, limit);
 }

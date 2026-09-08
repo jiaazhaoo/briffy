@@ -39,8 +39,19 @@ const W = {
   near: 0.50,
   run: 0.34,
 };
-/** 共用词那条边的强度，按**最罕见的那个词**给：tw20 值钱，maps 不值钱。 */
-const wordWeight = (df) => 0.40 + 0.55 / Math.log2(2 + Math.max(1, df));
+// 共用词那条边的强度：按**最罕见的那个词**给（tw20 值钱，maps 不值钱），再按**对上了几件事**加。
+//
+// 后一半是 2026-09-08 加的。以前只看 df，于是「Kingston·Parking·Buckingham」（三件事）和
+// 「London」（一件）在 df 一样时一样重——而清单上量下来（dev/backlinks-bench.js），对上几件事
+// 的边几乎条条是对的，只对上一个词的边一半是错的（High、London、1.1gb 那一类）。df 分不开
+// 它们：这个工作区里 London 只有 3 条，Dell 有 6 条。能分开的是「是不是好几处独立的证据」。
+// 加多少是算出来的：一条三件事的 df2 边 0.875×0.85 = 0.74，再走一条同样的边 0.55，过门槛——
+// 于是「Runnymede」能经「赛程分前后半程」够到「Bishops Park」；而只对上一个词的 df3 边
+// 0.64×0.85 = 0.545，再走一条 0.30，过不了。**一跳一个专名是强证据，两跳两个泛词什么也不是**，
+// 顶上那句话现在在数值上是真的了。
+const FACET_BONUS = 0.10;
+const wordWeight = (df, facets = 1) => Math.min(0.95,
+  0.40 + 0.55 / Math.log2(2 + Math.max(1, df)) + FACET_BONUS * Math.min(Math.max(1, facets) - 1, 2));
 
 // 同一处那条边要按**那一页有多大**稀释。
 //
@@ -74,6 +85,9 @@ function edgesOf(id, ctx) {
   const seen = new Set();
   const push = (to, kind, w, extra) => {
     if (!to || to === id) return;
+    // 不是材料的记录不当节点，不管是同一页、同一程还是向量够到的。共用词那条边在词表视图里
+    // 已经挡过一道（ctx.ev 不给它们出词、不让它们进倒排），这儿是给另外三种边的。
+    if (ctx.ok && !ctx.ok(to)) return;
     const k = `${to}|${kind}`;
     if (seen.has(k)) return;
     seen.add(k);
@@ -97,7 +111,7 @@ function edgesOf(id, ctx) {
   // （泰晤士河 ↔ Thames，staines-upon-thames ⊃ thames）。
   if (ctx.ev) {
     for (const e of links.evidenceFor(id, ctx.ev, { limit: EV_LIMIT })) {
-      push(e.id, 'word', wordWeight(e.df), { pairs: e.pairs });
+      push(e.id, 'word', wordWeight(e.df, e.facets), { pairs: e.pairs, df: e.df });
     }
   }
   for (const n of (ctx.near ? ctx.near(id) : [])) push(n, 'near', W.near);
@@ -137,7 +151,7 @@ function grow(seed, ctx, { floor = FLOOR, decay = DECAY, max = MAX } = {}) {
       if (s <= (score.get(e.to) || 0)) continue;
       score.set(e.to, s);
       hop.set(e.to, (hop.get(cur) || 0) + 1);
-      via.set(e.to, { from: cur, kind: e.kind, pairs: e.pairs || null, name: e.name || '' });
+      via.set(e.to, { from: cur, kind: e.kind, pairs: e.pairs || null, name: e.name || '', df: e.df });
     }
   }
   const members = [...score.entries()]
