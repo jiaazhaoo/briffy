@@ -86,17 +86,24 @@ npm run verify:mac
 后果是用户双击挂载那一下会被拦一次：Gatekeeper 拿这个壳去查，找不到任何可验的东西
 （`spctl -a -t open` → `rejected — no usable signature`）。App 拖出来之后能正常开，它自己是公证过的。
 
-所以 `npm run release:mac` 之后、发布之前，补三条：
+所以 `npm run release:mac` 之后、发布之前，补一步：
 
 ```bash
-codesign --sign "$CSC_NAME" --timestamp release/briffy-<版本>-arm64.dmg
-xcrun notarytool submit release/briffy-<版本>-arm64.dmg \
-  --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
-xcrun stapler staple release/briffy-<版本>-arm64.dmg
+npm run notarize:dmg      # 签 → 公证 → staple → 复验，一条命令
 npm run verify:mac        # 这次必须连 dmg 那三项一起绿
 ```
 
-约 5–10 分钟，大半又是等 Apple。**不用重新打包**——签名和 staple 都是在现成的 dmg 上动的。
+约 5–10 分钟，大半又是等 Apple。**不用重新打包**——都是在现成的 dmg 上动的。
+
+[scripts/notarize-dmg.js](../scripts/notarize-dmg.js) 里钉住了两件手写会错的事：
+
+- **顺序不能反。** 签名会改变文件字节，而没签名的 dmg 拿到的票是按文件哈希发的——
+  先 staple 再签，票当场失效（实测：hash 一变，`stapler validate` 就说没有票）。
+  只有 **签 → 公证 → staple** 这一个顺序是对的。
+- **证书不能写 `$CSC_NAME`。** 这台机器上 `jia zhao (TEAMID)` 同时匹配
+  `Developer ID Application` 和 `Apple Distribution` 两张，而 `codesign` 是子串匹配、会报歧义拒签
+  （electron-builder 能按目标类型自己挑，codesign 不会）。脚本从钥匙串里只认
+  `Developer ID Application` 那一张、按哈希去签——名字不进仓库，也不会歧义。
 
 **zip 不需要这一步，也没法做**：公证票 staple 不到 zip 上。zip 里那个 app 自己带着票，解开就能用，
 这是 zip 分发唯一的、也是正确的做法。

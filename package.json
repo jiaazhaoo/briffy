@@ -39,6 +39,7 @@
     "dist:mac": "npm run fetch-models && npm run fetch-fonts && electron-builder --mac",
     "release:mac": "node dev/mac-release-check.js --preflight && npm run dist:mac && npm run verify:mac",
     "verify:mac": "node dev/mac-release-check.js",
+    "notarize:dmg": "node scripts/notarize-dmg.js",
     "fetch-fonts": "node scripts/fetch-fonts.js"
   },
   "dependencies": {
