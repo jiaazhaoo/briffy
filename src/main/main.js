@@ -34,6 +34,7 @@ const listen = require('./listen');
 const diarize = require('./diarize');
 const dayStats = require('./day-stats');
 const ocrBoxes = require('./ocr-boxes');
+const thumb = require('./thumb');
 const region = require('./region');
 const viewer = require('./viewer');
 const setup = require('./setup');
@@ -120,6 +121,9 @@ function publicEntry(entry) {
   if (!entry) return null;
   const abs = entry.path ? store.absPath(entry.path) : '';
   const out = { ...entry, source: entrySource(entry), absPath: abs, fileUrl: abs ? pathToFileURL(abs).href : '' };
+  // 拖进来的文件那张缩略图（thumb.js）。图片不走这儿——它自己就是画面，fileUrl 够了。
+  const th = thumb.relPath(entry);
+  if (th) out.thumbUrl = pathToFileURL(store.absPath(th)).href;
   if (entry.wavPath) out.wavUrl = pathToFileURL(store.absPath(entry.wavPath)).href;
   return out;
 }
@@ -161,6 +165,15 @@ async function main() {
   trail.start();
   connect.onProgress((p) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('ws:connect-progress', p); });
   ask.warm();                      // 后台把磁盘索引追平，第一次提问就不用等
+  // 以前存进来的文件还没有缩略图，后台一点一点补上。限时、可中断、下次接着做——
+  // 和补向量、抽词同一个形状：一件 O(n) 的活儿不能卡在启动那几秒里。
+  const fillThumbs = () => {
+    thumb.backfill({ budgetMs: 700 }).then((r) => {
+      if (!r.done) setTimeout(fillThumbs, 900);
+      else if (r.made) console.log(`[thumb] 补了 ${r.made} 张`);
+    }).catch((e) => console.warn('[thumb] 补不了：', e.message));
+  };
+  setTimeout(fillThumbs, 4000);
   // First launch: walk through languages, permissions and who reads the records, before the pet starts
   // silently asking the OS for things.
   if (!store.getSettings().setupDone && !process.env.DAILYLOGS_SMOKE) windows.openOnboarding();

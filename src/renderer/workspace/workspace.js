@@ -882,6 +882,14 @@
         ? `<div class="cap">${head}</div>${body}${mark}`
         : `${body}${where ? `<div class="from">${esc(t('fromApp'))} ${esc(where)}</div>` : ''}${mark}`;
     }
+    // 拖进来的文件：**还是那张带装订孔的文件纸**，只是纸里嵌一张缩略图（2026-09-09 用户选的）。
+    // 不改成拍立得：卡片上没有类型图标，类型全靠形状说——PDF 一旦长成拍立得，
+    // 就再也一眼分不出它和截图了。缩略图只回答「是哪一份」，不回答「它是什么」。
+    if (e.thumbUrl) {
+      return `<div class="jg-file">${mark ? `<div class="k">${mark}</div>` : ''}`
+        + `<img src="${esc(e.thumbUrl)}" loading="lazy" alt="" />`
+        + `<div class="fname">${esc(cardTitle(e))}</div></div>`;
+    }
     // 别的（文件、网页里拿来的东西）：还是那张白便签
     const more = cardExcerpt(e);
     let host = '';
@@ -1041,7 +1049,8 @@
   // Raindrop's headlines, a mail client's message list: one record a row with the time in its own
   // column, and the chosen one previewed beside it. The densest view, and the one for tidying up.
   function rowMarkup(e) {
-    const thumb = isPicture(e) ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
+    const thumb = isPicture(e) ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />`
+      : e.thumbUrl ? `<img src="${esc(e.thumbUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
     const where = ctxShort(e);
     // 「文件 / 链接 / 笔记」是筛选器上那一组的名字，一行只是一件东西，不能拿一组的名字当它的来源
     const src = where || t(e.source === 'other' ? (OTHER_LABEL[cardKind(e)] || 'srcFile') : (SOURCE_LABEL[e.source] || 'srcFile'));
@@ -1291,7 +1300,12 @@
     // 那一排动作删掉的时候，「打开原文件 / 在文件夹中显示」一起没了，于是一份 PDF 存进来
     // 之后就只剩得下抽出来的字——看着像是原件丢了。主进程那两条 IPC 一直都在，这儿把入口还回去。
     // 用 .mini 那种层 0 的小词，不是托盘：托盘只留给右上角那三个「对整条记录动手」的。
-    else preview = `<div class="file">${ICONS[e.type] || ICONS.file}<small>${esc(e.path || '')}${e.size ? ` · ${(e.size / 1024).toFixed(1)} KB` : ''}</small>`
+    // 拖进来的文件：有系统给的缩略图就画那张图，没有就还是那个图标（thumb.js）。
+    // 图和图片那一档一样交回自己的比例，不去死封高度——死封再补灰底，一张竖的 PDF
+    // 会被压成中间一条、两边两块灰，那正是详情里图片那条规矩说过的。
+    else preview = `<div class="file${e.thumbUrl ? ' has-thumb' : ''}">`
+      + (e.thumbUrl ? `<img class="fthumb" src="${esc(e.thumbUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file))
+      + `<small>${esc(e.path || '')}${e.size ? ` · ${(e.size / 1024).toFixed(1)} KB` : ''}</small>`
       + (e.path ? `<span class="file-acts"><button type="button" class="mini" data-action="open">${esc(t('openFile'))}</button>`
         + `<button type="button" class="mini" data-action="reveal">${esc(t('revealFile'))}</button></span>` : '')
       + '</div>';
@@ -1331,7 +1345,9 @@
     ].filter(Boolean).join('');
 
     box.innerHTML = `
-      <div class="dt${(!isPicture(e) && e.type !== 'audio') ? ' bare' : ''}">
+      <!-- bare = 这一条没有东西可看，图标和一行字并排就够了。**有缩略图就不是 bare**：
+           那时它和一张图片一样，画面该占满宽度、交回自己的比例。 -->
+      <div class="dt${(!isPicture(e) && e.type !== 'audio' && !e.thumbUrl) ? ' bare' : ''}">
         <header class="dt-head">
           <h2>${esc(e.title || e.path || e.url || '')}</h2>
           <div class="dt-acts">

@@ -23,6 +23,7 @@ const longshot = require('./longshot');
 const clipboardWatch = require('./clipboard-watch');
 const pictureId = require('./picture-id');
 const ocrBoxes = require('./ocr-boxes');
+const thumb = require('./thumb');
 const diarize = require('./diarize');
 const { attribute, asLines, shares } = require('./attribute');
 const foreground = require('./foreground');
@@ -46,7 +47,7 @@ const queue = [];
 let running = false;
 const pcmCache = new Map(); // entryId -> Float32Array (first run only; retries read the wav file)
 
-function init(deps) { store = deps.store; windows = deps.windows; ocrBoxes.init(deps); diarize.init(deps); }
+function init(deps) { store = deps.store; windows = deps.windows; ocrBoxes.init(deps); thumb.init(deps); diarize.init(deps); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------- helpers ----------
@@ -890,6 +891,12 @@ async function processEntry(id) {
   const entry = store.getEntry(id);
   if (!entry) return;
   store.updateEntry(id, { status: 'processing', error: '' });
+  // 拖进来的文件长什么样：让操作系统出一张缩略图（thumb.js）。图片自己就是画面，不走这儿。
+  // 放在处理这一步、不放在保存那一步：存东西必须一直很便宜，这条和 OCR、起标题是同一条规矩。
+  if (thumb.wants(entry) && !thumb.has(entry)) {
+    const rel = await thumb.make(entry);
+    if (rel) store.updateEntry(id, { thumb: rel });
+  }
   const s = store.getSettings();
   const langs = s.languages;
   const aiCfg = llm.config(store);
