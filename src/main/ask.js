@@ -828,7 +828,10 @@ function linksOf(id) {
       if (m.id === me) continue;
       const k = sameKey(m.id);
       if (k) { if (seen.has(k)) continue; seen.add(k); }
-      related.push({ id: m.id, score: m.score, why: m.via || null });
+      // hop 必须带出去：清单里 why 描述的是**最后一跳**，两跳的那条理由讲的是别人之间的关系
+      // （「Ultra Challenge」的清单里「同一页 赛程分前后半程」讲的其实是 1st Half → Bishops Park）。
+      // 谁要拿理由当判据，谁就得先看这是不是一跳。
+      related.push({ id: m.id, score: m.score, hop: m.hop || 0, why: m.via || null });
       if (related.length >= LINKS_MAX) break;
     }
     return { related };
