@@ -257,7 +257,11 @@ function hardPair(p) {
   if (/[\u3400-\u9fff]/.test(t)) return t.length >= 3;
   return false;
 }
+// 只有**一跳**的链接，它的 why 才描述这两条记录之间的关系；两跳的 why 讲的是路上最后那一段，
+// 和这两条无关。凡是拿理由当判据的地方（决定核心、连主轴、归站、并事件、算沾边），先过这一关。
+function direct(x) { return !x || x.hop === undefined || x.hop === 1; }
 function strong(x) {
+  if (!direct(x)) return false;
   const w = x && x.why;
   if (!w) return false;
   if (w.kind === 'page' || w.kind === 'near') return true;
@@ -270,13 +274,21 @@ const ANCHOR_DF = 8;     // 一个词罕见到这个份上，才算锚词
 const EVENT_SHARE = 3;   // 两块共有这么多个锚词才并。2 的时候显示器那件并进了 39 条背景，3 的时候 5 条
 const TOUCH_K = 5;       // 沾边看前几条
 
-function events(lists, ctx) {
+// 两块共有的锚词，给 trace 用
+function shared0(A, B, ctx) {
+  const out = [];
+  for (const w of A) if (B.has(w)) out.push((ctx.ev && ctx.ev.text.get(w)) || w);
+  return out.join('·');
+}
+
+function events(lists, ctx, { trace = null } = {}) {
   const ids = [...lists.keys()];
   // 前 k 里**不算同一页的边**：一页有三条摘录，满分的同一页边就把它的前三占光，它和别处的
   // 词面链接永远排第四——赛程那页因此和 Ultra 报名页分成了两件事。同一页另有归站和并事件在管。
   // 软链接也不算（见 strong）。
   const top = new Map(ids.map((id) => [id, new Map((lists.get(id) || [])
     .filter((x) => x.why && x.why.kind !== 'page' && strong(x)).slice(0, MUTUAL_K).map((x) => [x.id, x]))]));
+  // 注：strong 已经含着「只算一跳」。
   // 互为近邻的边 → 连通块
   const parent = new Map(ids.map((id) => [id, id]));
   const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
@@ -293,6 +305,7 @@ function events(lists, ctx) {
   const comp = new Map();
   for (const id of ids) { if (!tight.has(id)) continue; const r = find(id); if (!comp.has(r)) comp.set(r, []); comp.get(r).push(id); }
   const cores = [...comp.values()].filter((c) => c.length >= EVENT_MIN);
+  if (trace) { trace.cores = cores; trace.merges = []; }
   // 每块的锚词：df ≤ ANCHOR_DF、块里至少两条带着
   const anchorsOf = (c) => {
     const t = new Map();
@@ -309,7 +322,7 @@ function events(lists, ctx) {
     for (let j = i + 1; j < cores.length; j++) {
       let n = 0;
       for (const w of anc[i]) if (anc[j].has(w)) n++;
-      if (n >= EVENT_SHARE) par[f(i)] = f(j);
+      if (n >= EVENT_SHARE) { if (trace && f(i) !== f(j)) trace.merges.push(['锚词', i, j, shared0(anc[i], anc[j], ctx)]); par[f(i)] = f(j); }
     }
   }
   // 同一页摘的，就是同一件事的一部分——不用数锚词。一页的几条摘录互相都在对方前三里
@@ -320,9 +333,9 @@ function events(lists, ctx) {
   cores.forEach((c, i) => {
     for (const id of c) {
       for (const x of (lists.get(id) || [])) {
-        if (!x.why || x.why.kind !== 'page') continue;
+        if (!direct(x) || !x.why || x.why.kind !== 'page') continue;
         const j = coreAt.get(x.id);
-        if (j !== undefined && j !== i) par[f(i)] = f(j);
+        if (j !== undefined && j !== i) { if (trace && f(i) !== f(j)) trace.merges.push(['同一页', i, j, x.why.name || '']); par[f(i)] = f(j); }
       }
     }
   });
@@ -339,10 +352,11 @@ function events(lists, ctx) {
       const back = listsAt(id);
       for (const x of (lists.get(id) || [])) {
         const j = coreAt.get(x.id);
-        if (j === undefined || j === i || !x.why || x.why.kind !== 'word') continue;
+        if (j === undefined || j === i || !direct(x) || !x.why || x.why.kind !== 'word') continue;
         if ((x.why.facets || 0) < EVENT_SHARE) continue;
         const y = listsAt(x.id).get(id);
-        if (!y || !y.why || y.why.kind !== 'word' || (y.why.facets || 0) < EVENT_SHARE) continue;
+        if (!direct(y) || !y || !y.why || y.why.kind !== 'word' || (y.why.facets || 0) < EVENT_SHARE) continue;
+        if (trace && f(i) !== f(j)) trace.merges.push(['双向对上多处', i, j, (x.why.pairs || []).map((p) => p.a).join('·')]);
         par[f(i)] = f(j);
       }
     }
@@ -359,7 +373,7 @@ function events(lists, ctx) {
         if (t.length < 12) continue;
         for (const [u, j] of seen) {
           if (j === i) continue;
-          if (t === u || t.startsWith(u) || u.startsWith(t)) par[f(i)] = f(j);
+          if (t === u || t.startsWith(u) || u.startsWith(t)) { if (trace && f(i) !== f(j)) trace.merges.push(['副本', i, j, t.slice(0, 24)]); par[f(i)] = f(j); }
         }
         seen.push([t, i]);
       }
@@ -447,7 +461,7 @@ function lineage(event, lists, titleOf = null) {
   for (const a of coreIds) {
     let best = null;
     for (const x of lists.get(a) || []) {
-      if (!coreSet.has(x.id) || !x.why || x.why.kind !== 'page' || !x.why.name) continue;
+      if (!direct(x) || !coreSet.has(x.id) || !x.why || x.why.kind !== 'page' || !x.why.name) continue;
       if (!best || x.score > best.score) best = x;
     }
     if (best) pageOf.set(a, best.id);
@@ -568,4 +582,4 @@ function eventsOf(id, list) {
   return out.sort((a, b) => (a.tier === b.tier ? b.score - a.score : a.tier === 'core' ? -1 : 1));
 }
 
-module.exports = { grow, events, eventsOf, lineage, hardPair, strong, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };
+module.exports = { grow, events, eventsOf, lineage, hardPair, strong, direct, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };

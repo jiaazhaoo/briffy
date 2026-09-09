@@ -21,7 +21,7 @@ function view(words, df) {
 }
 // 测试里的链接默认带一个硬理由（邮编）：没理由的链接现在不算数（story.strong）
 const HARD = () => ({ kind: 'word', pairs: [{ a: 'TW20 0AE', b: 'TW20 0AE', k: 'place', df: 3 }] });
-const L = (pairs) => new Map(Object.entries(pairs).map(([id, arr]) => [id, arr.map(([to, score, why]) => ({ id: to, score, why: why || HARD() }))]));
+const L = (pairs) => new Map(Object.entries(pairs).map(([id, arr]) => [id, arr.map(([to, score, why]) => ({ id: to, score, hop: 1, why: why || HARD() }))]));
 
 ok('互为前三近邻的连成一块，单向的不算', () => {
   // a b c 互相都在对方前三；h 把 a b c 都列在前三里，但它们的前三里没有 h
@@ -182,6 +182,24 @@ ok('谱系：同一页存了几次的副本归一站', () => {
   assert.strictEqual(g.stops.length, 2);
   const ab = g.stops.find((s) => s.members.includes('a'));
   assert.ok(ab.members.includes('b'));
+});
+
+ok('两跳的理由不算数：它讲的是路上最后一段，不是这两条之间的关系', () => {
+  const P = (n) => ({ kind: 'page', name: n });
+  assert.strictEqual(story.direct({ hop: 1 }), true);
+  assert.strictEqual(story.direct({ hop: 2 }), false);
+  assert.strictEqual(story.strong({ hop: 2, why: P('那一页') }), false);
+  assert.strictEqual(story.strong({ hop: 1, why: P('那一页') }), true);
+  // 两块之间只有一条两跳的同一页链接：不并
+  const lists = new Map(Object.entries({
+    a: [['b', 0.9], ['c', 0.7]], b: [['a', 0.9], ['c', 0.7]], c: [['a', 0.7], ['b', 0.7]],
+    d: [['e', 0.9], ['f', 0.7]], e: [['d', 0.9], ['f', 0.7]], f: [['d', 0.7], ['e', 0.7]],
+  }).map(([id, arr]) => [id, arr.map(([to, score]) => ({ id: to, score, hop: 1, why: HARD() }))]));
+  lists.get('a').push({ id: 'd', score: 0.48, hop: 2, why: P('赛程') });
+  assert.strictEqual(story.events(lists, view({}, {})).length, 2);
+  // 同一条改成一跳：并成一件
+  lists.get('a')[lists.get('a').length - 1].hop = 1;
+  assert.strictEqual(story.events(lists, view({}, {})).length, 1);
 });
 
 console.log(`events: ${pass} passed`);
