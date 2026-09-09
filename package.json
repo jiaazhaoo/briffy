@@ -32,6 +32,7 @@
     "site": "node scripts/build-site.js",
     "ext:pack": "node scripts/pack-extension.js",
     "store:assets": "electron scripts/gen-store-assets.js",
+    "store:shots": "node scripts/store-shots.js",
     "deploy": "npm run site && wrangler deploy",
     "pack": "npm run fetch-models && npm run fetch-fonts && electron-builder --dir",
     "dist": "npm run fetch-models && npm run fetch-fonts && electron-builder",
