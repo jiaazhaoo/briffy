@@ -11,6 +11,7 @@
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
       near: '相近', untitled: '无标题',
+      openFile: '打开原文件', revealFile: '在文件夹中显示',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
       chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', modelRemote: '联网的', modelNotSet: '还没配', modelNow: '改用 {name}',
       missAccount: '还没登录', missKey: '缺 API Key', missBaseUrl: '缺接口地址', missModel: '缺模型名', missHost: '缺地址', citeMore: '它还看了 {n} 条',
@@ -148,6 +149,7 @@
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
       near: 'related', untitled: 'Untitled',
+      openFile: 'Open the file', revealFile: 'Show in folder',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
       chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', modelRemote: 'Remote', modelNotSet: 'not set up', modelNow: 'Now using {name}',
       missAccount: 'not signed in', missKey: 'no API key', missBaseUrl: 'no endpoint', missModel: 'no model name', missHost: 'no host', citeMore: 'Also looked at {n}',
@@ -1284,7 +1286,15 @@
     if ((e.type === 'screenshot' || e.type === 'image') && e.fileUrl) preview = `<img id="previewImg" src="${esc(e.fileUrl)}" alt="" />`;
     else if (e.type === 'audio') preview = `<audio controls src="${esc(e.fileUrl)}"></audio><div class="muted" style="padding:0 12px 10px">${esc(t('duration'))}: ${e.durationSec || 0}s</div>`;
     else if (e.type === 'url') preview = `<div class="link">${ICONS.url} <a href="#" data-action="openLink">${esc(e.url)}</a></div>`;
-    else preview = `<div class="file">${ICONS[e.type] || ICONS.file}<small>${esc(e.path || '')}${e.size ? ` · ${(e.size / 1024).toFixed(1)} KB` : ''}</small></div>`;
+    // 拖进来的文件（PDF、视频、别的），**原件一直好好地存在工作区里**——ingestFiles 是
+    // fs.copyFileSync 进 files/<日期>/ 的，太大的才退成引用原路径。但 2026-09-06 把详情底下
+    // 那一排动作删掉的时候，「打开原文件 / 在文件夹中显示」一起没了，于是一份 PDF 存进来
+    // 之后就只剩得下抽出来的字——看着像是原件丢了。主进程那两条 IPC 一直都在，这儿把入口还回去。
+    // 用 .mini 那种层 0 的小词，不是托盘：托盘只留给右上角那三个「对整条记录动手」的。
+    else preview = `<div class="file">${ICONS[e.type] || ICONS.file}<small>${esc(e.path || '')}${e.size ? ` · ${(e.size / 1024).toFixed(1)} KB` : ''}</small>`
+      + (e.path ? `<span class="file-acts"><button type="button" class="mini" data-action="open">${esc(t('openFile'))}</button>`
+        + `<button type="button" class="mini" data-action="reveal">${esc(t('revealFile'))}</button></span>` : '')
+      + '</div>';
 
     const textLabel = e.type === 'audio' ? t('transcript') : (e.type === 'screenshot' || e.type === 'image') ? t('text') : t('content');
     const statusLine = e.status === 'processing'
