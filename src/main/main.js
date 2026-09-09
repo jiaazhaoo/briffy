@@ -677,17 +677,21 @@ function registerHotkeys() {
 // ---------- AI provider helpers ----------
 const OR_MODELS_TTL = 6 * 60 * 60 * 1000;
 function orModelsFile() { return path.join(app.getPath('userData'), 'openrouter-models.json'); }
+// 交出模型目录，**连它是什么时候拉的一起交**：设置里那句「N 个模型 · 目录更新于 …」要它。
+// 一份不知道是什么时候的名单，和没有名单差不多。
+let orModelsAt = 0;
 async function openrouterModels(refresh = false) {
   if (!refresh) {
     try {
       const cached = JSON.parse(fs.readFileSync(orModelsFile(), 'utf8'));
-      if (cached && Date.now() - cached.fetchedAt < OR_MODELS_TTL && Array.isArray(cached.models)) return cached.models;
+      if (cached && Date.now() - cached.fetchedAt < OR_MODELS_TTL && Array.isArray(cached.models)) { orModelsAt = cached.fetchedAt; return cached.models; }
     } catch (_) { /* no cache */ }
   }
   const models = (await oai.listModels({ baseUrl: oai.OPENROUTER_BASE, headers: oai.OPENROUTER_HEADERS }))
     .filter((m) => !/:batch$/.test(m.id))
     .sort((a, b) => a.id.localeCompare(b.id));
-  try { fs.writeFileSync(orModelsFile(), JSON.stringify({ fetchedAt: Date.now(), models })); } catch (_) { /* ignore */ }
+  orModelsAt = Date.now();
+  try { fs.writeFileSync(orModelsFile(), JSON.stringify({ fetchedAt: orModelsAt, models })); } catch (_) { /* ignore */ }
   return models;
 }
 
@@ -884,7 +888,7 @@ function setupIpc() {
   ipcMain.handle('ws:provider-status', (_e, opts) => providerStatus(!!(opts && opts.refresh)));
   ipcMain.handle('ws:forget-pending-pull', () => store.updateSettings({ pendingPull: null }));
   ipcMain.handle('ws:openrouter-models', async (_e, opts) => {
-    try { return { ok: true, models: await openrouterModels(!!(opts && opts.refresh)) }; } catch (e) { return { ok: false, error: e.message, models: [] }; }
+    try { const models = await openrouterModels(!!(opts && opts.refresh)); return { ok: true, models, at: orModelsAt }; } catch (e) { return { ok: false, error: e.message, models: [] }; }
   });
   ipcMain.handle('ws:openrouter-login', async () => {
     const key = await orAuth.login({ strings: { successTitle: t('orLoginTitle'), successBody: t('orLoginBody'), failTitle: t('orLoginFail') } });

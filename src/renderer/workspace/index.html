@@ -288,11 +288,17 @@
                 <button type="button" class="btn" id="btnClearOpenrouterKey" data-i18n="sClearKey">清除</button>
                 <span class="st" id="openrouterKeyStatus"></span>
               </span></label>
-              <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc">
+              <!-- 模型是一片常驻的词，不是一个下拉框：抄的是手机端那一版（一份手挑的目录、
+                   排头的是默认、底下一行「N 个模型 · 目录更新于 …」）。和筛选那只托盘同一种说法——
+                   每个值都有底，选中的换成荧光笔。想用目录之外的型号就往下面那个框里打。 -->
+              <div class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc">
+                <div id="modelPick" class="mdl-pick"></div>
+                <span class="st" id="openrouterModelInfo"></span>
+              </span></div>
+              <label class="f"><span class="fl" data-i18n="sModelOther">其他型号</span><span class="fc">
                 <input id="openrouterModel" list="openrouterModels" placeholder="anthropic/claude-opus-5" />
                 <datalist id="openrouterModels"></datalist>
                 <button type="button" class="btn" id="btnOpenrouterModels" data-i18n="sRefreshModels">刷新模型列表</button>
-                <span class="st" id="openrouterModelInfo"></span>
               </span></label>
               </div>
             </section>
