@@ -11,7 +11,6 @@ const petskin = require('./petskin');
 const workspace = require('./workspace');
 const summary = require('./summary');
 const ask = require('./ask');
-const ai = require('./ai');
 const llm = require('./llm');
 const hardware = require('./hardware');
 const ollama = require('./ollama');
@@ -659,122 +658,6 @@ function registerHotkeys() {
 }
 
 // ---------- AI provider helpers ----------
-function which(cmd) {
-  return new Promise((resolve) => {
-    execFile(process.platform === 'win32' ? 'where' : 'which', [cmd], { windowsHide: true, timeout: 5000 },
-      (err, out) => resolve(!err && String(out).trim() ? String(out).trim().split(/\r?\n/)[0] : ''));
-  });
-}
-function anthropicConfigDir() {
-  if (process.env.ANTHROPIC_CONFIG_DIR) return process.env.ANTHROPIC_CONFIG_DIR;
-  return process.platform === 'win32'
-    ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Anthropic')
-    : path.join(os.homedir(), '.config', 'anthropic');
-}
-
-/**
- * 找 Anthropic 的命令行工具 `ant`。
- *
- * **不是 `claude`。** 这两个长得像，但只有 `ant auth login` 存下的那份 SDK 认得——
- * 它写在 ~/.config/anthropic/ 底下，而 Claude Code 的 `claude auth login` 写的是 ~/.claude，
- * 那是 Claude Code 自己用的。实测过：`claude auth status` 说 loggedIn: true，
- * SDK 仍然报「Could not resolve authentication method」。踩过一次，写在这儿。
- *
- * 不能只靠 which：打包之后从访达启动的应用拿到的 PATH 大致只有 /usr/bin:/bin:/usr/sbin:/sbin，
- * 而这类工具常装在 ~/.local/bin 或 homebrew 底下——于是「明明装了却说没装」。
- * ollama.js 的 findBinary 是同一个写法。
- */
-async function findAntCli() {
-  const onPath = await which('ant');
-  if (onPath) return onPath;
-  const home = os.homedir();
-  const guesses = process.platform === 'win32'
-    ? [path.join(process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'), 'Programs', 'ant', 'ant.exe')]
-    : [path.join(home, '.local', 'bin', 'ant'), '/opt/homebrew/bin/ant', '/usr/local/bin/ant', path.join(home, '.bun', 'bin', 'ant')];
-  for (const g of guesses) { try { if (fs.existsSync(g)) return g; } catch (_) { /* next */ } }
-  return '';
-}
-
-async function anthropicAccountStatus() {
-  const dir = anthropicConfigDir();
-  const cli = await findAntCli();
-  let profiles = [];
-  // 装了就直接问它——凭据具体落在哪个文件是它的内部实现，会变；`ant auth status` 是公开接口。
-  if (cli) {
-    const out = await new Promise((r) => execFile(cli, ['auth', 'status'],
-      { timeout: 8000, windowsHide: true }, (err, so) => r(err ? '' : String(so || ''))));
-    try {
-      const j = JSON.parse(out);
-      if (j && j.loggedIn) profiles = [String(j.profile || j.authMethod || 'default')];
-    } catch (_) { /* 版本对不上就退回下面数文件 */ }
-  }
-  // 没装、或者问不出来：退回数文件。这条不需要命令行工具，所以永远兜得住。
-  if (!profiles.length) {
-    try { profiles = fs.readdirSync(path.join(dir, 'credentials')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)); } catch (_) { /* none */ }
-  }
-  return { configDir: dir, profiles, hasProfile: profiles.length > 0, envKey: !!process.env.ANTHROPIC_API_KEY, envToken: !!process.env.ANTHROPIC_AUTH_TOKEN, cliInstalled: !!cli, cliPath: cli };
-}
-
-/**
- * 装 Anthropic 的命令行工具。
- *
- * 光说「没找到 ant 命令，装好之后再点一次」是个死胡同——它没说怎么装。而 briffy 早就有
- * 一套帮你装命令行工具的流程（ollama.install），照抄它就是：按平台挑包管理器，把输出
- * 一行行报上去，装不了就老实说「你自己装吧」并给出命令。
- *
- * 装软件是件不该背着人做的事，所以这条只由用户点那个按钮触发，不会自己跑。
- */
-async function installAntCli(onLine) {
-  const say = (raw) => {
-    for (const line of String(raw || '').replace(/\r/g, '\n').split('\n')) {
-      const t2 = line.trim();
-      if (t2 && onLine) onLine(t2);
-    }
-  };
-  let cmd = null;
-  if (process.platform === 'darwin' && await which('brew')) {
-    cmd = { file: 'brew', args: ['install', 'anthropics/tap/ant'] };
-  } else if (await which('go')) {
-    cmd = { file: 'go', args: ['install', 'github.com/anthropics/anthropic-cli/cmd/ant@latest'] };
-  }
-  const manualCmd = process.platform === 'darwin'
-    ? 'brew install anthropics/tap/ant'
-    : 'go install github.com/anthropics/anthropic-cli/cmd/ant@latest';
-  if (!cmd) return { ok: false, manual: true, command: manualCmd };
-  say(`$ ${cmd.file} ${cmd.args.join(' ')}`);
-  const code = await new Promise((resolve) => {
-    const child = spawn(cmd.file, cmd.args, { windowsHide: true });
-    child.stdout.on('data', (d) => say(d.toString()));
-    child.stderr.on('data', (d) => say(d.toString()));
-    child.on('error', (e) => { say(e.message); resolve(-1); });
-    child.on('close', (c) => resolve(c));
-  });
-  // go install 把二进制放在 $(go env GOPATH)/bin，那儿常常不在 PATH 上——
-  // 装完了却「找不到」比没装更让人摸不着头脑，所以这里直接把路径找出来告诉调用方。
-  const cli = await findAntCli();
-  return { ok: code === 0 && !!cli, code, cliPath: cli, command: manualCmd };
-}
-
-// 开一个终端跑 `ant auth login`（登完 SDK 自己就认得，不用再回来填什么）。
-async function launchAnthropicLogin() {
-  const cli = await findAntCli();
-  // 用找到的**全路径**，不用裸命令：终端里的 PATH 和这里未必一样，而我们已经知道它在哪儿了。
-  const command = cli ? `${cli.includes(' ') ? `'${cli}'` : cli} auth login` : 'ant auth login';
-  if (!cli) return { launched: false, cliInstalled: false, command };
-  try {
-    if (process.platform === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', '"briffy – ant auth login"', 'cmd', '/k', command], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
-    } else if (process.platform === 'darwin') {
-      spawn('osascript', ['-e', `tell application "Terminal" to do script "${command}"`, '-e', 'tell application "Terminal" to activate'], { detached: true, stdio: 'ignore' }).unref();
-    } else {
-      spawn('sh', ['-c', `x-terminal-emulator -e '${command}' || gnome-terminal -- ${command} || xterm -e '${command}'`], { detached: true, stdio: 'ignore' }).unref();
-    }
-    return { launched: true, cliInstalled: true, command };
-  } catch (e) {
-    return { launched: false, cliInstalled: true, command, error: e.message };
-  }
-}
-
 const OR_MODELS_TTL = 6 * 60 * 60 * 1000;
 function orModelsFile() { return path.join(app.getPath('userData'), 'openrouter-models.json'); }
 async function openrouterModels(refresh = false) {
@@ -830,10 +713,9 @@ async function modelCatalogue(hw, refresh) {
 
 async function providerStatus(refresh = false) {
   const s = store.getSettings();
-  const [hw, ol, anthropic] = await Promise.all([
+  const [hw, ol] = await Promise.all([
     hardware.detectCached(refresh),
     ollama.status(s.ollamaHost),
-    anthropicAccountStatus(),
   ]);
   const cfg = llm.config(store);
   return {
@@ -842,7 +724,6 @@ async function providerStatus(refresh = false) {
     catalogue: await modelCatalogue(hw, refresh),
     pendingPull: s.pendingPull || null,
     ollama: { host: s.ollamaHost || ollama.DEFAULT_HOST, ...ol },
-    anthropic,
     configured: llm.isConfigured(cfg),
     // 差的是哪一项。界面上光说「没配好」说明不了任何事——缺 baseUrl 还是缺模型名，
     // 是两个完全不同的下一步。
@@ -960,7 +841,6 @@ function setupIpc() {
     settings: store.getPublicSettings(),
     avatarUrl: petskin.url(store),
     languages: LANGUAGES,
-    models: ai.MODELS,
     sttModels: stt.STT_MODELS,
     platform: process.platform,
     version: app.getVersion(),
@@ -994,8 +874,6 @@ function setupIpc() {
     return store.updateSettings({ openrouterKey: key, provider: 'openrouter' });
   });
   ipcMain.handle('ws:openrouter-cancel-login', () => orAuth.cancel());
-  ipcMain.handle('ws:anthropic-login', () => launchAnthropicLogin());
-  ipcMain.handle('ws:anthropic-install', () => installAntCli((line) => windows.broadcastToWorkspace('ws:anthropic-install-progress', line)));
   ipcMain.handle('ws:extension-status', () => ({ ...localApi.status(), extensionDir: extensionDir() }));
   ipcMain.handle('ws:open-extension-guide', async () => {
     const api = localApi.status();

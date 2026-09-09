@@ -16,7 +16,6 @@ const DEFAULT_SETTINGS = {
   hotkeyScreen: process.platform === 'darwin' ? 'Cmd+Shift+S' : 'Ctrl+Alt+S',   // whole screen
   hotkeyVoice: process.platform === 'darwin' ? 'Cmd+Shift+V' : 'Ctrl+Alt+V',    // start / stop recording
   captureToClipboard: true,       // a capture also lands on the system clipboard, ready to paste
-  model: 'claude-opus-5',         // Claude model used for tagging + daily summaries
   sttModel: 'Xenova/whisper-tiny.en',  // English model bundled with the app; others download on demand
   // 'packs' = decide between the two chosen language packs, 'auto' = all 99 Whisper languages, or a
   // fixed code. Choosing between two is the reliable one, and two is what the user actually picked.
@@ -73,30 +72,23 @@ const DEFAULT_SETTINGS = {
   localApi: true,                 // local endpoint the browser extension talks to
   localApiPort: 47831,
   // ---- AI provider ----
-  provider: 'anthropic',          // 'anthropic' | 'openrouter' | 'ollama' | 'custom'
+  provider: 'openrouter',         // 'openrouter' | 'ollama'（2026-09-09 从四家收成两家，见 llm.js 顶上）
   // 发给 AI 之前把秘密盖掉（src/main/redact.js）。存下来的记录一个字不动，改的只有发出去的那一份。
   // 'off' 不动 · 'secrets' 密钥·卡号·身份证·写着名字的密码（默认）· 'all' 再加邮箱和手机号
   redact: 'secrets',
-  anthropicAuth: 'apiKey',        // 'apiKey' | 'account' (signed in via `ant auth login`)
   openrouterModel: 'anthropic/claude-opus-5',
   ollamaHost: 'http://127.0.0.1:11434',
   ollamaModel: '',                // '' => use the hardware recommendation
   // A pull that was cut off (the app quit, the machine slept). Ollama keeps the blobs it already has
   // and resumes, but nothing said so, and a half-downloaded model was simply invisible.
   pendingPull: null,              // { model, receivedBytes, totalBytes, at }
-  customBaseUrl: 'http://127.0.0.1:1234/v1',   // LM Studio default
-  customModel: '',
   // secrets: base64 of safeStorage-encrypted value, or plain text when safeStorage is unavailable
-  apiKeyEnc: '', apiKeyPlain: '',                 // Anthropic API key
   openrouterKeyEnc: '', openrouterKeyPlain: '',
-  customKeyEnc: '', customKeyPlain: '',
 };
 
 // secret name -> [encrypted field, plain field, environment variable fallback]
 const SECRETS = {
-  apiKey: ['apiKeyEnc', 'apiKeyPlain', 'ANTHROPIC_API_KEY'],
   openrouterKey: ['openrouterKeyEnc', 'openrouterKeyPlain', 'OPENROUTER_API_KEY'],
-  customKey: ['customKeyEnc', 'customKeyPlain', 'OPENAI_API_KEY'],
   // 外部服务的凭据。和模型的 key 走同一条路：safeStorage 加密，明文字段只在系统钥匙串不可用时兜底。
   notionToken: ['notionTokenEnc', 'notionTokenPlain', 'NOTION_TOKEN'],
   gmailClient: ['gmailClientEnc', 'gmailClientPlain', 'GMAIL_CLIENT'],
@@ -348,9 +340,6 @@ class Store extends EventEmitter {
       this.settings[enc] = '';
     }
   }
-
-  getApiKey() { return this.getSecret('apiKey'); }
-  setApiKey(key) { this.setSecret('apiKey', key); }
 
   updateSettings(patch) {
     const before = { ...this.settings };

@@ -44,8 +44,8 @@
     workspaceDir: '', hfMirror: '', tessLangPath: '', petHidden: false, ocrDroppedImages: true, normalizeChineseScript: true, micDeviceId: '', micLabel: '',
     recordTrail: true,          // 预览里开着，好看见「路过」那一页
     ocrEngine: 'paddle', ocrModel: '', clipboardWatch: true, clipboardMinChars: 12, localApi: true, localApiPort: 47831,
-    provider: 'ollama', anthropicAuth: 'apiKey', openrouterModel: 'anthropic/claude-opus-5', ollamaHost: 'http://127.0.0.1:11434', ollamaModel: '',
-    customBaseUrl: 'http://127.0.0.1:1234/v1', customModel: '', hasApiKey: false, apiKeyHint: '', hasOpenrouterKey: true, openrouterKeyHint: 'sk-or-v1…a1b2', hasCustomKey: false, customKeyHint: '',
+    provider: 'ollama', openrouterModel: 'anthropic/claude-opus-5', ollamaHost: 'http://127.0.0.1:11434', ollamaModel: '',
+    hasOpenrouterKey: true, openrouterKeyHint: 'sk-or-v1…a1b2', 
   };
   const SITE = { 'xiaohongshu.com': '小红书', 'bilibili.com': '哔哩哔哩', 'github.com': 'GitHub', 'x.com': 'X' };
   const originOf = (e) => {
@@ -62,7 +62,7 @@
     : e.type === 'screenshot' ? 'screenshot' : e.type === 'audio' ? 'voice' : 'other');
   const pub = (e) => ({ ...e, source: srcOf(e), absPath: e.path ? 'C:\\briffy\\' + e.path : '' });
   window.ws = {
-    getSettings: async () => ({ settings, avatarUrl: '/assets/pet/avatar.png', languages, models: [{ id: 'claude-opus-5', name: 'Claude Opus 5 (default)' }, { id: 'claude-sonnet-5', name: 'Claude Sonnet 5' }, { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (fastest)' }], sttModels: [{ id: 'Xenova/whisper-tiny', name: 'Whisper tiny (~40 MB)' }, { id: 'Xenova/whisper-small', name: 'Whisper small (~250 MB, recommended)' }], platform: 'win32', version: '0.1.0', screenPermission: 'granted', hotkeyError: '', workspaceDir: 'C:\\Users\\User\\AppData\\Roaming\\briffy\\workspace', stats: { days: 3, entries: entries.length }, localApi: { running: true, port: 47831, lastReceived: null }, extensionDir: 'C:\\local project\\briffy\\extension', setup: null,
+    getSettings: async () => ({ settings, avatarUrl: '/assets/pet/avatar.png', languages, sttModels: [{ id: 'Xenova/whisper-tiny', name: 'Whisper tiny (~40 MB)' }, { id: 'Xenova/whisper-small', name: 'Whisper small (~250 MB, recommended)' }], platform: 'win32', version: '0.1.0', screenPermission: 'granted', hotkeyError: '', workspaceDir: 'C:\\Users\\User\\AppData\\Roaming\\briffy\\workspace', stats: { days: 3, entries: entries.length }, localApi: { running: true, port: 47831, lastReceived: null }, extensionDir: 'C:\\local project\\briffy\\extension', setup: null,
       ocrModels: [{ id: 'v6-small', name: 'PP-OCRv6 small', sizeMB: 26 }, { id: 'v6-tiny', name: 'PP-OCRv6 tiny', sizeMB: 12 }, { id: 'v5-mobile', name: 'PP-OCRv5 mobile', sizeMB: 24 }] }),
     saveSettings: async (patch) => { Object.assign(settings, patch); return settings; },
     testProvider: async () => { await sleep(600); return { ok: true, model: 'qwen3.5:9b', reply: 'OK' }; },
@@ -89,7 +89,7 @@
         : { host: 'http://127.0.0.1:11434', running: true, version: '0.12.1', installed: true, models: [{ name: 'qwen3.5:9b', size: 6.6e9 }, { name: 'gemma3:4b', size: 3.3e9 }] }), anthropic: { hasProfile: false, profiles: [], envKey: false, cliInstalled: false }, configured: true, label: 'qwen3.5:9b (Ollama)', provider: settings.provider }),
     openrouterModels: async () => ({ ok: true, models: [{ id: 'anthropic/claude-opus-5', name: 'Anthropic: Claude Opus 5', context: 1000000, vision: true, pricing: { prompt: 0.000005, completion: 0.000025 } }, { id: 'anthropic/claude-sonnet-5', name: 'Anthropic: Claude Sonnet 5', context: 1000000, vision: true, pricing: { prompt: 0.000002, completion: 0.00001 } }, { id: 'qwen/qwen3.8-flash', name: 'Qwen: Qwen3.8 Flash', context: 1000000, vision: true, pricing: { prompt: 1.5e-7, completion: 4.7e-7 } }] }),
     openrouterLogin: async () => { await sleep(800); settings.hasOpenrouterKey = true; return settings; },
-    openrouterCancelLogin: async () => {}, anthropicLogin: async () => ({ launched: false, cliInstalled: false, command: 'ant auth login' }),
+    openrouterCancelLogin: async () => {},
     ollamaPull: async (model) => {
       const total = 6.6e9;
       const emit = (o) => (listeners['ws:ollama-pull-progress'] || []).forEach((cb) => cb({ model, ...o }));

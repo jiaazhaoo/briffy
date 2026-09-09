@@ -13,8 +13,7 @@ const Module = require('module');
 const sent = [];
 const real = Module._load;
 const stub = {
-  './ai': { complete: async (_a, o) => { sent.push(o); return { text: '{}', model: 'stub' }; }, prepareImage: () => null },
-  './openai-compat': { chat: async (_c, o) => { sent.push(o); return { text: '{}', model: 'stub' }; }, openrouterClient: () => ({}) },
+  './openai-compat': { chat: async (_c, o) => { sent.push(o); return { text: '{}', model: 'stub' }; }, openrouterClient: () => ({}), prepareImage: () => null },
   './ollama': { chat: async (_c, o) => { sent.push(o); return { text: '{}', model: 'stub' }; }, DEFAULT_HOST: 'http://127.0.0.1:11434' },
 };
 Module._load = function (req, parent, isMain) {
@@ -35,7 +34,7 @@ const EMAIL = 'zhaojia789456@gmail.com';
 const SECRETS = [CARD, KEY, ID];
 
 const storeFor = (level) => ({
-  getSettings: () => ({ provider: 'anthropic', languages: ['zh-Hans', 'en'], model: 'm', redact: level }),
+  getSettings: () => ({ provider: 'openrouter', languages: ['zh-Hans', 'en'], redact: level }),
   getSecret: () => 'k',
 });
 const entry = (text) => ({ id: 'e1', dateKey: '2026-09-09', createdAt: '2026-09-09T10:00:00.000Z', type: 'note', title: '账单', text });
@@ -44,7 +43,7 @@ const entry = (text) => ({ id: 'e1', dateKey: '2026-09-09', createdAt: '2026-09-
 function outText() { return sent.map((o) => String(o.text || '')).join('\n'); }
 
 async function main() {
-  const loaded = ['anthropic', 'openrouter', 'custom', 'ollama'];
+  const loaded = ['openrouter', 'ollama'];
   for (const provider of loaded) {
     const cfg = { ...llm.config(storeFor('secrets')), provider };
     const body = `我的卡号 ${CARD}，钥匙 ${KEY}，身份证 ${ID}，邮箱 ${EMAIL}`;

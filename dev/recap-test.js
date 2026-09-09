@@ -32,7 +32,7 @@ const check = (name, cond, detail = '') => {
   const store = new Store();
   store.init();
   // No provider: this is the path that must work on its own.
-  store.updateSettings({ languages: ['zh-Hans', 'en'], provider: 'anthropic', apiKey: '' });
+  store.updateSettings({ languages: ['zh-Hans', 'en'], provider: 'openrouter', openrouterKey: '' });
   i18n.setLanguage('zh');
   uptime.init({ store });
 

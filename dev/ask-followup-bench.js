@@ -111,7 +111,7 @@ async function main() {
   // ask.js 顶上那条保证就落在这儿，所以它得有人盯着。
   console.log('\n════════ 没配 AI 的时候 ════════');
   const bare = fakeStore();
-  bare.getSettings = () => ({ ...store.getSettings(), provider: 'anthropic', anthropicKey: '' });
+  bare.getSettings = () => ({ ...store.getSettings(), provider: 'openrouter', openrouterKey: '' });
   ask.init({ store: bare });
   const r0 = await ask.run(TURNS[1], { history: [] });
   console.log(`  挑出 ${r0.sources.length} 条，noProvider=${r0.noProvider}，查询 ${JSON.stringify(r0.queries)}`);

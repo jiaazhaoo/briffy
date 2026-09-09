@@ -40,7 +40,6 @@
     "fetch-fonts": "node scripts/fetch-fonts.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.123.0",
     "@huggingface/transformers": "^4.2.0",
     "node-screenshots": "^0.2.8",
     "opencc-js": "^1.4.2",

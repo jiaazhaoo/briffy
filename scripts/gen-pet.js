@@ -73,7 +73,6 @@ function framePrompt(frame, keyColor, transparent) {
 const PROVIDERS = {
   openai: {
     env: 'OPENAI_API_KEY',
-    secret: 'customKey',
     model: 'gpt-image-2',
     transparent: true,
     async draw(key, model, prompt, ref) {
