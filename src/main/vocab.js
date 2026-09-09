@@ -38,7 +38,7 @@ const STORE_MAX = 60;
 // 2026-09-08 把文件大小（1.1gb）从证据里去掉之后，「Find parking」照样经 1.1gb 连着「Ollama 地址」，
 // 因为那两条的词是改规则之前抽的，voc_done 记着「做过了」。版本对不上就把 voc_done 清掉，
 // 后台那个循环会一条条重抽——和向量换模型自动重建是同一个道理，只是向量把模型名算进了指纹。
-const RULES = 6;
+const RULES = 7;
 // 包含式别名（staines-upon-thames ⊃ thames）里，长的那个得是复合词——带连字符、空格或数字。
 // 否则英文的词形变化全成了别名（visitors ⊃ visit），和 links.js 里那条同一个规矩。
 const compound = (t) => /[a-z]/.test(t) && /[^a-z]/.test(t);

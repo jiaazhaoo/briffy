@@ -118,34 +118,41 @@ ok('eventsOf：这一条在哪几件里，核心排在沾边前面', () => {
   assert.strictEqual(story.eventsOf('nobody', ev).length, 0);
 });
 
-ok('谱系：最硬的链当主轴，别的挂在连得最紧的那条底下，线上带着理由', () => {
-  const W = (w) => ({ kind: 'word', pairs: [{ a: w, b: w }] });
+ok('谱系：同一页的先归成一站，站与站之间按共用词连主轴，同一段操作不进图', () => {
+  const W = (...ws) => ({ kind: 'word', pairs: ws.map((w) => ({ a: w, b: w })) });
+  const P = (n) => ({ kind: 'page', name: n });
+  // p 是一页，c1 c2 摘自它；a 靠 tw20 连着 p；d 靠 ultra 连着 a；r 和 a 只是同一段操作
   const lists = new Map(Object.entries({
-    a: [['b', 0.9, W('tw20')], ['c', 0.5, W('staines')]],
-    b: [['a', 0.9, W('tw20')], ['c', 0.7, W('runnymede')]],
-    c: [['b', 0.7, W('runnymede')], ['a', 0.5, W('staines')], ['d', 0.6, W('ultra')]],
-    d: [['c', 0.6, W('ultra')], ['b', 0.3, W('x')]],
-    h: [['c', 0.42, { kind: 'page', name: 'Claude' }]],
+    p: [['c1', 0.85, { kind: 'page' }], ['c2', 0.85, { kind: 'page' }], ['a', 0.6, W('tw20')]],
+    c1: [['p', 0.85, P('那一页')], ['c2', 0.85, { kind: 'page' }], ['a', 0.5, W('staines')]],
+    c2: [['p', 0.85, P('那一页')], ['c1', 0.85, { kind: 'page' }]],
+    a: [['p', 0.6, W('tw20')], ['c1', 0.5, W('staines')], ['d', 0.55, W('ultra')], ['r', 0.42, { kind: 'run' }]],
+    d: [['a', 0.55, W('ultra')], ['p', 0.3, W('x')]],
+    r: [['a', 0.42, { kind: 'run' }], ['d', 0.4, { kind: 'run' }]],
   }).map(([id, arr]) => [id, arr.map(([to, score, why]) => ({ id: to, score, why }))]));
-  const ev = story.events(lists, view({}, {}));
-  assert.strictEqual(ev.length, 1);
-  const g = story.lineage(ev[0], lists);
-  // 最硬的一对是 a–b（0.9），从 b 往外走到 c（0.7），再到 d（0.6）
-  assert.deepStrictEqual(g.spine, ['a', 'b', 'c', 'd']);
-  assert.deepStrictEqual(g.edges.map((e) => e.why.pairs[0].a), ['tw20', 'runnymede', 'ultra']);
-  // h 沾边，挂在 c 底下，理由是同一页
-  assert.strictEqual(g.hang.length, 1);
-  assert.strictEqual(g.hang[0].id, 'h');
-  assert.strictEqual(g.hang[0].to, 'c');
-  assert.strictEqual(g.hang[0].why.kind, 'page');
+  const ev = { members: ['p', 'c1', 'c2', 'a', 'd', 'r'].map((id) => ({ id, tier: 'core', score: 0.7 })) };
+  const g = story.lineage(ev, lists);
+  // 四站：{p,c1,c2}、{a}、{d}、{r}
+  assert.strictEqual(g.stops.length, 4);
+  const pageStop = g.stops.find((s) => s.members.includes('c1'));
+  assert.strictEqual(pageStop.id, 'p');                       // 代表是那一页本身
+  assert.deepStrictEqual(pageStop.members.slice().sort(), ['c1', 'c2', 'p']);
+  // 主轴：p ↔ a（tw20 0.6）最强，再走 a ↔ d（ultra 0.55）
+  const names = g.spine.map((i) => g.stops[i].id);
+  assert.deepStrictEqual(names, ['p', 'a', 'd']);
+  assert.deepStrictEqual(g.edges.map((e) => e.why.pairs[0].a), ['tw20', 'ultra']);
+  // r 和谁都没有共用词（只有同一段操作），挂在主轴第一站底下、没有理由
+  const rHang = g.hang.find((h) => g.stops[h.stop].id === 'r');
+  assert.ok(rHang && rHang.why === null);
 });
 
 ok('谱系：只有一条核心也画得出来', () => {
   const lists = new Map([['a', []], ['h', [{ id: 'a', score: 0.5 }]]]);
   const g = story.lineage({ members: [{ id: 'a', tier: 'core', score: 1 }, { id: 'h', tier: 'touch', score: 0.5 }] }, lists);
-  assert.deepStrictEqual(g.spine, ['a']);
+  assert.strictEqual(g.stops.length, 1);
+  assert.deepStrictEqual(g.spine, [0]);
   assert.strictEqual(g.edges.length, 0);
-  assert.deepStrictEqual(g.hang.map((x) => [x.id, x.to]), [['h', 'a']]);
+  assert.strictEqual(g.hang.length, 0);           // 沾边的不画
 });
 
 console.log(`events: ${pass} passed`);

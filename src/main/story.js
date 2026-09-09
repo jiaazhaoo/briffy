@@ -281,6 +281,20 @@ function events(lists, ctx) {
       if (n >= EVENT_SHARE) par[f(i)] = f(j);
     }
   }
+  // 同一页摘的，就是同一件事的一部分——不用数锚词。一页的几条摘录互相都在对方前三里
+  // （同一页的边是满分），自己就连成一块，而它们和那一页所在的块只共有一两个词，按锚词并不上：
+  // 实测那一晚被拆成五件，其中一件就是赛程那页的四条摘录。
+  const coreAt = new Map();
+  cores.forEach((c, i) => { for (const id of c) coreAt.set(id, i); });
+  cores.forEach((c, i) => {
+    for (const id of c) {
+      for (const x of (lists.get(id) || [])) {
+        if (!x.why || x.why.kind !== 'page') continue;
+        const j = coreAt.get(x.id);
+        if (j !== undefined && j !== i) par[f(i)] = f(j);
+      }
+    }
+  });
   const groups = new Map();
   cores.forEach((c, i) => { const r = f(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(...c); });
   // 合成，再找沾边的
@@ -308,53 +322,99 @@ function events(lists, ctx) {
   for (const e of out) {
     e.members.sort((a, b) => (a.tier === b.tier ? b.score - a.score : a.tier === 'core' ? -1 : 1));
     e.id = e.members[0].id;
-    e.name = nameOf(e.members.filter((m) => m.tier === 'core'), ctx);
+    const coreMs = e.members.filter((m) => m.tier === 'core');
+    e.name = nameOf(coreMs, ctx);
+    // 认得出的锚词有几个：带大写或数字的拉丁词（Staines、UKPC、TW20 0AE、p3425we）、三个字以上的
+    // 汉语词（泰晤士河）。开发笔记那团四十三条，锚词是「任何 · 东西 · 工具 · 控制」——一个认得出的
+    // 都没有，它本身就是散的；那一晚九条，锚词一把。按这个排，真事在前，散的在后，散的默认收着。
+    // 不按锚词的绝对数排：那样最大的团永远第一。
+    let hard = 0;
+    for (const w of anchorsOf(coreMs.map((m) => m.id))) {
+      const t = String((ctx.ev && ctx.ev.text.get(w)) || w);
+      if (/[A-Z0-9]/.test(t) || (/[\u3400-\u9fff]/.test(t) && t.length >= 3)) hard++;
+    }
+    e.quality = hard;
   }
-  return out.sort((a, b) => b.members.filter((m) => m.tier === 'core').length - a.members.filter((m) => m.tier === 'core').length);
+  return out.sort((a, b) => (b.quality - a.quality) || (b.members.filter((m) => m.tier === 'core').length - a.members.filter((m) => m.tier === 'core').length));
 }
 
 /**
  * 一件事画成谱系：**横向一根主轴，纵向是支线，线上写着为什么连着。**
  *
- * 主轴是最硬的那条链（用户定的，不按时间）：从分最高的一对互近邻开始，两头各沿着最强的、
- * 还没用过的互近邻边往外走，走到没有为止。不在主轴上的核心和沾边的，各挂在它连得最紧的
- * 那条主轴（或已挂上的）记录底下——主轴读故事，支线读证据。
- * 每条线带着它的理由：共用的那几个词、「同一页 · 页名」、「同一程」——就是清单里那条链接的 why。
+ * **先归站，再连线。** 同一页上摘下来的几条（「摘自 赛程分前后半程」）是一站，不是四个点——
+ * 第一版把它们各当一个点，主轴就成了「1st Half → 停 Staines → 赛程 → Bishops Park」，
+ * 四条全是同一页的摘录，而剩下二十五条全挂在赛程那一个点底下：那不是链，是把一颗星压扁了。
+ * 归站之后那一晚是五站：报名页 → 赛程对话（带它的四条摘录）→ 终点地址 → 停车 → 申诉，
+ * 站与站之间的线上写共用的词（TW20 0AE、Staines、UKPC）。
+ *
+ * 主轴是最硬的那条链（用户定的，不按时间）：站与站之间取最强的一条**共用词**边，从分最高的
+ * 一对开始，每一步在两头里挑最强的、另一端还不在主轴上的边往外走。不在主轴上的站挂在它连得
+ * 最紧的那一站底下。「同一段操作」不进图——那一段里你还路过了什么，不是一个人读谱系时要的证据。
+ * 沾边的不画，只计数：它们是「提到了这件事」，画出来就是第一版那一屏废词。
  *
  * @param {{members:{id,score,tier,via}[]}} event
  * @param {Map<string,{id,score,why}[]>} lists 每条记录的清单
- * @returns {{spine:string[], edges:{a:string,b:string,why:object|null,score:number}[],
- *            hang:{id:string, to:string, tier:string, why:object|null, score:number}[]}}
+ * @returns {{stops:{id:string, members:string[]}[], spine:number[], edges:{a:number,b:number,why:object|null,score:number}[],
+ *            hang:{stop:number, to:number, why:object|null, score:number}[]}}
+ *   stops[i].id 是这一站的代表（那一页本身，或分最高的那条）；spine / edges / hang 里都是站的下标
  */
 function lineage(event, lists) {
-  const core = event.members.filter((m) => m.tier === 'core').map((m) => m.id);
-  const coreSet = new Set(core);
-  const link = (a, b) => (lists.get(a) || []).find((x) => x.id === b) || null;
-  // 核心之间互为前 MUTUAL_K 近邻的边，取两个方向里分高的那条当代表
-  const edges = new Map();   // "a|b" -> {a,b,why,score}
-  for (const a of core) {
-    for (const x of (lists.get(a) || []).slice(0, MUTUAL_K)) {
+  const core = event.members.filter((m) => m.tier === 'core');
+  const coreIds = core.map((m) => m.id);
+  const coreSet = new Set(coreIds);
+  // 归站：一条摘录归到它**摘自的那一页**（清单里写着「摘自 X」的那条链接，只认这一种）。
+  //
+  // **不传递。** 第一版用并查集——A 和 B 同一页、B 和 C 同一页，A C 就并成一站；一条跨了两页的
+  // 记录（在 Claude 那个窗口前面复制了一段报名页）把两页焊成一站，实测「Case folders」那一站底下
+  // 挂了十六条：THE HARNESS、OpenRouter spend 和 Ultra 的报名页混在一起。摘自哪一页就是哪一站，
+  // 一条记录只能摘自一页（分最高的那条 摘自 链接）。
+  const score = new Map(core.map((m) => [m.id, m.score]));
+  const pageOf = new Map();   // 摘录 -> 它摘自的那一页（那一页也在核心里）
+  for (const a of coreIds) {
+    let best = null;
+    for (const x of lists.get(a) || []) {
+      if (!coreSet.has(x.id) || !x.why || x.why.kind !== 'page' || !x.why.name) continue;
+      if (!best || x.score > best.score) best = x;
+    }
+    if (best) pageOf.set(a, best.id);
+  }
+  // 一页自己不能再是别页的摘录（那是页面图里两页互相引用的老毛病），页永远当站头
+  const isPage = new Set(pageOf.values());
+  for (const id of isPage) pageOf.delete(id);
+  const groups = new Map();
+  for (const id of coreIds) {
+    const head = pageOf.get(id) || id;
+    if (!groups.has(head)) groups.set(head, []);
+    if (head !== id) groups.get(head).push(id);
+  }
+  const stops = [...groups.entries()].map(([head, rest]) => ({
+    id: head,
+    members: [head, ...rest.sort((x, y) => (score.get(y) || 0) - (score.get(x) || 0))],
+  }));
+  const stopOf = new Map();
+  stops.forEach((s, i) => { for (const id of s.members) stopOf.set(id, i); });
+  // 站与站之间：最强的一条共用词边（同一段操作不算）
+  const best = new Map();   // "i|j" -> {a,b,why,score}
+  for (const a of coreIds) {
+    for (const x of lists.get(a) || []) {
       if (!coreSet.has(x.id)) continue;
-      const back = (lists.get(x.id) || []).slice(0, MUTUAL_K).find((y) => y.id === a);
-      if (!back) continue;
-      const k = a < x.id ? `${a}|${x.id}` : `${x.id}|${a}`;
-      const best = x.score >= back.score ? { a, b: x.id, why: x.why || null, score: x.score } : { a: x.id, b: a, why: back.why || null, score: back.score };
-      const had = edges.get(k);
-      if (!had || best.score > had.score) edges.set(k, best);
+      const i = stopOf.get(a); const j = stopOf.get(x.id);
+      if (i === j || !x.why || x.why.kind === 'run' || x.why.kind === 'page') continue;
+      const k = i < j ? `${i}|${j}` : `${j}|${i}`;
+      const had = best.get(k);
+      if (!had || x.score > had.score) best.set(k, { a: i < j ? i : j, b: i < j ? j : i, why: x.why, score: x.score });
     }
   }
-  const all = [...edges.values()].sort((x, y) => y.score - x.score);
+  const all = [...best.values()].sort((x, y) => y.score - x.score);
   const spine = [];
-  const used = new Set();
   const onSpine = new Set();
+  const used = new Set();
   if (all.length) {
     spine.push(all[0].a, all[0].b); onSpine.add(all[0].a); onSpine.add(all[0].b); used.add(all[0]);
-    // 往外走：每一步在**两头里**挑那条最强的、另一端还不在主轴上的边。
-    // 不能两头轮流各挑各的——那样头那边会先拿走一条 0.5 的，而尾那边明明有一条 0.7 的。
     for (;;) {
       const head = spine[0]; const tail = spine[spine.length - 1];
       const next = all.find((e) => !used.has(e)
-        && ((e.a === head || e.b === head || e.a === tail || e.b === tail))
+        && (e.a === head || e.b === head || e.a === tail || e.b === tail)
         && !onSpine.has(e.a === head || e.a === tail ? e.b : e.a));
       if (!next) break;
       const atHead = next.a === head || next.b === head;
@@ -362,27 +422,39 @@ function lineage(event, lists) {
       if (atHead) spine.unshift(other); else spine.push(other);
       onSpine.add(other); used.add(next);
     }
-  } else if (core.length) {
-    spine.push(core[0]); onSpine.add(core[0]);
+  } else if (stops.length) {
+    // 没有任何共用词的边：最大的那一站独自当主轴
+    const big = stops.map((s, i) => [i, s.members.length]).sort((x, y) => y[1] - x[1])[0][0];
+    spine.push(big); onSpine.add(big);
   }
-  const spineEdges = [];
+  const edges = [];
   for (let i = 0; i + 1 < spine.length; i++) {
     const k = spine[i] < spine[i + 1] ? `${spine[i]}|${spine[i + 1]}` : `${spine[i + 1]}|${spine[i]}`;
-    const e = edges.get(k);
-    spineEdges.push({ a: spine[i], b: spine[i + 1], why: e ? e.why : null, score: e ? e.score : 0 });
+    const e = best.get(k);
+    edges.push({ a: spine[i], b: spine[i + 1], why: e ? e.why : null, score: e ? e.score : 0 });
   }
-  // 剩下的挂上去：先核心后沾边，各挂在它清单里分最高的、已经在图上的那条底下
+  // 不在主轴上的站，挂在它连得最紧的、已经在图上的那一站底下
   const placed = new Set(spine);
   const hang = [];
-  const rest = event.members.filter((m) => !placed.has(m.id))
-    .sort((x, y) => (x.tier === y.tier ? y.score - x.score : x.tier === 'core' ? -1 : 1));
-  for (const m of rest) {
-    const to = (lists.get(m.id) || []).find((x) => placed.has(x.id));
-    if (!to) continue;
-    hang.push({ id: m.id, to: to.id, tier: m.tier, why: to.why || null, score: to.score });
-    placed.add(m.id);
+  const rest = stops.map((s, i) => i).filter((i) => !placed.has(i))
+    .sort((x, y) => stops[y].members.length - stops[x].members.length);
+  let moved = true;
+  while (moved) {
+    moved = false;
+    for (const i of rest) {
+      if (placed.has(i)) continue;
+      let to = null;
+      for (const e of all) {
+        if ((e.a === i && placed.has(e.b)) || (e.b === i && placed.has(e.a))) { to = e; break; }
+      }
+      if (!to) continue;
+      hang.push({ stop: i, to: to.a === i ? to.b : to.a, why: to.why, score: to.score });
+      placed.add(i); moved = true;
+    }
   }
-  return { spine, edges: spineEdges, hang };
+  // 连不上任何站的，挂在主轴第一站底下，没有理由——图上不该有孤岛
+  for (const i of rest) if (!placed.has(i)) { hang.push({ stop: i, to: spine[0], why: null, score: 0 }); placed.add(i); }
+  return { stops, spine, edges, hang };
 }
 
 /** 一条记录在哪几件事里，各占多少分量。 */
