@@ -290,6 +290,7 @@ class Store extends EventEmitter {
       audio: path.join(w, 'audio'),
       summaries: path.join(w, 'summaries'),
       ocr: path.join(w, 'ocr'),          // where each line of recognised text sits, one file per picture
+      thumbs: path.join(w, 'thumbs'),    // 拖进来的文件长什么样，一份文件一张（thumb.js）
       uptime: path.join(w, 'uptime'),    // which five-minute slots briffy was awake in, one file per day
       models: path.join(this.userData, 'models'),
       ocrModels: path.join(this.userData, 'ocr-models'),
@@ -479,6 +480,7 @@ class Store extends EventEmitter {
     // The sidecar holding where each line of text sits goes with it, deleted or not.
     if (entry.ocrBoxes) {
       try { fs.rmSync(path.join(this.paths().ocr, entry.dateKey, `${entry.id}.json`), { force: true }); } catch (_) { /* ignore */ }
+      try { fs.rmSync(path.join(this.paths().thumbs, entry.dateKey, `${entry.id}.jpg`), { force: true }); } catch (_) { /* ignore */ }
     }
     this.emit('entry', entry, 'delete');
     return true;

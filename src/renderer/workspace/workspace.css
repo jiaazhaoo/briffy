@@ -532,6 +532,13 @@ body[data-tab="settings"] .d-mid { display: none; }
 .dt.bare .preview .file small { margin-top: 0; }
 .preview audio { width: 100%; display: block; padding: 4px 0; }
 .preview .file { padding: 26px; text-align: center; font-size: 32px; background: var(--slip-2); }
+/* 有缩略图的时候这块不再是「一个大图标」：图自己占满宽度、交回自己的比例，46vh 封顶
+   （和图片那一档同一条规矩）。内边距收到 --a3，路径和那两个小词落在图底下。 */
+/* 有缩略图的时候这块不再是「一个大图标」，内边距收到 --a3；图自己占满宽度。
+   （详情那层的 .bare 也一起去掉了，见 workspace.js：bare 的意思是「没东西可看」。） */
+.preview .file.has-thumb { padding: var(--a3); font-size: 0; text-align: center; }
+.preview .file .fthumb { display: block; width: 100%; max-height: 46vh; object-fit: contain; }
+.preview .file.has-thumb small { font-size: var(--fs-meta); }
 .preview .file small { display: block; font-size: var(--fs-meta); color: var(--ink-3); margin-top: var(--a2); word-break: break-all; }
 /* 「打开原文件 / 在文件夹中显示」：并排两个小词，和机器写的那几段旁边的复制同一档 */
 .preview .file-acts { display: flex; justify-content: center; gap: var(--a3); margin-top: var(--a2); font-size: var(--fs-meta); }
@@ -985,6 +992,14 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 /* 文件（PDF / 压缩包 / 网页里拿的东西）：从活页夹里拆下来的一页。
    孔是打穿的，所以透出的是底纸的颜色，不是深色块 */
 .k-file .jg-txt { padding-left: 28px; }
+/* 拖进来的文件，纸里嵌一张缩略图：装订孔（.k-file::before/::after）还在，所以左边让开 28px。
+   图铺满剩下的地方、裁掉多的（和图片卡片同一种 object-fit: cover），文件名压在底边的纸上——
+   不是压在图上：那会需要一层遮罩，而遮罩就是底纹。 */
+.jg-file { position: absolute; inset: 0; padding: 8px 8px 8px 28px; display: flex; flex-direction: column; gap: 6px; }
+.jg-file img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: cover; display: block; }
+.jg-file .fname { flex: none; font: 600 var(--fs-meta)/1.4 var(--sans); color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-file .jg-file { padding-left: 28px; }
 .k-file::before, .k-file::after { content: ''; position: absolute; left: 8px; width: 12px; height: 12px;
   background: var(--page); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .30), inset 0 -1px 0 rgba(255, 255, 255, .5); }
 .k-file::before { top: 30%; }
