@@ -215,5 +215,32 @@ section('Notarisation');
   else bad('Gatekeeper', g.out.trim().split('\n').join(' | ') || 'rejected');
 }
 
+// --- 7. 用户真正下载的那个东西 -----------------------------------------------------------------
+section('The file people actually download');
+{
+  // 上面每一节验的都是 release/mac-arm64/briffy.app。用户拿到的不是它，是 dmg——而 electron-builder
+  // 是先给 app 公证再拿它打 dmg 的，所以票落在 app 上，壳上一无所有。1.0.0 就是这么发出去的：
+  // 这个脚本报 20 项全绿，而 spctl 对那个 dmg 的判定是 rejected（no usable signature）。
+  // 绿灯给错了对象，比没有绿灯更糟，所以这一节存在。
+  const dir = path.join(__dirname, '..', 'release');
+  const dmgs = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.dmg')) : [];
+  if (!dmgs.length) skip('no .dmg in release/', 'a --dir build makes none; a release build must');
+  for (const name of dmgs) {
+    const dmg = path.join(dir, name);
+    // 壳不签也能收公证票（notarytool 只要求里面的东西签好），但 Apple 的指引是两件都做，
+    // 而且没签的壳在 spctl 那里连「谁做的」都答不上来。
+    if (run('codesign', ['--verify', '--strict', dmg]).code === 0) ok(`${name} signed`);
+    else bad(`${name} not signed`, 'codesign: not signed at all — see docs/RELEASE.md');
+
+    if (run('xcrun', ['stapler', 'validate', dmg]).code === 0) ok(`${name} ticket stapled`);
+    else bad(`${name} has no notarisation ticket`, 'the app inside may be fine, but mounting it warns the user');
+
+    // -t open 是 Finder 打开一个下载来的文件时用的那个上下文
+    const g = run('spctl', ['-a', '-vvv', '-t', 'open', '--context', 'context:primary-signature', dmg]);
+    if (g.code === 0 && /accepted/.test(g.out)) ok(`${name} Gatekeeper`, (g.out.match(/source=(.+)/) || [])[1] || 'accepted');
+    else bad(`${name} Gatekeeper`, (g.out.match(/source=(.+)/) || [])[1] || 'rejected');
+  }
+}
+
 console.log(`\n${failures ? '✗' : '✓'} ${failures} failed, ${skipped} skipped`);
 process.exit(failures ? 1 : 0);

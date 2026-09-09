@@ -76,6 +76,33 @@ npm run verify:mac
 
 ---
 
+## dmg 这个壳要单独公证一次
+
+**electron-builder 不做这一步。** 它的顺序是：给 app 签名 → 公证 app → staple 到 app → **然后**拿这个 app 去打 dmg。
+于是票落在 app 上，壳上一无所有。1.0.0 就是这么发出去的，`verify:mac` 当时还报 20 项全绿——
+因为它验的是 `release/mac-arm64/briffy.app`，不是用户下载的那个文件。（那个洞已经补上，
+现在有「The file people actually download」一节，壳没公证会直接红。）
+
+后果是用户双击挂载那一下会被拦一次：Gatekeeper 拿这个壳去查，找不到任何可验的东西
+（`spctl -a -t open` → `rejected — no usable signature`）。App 拖出来之后能正常开，它自己是公证过的。
+
+所以 `npm run release:mac` 之后、发布之前，补三条：
+
+```bash
+codesign --sign "$CSC_NAME" --timestamp release/briffy-<版本>-arm64.dmg
+xcrun notarytool submit release/briffy-<版本>-arm64.dmg \
+  --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+xcrun stapler staple release/briffy-<版本>-arm64.dmg
+npm run verify:mac        # 这次必须连 dmg 那三项一起绿
+```
+
+约 5–10 分钟，大半又是等 Apple。**不用重新打包**——签名和 staple 都是在现成的 dmg 上动的。
+
+**zip 不需要这一步，也没法做**：公证票 staple 不到 zip 上。zip 里那个 app 自己带着票，解开就能用，
+这是 zip 分发唯一的、也是正确的做法。
+
+---
+
 ## 发到 GitHub，然后让官网跟上
 
 官网上那个下载按钮的地址是**算出来**的，不是手写的（[scripts/build-site.js](../scripts/build-site.js)
