@@ -402,7 +402,8 @@ function evidenceFor(id, idx, { limit = 6, maxDf = EV_MAXDF, needDf = EV_NEEDDF 
       .sort((x, y) => (idx.df.get(x.a) || 0) - (idx.df.get(y.a) || 0))
       .filter((p) => { const k = `${p.a}|${p.b}`; if (seen.has(k)) return false; seen.add(k); return true; })
       .slice(0, 3)
-      .map((p) => ({ a: idx.text.get(p.a) || '', b: idx.text.get(p.b) || '', fuzzy: p.fuzzy }));
+      .map((p) => ({ a: idx.text.get(p.a) || '', b: idx.text.get(p.b) || '', fuzzy: p.fuzzy,
+        k: (idx.kind && idx.kind.get(p.a)) || 'name', df: idx.df.get(p.a) || 0 }));
     out.push({ id: other, score, df: best, facets: f, pairs });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, limit);

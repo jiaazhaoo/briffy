@@ -80,7 +80,7 @@ async function main() {
   for (const e of list) {
     const core = coreOf(e); const touch = e.members.filter((m) => m.tier === 'touch');
     const cnt = (ms) => { const c = { 晚: 0, 屏: 0, 问: 0, '·': 0 }; for (const m of ms) c[tag(m.id)]++; return `晚 ${c['晚']} · 屏 ${c['屏']} · 其他 ${c['·'] + c['问']}`; };
-    console.log(`══ ${String(e.name || '（没名字）').padEnd(28)} 核心 ${core.length} 条（${cnt(core)}）  沾边 ${touch.length} 条（${cnt(touch)}）`);
+    console.log(`══ ${String(e.name || '（没名字）').padEnd(28)} 核心 ${core.length} 条（${cnt(core)}）  沾边 ${touch.length} 条（${cnt(touch)}）  认得出的锚词 ${e.quality || 0} · 密度 ${((e.quality || 0) / Math.max(1, core.length)).toFixed(2)}`);
     const g = e.lineage || story.lineage(e, new Map(all.map((id) => [id, ask.linksOf(id).related])));
     const whyT = (w) => (!w ? '—' : w.kind === 'word' && w.pairs ? w.pairs.map((p) => p.a).join('·') : w.kind === 'page' ? `同一页${w.name ? ' ' + w.name.slice(0, 10) : ''}` : w.kind);
     console.log(`     主轴：${g.spine.map((i, k) => `[${g.stops[i].members.length > 1 ? `${nm(g.stops[i].id).slice(0, 14)} +${g.stops[i].members.length - 1}` : nm(g.stops[i].id).slice(0, 14)}]${k < g.edges.length ? ` —${whyT(g.edges[k].why).slice(0, 22)}— ` : ''}`).join('')}`);

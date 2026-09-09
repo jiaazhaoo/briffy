@@ -19,7 +19,9 @@ function view(words, df) {
     total: 100,
   };
 }
-const L = (pairs) => new Map(Object.entries(pairs).map(([id, arr]) => [id, arr.map(([to, score]) => ({ id: to, score }))]));
+// 测试里的链接默认带一个硬理由（邮编）：没理由的链接现在不算数（story.strong）
+const HARD = () => ({ kind: 'word', pairs: [{ a: 'TW20 0AE', b: 'TW20 0AE', k: 'place', df: 3 }] });
+const L = (pairs) => new Map(Object.entries(pairs).map(([id, arr]) => [id, arr.map(([to, score, why]) => ({ id: to, score, why: why || HARD() }))]));
 
 ok('互为前三近邻的连成一块，单向的不算', () => {
   // a b c 互相都在对方前三；h 把 a b c 都列在前三里，但它们的前三里没有 h
@@ -119,7 +121,7 @@ ok('eventsOf：这一条在哪几件里，核心排在沾边前面', () => {
 });
 
 ok('谱系：同一页的先归成一站，站与站之间按共用词连主轴，同一段操作不进图', () => {
-  const W = (...ws) => ({ kind: 'word', pairs: ws.map((w) => ({ a: w, b: w })) });
+  const W = (...ws) => ({ kind: 'word', pairs: ws.map((w) => ({ a: w, b: w, k: 'place', df: 3 })) });
   const P = (n) => ({ kind: 'page', name: n });
   // p 是一页，c1 c2 摘自它；a 靠 tw20 连着 p；d 靠 ultra 连着 a；r 和 a 只是同一段操作
   const lists = new Map(Object.entries({
@@ -147,12 +149,39 @@ ok('谱系：同一页的先归成一站，站与站之间按共用词连主轴�
 });
 
 ok('谱系：只有一条核心也画得出来', () => {
-  const lists = new Map([['a', []], ['h', [{ id: 'a', score: 0.5 }]]]);
+  const lists = new Map([['a', []], ['h', [{ id: 'a', score: 0.5, why: HARD() }]]]);
   const g = story.lineage({ members: [{ id: 'a', tier: 'core', score: 1 }, { id: 'h', tier: 'touch', score: 0.5 }] }, lists);
   assert.strictEqual(g.stops.length, 1);
   assert.deepStrictEqual(g.spine, [0]);
   assert.strictEqual(g.edges.length, 0);
   assert.strictEqual(g.hang.length, 0);           // 沾边的不画
+});
+
+ok('硬不硬：一个软词不算，UKPC / 邮编 / 地名 / 两个词以上算', () => {
+  const p = (a, k) => ({ kind: 'word', pairs: [{ a, b: a, k, df: 5 }] });
+  assert.strictEqual(story.strong({ why: p('Read', 'name') }), false);
+  assert.strictEqual(story.strong({ why: p('直接', 'name') }), false);
+  assert.strictEqual(story.strong({ why: p('UKPC', 'name') }), true);
+  assert.strictEqual(story.strong({ why: p('TW18 4JG', 'place') }), true);
+  assert.strictEqual(story.strong({ why: p('泰晤士河', 'name') }), true);
+  assert.strictEqual(story.strong({ why: { kind: 'word', pairs: [{ a: 'London', k: 'name' }, { a: 'Staines', k: 'name' }] } }), true);
+  assert.strictEqual(story.strong({ why: { kind: 'run' } }), false);
+  assert.strictEqual(story.strong({ why: { kind: 'page', name: 'x' } }), true);
+  assert.strictEqual(story.strong({}), false);
+});
+
+ok('谱系：同一页存了几次的副本归一站', () => {
+  const lists = new Map([
+    ['a', [{ id: 'b', score: 0.9, why: HARD() }, { id: 'c', score: 0.5, why: HARD() }]],
+    ['b', [{ id: 'a', score: 0.9, why: HARD() }]],
+    ['c', [{ id: 'a', score: 0.5, why: HARD() }]],
+  ]);
+  const titles = { a: '赛程分前后半程 - Claude', b: 'Fulham 赛程分前后半程 - Claude', c: 'Windsor Road' };
+  const ev = { members: ['a', 'b', 'c'].map((id) => ({ id, tier: 'core', score: 0.7 })) };
+  const g = story.lineage(ev, lists, (id) => titles[id]);
+  assert.strictEqual(g.stops.length, 2);
+  const ab = g.stops.find((s) => s.members.includes('a'));
+  assert.ok(ab.members.includes('b'));
 });
 
 console.log(`events: ${pass} passed`);

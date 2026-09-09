@@ -208,6 +208,7 @@ function storyCtx() {
     ev: evIdx,
     ok: evIdx.ok,
     total: (index.stats() || {}).entries || 0,
+    titleOf: (id) => (store.getEntry(id) || {}).title || '',
     near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
   };
   return ctxCache;
@@ -859,7 +860,8 @@ function eventsStep({ budgetMs = 400 } = {}) {
   try {
     eventsCache = story.events(listsCache, storyCtx());
     // 每件事画成谱系（主轴、支线、线上的理由），界面直接拿去画
-    for (const e of eventsCache) { try { e.lineage = story.lineage(e, listsCache); } catch (_) { e.lineage = null; } }
+    const titleOf = storyCtx().titleOf;
+    for (const e of eventsCache) { try { e.lineage = story.lineage(e, listsCache, titleOf); } catch (_) { e.lineage = null; } }
   } catch (e) { console.warn('[ask] 事件整理不出来：', e.message || e); eventsCache = []; }
   return { done: true, n: listsAt, total: ids.length };
 }
