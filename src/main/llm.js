@@ -10,6 +10,8 @@ const ollama = require('./ollama');
 const hardware = require('./hardware');
 const { promptLanguageName } = require('./languages');
 
+const redact = require('./redact');
+
 const PROVIDERS = ['anthropic', 'openrouter', 'ollama', 'custom'];
 // How much item text each provider gets (characters). Local models have small context windows.
 const TAG_LIMIT = { anthropic: 100000, openrouter: 60000, custom: 12000, ollama: 5000 };
@@ -79,7 +81,24 @@ function config(store, override = {}) {
     openrouter: { apiKey: secret('openrouterKey', 'openrouterKey'), model: s.openrouterModel || 'anthropic/claude-opus-5' },
     ollama: { host: s.ollamaHost || ollama.DEFAULT_HOST, model: s.ollamaModel || rec.model, recommended: !s.ollamaModel },
     custom: { baseUrl: s.customBaseUrl || '', apiKey: secret('customKey', 'customKey'), model: s.customModel || '' },
+    redactLevel: redact.levelOf(s),
   };
+}
+
+/**
+ * 出门那一下。**每一段发给模型的正文都从这儿过**——这个文件里有五条出去的路
+ * （起标题、每日摘要、问、改写查询、一键翻译），一条也不能绕开它。
+ *
+ * 盖的只是发出去的那一份，磁盘上的记录一个字不动（见 redact.js 顶上）。
+ * 盖了什么写进日志：默默改掉用户的正文而不吭声，比不盖还糟——答案对不上时他得能查出为什么。
+ * @param {object} cfg
+ * @param {string} text
+ * @param {string} what 日志里说这是哪条路
+ */
+function outbound(cfg, text, what) {
+  const r = redact.mask(text, { level: (cfg || {}).redactLevel });
+  if (r.n) console.log(`[redact] ${what}：出门前隐去 ${r.n} 处（${redact.summary(r.hits)}）`);
+  return r.text;
 }
 
 /**
@@ -213,7 +232,7 @@ function parseJsonLoose(text) {
  */
 async function translate(cfg, { text }) {
   const limit = TAG_LIMIT[cfg.provider] || 12000;
-  const body = String(text || '').slice(0, limit);
+  const body = outbound(cfg, String(text || '').slice(0, limit), '一键翻译');
   const system = [
     `Translate the user's text into ${cfg.languageName}.`,
     'Return only the translation: no preface, no notes, no quotes around it.',
@@ -249,22 +268,23 @@ async function describe(cfg, input) {
   const image = input.kind === 'image' && input.image ? ai.prepareImage(input.image, input.imageMime) : null;
   const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
   const system = tagSystem(cfg.languageName, small);
+  // 只有 Anthropic 那一档会把 PDF 原件带上，别的只带抽出来的字——所以正文分两种，
+  // 但**出门都走 outbound**：以前这一段在四个分支里各拼一次，多一个分支就多一个可能忘掉的地方。
+  const attachPdf = cfg.provider === 'anthropic' && input.kind === 'pdf' && input.pdf;
+  const text = outbound(cfg, buildTagText(input, limit, { attachedPdf: !!attachPdf, attachedImage: !!image }), '起标题');
   let raw;
   switch (cfg.provider) {
-    case 'anthropic': {
-      const attachPdf = input.kind === 'pdf' && input.pdf;
-      const text = buildTagText(input, limit, { attachedPdf: !!attachPdf, attachedImage: !!image });
+    case 'anthropic':
       raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text, image, pdf: attachPdf ? input.pdf : null, schema: TAG_SCHEMA, maxTokens: 800, effort: 'low' });
       break;
-    }
     case 'openrouter':
-      raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text: buildTagText(input, limit, { attachedImage: !!image }), image, schema: TAG_SCHEMA, maxTokens: 800 });
+      raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text, image, schema: TAG_SCHEMA, maxTokens: 800 });
       break;
     case 'custom':
-      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text: buildTagText(input, limit, { attachedImage: !!image }), image, schema: TAG_SCHEMA, maxTokens: 800 });
+      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text, image, schema: TAG_SCHEMA, maxTokens: 800 });
       break;
     case 'ollama':
-      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text: buildTagText(input, limit, { attachedImage: !!image }), image, schema: TAG_SCHEMA, maxTokens: 600, numCtx: 8192 });
+      raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, image, schema: TAG_SCHEMA, maxTokens: 600, numCtx: 8192 });
       break;
     default:
       throw new Error(`Unknown provider ${cfg.provider}`);
@@ -337,7 +357,7 @@ async function dailySummary(cfg, { dateKey, entries, counts = '', headings = nul
   const system = digestSystem(cfg.languageName, small, headings);
   // The counts come first and are already true, so the model never has to work out how many of
   // anything there were -- the one thing it is reliably bad at and the one thing that is cheap to know.
-  const text = `${counts ? `Counts for this day (these are correct, use them as given):\n${counts}\n\n` : ''}Date: ${dateKey}\nItems (${entries.length}):\n${buildDigest(entries, limit)}`;
+  const text = outbound(cfg, `${counts ? `Counts for this day (these are correct, use them as given):\n${counts}\n\n` : ''}Date: ${dateKey}\nItems (${entries.length}):\n${buildDigest(entries, limit)}`, '每日摘要');
   let raw;
   switch (cfg.provider) {
     case 'anthropic':
@@ -485,8 +505,8 @@ async function searchPlan(cfg, { question, history = [], seeds = [] }) {
   // 在更后面。截多长都是赌。而名字这一份是 entity.js 已经算好的：Bishops · Fulham · Runnymede ·
   // 接驳 · 车站 · 50km——正是要它抄的东西，而且不用截。
   const hand = [...new Set(seeds)].slice(0, PLAN_SEEDS).map((x) => `- ${x}`).join('\n');
-  const text = `${talk ? `[conversation so far]\n${talk}\n\n` : ''}`
-    + `${hand ? `[names already in hand]\n${hand}\n\n` : ''}[latest message]\n${q}`;
+  const text = outbound(cfg, `${talk ? `[conversation so far]\n${talk}\n\n` : ''}`
+    + `${hand ? `[names already in hand]\n${hand}\n\n` : ''}[latest message]\n${q}`, '改写查询');
   let raw;
   try {
     switch (cfg.provider) {
@@ -528,7 +548,7 @@ async function answerQuestion(cfg, { question, entries, terms = [], history = []
   // 上文要给，否则「详细地址」这种省略了主语的追问，模型手上有对的记录也说不清是哪儿的地址。
   // 只给最近几轮、答案截短：多给会把这一问的主语淹掉，和 searchPlan 那边同一个道理。
   const talk = history.slice(-PLAN_TURNS).map((t) => `Q: ${String((t && t.question) || '').replace(/\s+/g, ' ')}\nA: ${String((t && t.answer) || '').replace(/\s+/g, ' ').slice(0, PLAN_ANSWER)}`).join('\n');
-  const text = `${talk ? `Conversation so far:\n${talk}\n\n` : ''}Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit, terms)}`;
+  const text = outbound(cfg, `${talk ? `Conversation so far:\n${talk}\n\n` : ''}Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit, terms)}`, '问');
   let raw;
   switch (cfg.provider) {
     case 'anthropic':

@@ -57,6 +57,8 @@
       selectMode: '选择', selectDone: '完成', selectAll: '全选', selectNone: '取消选择', deleteSelected: '删除所选',
       nSelected: '已选 {n} 项', confirmDeleteMany: '删除选中的 {n} 条记录（及其文件副本）？', deletedN: '已删除 {n} 条',
       dayCount: '{n} 条', jumpTo: '{time} · {title}', today: '今天', yesterday: '昨天',
+      sRedact: '脱敏', sRedactOff: '原样发出', sRedactSecrets: '隐去密钥和号码', sRedactAll: '再隐去邮箱和电话',
+      sRedactHint: '存下来的记录一个字不动，盖掉的只是发给 AI 的那一份。认的是校验位和固定形状（卡号的 Luhn、身份证的校验码、sk- / AKIA 这类钥匙），不用模型。默认那档不碰邮箱和电话——盖了它们，「谁给我发的邮件」就问不出来了。',
       viewGrid: '网格', viewList: '列表',
       selectEntry: '选择一条记录查看详情', noEntries: '还没有记录。按快捷键截图、双击 briffy 录音，或把文件拖到briffy身上。',
       generateSummary: '生成该日摘要', noSummary: '还没有摘要。briffy每天早上会自动生成昨天的摘要。', noEntriesThatDay: '这一天没有记录',
@@ -200,6 +202,8 @@
       selectMode: 'Select', selectDone: 'Done', selectAll: 'Select all', selectNone: 'Clear', deleteSelected: 'Delete selected',
       nSelected: '{n} selected', confirmDeleteMany: 'Delete the {n} selected entries (and their stored copies)?', deletedN: 'Deleted {n}',
       dayCount: '{n} records', jumpTo: '{time} · {title}', today: 'Today', yesterday: 'Yesterday',
+      sRedact: 'Redaction', sRedactOff: 'Send as captured', sRedactSecrets: 'Hide keys and numbers', sRedactAll: 'Also hide email and phone',
+      sRedactHint: 'Your saved records are never altered — only the copy sent to the AI service is. Detection is by checksum and fixed shape (Luhn for card numbers, the ID check digit, sk- / AKIA style keys); no model is involved. The default leaves email and phone alone: hide those and "who emailed me" stops working.',
       viewGrid: 'Grid', viewList: 'List',
       selectEntry: 'Select an entry to see details', noEntries: 'Nothing yet. Press the shortcut to capture, double-click briffy to record, or drop files on it.',
       generateSummary: 'Generate summary for this day', noSummary: 'No summaries yet. briffy writes one for yesterday every morning.', noEntriesThatDay: 'No entries on that day',
@@ -1975,6 +1979,7 @@
     $('#captureToClipboard').checked = s.captureToClipboard !== false;
     $('#hotkeyError').textContent = m.hotkeyError || '';
     $('#provider').value = s.provider || 'anthropic';
+    $('#redact').value = s.redact || 'secrets';
     $('#anthropicAuth').value = s.anthropicAuth || 'apiKey';
     $('#apiKey').value = '';
     $('#apiKeyStatus').textContent = keyStatus(s.hasApiKey, s.apiKeyHint);
@@ -2076,6 +2081,7 @@
       petHidden: $('#petHidden').checked,
     };
     Object.assign(patch, {
+      redact: $('#redact').value,
       provider: $('#provider').value,
       anthropicAuth: $('#anthropicAuth').value,
       openrouterModel: $('#openrouterModel').value.trim() || 'anthropic/claude-opus-5',

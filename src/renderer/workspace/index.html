@@ -264,6 +264,15 @@
               </select>
               <span id="providerConfigured" class="st"></span>
             </span></label>
+            <!-- 出门前把秘密盖掉。原件不动，改的只有发出去的那一份（src/main/redact.js） -->
+            <label class="f"><span class="fl" data-i18n="sRedact">脱敏</span><span class="fc">
+              <select id="redact">
+                <option value="off" data-i18n="sRedactOff">原样发出</option>
+                <option value="secrets" data-i18n="sRedactSecrets">隐去密钥和号码</option>
+                <option value="all" data-i18n="sRedactAll">再隐去邮箱和电话</option>
+              </select>
+              <span class="info"><i>i</i><span class="tip" data-i18n="sRedactHint">存下来的记录一个字不动，盖掉的只是发给 AI 的那一份。认的是校验位和固定形状（卡号的 Luhn、身份证的校验码、sk- / AKIA 这类钥匙），不用模型。默认那档不碰邮箱和电话——盖了它们，「谁给我发的邮件」就问不出来了。</span></span>
+            </span></label>
             <div class="f"><span class="fl" data-i18n="sTestKey">测试</span><span class="fc">
               <button type="button" class="btn" id="btnTestProvider" data-i18n="sTestRun">问它一句</button>
               <span id="providerTestStatus" class="st"></span>
