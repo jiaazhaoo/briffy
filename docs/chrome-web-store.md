@@ -125,9 +125,15 @@ npm run ext:pack     # → release/briffy-extension-<版本>.zip，上传前把�
 | 素材 | 规格 | 必需？ | 状态 |
 | --- | --- | :---: | --- |
 | 商店图标 | 128×128 PNG | 必需 | ✅ [extension/icons/128.png](../extension/icons/128.png) |
-| 截图 | 1280×800 或 640×400，1–5 张 | **必需（至少 1 张）** | ⚠️ **只能你自己截**，见下 |
+| 截图 | 1280×800 或 640×400，1–5 张 | **必需（至少 1 张）** | ⚠️ **只能你自己截**，见下。截完 `npm run store:shots -- <图…>` 垫成规定尺寸 |
 | 小宣传磁贴 | 440×280 PNG | 可选 | ✅ [assets/store/promo-440x280.png](../assets/store/promo-440x280.png) — `npm run store:assets` 重新生成 |
 | 隐私政策 | 公网 URL | 必需 | ✅ `https://briffy.cc/privacy`（记得先 `npm run deploy`） |
+
+**尺寸交给脚本**：商店只收 1280×800 或 640×400，屏幕截图永远不是这两个尺寸，而后台会**替你拉伸**——
+一张界面截图拉伸之后字就歪了，那是最容易让人一眼觉得「这东西不专业」的地方。
+`npm run store:shots -- ~/Desktop/shot1.png …`（[scripts/store-shots.js](../scripts/store-shots.js)）
+只等比缩放不变形，剩下的地方垫 `--page` 那个底纸色——商店页面是白底，纯白留边会和页面糊在一起，
+而底纸色那一圈读起来是「它本来就长这样」。给几张出几张，顺序就是商店里的展示顺序。
 
 **截图为什么只能你自己截**：面板里的内容来自真实网页 + 真实的后台 worker，把 `popup.html`
 单独打开只会得到一个空面板——那不是截图，是假图。审核会看，用户更会看。所以：把
