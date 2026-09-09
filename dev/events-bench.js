@@ -67,6 +67,7 @@ async function main() {
   const tag = (id) => (inSet(id, EVENING) ? '晚' : inSet(id, MONITOR) ? '屏' : inSet(id, ECHO) ? '问' : '·');
 
   const all = index.allIds();
+  const story = require('../src/main/story');
   const t0 = Date.now();
   const list = ask.events({ force: true });
   const ms = Date.now() - t0;
@@ -80,8 +81,11 @@ async function main() {
     const core = coreOf(e); const touch = e.members.filter((m) => m.tier === 'touch');
     const cnt = (ms) => { const c = { 晚: 0, 屏: 0, 问: 0, '·': 0 }; for (const m of ms) c[tag(m.id)]++; return `晚 ${c['晚']} · 屏 ${c['屏']} · 其他 ${c['·'] + c['问']}`; };
     console.log(`══ ${String(e.name || '（没名字）').padEnd(28)} 核心 ${core.length} 条（${cnt(core)}）  沾边 ${touch.length} 条（${cnt(touch)}）`);
-    for (const m of core.slice(0, 10)) console.log(`     ${bar(m.score)} ${m.score.toFixed(2)} ${tag(m.id)} ${nm(m.id)}`);
-    if (core.length > 10) console.log(`     … 核心还有 ${core.length - 10} 条`);
+    const g = e.lineage || story.lineage(e, new Map(all.map((id) => [id, ask.linksOf(id).related])));
+    const whyT = (w) => (!w ? '—' : w.kind === 'word' && w.pairs ? w.pairs.map((p) => p.a).join('·') : w.kind === 'page' ? `同一页${w.name ? ' ' + w.name.slice(0, 10) : ''}` : w.kind);
+    console.log(`     主轴：${g.spine.map((i, k) => `[${g.stops[i].members.length > 1 ? `${nm(g.stops[i].id).slice(0, 14)} +${g.stops[i].members.length - 1}` : nm(g.stops[i].id).slice(0, 14)}]${k < g.edges.length ? ` —${whyT(g.edges[k].why).slice(0, 22)}— ` : ''}`).join('')}`);
+    for (const h of g.hang.slice(0, 6)) console.log(`       └ 挂在 [${nm(g.stops[h.to].id).slice(0, 12)}] 底下：${nm(g.stops[h.stop].id).slice(0, 16)}${g.stops[h.stop].members.length > 1 ? ` +${g.stops[h.stop].members.length - 1}` : ''}  ← ${whyT(h.why).slice(0, 24)}`);
+    if (g.hang.length > 6) console.log(`       … 还挂着 ${g.hang.length - 6} 站`);
     if (touch.length) console.log(`     沾边：${touch.slice(0, 5).map((m) => `${tag(m.id)}${nm(m.id).slice(0, 14)}(${m.score.toFixed(2)})`).join(' | ')}${touch.length > 5 ? ` … 共 ${touch.length}` : ''}`);
   }
 

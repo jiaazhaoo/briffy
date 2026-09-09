@@ -1143,6 +1143,7 @@
   // 点开摊出成员。**核心成员满墨，沾边的铅笔色**——它「参与」了这件事只是因为提到了它
   // （一条开发笔记引用了那晚的地址）。强度用墨说，不画条、不写数。整理没做完就是一句话。
   const evClosed = new Set();   // 收起来的那几件
+  const evSeen = new Set();     // 已经按「散不散」定过初始开合的那几件
   let evFrom = '';              // 从哪条记录的详情跳过来的——回去要有路
   // 谱系图：横向一根主轴，纵向是支线，线上写着为什么连着（用户定的三条：主轴是最硬的那条链，
   // 支线是挂在它连着的那条底下，线上写共用的词）。字宽用 canvas 量，别按定数排——
@@ -1155,29 +1156,55 @@
     return Math.ceil(meas.measureText(String(s || '')).width);
   }
   const clipT = (s, n) => { const x = String(s || ''); return x.length > n ? `${x.slice(0, n - 1)}…` : x; };
+  // 同一页存过几次的副本并成一条，写 ×N：四行「English (Great Britain)」读的人只会以为是四样东西
+  function fold(entries) {
+    const out = []; const at = new Map();
+    for (const en of entries) {
+      const k = cardTitle(en);
+      if (at.has(k)) { out[at.get(k)].n++; continue; }
+      at.set(k, out.length);
+      out.push({ kind: 'member', entry: en, n: 1 });
+    }
+    return out;
+  }
   function drawLineage(e) {
     const g = e.lineage || {};
+    const stops = g.stops || [];
     const spine = g.spine || [];
-    if (!spine.length) return '';
-    const node = (en) => clipT(cardTitle(en), 20);
-    // 每一列：主轴那条 + 挂在它底下的（挂在支线底下的算进同一列）
-    const cols = spine.map((en) => ({ id: en.id, entry: en, rows: [] }));
-    const colOf = new Map(spine.map((en, i) => [en.id, i]));
-    for (const h of g.hang || []) {
-      const c = colOf.get(h.to);
-      if (c === undefined) continue;
-      cols[c].rows.push(h);
-      colOf.set(h.entry.id, c);
+    if (!spine.length || !stops.length) return '';
+    // 站头是故事的一句话，截到 28 个字；站里的成员和挂站短一点，22
+    const node = (en, n = 22) => clipT(cardTitle(en), n);
+    const headT = (en) => node(en, 28);
+    // 一列一站（主轴上的）。列里从上往下：站的头（那一页 / 分最高的那条）、它的其余成员（同一页摘的，
+    // 不用写理由）、然后是挂在它底下的站——连接线上写理由，那一站的成员再往下排。
+    const cols = spine.map((si) => ({ si, rows: [] }));
+    const colOf = new Map(spine.map((si, i) => [si, i]));
+    const pending = (g.hang || []).slice();
+    // 挂站按「挂在谁底下」归列；挂在挂站底下的，跟着它进同一列
+    let moved = true;
+    while (moved && pending.length) {
+      moved = false;
+      for (let k = 0; k < pending.length; k++) {
+        const h = pending[k];
+        const c = colOf.get(h.to);
+        if (c === undefined) continue;
+        cols[c].rows.push({ kind: 'hang', si: h.stop, why: h.why });
+        for (const r of fold(stops[h.stop].members.slice(1))) cols[c].rows.push(r);
+        colOf.set(h.stop, c);
+        pending.splice(k, 1); k--; moved = true;
+      }
     }
-    // 列的 x：主轴两条之间要装得下线上的字；支线一行要装得下理由 + 标题
+    for (const c of cols) c.rows = [...fold(stops[c.si].members.slice(1)), ...c.rows];
+    const rowW = (r) => (r.kind === 'member' ? 16 + textW(node(r.entry) + (r.n > 1 ? ` ×${r.n}` : ''), 12)
+      : 16 + textW(clipT(whyText(r.why), 18), 11) + 8 + textW(node(stops[r.si].entry), 12));
     const xs = []; let x = GX;
     cols.forEach((c, i) => {
       xs.push(x);
-      const w = textW(node(c.entry), 12);
+      const w = textW(headT(stops[c.si].entry), 12);
       const edge = (g.edges || [])[i];
-      const need = edge ? textW(whyText(edge.why), 11) + 24 : GAP;
-      const hangW = c.rows.reduce((m, h) => Math.max(m, 14 + textW(clipT(whyText(h.why), 18), 11) + 8 + textW(node(h.entry), 12)), 0);
-      x += Math.max(w + Math.max(GAP, need), hangW + 28);
+      const need = edge ? textW(clipT(whyText(edge.why), 22), 11) + 24 : GAP;
+      const below = c.rows.reduce((m, r) => Math.max(m, rowW(r)), 0);
+      x += Math.max(w + Math.max(GAP, need), below + 28);
     });
     const width = x + GX;
     const rows = cols.reduce((m, c) => Math.max(m, c.rows.length), 0);
@@ -1185,8 +1212,9 @@
     let svg = '';
     cols.forEach((c, i) => {
       const x0 = xs[i];
-      const w = textW(node(c.entry), 12);
-      svg += `<g class="ev-node" data-id="${esc(c.id)}"><text class="core" x="${x0}" y="${GY}">${esc(node(c.entry))}</text></g>`;
+      const head = stops[c.si].entry;
+      const w = textW(headT(head), 12);
+      svg += `<g class="ev-node" data-id="${esc(head.id)}"><text class="core" x="${x0}" y="${GY}">${esc(headT(head))}</text></g>`;
       const edge = (g.edges || [])[i];
       if (edge && cols[i + 1]) {
         const x1 = x0 + w + 8; const x2 = xs[i + 1] - 8;
@@ -1196,13 +1224,18 @@
       if (c.rows.length) {
         const tx = x0 + 5;
         svg += `<line x1="${tx}" y1="${GY + 6}" x2="${tx}" y2="${GY + 12 + ROW * c.rows.length - 10}"/>`;
-        c.rows.forEach((h, j) => {
+        c.rows.forEach((r, j) => {
           const y = GY + 12 + ROW * (j + 1) - 10;
-          const why = clipT(whyText(h.why), 18);
-          const ww = textW(why, 11);
-          svg += `<line x1="${tx}" y1="${y - 4}" x2="${tx + 12}" y2="${y - 4}"/>`
-            + `<text class="why" x="${tx + 16}" y="${y}">${esc(why)}</text>`
-            + `<g class="ev-node" data-id="${esc(h.entry.id)}"><text class="${h.tier === 'core' ? 'core' : 'touch'}" x="${tx + 16 + ww + 8}" y="${y}">${esc(node(h.entry))}</text></g>`;
+          svg += `<line x1="${tx}" y1="${y - 4}" x2="${tx + 10}" y2="${y - 4}"/>`;
+          if (r.kind === 'member') {
+            svg += `<g class="ev-node" data-id="${esc(r.entry.id)}"><text class="core member" x="${tx + 16}" y="${y}">${esc(node(r.entry))}${r.n > 1 ? `<tspan class="why"> ×${r.n}</tspan>` : ''}</text></g>`;
+          } else {
+            const en = stops[r.si].entry;
+            const why = clipT(whyText(r.why), 18);
+            const ww = why ? textW(why, 11) + 8 : 0;
+            svg += (why ? `<text class="why" x="${tx + 16}" y="${y}">${esc(why)}</text>` : '')
+              + `<g class="ev-node" data-id="${esc(en.id)}"><text class="core" x="${tx + 16 + ww}" y="${y}">${esc(node(en))}</text></g>`;
+          }
         });
       }
     });
@@ -1217,11 +1250,17 @@
     if (state.view !== 'events') return;
     const back = evFrom ? `<button type="button" class="tv-more ev-back" data-ev-back="1">← ${esc(t('evBack'))}</button>` : '';
     if (!list.length) { box.innerHTML = `${back}<div class="tv-note">${esc(t('evPending'))}</div>`; return; }
+    // 散的默认收着、名字铅笔色，点一下还是能摊开。散不散看**密度**：认得出的锚词 / 核心条数。
+    // 开发笔记那一团五十条，锚词是 Users、Running 这种代码里捡来的词，按条数过了线，按密度 0.1 没过；
+    // 那一晚十三条，锚词一把，0.7。
+    // 0.4：开发笔记那团靠 Ollama / GPU / EDID 这些技术词凑到 0.29，那一晚 0.77、报名 0.6。
+    const loose = (e) => (e.quality || 0) / Math.max(1, e.members.filter((m) => m.tier === 'core').length) < 0.4;
+    for (const e of list) if (loose(e) && !evSeen.has(e.id)) { evClosed.add(e.id); evSeen.add(e.id); }
     box.innerHTML = back + list.map((e) => {
       const core = e.members.filter((m) => m.tier === 'core');
       const touch = e.members.filter((m) => m.tier !== 'core');
       const open = !evClosed.has(e.id);
-      return `<div class="ev-row${open ? ' open' : ''}" data-ev="${esc(e.id)}" role="button" tabindex="0">`
+      return `<div class="ev-row${open ? ' open' : ''}${loose(e) ? ' loose' : ''}" data-ev="${esc(e.id)}" role="button" tabindex="0">`
         + `<span class="nm">${esc(e.name || t('untitled'))}</span>`
         + `<span class="n">${esc(t('evCore', { n: core.length }))}${touch.length ? ` · ${esc(t('evTouch', { n: touch.length }))}` : ''}</span>`
         + `</div>`

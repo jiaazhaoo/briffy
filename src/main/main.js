@@ -1220,10 +1220,13 @@ function setupIpc() {
       id: e.id, name: e.name,
       members: e.members.map((m) => ({ score: m.score, tier: m.tier, entry: pub(m.id) })).filter((m) => m.entry),
       // 谱系：主轴（按顺序）、主轴相邻两条之间的边（带理由）、挂在底下的（带它挂在谁底下和理由）
+      quality: e.quality || 0,
+      // 谱系：站（一页和它的摘录是一站）、主轴（站的下标）、站与站之间的边（带理由）、挂在底下的站
       lineage: {
-        spine: g.spine.map(pub).filter(Boolean),
-        edges: g.edges,
-        hang: g.hang.map((h) => ({ to: h.to, tier: h.tier, why: h.why, score: h.score, entry: pub(h.id) })).filter((h) => h.entry),
+        stops: (g.stops || []).map((st) => ({ entry: pub(st.id), members: st.members.map(pub).filter(Boolean) })),
+        spine: g.spine || [],
+        edges: g.edges || [],
+        hang: g.hang || [],
       },
     };
   }));

@@ -388,10 +388,13 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .ev-row + .ev-row, .ev-members + .ev-row { margin-top: var(--a4); }
 /* 谱系图：主轴一行，支线往下垂。线是铅笔色的细线——这里的线是内容（双链的证据），不是装饰。
    宽的在自己的框里横着滚，页面不横滚。 */
-.ev-graph { overflow-x: auto; overflow-y: hidden; padding: var(--a1) 0 var(--a3); }
+.ev-graph { overflow-x: auto; overflow-y: hidden; padding: var(--a1) 0 var(--a3); scrollbar-width: none; }
+.ev-graph::-webkit-scrollbar { height: 0; }   /* 这张纸上没有线，横着滚靠触控板 */
 .ev-graph svg { display: block; width: auto; height: auto; }
 .ev-graph text { font-family: var(--sans); stroke: none; }   /* 顶上那条 svg 规则给图标描的边，字不要 */
 .ev-graph text.core { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.ev-graph text.member { font-weight: 400; }          /* 同一页摘的那几条：站里的成员，不是站头 */
+.ev-row.loose .nm { color: var(--ink-3); font-weight: 400; }   /* 散的：名字铅笔色 */
 .ev-graph text.touch { fill: var(--ink-3); font-size: 12px; }
 .ev-graph text.why { fill: var(--ink-3); font-size: 11px; }
 .ev-graph line { stroke: var(--ink-3); stroke-width: 1; stroke-linecap: square; }

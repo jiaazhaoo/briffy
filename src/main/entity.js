@@ -134,6 +134,8 @@ function of(entry, body, titled, places) {
       add(places && places.has(low) ? 'place' : 'name', w, low);
       continue;
     }
+    // 带数字的词不论大小写：p3425we 是型号，比 Dell 还硬——它把显示器那几条串起来。
+    if (/\d/.test(low) && /[a-z]/.test(low) && !LABEL.has(low)) { add('name', w, low); continue; }
     // 拉丁词只认专名：原文里首字母大写过的那些，而且不在网页家具那张表里。
     //
     // **判据要看原文里真实出现的那些形态，不能自己拼一个「首字母大写」去比。**
@@ -141,9 +143,23 @@ function of(entry, body, titled, places) {
     // 实测被这条漏掉的：UKPC（那条停车申诉里唯一有指向性的词，它因此一条边都长不出来）、
     // EDID、RGB、PPI。缩写恰恰是最硬的专名。
     if (low.length < 3 || CHROME.has(low)) continue;
+    // **句首的大写不算，除非后面紧跟着另一个大写的词。** Use、High、Reading、Direct 全是句子开头
+    // 才大写的普通词，它们当过证据，把「Find parking」和「aragaki.ny@gmail.com」连在一起——
+    // 理由就写着一个 High，读的人不知所云。专名是：在句子中间也大写（Dell、Staines）、全大写或
+    // 带数字（UKPC、P3425WE）、或者一个词组的开头——「Runnymede Pleasure Ground」「Windsor Road」
+    // 「Ultra Challenge」整条记录就从它起头，后面跟着的也是大写的，那是名字，不是句子。
     const re = new RegExp(`\\b${low.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
     let capped = false;
-    for (let m = re.exec(raw); m; m = re.exec(raw)) if (/^[A-Z]/.test(m[0])) { capped = true; break; }
+    for (let m = re.exec(raw); m; m = re.exec(raw)) {
+      const w0 = m[0];
+      if (!/^[A-Z]/.test(w0)) continue;
+      const allCaps = w0.length >= 2 && w0 === w0.toUpperCase();
+      const before = raw.slice(Math.max(0, m.index - 3), m.index);
+      const after = raw.slice(m.index + w0.length, m.index + w0.length + 4);
+      const midSentence = /[^\s]\s*$/.test(before) && !/[.!?。！？:：\n\r"“(（\[【]\s*$/.test(before);
+      const nextCapped = /^,?\s+[A-Z]/.test(after);
+      if (allCaps || /\d/.test(w0) || midSentence || nextCapped) { capped = true; break; }
+    }
     if (!capped) continue;
     add(places && places.has(low) ? 'place' : 'name', w, low);
     if (low.includes('-')) for (const p of low.split('-')) if (p.length >= 3 && !STOP.has(p)) add('name', p, p);
