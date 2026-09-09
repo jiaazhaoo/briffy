@@ -535,7 +535,8 @@ body[data-tab="settings"] .d-mid { display: none; }
 /* 有缩略图的时候这块不再是「一个大图标」：图自己占满宽度、交回自己的比例，46vh 封顶
    （和图片那一档同一条规矩）。内边距收到 --a3，路径和那两个小词落在图底下。 */
 /* 有缩略图的时候这块不再是「一个大图标」，内边距收到 --a3；图自己占满宽度。
-   （详情那层的 .bare 也一起去掉了，见 workspace.js：bare 的意思是「没东西可看」。） */
+   （详情那层的 .bare 也一起去掉了，见 workspace.js：bare 的意思是「没东西可看」。）
+   路径那一行在图底下居中；两个文件动作已经搬到右上角那排托盘里了。 */
 .preview .file.has-thumb { padding: var(--a3); font-size: 0; text-align: center; }
 .preview .file .fthumb { display: block; width: 100%; max-height: 46vh; object-fit: contain; }
 .preview .file.has-thumb small { font-size: var(--fs-meta); }
@@ -995,11 +996,12 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 /* 拖进来的文件，纸里嵌一张缩略图：装订孔（.k-file::before/::after）还在，所以左边让开 28px。
    图铺满剩下的地方、裁掉多的（和图片卡片同一种 object-fit: cover），文件名压在底边的纸上——
    不是压在图上：那会需要一层遮罩，而遮罩就是底纹。 */
-.jg-file { position: absolute; inset: 0; padding: 8px 8px 8px 28px; display: flex; flex-direction: column; gap: 6px; }
-.jg-file img { flex: 1 1 auto; width: 100%; min-height: 0; object-fit: cover; display: block; }
-.jg-file .fname { flex: none; font: 600 var(--fs-meta)/1.4 var(--sans); color: var(--ink-2);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.k-file .jg-file { padding-left: 28px; }
+/* 抬头在顶上，和拍立得（.k-shot .cap）站在同一条线上：left 10 / top 8 / 高 20——
+   这样一屏扫过去，所有卡片的名字和来源都在同一个高度，来源也就自然对齐了。
+   文件纸左边有两个装订孔，所以整块和抬头都让开 28px。 */
+.jg-file { position: absolute; inset: 0; padding: 30px 8px 8px 28px; }
+.jg-file img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.jg-file .cap { position: absolute; left: 28px; right: 10px; top: 8px; height: 20px; }
 .k-file::before, .k-file::after { content: ''; position: absolute; left: 8px; width: 12px; height: 12px;
   background: var(--page); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .30), inset 0 -1px 0 rgba(255, 255, 255, .5); }
 .k-file::before { top: 30%; }

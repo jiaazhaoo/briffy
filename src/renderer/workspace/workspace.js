@@ -886,9 +886,11 @@
     // 不改成拍立得：卡片上没有类型图标，类型全靠形状说——PDF 一旦长成拍立得，
     // 就再也一眼分不出它和截图了。缩略图只回答「是哪一份」，不回答「它是什么」。
     if (e.thumbUrl) {
-      return `<div class="jg-file">${mark ? `<div class="k">${mark}</div>` : ''}`
-        + `<img src="${esc(e.thumbUrl)}" loading="lazy" alt="" />`
-        + `<div class="fname">${esc(cardTitle(e))}</div></div>`;
+      // 抬头在**顶上**，和拍立得、磁带、索引卡一样，用的是同一份 head（名字 + 来源）——
+      // 名字有的在顶有的在底，一屏扫过去视线要上下跳；而共用 head 之后来源也自然对齐了。
+      // （2026-09-09 用户定的：「卡片标题统一在顶部，并且让来源具有对齐」。）
+      return `<div class="jg-file"><span class="cap">${head}</span>`
+        + `<img src="${esc(e.thumbUrl)}" loading="lazy" alt="" /></div>${mark}`;
     }
     // 别的（文件、网页里拿来的东西）：还是那张白便签
     const more = cardExcerpt(e);
@@ -1303,12 +1305,12 @@
     // 拖进来的文件：有系统给的缩略图就画那张图，没有就还是那个图标（thumb.js）。
     // 图和图片那一档一样交回自己的比例，不去死封高度——死封再补灰底，一张竖的 PDF
     // 会被压成中间一条、两边两块灰，那正是详情里图片那条规矩说过的。
+    // 「打开原文件 / 在文件夹中显示」不放在这儿——两个小词挂在预览旁边，宽窗口下会被
+    // 甩到图的右边去，读起来像图的说明。它们和收藏、删除一样是「对这一条动手」，
+    // 所以收进右上角那排托盘（2026-09-09 用户定的：「按钮在顶部而不是在预览的右边」）。
     else preview = `<div class="file${e.thumbUrl ? ' has-thumb' : ''}">`
       + (e.thumbUrl ? `<img class="fthumb" src="${esc(e.thumbUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file))
-      + `<small>${esc(e.path || '')}${e.size ? ` · ${(e.size / 1024).toFixed(1)} KB` : ''}</small>`
-      + (e.path ? `<span class="file-acts"><button type="button" class="mini" data-action="open">${esc(t('openFile'))}</button>`
-        + `<button type="button" class="mini" data-action="reveal">${esc(t('revealFile'))}</button></span>` : '')
-      + '</div>';
+      + `<small>${esc(e.path || '')}${e.size ? ` · ${(e.size / 1024).toFixed(1)} KB` : ''}</small></div>`;
 
     const textLabel = e.type === 'audio' ? t('transcript') : (e.type === 'screenshot' || e.type === 'image') ? t('text') : t('content');
     const statusLine = e.status === 'processing'
@@ -1351,6 +1353,8 @@
         <header class="dt-head">
           <h2>${esc(e.title || e.path || e.url || '')}</h2>
           <div class="dt-acts">
+            ${e.path && e.type !== 'screenshot' && e.type !== 'image' && e.type !== 'note' && e.type !== 'url' ? `<button type="button" class="act" data-action="open">${esc(t('openFile'))}</button>`
+              + `<button type="button" class="act" data-action="reveal">${esc(t('revealFile'))}</button>` : ''}
             <button type="button" class="act${e.pinned ? ' on' : ''}" data-action="pin"
               title="${esc(t(e.pinned ? 'unpin' : 'pin'))}">${esc(t('pin'))}</button>
             <button type="button" class="act danger" data-action="delete">${esc(t('delete'))}</button>
