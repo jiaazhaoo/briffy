@@ -55,6 +55,7 @@ http.createServer((req, res) => {
   if (url === '/links') return send(path.join(__dirname, 'links.html'));
   if (url === '/ground') return send(path.join(__dirname, 'ground.html'));
   if (url === '/briffy') return send(path.join(__dirname, 'briffy.html'));
+  if (url === '/city') return send(path.join(__dirname, 'city.html'));   // 小视图：一天一栋楼
   // 官网。/site 必须先跳到 /site/：没有那道斜杠，页面里 paper/tokens.css 这些相对地址会落到站点根上。
   if (url === '/site') { res.statusCode = 302; res.setHeader('location', '/site/'); return res.end(); }
   if (url === '/site/') return send(path.join(ROOT, 'site/index.html'));

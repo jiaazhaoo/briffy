@@ -29,7 +29,8 @@ let store = null;
 let timer = null;
 let last = '';                 // 上一条的 app|window|url，用来判断变没变
 let lastAt = 0;
-let lastPage = '';             // 上一个交上来的网址，同一页不重复记正文
+let seenDay = '';              // 今天是哪一天（换天了就把下面那份名单清掉）
+let seenUrls = new Set();      // 今天已经记过正文的网址
 let onEvent = null;
 
 function init(deps) { store = deps.store; }
@@ -75,13 +76,17 @@ async function tick() {
 /**
  * 扩展把一页的正文交上来。
  *
- * 同一个网址只记一次——刷新、回退、SPA 里来回切都会重复触发，而正文没变。
+ * **同一个网址一天只记一次。** 以前只挡「连着两次是同一页」（刷新、回退、SPA 里来回切），
+ * 挡不住「过一会儿又回到这一页」——实测 2026-09-09 收上来 135 条，去重之后只有 62 条。
  * 正文变了但网址没变（一条流不断加载）拿不到，这一层不追那个。
+ * 读那头还有一道一样的去重（pages()）：这一份名单在重启之后是空的，而旧数据里已经有重复了。
  */
 function notePage({ url = '', title = '', text = '' } = {}) {
   if (!enabled() || !url) return false;
-  if (url === lastPage) return false;
-  lastPage = url;
+  const today = require('./store').localDateKey();
+  if (today !== seenDay) { seenDay = today; seenUrls = new Set(); }
+  if (seenUrls.has(url)) return false;
+  seenUrls.add(url);
   const body = String(text || '').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
   if (!body) return false;
   append({ at: new Date().toISOString(), kind: 'page', url: String(url).slice(0, 2000), window: String(title || '').slice(0, 300), text: body });
@@ -93,7 +98,7 @@ function start() {
   timer = setInterval(() => { tick().catch(() => {}); }, POLL_MS);
   if (timer.unref) timer.unref();
 }
-function stop() { if (timer) { clearInterval(timer); timer = null; } last = ''; lastPage = ''; }
+function stop() { if (timer) { clearInterval(timer); timer = null; } last = ''; seenDay = ''; seenUrls = new Set(); }
 
 /** 一天的痕迹，按时间。坏行跳过——追加写的文件被中途杀掉可能留下半行。 */
 function read(day) {
@@ -152,7 +157,12 @@ function sessions(day) {
     const w = tidyTitle(r.window);
     const at = Date.parse(r.at);
     const top = blocks[blocks.length - 1];
-    if (top && top.app === r.app && top.window === w) { top.seen = at; continue; }
+    // **中间隔了多久也要看。** 只比 app 和标题的话，睡觉前和醒来后是同一个窗口，
+    // 就被接成了一整段：实测 00:28 睡前 Chrome 开着「Reading the Paper Record」，
+    // 08:05 醒来还是它，中间 456 分钟一条记录都没有（没人动的时候本来就不记），
+    // 而这两条被合成了 479 分钟的「一段」。心跳是五分钟一条，所以真在用的时候两条之间
+    // 不会超过五分钟；超过了，那就是两次坐下，不是一段。
+    if (top && top.app === r.app && top.window === w && at - top.seen <= HEARTBEAT_MS) { top.seen = at; continue; }
     blocks.push({ start: at, seen: at, app: r.app, window: w, url: r.url || '' });
   }
   for (let i = 0; i < blocks.length; i++) {
@@ -165,8 +175,10 @@ function sessions(day) {
   for (const b of blocks) {
     const top = merged[merged.length - 1];
     const secs = (b.end - b.start) / 1000;
-    if (top && secs < GLANCE_S && top.app !== b.app) { top.end = b.end; continue; }
-    if (top && top.app === b.app && top.window === b.window) { top.end = b.end; continue; }
+    // 同上：隔着一段空白的两块不能接起来，哪怕它们看着一模一样
+    const near = top && b.start - top.end <= HEARTBEAT_MS;
+    if (top && near && secs < GLANCE_S && top.app !== b.app) { top.end = b.end; continue; }
+    if (top && near && top.app === b.app && top.window === b.window) { top.end = b.end; continue; }
     merged.push(b);
   }
   return merged.map((b) => ({
@@ -179,6 +191,92 @@ function sessions(day) {
     pages: pages.filter((p) => { const t = Date.parse(p.at); return t >= b.start && t <= b.end; })
       .map((p) => ({ at: p.at, url: p.url, title: p.window, text: p.text })),
   }));
+}
+
+// ── 读过的那些网页 ────────────────────────────────────────────────────────
+//
+// **这一层里唯一不可替代的东西是它，不是时长。** 「今天你在 Claude 上花了 6 小时」你自己知道；
+// 「你上周读过的那篇讲市政条件的东西」只有这儿有——因为你没存它。所以网页正文这一份要能
+// 被搜到、被问到，而不是只落在硬盘上（2026-09-09 之前它确实只写不读：界面上要点开某一行
+// 才看得见，搜索框在那一页什么都不做，ask.js 里 trail 这个词一次都没出现）。
+//
+// 一天几十条，一年上万条，所以：按天读、按 mtime 缓存、只往回翻 SEARCH_DAYS 天。
+const SEARCH_DAYS = 180;       // 往回翻多少天。再往前的东西你多半会去搜记录，不是搜路过
+const SNIPPET = 90;            // 命中处前后各留多少字
+const pageCache = new Map();   // day -> { mtimeMs, pages }
+
+/**
+ * 一天读过的网页，**按网址去重**。
+ *
+ * 采集那头只挡「连着两次是同一页」（刷新、回退、SPA 来回切），挡不住「过一会儿又回到这一页」——
+ * 实测 2026-09-09 收上来 135 条，去重之后只有 62 条，一多半是重复。
+ * 去重留的是**最早那次的时间**（你第一次读它）和**最长的那一份正文**（有时候第一次抓到的
+ * 是还没渲染完的半页）。
+ */
+function pages(day) {
+  let mtimeMs = 0;
+  try { mtimeMs = fs.statSync(fileFor(day)).mtimeMs; } catch (_) { return []; }
+  const hit = pageCache.get(day);
+  if (hit && hit.mtimeMs === mtimeMs) return hit.pages;
+  const byUrl = new Map();
+  for (const r of read(day)) {
+    if (r.kind !== 'page' || !r.url) continue;
+    const cur = byUrl.get(r.url);
+    if (!cur) {
+      byUrl.set(r.url, { day, at: r.at, url: r.url, title: String(r.window || ''), text: String(r.text || '') });
+      continue;
+    }
+    if (r.at < cur.at) cur.at = r.at;
+    if (String(r.text || '').length > cur.text.length) cur.text = String(r.text || '');
+    if (!cur.title && r.window) cur.title = String(r.window);
+  }
+  const out = [...byUrl.values()].sort((a, b) => a.at.localeCompare(b.at));
+  pageCache.set(day, { mtimeMs, pages: out });
+  return out;
+}
+
+/** 网址 → 站点。分组和显示都用它，写法只该有一种。 */
+function siteOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return ''; }
+}
+
+/**
+ * 在读过的网页里找。
+ *
+ * **不限一天。**「我记得读过一个东西」这句话本来就不带日期——真要按天翻，你早就自己去翻了。
+ * 打分只数「几个词命中」，标题命中多算一点：这一层的正文是整页原文，一个词在正文里出现
+ * 说明不了多少，出现在标题里说明得多。排序先按分，再按新。
+ * @param {string[]} needles 小写的词
+ * @returns {{day,at,url,title,text,site,score,snippet}[]}
+ */
+function findPages(needles, { limit = 60 } = {}) {
+  const words = (needles || []).map((x) => String(x || '').toLowerCase().trim()).filter(Boolean);
+  if (!words.length) return [];
+  const out = [];
+  for (const day of days().slice(0, SEARCH_DAYS)) {
+    for (const p of pages(day)) {
+      const title = p.title.toLowerCase();
+      const body = `${title}\n${p.url.toLowerCase()}\n${p.text.toLowerCase()}`;
+      let score = 0;
+      let at = -1;
+      for (const w of words) {
+        const i = body.indexOf(w);
+        if (i < 0) continue;
+        score += title.includes(w) ? 2 : 1;
+        if (at < 0) at = p.text.toLowerCase().indexOf(w);
+      }
+      if (!score) continue;
+      out.push({ ...p, site: siteOf(p.url), score, snippet: snippetAt(p.text, at) });
+    }
+  }
+  return out.sort((a, b) => b.score - a.score || b.at.localeCompare(a.at)).slice(0, limit);
+}
+
+function snippetAt(text, at) {
+  const s = String(text || '');
+  if (at < 0) return s.slice(0, SNIPPET * 2);
+  const from = Math.max(0, at - SNIPPET);
+  return (from ? '…' : '') + s.slice(from, at + SNIPPET);
 }
 
 /** 一天里在每个 app / 每个站点上待了多久（秒），按"到下一条为止"算。 */
@@ -196,4 +294,4 @@ function spans(day) {
     .sort((a, b) => b.secs - a.secs);
 }
 
-module.exports = { init, start, stop, tick, notePage, read, days, spans, sessions, tidyTitle, onAppend, GLANCE_S, POLL_MS, IDLE_S, MAX_TEXT, HEARTBEAT_MS };
+module.exports = { init, start, stop, tick, notePage, read, days, spans, sessions, pages, findPages, siteOf, tidyTitle, onAppend, GLANCE_S, POLL_MS, IDLE_S, MAX_TEXT, HEARTBEAT_MS };

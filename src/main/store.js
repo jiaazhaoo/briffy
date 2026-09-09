@@ -69,6 +69,10 @@ const DEFAULT_SETTINGS = {
   diarize: true,
   clipboardWatch: true,           // record everything copied to the clipboard
   clipboardMinChars: 12,          // ignore text shorter than this
+  // 「全部」那一屏里含不含剪贴板。默认**不含**：它一天到晚自己往里掉，这台机器上 331 条里
+  // 262 条是剪贴板（79%），一屏九成是它就不叫「全部」了。要看它就点筛选行上的「剪贴板」那一格。
+  // 这条以前是写死在界面里的一句 if，现在是一个开关——关掉它，「全部」就真是全部。
+  clipboardInAll: false,
   localApi: true,                 // local endpoint the browser extension talks to
   localApiPort: 47831,
   // ---- AI provider ----
@@ -79,6 +83,12 @@ const DEFAULT_SETTINGS = {
   openrouterModel: 'anthropic/claude-opus-5',
   ollamaHost: 'http://127.0.0.1:11434',
   ollamaModel: '',                // '' => use the hardware recommendation
+  // 常驻模型：**每一边最多三个**（2026-09-09 用户定的）。输入框旁边那只托盘列的就是它们，
+  // 一边一组。「在用的是哪一个」仍然是 provider + ollamaModel / openrouterModel 那一对，
+  // 而它必须是自己这一边常驻里的一个——架子上没有的东西不能正在用。
+  // 空数组 = 从没设过：界面把「在用的那一个」当作架子上唯一的一件，老设置升上来不会看见一个空架子。
+  ollamaResident: [],
+  openrouterResident: [],
   // A pull that was cut off (the app quit, the machine slept). Ollama keeps the blobs it already has
   // and resumes, but nothing said so, and a half-downloaded model was simply invisible.
   pendingPull: null,              // { model, receivedBytes, totalBytes, at }
@@ -240,6 +250,44 @@ function entryOrigin(e) {
   // 浏览器只说明「是个网页」，说不出是哪个站。网址没拿到的时候，窗口标题里往往还写着站名。
   if (BROWSER_APP.test(app)) return siteInTitle(c.window) || UNKNOWN;   // 「Chrome」说不出是哪个站
   return app || UNKNOWN;
+}
+
+// ---------- 两级筛选 ----------
+//
+// **一级就是屏幕上那五种纸**（workspace.js 的 cardKind）：撕下来的碎片、拍立得、索引卡、
+// 磁带、有装订孔的纸。这是 2026-09-09 用户定的分法，也是前五版一直没找对的那个轴——
+// 之前筛的是「格式」（文字 / 图片 / 链接），而格式和眼睛看到的东西对不上：一张从剪贴板来的图
+// 和一张截图都算「图片」，可它们在屏幕上长得完全不一样，也根本不是同一件事。
+//
+// **五格互斥、全覆盖**：每条记录落在且只落在一格里，所以五个数加起来一定等于全库。
+// 「文件」是兜底那一格——认不出来的东西有个家，不会有哪条记录谁也筛不到。
+const BUCKETS = ['clip', 'shot', 'saved', 'file', 'voice'];
+function entryBucket(e) {
+  if (!e) return 'file';
+  // 你亲手留下的：收藏（pinned）、从浏览器书签抓进来的、扩展在网页上存的。
+  // pinned 至今一条都没有（2026-09-09 量的：331 条里 0 条），并进这一格它才第一次有内容。
+  if (e.pinned) return 'saved';
+  const s = entrySource(e);
+  if (s === 'bookmark' || s === 'browser') return 'saved';
+  if (s === 'clipboard') return 'clip';
+  if (s === 'screenshot') return 'shot';
+  if (s === 'voice') return 'voice';
+  return 'file';                  // 拖进来的，以及任何认不出的——兜底，不留孤儿
+}
+
+/**
+ * 二级。**每一格问的问题不一样**，这正是这套分法好用的地方——一个维度对所有东西问同一句话，
+ * 就总有一半的东西答不上来（旧的「来源」那一档里最大的一项是「未知」，144 条）。
+ *   收藏 / 截图    从哪儿来（站点、应用）：你要找的是「B 站收藏的那条」「Claude 里截的那张」
+ *   剪贴板 / 文件   是什么（文字、图片、PDF）：它们的来处太杂，问来处等于没问
+ *   录音           哪只麦克风
+ * @returns {string} 二级的值；这一格答不上来就是 '?'
+ */
+function entrySub(e) {
+  const b = entryBucket(e);
+  if (b === 'saved' || b === 'shot') return entryOrigin(e);
+  if (b === 'voice') return String((e && e.mic) || '').trim() || UNKNOWN;
+  return entryFormat(e);
 }
 
 function readJson(file, fallback) {
@@ -488,8 +536,41 @@ class Store extends EventEmitter {
 
   entriesForDate(dateKey) { return [...this.loadDay(dateKey)]; }
 
+  /**
+   * 一条记录过不过这套条件。
+   *
+   * **listEntries 和 stats 用的是同一个它**，这不是省几行，是这个筛选器唯一的正确性保证：
+   * 「筛出什么」和「数出几条」一旦分成两段代码，就一定会各走各的。2026-09-09 之前正是这样——
+   * 界面上「全部」偷偷扣掉了剪贴板（329 条里 260 条是剪贴板），而数数那一路（stats）不知道
+   * 有这回事，它数的是全库：筛选行上写着「文字 203」，屏幕上摆着 19 条。
+   * 一个筛选器的全部本事就是「点下去之后屏上剩什么」，数错了它就什么都不是。
+   *
+   * @param {object} e
+   * @param {{q?:string, want?:Set|null, skip?:Set|null, pinned?:boolean, only?:Set|null,
+   *          type?:string, origin?:string, bucket?:string, sub?:string, hideInAll?:Set|null}} f
+   *   都已经预处理成 Set / 小写，逐条调不再重算
+   */
+  entryMatches(e, { q = '', want = null, skip = null, pinned = false, only = null,
+    type = '', origin = '', bucket = '', sub = '', hideInAll = null } = {}) {
+    if (want && !want.has(entrySource(e))) return false;
+    if (!want && skip && skip.has(entrySource(e))) return false;
+    if (pinned && !e.pinned) return false;
+    if (only && !only.has(e.id)) return false;
+    // 一级：选了哪一格就只看哪一格；**没选**（＝「全部」）的时候，hideInAll 里那几格不算进来。
+    // 它只能是有条件的：点了「剪贴板」那一格就必须看得见剪贴板，一条无条件的排除做不到这件事。
+    if (bucket) { if (entryBucket(e) !== bucket) return false; } else if (hideInAll && hideInAll.has(entryBucket(e))) return false;
+    if (sub && entrySub(e) !== sub) return false;
+    if (type && entryFormat(e) !== type) return false;
+    if (origin && entryOrigin(e) !== origin) return false;
+    if (q) {
+      const hay = `${e.title} ${e.tags.join(' ')} ${e.visionLabels || ''} ${e.text} ${e.summary} ${e.path} ${e.note || ''} ${e.context ? `${e.context.app || ''} ${e.context.window || ''} ${e.context.url || ''}` : ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }
+
   listEntries({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false,
-    type = '', origin = '', ids = null, limit = 500 } = {}) {
+    type = '', origin = '', bucket = '', sub = '', hideInAll = null, ids = null, limit = 500 } = {}) {
     // 三个维度是**叠**的，不是单选：「小红书上的图片」这种要求只有叠起来才成立。
     const only = Array.isArray(ids) && ids.length ? new Set(ids) : null;
     const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
@@ -497,21 +578,13 @@ class Store extends EventEmitter {
     // all day, and a page that is nine parts clipboard is not "everything", it is the clipboard.
     const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
     const keys = dates || this.listDates();
-    const q = query.trim().toLowerCase();
+    const f = { q: query.trim().toLowerCase(), want, skip, pinned, only, type, origin, bucket, sub,
+      hideInAll: Array.isArray(hideInAll) && hideInAll.length ? new Set(hideInAll) : null };
     const out = [];
     for (const key of keys) {
       for (const e of this.loadDay(key)) {
         // filter before the limit, so asking for one source cannot be crowded out by the others
-        if (want && !want.has(entrySource(e))) continue;
-        if (!want && skip && skip.has(entrySource(e))) continue;
-        if (pinned && !e.pinned) continue;
-        if (only && !only.has(e.id)) continue;
-        if (type && entryFormat(e) !== type) continue;
-        if (origin && entryOrigin(e) !== origin) continue;
-        if (q) {
-          const hay = `${e.title} ${e.tags.join(' ')} ${e.visionLabels || ''} ${e.text} ${e.summary} ${e.path} ${e.note || ''} ${e.context ? `${e.context.app || ''} ${e.context.window || ''} ${e.context.url || ''}` : ''}`.toLowerCase();
-          if (!hay.includes(q)) continue;
-        }
+        if (!this.entryMatches(e, f)) continue;
         out.push(e);
         if (out.length >= limit) return out;
       }
@@ -528,21 +601,69 @@ class Store extends EventEmitter {
     return out;
   }
 
-  stats() {
-    let total = 0;
-    let pinned = 0;
+  /**
+   * 数数。**给它和 listEntries 同一套条件，它数的就是屏幕上会有几条。**
+   *
+   * 每一档都**放开自己那一维、照筛另外两维**——所以筛选行上每个词后面那个数，
+   * 就是「点它之后屏上真会剩几条」，不是「全库里有几条」。这两个数在这个工作区里
+   * 差了十倍（文字：全库 203，默认那一屏 19），而用户读的是前一个、看的是后一个。
+   *
+   * 不给条件就是全库，和以前一字不差——main.js 里那处 `store.stats()` 不用改。
+   *
+   * @param {{query?:string, dates?:string[]|null, type?:string, origin?:string,
+   *          bucket?:string, sub?:string, exclude?:string[]|null}} f
+   * @returns {object} 除了原来那几项，多四样：
+   *   byDay    放开日期：每一天在别的条件下还剩几条（时间那一排的数从这儿加出来）
+   *   byBucket 放开一级（连带二级、也连带 hideInAll——那条规矩本身就属于一级这一维）：
+   *            一级那一排上每一格的数。点「剪贴板」会出来 262 条，那一格就得写 262
+   *   allCount 「全部」那一格的数。**它不等于 byBucket 之和**——点「全部」等于回到「没选一级」，
+   *            hideInAll 那条规矩就又生效了，差的正好是被挡住的那些。这个差本身是有用的：
+   *            「全部 69 · 剪贴板 262」一眼就说明了「全部」里没有剪贴板
+   *   bySub    放开二级、按住一级：二级那一排的数。**没选一级时是空的**，
+   *            跨格去数二级没有意义（「文字」在剪贴板里是内容、在文件里是格式）
+   *   shown    每一条都上，也就是屏幕上那几条
+   */
+  stats({ query = '', dates = null, type = '', origin = '', bucket = '', sub = '',
+    hideInAll = null, exclude = null } = {}) {
+    const f = { q: String(query || '').trim().toLowerCase() };
+    const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
+    const inDates = Array.isArray(dates) ? new Set(dates) : null;   // 空数组是「一天都不要」，不是「不限」
+    let total = 0; let pinned = 0; let shown = 0;
     const bySource = Object.fromEntries(SOURCES.map((s) => [s, 0]));
-    const byType = {}; const byOrigin = {};
+    const byType = {}; const byOrigin = {}; const byDay = {};
+    const byBucket = Object.fromEntries(BUCKETS.map((b) => [b, 0])); const bySub = {};
+    const hide = Array.isArray(hideInAll) && hideInAll.length ? new Set(hideInAll) : null;
+    let allCount = 0;
     for (const key of this.listDates()) {
       for (const e of this.loadDay(key)) {
         total++; if (e.pinned) pinned++;
-        bySource[entrySource(e)]++;
-        const t = entryFormat(e); byType[t] = (byType[t] || 0) + 1;
-        const o = entryOrigin(e); byOrigin[o] = (byOrigin[o] || 0) + 1;
+        if (!this.entryMatches(e, f)) continue;      // 搜索是所有维度共同的前提，不放开
+        const okDate = !inDates || inDates.has(e.dateKey);
+        const okType = !type || entryFormat(e) === type;
+        const okOrigin = !origin || entryOrigin(e) === origin;
+        const okSkip = !skip || !skip.has(entrySource(e));
+        const okInAll = !hide || !hide.has(entryBucket(e));   // 「没选一级」时才用得上
+        const okBucket = bucket ? entryBucket(e) === bucket : okInAll;
+        const okSub = !sub || entrySub(e) === sub;
+        const rest = okType && okOrigin && okSkip;      // 三个「别的调用方还在用」的老维度
+        if (rest && okBucket && okSub) byDay[e.dateKey] = (byDay[e.dateKey] || 0) + 1;
+        if (okDate && okBucket && okSub) {
+          if (okOrigin && okSkip) { const t = entryFormat(e); byType[t] = (byType[t] || 0) + 1; }
+          if (okType && okSkip) { const o = entryOrigin(e); byOrigin[o] = (byOrigin[o] || 0) + 1; }
+          if (okType && okOrigin) bySource[entrySource(e)]++;
+        }
+        // 一级：放开一级、二级**和那条规矩**——点另一格的时候二级本来就得清掉，
+        // 而那条规矩只在「没选一级」时生效，所以它也不该压住这一排上的数
+        if (okDate && rest) byBucket[entryBucket(e)]++;
+        // 「全部」那一格：点它就回到「没选一级」，规矩又生效
+        if (okDate && rest && okInAll) allCount++;
+        // 二级：放开二级、按住一级。没选一级就不数（跨格的二级值不是同一种东西）
+        if (okDate && rest && bucket && okBucket) { const s = entrySub(e); bySub[s] = (bySub[s] || 0) + 1; }
+        if (okDate && rest && okBucket && okSub) shown++;
       }
     }
-    return { days: this.listDates().length, entries: total, pinned, bySource, byType, byOrigin };
+    return { days: this.listDates().length, entries: total, pinned, bySource, byType, byOrigin, byDay, byBucket, bySub, allCount, shown };
   }
 }
 
-module.exports = { Store, DEFAULT_SETTINGS, SOURCES, entrySource, entryOrigin, entryFormat, siteOf, baseHost, siteInTitle, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };
+module.exports = { Store, DEFAULT_SETTINGS, SOURCES, BUCKETS, entrySource, entryOrigin, entryFormat, entryBucket, entrySub, siteOf, baseHost, siteInTitle, localDateKey, timeStamp, addDays, writeJsonAtomic, readJson };

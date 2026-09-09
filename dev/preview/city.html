@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<title>briffy · 小视图（城市）预览 v8</title>
+<style>
+/* ===========================================================================
+   小视图：一天是一栋楼，一条记录是一扇窗。
+
+   v8 只改三件事，都是上一版的硬伤：
+
+   ① **楼一律浅色。** 上一版的玻璃塔是深蓝灰的板子，在一条浅色街上像块补丁。
+      现在七种墙色全在高明度区（L* 85–92），屋顶只是中调，不是深色。
+      **深色只剩窗户**——窗是洞，洞本来就是暗的，也只有它暗着，一屏才安静。
+
+   ② **楼前面什么都不许有。** 上一版空的那天画了一道横向矮墙，它横穿在后排楼的前面，
+      看着就是一排脚手架。现在空的一天**只写个日期，什么都不画**；
+      基座也不再有立柱。楼的前面是街，街上是空的。
+
+   ③ **窗户就是原来那张方格网，不动它。** 上一版按楼型给了五套窗尺寸，还把每层居中对齐——
+      那是把大视图的排版揉碎了重排。现在全城**同一个窗（9px）、同一个缝（9px）、同一个层高**，
+      **每层一律左对齐**，和大视图的网格逐格对应：小卡一格，大卡两格加中间那道缝。
+      楼型的区别全部退到**屋顶的剪影**上，一格窗都不动。
+
+   =========================================================================== */
+:root {
+  --a1: 4px; --a2: 8px; --a3: 14px; --a4: 26px; --pad: 20px;
+  /* 软件真正的底纸，照抄 assets/paper/tokens.css：--ground 是一道 3 L* 的顶光渐变，
+     --page 是它的平均实色。之前自己调了个偏黄的 #f4f1ea，和软件根本不是一张纸 */
+  --ground: linear-gradient(#f7f5f4, #eeeceb);
+  --page: #f3f1f0;
+  --ink: #32302f; --ink-2: #52504f; --ink-3: #747271;
+  --tone: rgba(50, 48, 47, .07);
+  --slip: #fbf9f8;
+  --e1: 0 1px 2px rgba(0, 0, 0, .10), 0 6px 16px rgba(0, 0, 0, .10);
+  --e-tray: 0 1px 2px rgba(0, 0, 0, .07), 0 4px 10px rgba(0, 0, 0, .08);
+  --sans: -apple-system, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+  --fs-meta: 11px; --fs-act: 12px; --fs-body: 13px; --fs-day: 21px;
+
+  /* 全城唯一的深色：窗。色相跟着记录类型走 */
+  /* 窗户是洞，洞是暗的。六个值全在 L* 20–24，只留一丝色相——
+     之前那组在 L* 35 上带着中等彩度，压在浅墙上就是一块块棕的紫的污渍，不是玻璃。
+     文字那一档直接用软件的钢笔蓝 --accent。 */
+  --g-image: #2f2c28; --g-video: #322c3f; --g-text: #2b3d52;
+  --g-audio: #472a22; --g-link: #26413b; --g-other: #37342f;
+  --trim: #fbf9f8;                      /* 窗框＝软件的便签白 --slip */
+
+  /* **一张方格网，全城通用**。改这三个数就等于改整座城 */
+  --cols: 6;
+  --win: 9px;                                  /* 一格窗 = 大视图里的一张小卡 */
+  --gap: 9px;                                  /* 窗与窗、层与层，同一个数 */
+  --pad-x: 11px;                               /* 楼身两侧留白 */
+  --bw: calc(6 * var(--win) + 5 * var(--gap) + 2 * var(--pad-x));   /* = 121 */
+  --street: 8px;
+  /* 一排地基有多高。1.5 倍时几乎每栋楼都长出自己那格，后排只剩顶上那 11px 的檐口露在外面——
+     一条没有楼身的檐口就是一根横杆，那正是「像脚手架」最后的来源。2 倍之后大部分楼
+     待在自己那一排里，只有真的高楼才越界，横杆自然就没了。 */
+  --plot: calc(var(--bw) * 2);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--ground); color: var(--ink); font: 400 var(--fs-body)/1.6 var(--sans);
+  user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; overflow: hidden; }
+
+.bar { flex: none; display: flex; align-items: baseline; gap: var(--a3); padding: var(--pad) var(--pad) 0; }
+.bar b { font: 600 var(--fs-body)/1.4 var(--sans); }
+.bar span { font-size: var(--fs-meta); color: var(--ink-3); }
+
+.city { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 460px 0 var(--a4); }
+.city::-webkit-scrollbar { width: 0; }
+.town { width: calc(7 * var(--bw) + 6 * var(--street)); margin: 0 auto; }
+
+.week { position: relative; height: var(--plot);
+  display: grid; grid-template-columns: repeat(7, var(--bw)); gap: 0 var(--street);
+  filter: drop-shadow(0 3px 3px rgba(70, 58, 46, .05)) drop-shadow(0 16px 24px rgba(70, 58, 46, .09)); }
+/* 每一排自己那条街：一条通铺的地面。没有它，后排楼的街面会在前排楼之间飘成一根横杆——
+   正视图里之所以不会，是因为**近处的地面把远处切掉了**。这条 z-index:-1 只在自己这一排的
+   层叠上下文里往后压，所以它盖得住更旧的那几排，又压在自己这排的楼后面。 */
+.week::after { content: ''; position: absolute; left: -50vw; right: -50vw; bottom: -1px; height: 16px;
+  background: #eae7e2; z-index: -1; }
+.day { position: relative; }
+.tower { position: absolute; left: 0; right: 0; bottom: 0; cursor: pointer; }
+.day:hover { z-index: 9; }
+.day:hover .tower { filter: brightness(1.03); }
+
+/* ===== 墙：七种，全部高明度。相邻两栋必不同 ===== */
+.w0 { --wall: #eee9e0; --shade: #ddd6ca; }   /* 奶油 */
+.w1 { --wall: #ecd9c8; --shade: #d8c1ab; }   /* 沙 */
+.w2 { --wall: #ebd2cb; --shade: #d6b5ac; }   /* 藕 */
+.w3 { --wall: #dde5de; --shade: #c4d0c6; }   /* 苔 */
+.w4 { --wall: #dae2e7; --shade: #bfcad2; }   /* 粉蓝 */
+.w5 { --wall: #ecdfc2; --shade: #d8c8a2; }   /* 芥黄 */
+.w6 { --wall: #e7e4dd; --shade: #d2cec5; }   /* 石 */
+
+/* 屋顶：中调，不是深色。五种类型各一色 */
+.k-old   { --roof: #bc7259; }
+.k-brick { --roof: #8d9f8f; }
+.k-stuc  { --roof: #93a2a7; }
+.k-deco  { --roof: #ab9d7c; }
+.k-glass { --roof: #9aacae; }
+
+/* ===== 楼身：一张方格网，左对齐，全城同一个尺寸 ===== */
+.shaft { position: relative; padding: 12px var(--pad-x); display: flex; flex-direction: column; gap: var(--gap);
+  background: linear-gradient(var(--wall) 0, var(--wall) 62%, var(--shade) 100%); }
+.floor { display: flex; gap: var(--gap); }               /* 左对齐，和大视图的网格逐格对应 */
+.wn { width: var(--win); height: var(--win); flex: none; background: var(--pane);
+  box-shadow: 0 0 0 1px var(--trim); }
+.wn.u2 { width: calc(2 * var(--win) + var(--gap)); }     /* 大卡：两格 ＋ 中间那道缝 */
+
+.tag { position: absolute; left: var(--pad-x); top: 3px; z-index: 2;
+  font: 600 var(--fs-meta)/1 var(--sans); color: rgba(70, 56, 42, .48);
+  font-variant-numeric: tabular-nums; }
+.day.today .tag { color: #2c4468; }
+
+/* ===== 冠：五种剪影。楼型的区别全在这儿，一格窗都不动 ===== */
+.crown { position: relative; }
+.crown i { position: absolute; bottom: 0; background: var(--roof); }
+/* ① 老屋：陡山墙 + 烟囱 —— 三角 */
+.k-old .crown { height: 44px; }
+.k-old .crown i:nth-child(1) { left: -5px; right: -5px; height: 40px; clip-path: polygon(0 100%, 50% 0, 100% 100%); }
+.k-old .crown i:nth-child(2) { left: 74%; width: 10px; height: 44px; background: var(--shade); }
+.k-old .crown i:nth-child(3) { left: -5px; right: -5px; height: 5px; background: var(--trim); }
+/* ② 砖楼：孟莎顶 + 两个老虎窗 —— 梯形 */
+.k-brick .crown { height: 32px; }
+.k-brick .crown i:nth-child(1) { left: -4px; right: -4px; height: 28px;
+  clip-path: polygon(17% 0, 83% 0, 100% 100%, 0 100%); }
+.k-brick .crown i:nth-child(2) { left: 27%; width: 11px; height: 10px; bottom: 11px; background: var(--trim); }
+.k-brick .crown i:nth-child(3) { left: 60%; width: 11px; height: 10px; bottom: 11px; background: var(--trim); }
+.k-brick .crown i:nth-child(4) { left: -4px; right: -4px; height: 4px; background: var(--trim); }
+/* ③ 灰泥公寓：厚挑檐 + 屋顶水箱 —— 一道挑出来的唇 */
+.k-stuc .crown { height: 26px; }
+/* 挑檐只挑 3px、做厚到 11px：挑太多又太薄，一旦这栋楼被前排挡住，
+   露出来的就只剩一根横杆——那正是「像脚手架」的来源 */
+.k-stuc .crown i:nth-child(1) { left: -3px; right: -3px; height: 11px; }
+.k-stuc .crown i:nth-child(2) { left: -3px; right: -3px; bottom: 11px; height: 3px; background: var(--trim); }
+.k-stuc .crown i:nth-child(3) { left: 26%; width: 18px; height: 18px; bottom: 11px; background: var(--shade); }
+/* ④ 退台：三级婚礼蛋糕 —— 阶梯 */
+.k-deco .crown { height: 72px; }
+.k-deco .crown i:nth-child(1) { left: 0; right: 0; height: 5px; }
+.k-deco .crown i:nth-child(2) { left: 11%; right: 11%; height: 24px; background: var(--wall);
+  box-shadow: inset 0 4px 0 var(--roof); }
+.k-deco .crown i:nth-child(3) { left: 26%; right: 26%; height: 45px; background: var(--wall);
+  box-shadow: inset 0 4px 0 var(--roof); }
+.k-deco .crown i:nth-child(4) { left: 40%; right: 40%; height: 62px; background: var(--wall);
+  box-shadow: inset 0 4px 0 var(--roof); }
+.k-deco .crown i:nth-child(5) { left: calc(50% - 3px); width: 6px; height: 72px;
+  clip-path: polygon(0 100%, 50% 0, 100% 100%); }
+/* ⑤ 玻璃塔：平顶 + 一根针 —— 干净的矩形 */
+.k-glass .crown { height: 28px; }
+.k-glass .crown i:nth-child(1) { left: 0; right: 0; height: 7px; }
+.k-glass .crown i:nth-child(2) { left: 0; right: 0; bottom: 7px; height: 2px; background: var(--trim); }
+.k-glass .crown i:nth-child(3) { left: calc(50% - 1px); width: 2px; height: 28px; }
+
+/* ===== 基座：一道门和一面店窗，没有立柱、没有支架 ===== */
+/* 基座和墙同色。用深一档的 --shade 时，远处一整排基座连起来就是一道横的深条，
+   那正是「像脚手架」剩下的最后一处 */
+.podium { position: relative; height: 28px; background: var(--wall); }
+.podium .row { display: flex; gap: var(--gap); padding: 6px var(--pad-x) 0; align-items: flex-end; height: 100%; }
+/* 只有一道门。曾经在这儿摆一整面通宽的店窗，七栋连起来就是贴地的一道黑线——
+   又是一根横杆。街面上该有的就是一个门洞。 */
+.podium i { background: var(--g-other); box-shadow: 0 0 0 1px var(--trim); }
+.podium .door { width: var(--win); height: 20px; }
+
+/* 空的一天：**什么都不画**。上一版那道横向矮墙横穿在后排楼前面，看着就是脚手架 */
+.tower.empty { cursor: default; }
+.tower.empty .tag { position: static; display: block; padding: 0 var(--pad-x) 3px; color: rgba(110, 96, 80, .45); }
+.day.future .tag { color: rgba(116, 114, 113, .3); }
+
+/* ===== 底下 ===== */
+.foot { flex: none; padding: var(--a2) var(--pad) 0; }
+.foot .row { width: calc(7 * var(--bw) + 6 * var(--street)); margin: 0 auto;
+  display: grid; grid-template-columns: repeat(7, var(--bw)); gap: 0 var(--street);
+  font: 400 var(--fs-meta)/1 var(--sans); color: var(--ink-3); text-align: center; }
+.foot .row span:nth-child(n+6) { color: rgba(116, 114, 113, .55); }
+.legend { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--a3);
+  margin-top: var(--a3); font: 400 var(--fs-meta)/1 var(--sans); color: var(--ink-3); }
+.legend i { display: inline-block; width: 9px; height: 9px; margin-right: 5px; vertical-align: -1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
+
+/* ===== 大视图 ===== */
+.big { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: var(--a4) var(--pad); }
+.big::-webkit-scrollbar { width: 0; }
+.big h2 { margin: 0 0 var(--a1); font: 600 var(--fs-day)/1.3 var(--sans); }
+.big .hint { margin: 0 0 var(--a4); font-size: var(--fs-meta); color: var(--ink-3); }
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--a2); align-items: start; }
+.card { background: var(--slip); box-shadow: var(--e1); position: relative; aspect-ratio: 1; }
+.card.l { grid-column: span 2; aspect-ratio: 2.05; }
+.card b { position: absolute; left: var(--a3); top: var(--a3); width: 22px; height: 8px; }
+.card .ph { position: absolute; left: var(--a3); right: var(--a3); top: 32px; bottom: var(--a3);
+  display: flex; flex-direction: column; gap: 5px; }
+.card .ph i { display: block; height: 5px; background: var(--tone); }
+.card .ph i:nth-child(3n) { width: 62%; }
+
+.dock { flex: none; align-self: center; display: flex; align-items: center; gap: 2px;
+  margin: var(--a3) 0 var(--pad); padding: 4px; background: var(--slip); box-shadow: var(--e-tray); }
+.dock button { border: 0; border-radius: 0; cursor: pointer; background: transparent;
+  padding: 5px 16px; font: 400 var(--fs-act)/1.4 var(--sans); color: var(--ink-3); }
+.dock button:hover { color: var(--ink-2); }
+.dock button.on { background: var(--tone); color: var(--ink); font-weight: 600; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="bar"><b>briffy</b><span id="sub"></span></div>
+
+  <main class="city" id="city"><div class="town" id="town"></div></main>
+  <div class="foot" id="foot">
+    <div class="row"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="legend" id="legendTypes"></div>
+  </div>
+
+  <main class="big" id="big" hidden>
+    <h2 id="bigTitle"></h2>
+    <p class="hint">这一页的排版，就是那栋楼的立面——逐格对应。</p>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <footer class="dock">
+    <button type="button" data-scale="s" class="on">小</button>
+    <button type="button" data-scale="l">大</button>
+  </footer>
+
+<script>
+(() => {
+  const TODAY = new Date(2026, 8, 8);
+  const WEEKS = 18;
+  const COLS = 6;
+  const TYPES = [
+    ['image', '图片', .30], ['text', '文字', .28], ['link', '链接', .13],
+    ['audio', '音频', .11], ['video', '视频', .06], ['other', '其它', .12],
+  ];
+  const KINDS = [
+    { max: 3,   cls: 'k-old',   name: '老屋',     crown: 3 },
+    { max: 7,   cls: 'k-brick', name: '砖楼',     crown: 4 },
+    { max: 13,  cls: 'k-stuc',  name: '灰泥公寓', crown: 3 },
+    { max: 22,  cls: 'k-deco',  name: '退台',     crown: 5 },
+    { max: 1e9, cls: 'k-glass', name: '玻璃塔',   crown: 3 },
+  ];
+
+  const seed = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  const dayKey = (d) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+
+  function countFor(d) {
+    const wd = (d.getDay() + 6) % 7;
+    const r = seed(dayKey(d)), r2 = seed(dayKey(d) + 7);
+    if (r < (wd >= 5 ? 0.18 : 0.04)) return 0;
+    const base = wd >= 5 ? 3 + r * 22 : 6 + r * 46;
+    return Math.round(base + (r2 > 0.9 ? 45 + r2 * 70 : 0));
+  }
+  function itemsFor(d, n) {
+    const k = dayKey(d);
+    return Array.from({ length: n }, (_, i) => {
+      const r = seed(k + i * 977);
+      let acc = 0, type = 'other';
+      for (const [id, , w] of TYPES) { acc += w; if (r <= acc) { type = id; break; } }
+      return { type, u: seed(k + i * 131 + 5) > 0.58 ? 2 : 1 };
+    });
+  }
+  /** 大视图的排版规则，一模一样：满 6 格换行；只剩一格时大卡收成小卡 */
+  function pack(items, cols) {
+    const rows = []; let row = [], used = 0;
+    for (const it of items) {
+      const u = used + it.u > cols ? 1 : it.u;
+      row.push({ ...it, u }); used += u;
+      if (used >= cols) { rows.push(row); row = []; used = 0; }
+    }
+    if (row.length) rows.push(row);
+    return rows;
+  }
+  const kindOf = (f) => KINDS.find((k) => f <= k.max);
+
+  const mondayOf = (d) => { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); x.setHours(0,0,0,0); return x; };
+  const thisMon = mondayOf(TODAY);
+  const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const full = (d) => `${d.getMonth() + 1}月${d.getDate()}日 周${'一二三四五六日'[(d.getDay() + 6) % 7]}`;
+  const same = (a, b) => a.toDateString() === b.toDateString();
+
+  const days = [];
+  for (let w = WEEKS - 1; w >= 0; w--) {
+    const mon = new Date(thisMon); mon.setDate(mon.getDate() - w * 7);
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(d.getDate() + i);
+      const future = d > TODAY;
+      const n = future ? 0 : countFor(d);
+      week.push({ d, future, n, items: n ? itemsFor(d, n) : [] });
+    }
+    days.push(week);
+  }
+  const all = days.flat();
+
+  document.getElementById('town').innerHTML = days.map((week, wi) =>
+    `<div class="week" style="z-index:${wi + 1}">` + week.map((x, di) => {
+      const k = dayKey(x.d);
+      const wall = `w${(Math.floor(seed(k + 71) * 7) + di * 3) % 7}`;
+      if (!x.n) {
+        const cls = ['day', wall, x.future ? 'future' : ''].filter(Boolean).join(' ');
+        return `<div class="${cls}" data-k="${k}"><div class="tower empty">`
+          + `<span class="tag">${fmt(x.d)}</span></div></div>`;
+      }
+      const rows = pack(x.items, COLS);
+      const kind = kindOf(rows.length);
+      const cls = ['day', kind.cls, wall, same(x.d, TODAY) ? 'today' : ''].filter(Boolean).join(' ');
+      const facade = rows.map((row) => `<div class="floor">`
+        + row.map((c) => `<i class="wn${c.u === 2 ? ' u2' : ''}" style="--pane:var(--g-${c.type})"></i>`).join('')
+        + `</div>`).join('');
+      return `<div class="${cls}" data-k="${k}">`
+        + `<div class="tower" title="${full(x.d)} · ${x.n} 条 · ${rows.length} 层 · ${kind.name}">`
+        + `<div class="crown">${'<i></i>'.repeat(kind.crown)}</div>`
+        + `<div class="shaft"><span class="tag">${fmt(x.d)}</span>${facade}</div>`
+        + `<div class="podium"><div class="row"><i class="door"></i></div></div>`
+        + `</div></div>`;
+    }).join('') + `</div>`).join('');
+
+  document.getElementById('legendTypes').innerHTML =
+    TYPES.map(([id, name]) => `<span><i style="background:var(--g-${id})"></i>${name}</span>`).join('');
+  const ks = all.filter((x) => x.n).map((x) => kindOf(pack(x.items, COLS).length).name);
+  document.getElementById('sub').textContent = `${WEEKS} 周 · ${all.reduce((a, x) => a + x.n, 0)} 条 · `
+    + KINDS.map((k) => `${k.name} ${ks.filter((n) => n === k.name).length}`).join(' / ');
+
+  const city = document.getElementById('city');
+  city.scrollTop = city.scrollHeight;
+
+  const big = document.getElementById('big');
+  const foot = document.getElementById('foot');
+  function scale(s, day) {
+    const small = s === 's';
+    city.hidden = !small; foot.hidden = !small; big.hidden = small;
+    for (const b of document.querySelectorAll('.dock button')) b.classList.toggle('on', b.dataset.scale === s);
+    if (small) { city.scrollTop = city.scrollHeight; return; }
+    const d = day || all.filter((x) => x.n).slice(-1)[0];
+    const rows = pack(d.items, COLS);
+    document.getElementById('bigTitle').textContent = `${full(d.d)} · ${d.n} 条 · ${rows.length} 层 · ${kindOf(rows.length).name}`;
+    document.getElementById('grid').innerHTML = rows.flat()
+      .map((c) => `<div class="card${c.u === 2 ? ' l' : ''}"><b style="background:var(--g-${c.type})"></b>`
+        + `<div class="ph">${'<i></i>'.repeat(c.u === 2 ? 4 : 3)}</div></div>`).join('');
+  }
+  city.addEventListener('click', (e) => {
+    const el = e.target.closest('.day');
+    if (!el || el.classList.contains('future')) return;
+    const day = all.find((x) => dayKey(x.d) === Number(el.dataset.k));
+    if (day && day.n) scale('l', day);
+  });
+  for (const b of document.querySelectorAll('.dock button')) b.addEventListener('click', () => scale(b.dataset.scale, null));
+})();
+</script>
+</body>
+</html>

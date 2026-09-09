@@ -17,6 +17,11 @@
   let badge = false;
   let recording = false;
   let config = { micDeviceId: '' };
+  // 脚下那块底是亮的还是暗的——主进程量出来发过来（src/main/pet-ground.js），
+  // 这边只负责把它写到 body 上，换哪一档蓝交给 pet.css
+  function applyGround() {
+    if (config.ground === 'dark' || config.ground === 'light') document.body.dataset.ground = config.ground;
+  }
 
   // ---------- idle gestures ----------
   // A CSS animation costs the same whether or not its value is changing, and this window is
@@ -76,11 +81,11 @@
   });
   // the picture in the round frame lives in userData once one is picked in the settings,
   // so main hands us its file:// url instead of the bundled default in the markup
-  api.getConfig().then((c) => { config = { ...config, ...(c || {}) }; }).catch(() => {});
+  api.getConfig().then((c) => { config = { ...config, ...(c || {}) }; applyGround(); }).catch(() => {});
   api.onCommand((c) => {
     if (!c) return;
     if (c.cmd === 'toggle-recording') toggleRecording();
-    else if (c.cmd === 'config') { config = { ...config, ...c, cmd: undefined }; }
+    else if (c.cmd === 'config') { config = { ...config, ...c, cmd: undefined }; applyGround(); }
     else if (c.cmd === 'list-mics') listMics();
     else if (c.cmd === 'mic-test') micTest(c);
   });

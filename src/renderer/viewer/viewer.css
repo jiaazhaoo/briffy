@@ -53,7 +53,7 @@ body.gridOpen .bar { right: 250px; }
 /* 一只托盘。和详情窗右上角那几只、底栏那三只是同一种东西：--slip 的底、直角、有影子。
    在深底上它自己就是最亮的一块，所以图标用墨色 */
 .tray { width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center;
-  border: 0; border-radius: 0; cursor: pointer; background: var(--slip); box-shadow: var(--e2);
+  border: 0; border-radius: 0; cursor: pointer; background: var(--slip); box-shadow: var(--e-tray);
   color: var(--ink-2); padding: 0; }
 .tray:hover { color: var(--ink); }
 .tray:active { transform: translateY(1px); }
