@@ -20,6 +20,7 @@ const title = require('./title');
 const vocab = require('./vocab');
 const chats = require('./chats');
 const ocrBoxes = require('./ocr-boxes');
+const shape = require('./shape');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -165,6 +166,28 @@ function learnFurniture() {
   };
   evIdx = vocab.lazyView(index, { ok });
   evIdx.ok = ok;
+}
+
+// 全库扫那两条腿（形状 / 词面）要一份「每条记录的标题和正文」。
+//
+// **这是给一个几百到几万条的库准备的，不是给二十万条的。** 实测（2026-09-09，316 条）：
+// 读进内存 8ms、373 KB，扫一遍 0.3ms。按这个平均长度外推，2 万条是 23 MB、扫一遍 22ms——
+// 还行；20 万条是 231 MB，那就不能常驻内存了，所以过了这条线两条腿都不出手，退回索引。
+// ask.js 顶上那段注释说的正是同一件事：这个文件的历史包袱就是「别把整个工作区抬进内存」，
+// 那条规矩在二十万条时是对的，在三百条时让它漏掉了写着答案的那两条记录。
+const SCAN_MAX = 20000;
+let corpusCache = null;
+function corpus() {
+  if (corpusCache) return corpusCache;
+  const ids = index.allIds();
+  if (ids.length > SCAN_MAX) { corpusCache = []; return corpusCache; }
+  const out = [];
+  for (const id of ids) {
+    const e = store.getEntry(id);
+    if (e) out.push({ id: e.id, title: e.title || '', text: e.text || '' });
+  }
+  corpusCache = out;
+  return out;
 }
 
 // 页面图（vocab.pageGraph）：一页和从它上面摘下来的那几条。表，不是内存；索引变了就换一份。
@@ -415,7 +438,7 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   const r = index.sync({ dir: entriesDir(), loadDay: readDay, onDay: (_k, list) => { vocab.collect(index, list); vocab.collectPages(index, list); } }, { budgetMs });
   // 有天被重建过，页面图和词表视图都得跟着丢：词表视图按词缓存倒排，新记录抽出的词进不了
   // 已经缓存过的那些倒排——于是一条新记录的名字进不了追问的种子，直到重启。
-  if (r && r.days) { graphCache = null; evIdx = null; }
+  if (r && r.days) { graphCache = null; evIdx = null; corpusCache = null; }
   return r;
 }
 
@@ -573,7 +596,7 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
       if (near.length) lanes.push(near.filter(keep).slice(0, PER_QUERY * 3));
     }
   }
-  const ids = [];
+  let ids = [];
   for (const id of carried) {                       // 上一轮的先站住位子，它们是这一问的主语
     if (ids.length >= CARRY_ROOM || seen.has(id) || echoed(id) || drop(id)) continue;
     seen.add(id); ids.push(id);
@@ -596,6 +619,36 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
     }
   }
   if (!pick) pick = plain;
+
+  // ③ **另外两条腿：按形状扫全库，和按词扫全库。** 见 shape.js 顶上那笔账。
+  //
+  // 索引这一路只会匹配**词**，而一条写着「Runnymede Pleasure Ground, Egham, Surrey TW20 0AE」
+  // 的记录里没有「地址」这两个字——所以问地址的时候它一条也够不着。形状那一路补的正是这个：
+  // 问地址就扫邮编，问几点就扫时刻，问多少钱就扫金额。认不出形状的问题（「screenpipe 是
+  // 怎么采集的」）交给词面全扫，那一档它比索引强得多。
+  //
+  // 三条腿**按配额并**，谁也不许独占：形状最多占一半，索引留住前几条，全扫填满剩下的。
+  // 二选一是不行的——量出来「推荐用哪个本地模型」里的「模型」会触发型号那一档，
+  // 一个认错的形状就能把整份名额吃光。
+  //
+  // 台子在 dev/recall-arch-bench.js：14 个问题、33 条满分记录，36% → 91%，检索 702ms → 0ms。
+  const pool = corpus();
+  if (pool.length) {
+    const words = index.termsOf(q).flatMap((t) => String(t.key || '').split(' '))
+      .map((x) => x.toLowerCase()).filter((x) => x.length > 1);
+    const sp = shape.shapeOf(q);
+    // **这儿不能拿 seen 过滤。** 一条记录既被词面找到、又是很强的形状命中，是常态；
+    // 拿 seen 把它从形状那一路划掉，它就只能去挤索引那 6 个名额，反而掉出去了——
+    // 实测这一个字母的差别：停车 4/4 掉成 2/4，显示器 3/3 掉成 2/3。去重是 blend 自己的事。
+    const usable = (id) => !echoed(id) && !drop(id);
+    ids = shape.blend({
+      found: ids,
+      // 地址那一档用松的那个形状：真实记录里写的是「Buckingham Court, TW18」，只有前半段
+      shapeHits: sp ? shape.scan(pool, sp === 'postcode' ? 'postcodeLoose' : sp, words).filter(usable) : [],
+      scanHits: shape.scanWords(pool, words).filter(usable),
+      keep: KEEP,
+    });
+  }
 
   const entries = ids.slice(0, KEEP).map((id) => store.getEntry(id)).filter(Boolean);
 

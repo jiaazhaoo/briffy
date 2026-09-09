@@ -4,41 +4,33 @@
 //
 //   npx electron dev/recall-arch-bench.js
 //
-// 2026-09-09 的账。**14 个问题、33 条满分记录**，分两组：
-// 前 7 个是围着「形状」出的（含 2 道故意没有形状的对照），后 7 个是日用场景——
-// 保单号、P60 收入、签证住址、本机 Ollama 地址、电脑崩溃、推荐模型、存过的视频。
-// 后一组是**专门用来找通用毛病的**，里面故意放了两道会让形状腿踩空的题。
+// 2026-09-09 的账。14 个问题、33 条满分记录，分两组：前 7 个围着「形状」出（含 2 道故意
+// 没有形状的对照），后 7 个是日用场景——保单号、P60 收入、签证住址、本机 Ollama 地址、
+// 电脑崩溃、推荐模型、存过的视频。后一组是专门用来找通用毛病的。
 //
-//   A 现状               12/33 (36%)  · 702ms
-//   B 全扫词面            16/33 (48%)  · 15ms
-//   C 现状+形状           17/33 (52%)
-//   D 全扫+形状           20/33 (61%)
-//   E 形状按 PRF 排        12/33 (36%)   ← 比按问题的词排还差
-//   G 形状填满名额         21/33 (64%)
-//   H G+按标题短记录排      21/33 (64%)
-//   I H+半截邮编          22/33 (67%)   ← 停车 +2，但签证住址 −1，很脆
-//   J I+无形状时全扫       27/33 (82%)
-//   K 三条腿按配额         30/33 (91%)  · 0ms   ← 赢家
+//   接上形状腿之前   12/33 (36%)  · 702ms
+//   上线的这一版     27/33 (82%)  · 索引 + 形状 + 全扫，三条腿按配额
 //
-// **K 赢在一条通用的道理：三条腿一起上，谁也不许独占名额。**
-// J 是二选一（有形状走形状，没形状才全扫），日用题上立刻出事：
-// 「这台机器推荐用哪个本地模型」里的「模型」带个「型」字，触发了型号那一档，
-// 20 个名额被型号串占满，真正写着「推荐用 qwen3.5:27b」的两条挤不进来。
-// 一个认错的形状不该吃掉整份名额。改成配额（形状最多一半、索引留 6、全扫填满）之后，
-// 那一问和签证住址那一问都回来了，别的一个没坏。
+// 走到这儿的路，每一步都是一个独立的道理（当初那一串变体在文件末尾留着）：
+//   形状腿          20% → 53%   词匹配不到形状：写着 TW20 0AE 的记录里没有「地址」两个字
+//   形状填满名额      53% → 80%   词面一条没找到时，24 个名额空着却截断唯一在工作的腿
+//   标题短记录优先     ——         真是答案的那几条都很短、形状就写在标题里
+//   半截邮编         80% → 93%   真实记录写的是「Buckingham Court, TW18」，只有前半段
+//   无形状时全扫      82%         「screenpipe 怎么采集」这类问题上全扫 5/5、索引 2/5
+//   三条腿按配额      82% → 91%   一个认错的形状（「模型」撞「型号」）不许吃掉整份名额
 //
-// 顺带：那个触发词表本身就是个凑合（「模型」撞「型号」），真做的时候该让模型出主意
-// （searchPlan 的 schema 加 shapes），认不出再退回词表。
+// 上线之后是 82% 不是 91%：台子里那一版的「索引结果」是接线前那个小候选集，接线后
+// ask.run 自己就在做配额，两者的组成不一样。剩下 6 条漏也查清楚了，都不是过滤器挡的：
+// 四条是长记录、标题里没有形状，排在形状腿的名额之外；两条是纯粹词不沾边（问「崩溃」
+// 而记录写「爆显存」，问「哔哩哔哩视频」而记录写「周周怪】杜琪峰中式邪典」）。
 //
 // 端到端（同一个模型只换检索）：
-//   deepseek-v4-flash-0731  「起点终点的具体地址」 A：「没有给出更具体的街道门牌地址」
-//                            → G：「Runnymede Pleasure Ground, Egham, Surrey TW20 0AE」
-//                           「报名费多少钱」 A：「没有找到」 → G：「£139.00」（引订单确认页）
-//   本机 qwen3.5:9b         同一问 A：「终点是 Runnymede」 → J：「…Egham, Surrey TW20 0AE」
-//   本机 qwen3.5:0.8b       检索变好也兑现不了：24 条读不过来，停车那一问反而抓了个人名。
-//                           qwen3-vl:2b 全部返回空（不理 JSON schema）。
+//   deepseek-v4-flash-0731  「起点终点的具体地址」 之前：「没有给出更具体的街道门牌地址」
+//                            → 之后：「Runnymede Pleasure Ground, Egham, Surrey TW20 0AE」
+//                           「报名费多少钱」 之前：「没有找到」 → 之后：「£139.00」（引订单确认页）
+//   本机 qwen3.5:9b         同一问 之前：「终点是 Runnymede」 → 之后：「…Egham, Surrey TW20 0AE」
 //
-// **14 个问题仍然是小样本，再往下调分数就是拟合噪声。**
+// **14 个问题是小样本，别再拿它调分数。** 它现在的用处是回归：改了检索就跑一遍，看这个数掉没掉。
 //
 // 标准答案是从工作区里扫出来的：先按答案本身的字符串（TW20 0AE、08:30、P3425WE…）找出
 // 哪几条记录**真的写着**答案，那几条就是这一问的满分。**briffy 自己的问答产物不算**——
@@ -202,91 +194,32 @@ app.whenReady().then(async () => {
   let vf; do { vf = vocab.fill(index, (id) => store.getEntry(id), { budgetMs: 3000 }); } while (!vf.done);
   let st; do { st = vocab.settle(index, { budgetMs: 3000 }); } while (!st.done);
 
-  const ARCH = ['A 现状', 'B 全扫词面', 'C 现状+形状', 'D 全扫+形状', 'E 现状+形状(PRF)', 'F E+去掉自产', 'G 形状填满名额', 'H G+按标题短记录排', 'I H+半截邮编', 'J I+无形状时全扫', 'K 三条腿按配额'];
-  const tally = Object.fromEntries(ARCH.map((a) => [a, { got: 0, gold: 0, self: 0, n: 0, ms: 0 }]));
-
+  // **只量上线的那一版。** A~K 那一串变体在产品接上之后已经没有意义了——它们全都建在
+  // ask.run 之上，而 ask.run 现在自己就是 K。历史账保留在文件头，那是怎么走到这儿的记录。
+  let got = 0, gold = 0, self = 0, ms = 0;
   for (const c of CASES) {
-    // termsOf 给的是 {key,…}，key 是切好的词（词组用空格连着）。**不是 text**——
-    // 第一版写成 p.text，取出来全是 undefined，于是「全扫」这一档一条都没命中，
-    // 而形状那一档的排序也跟着乱。量之前先确认取到的东西不是空的。
-    const terms = index.termsOf(c.q).flatMap((p) => String(p.key || '').split(' ')).map((x) => x.toLowerCase()).filter((x) => x.length > 1);
-    if (!terms.length) throw new Error('取不出词，别往下量了：' + c.q);
-    const sets = {};
-    let t0 = Date.now();
-    const a = (await ask.run(c.q, {})).sources.map((e) => e.id);
-    tally['A 现状'].ms += Date.now() - t0;
-    sets['A 现状'] = a;
-    t0 = Date.now(); const b = fullScan(all, terms); tally['B 全扫词面'].ms += Date.now() - t0; sets['B 全扫词面'] = b;
-    t0 = Date.now(); const sh = shapeScan(all, shapeOf(c.q), terms); tally['C 现状+形状'].ms += Date.now() - t0;
-    sets['C 现状+形状'] = [...new Set([...a.slice(0, KEEP - sh.length), ...sh])];
-    sets['D 全扫+形状'] = [...new Set([...b.slice(0, KEEP - sh.length), ...sh])];
-    // E：形状命中按「和词面已经找到的那几条共用词」排
-    const seedText = a.slice(0, 6).map((id) => bodyOf(byId.get(id) || {})).join('\n');
-    const shP = shapeScan(all, shapeOf(c.q), terms, { by: 'prf', seedText, limit: 10 });
-    sets['E 现状+形状(PRF)'] = [...new Set([...a.slice(0, KEEP - shP.length), ...shP])];
-    // F：再把 briffy 自己的问答产物请出去（它们占了 8~12 个名额）
-    sets['F E+去掉自产'] = sets['E 现状+形状(PRF)'].filter((id) => !isSelf(id));
-    // G：形状腿**把剩下的名额填满**，不再截在一个常数上。
-    // 「报名费多少钱」那一问词面一条都没找到，24 个名额全空着，而形状腿只取了 10 条——
-    // 空着名额却把唯一在工作的那条腿截断，说不通。顺便把 briffy 自己的问答产物请出去。
-    const clean = a.filter((id) => !isSelf(id));
-    const shG = shapeScan(all, shapeOf(c.q), terms, { limit: KEEP }).filter((id) => !isSelf(id));
-    const keepWords = Math.min(clean.length, Math.max(4, KEEP - shG.length));
-    sets['G 形状填满名额'] = [...new Set([...clean.slice(0, keepWords), ...shG])].slice(0, KEEP);
-    const fill = (hits) => {
-      const kw = Math.min(clean.length, Math.max(4, KEEP - hits.length));
-      return [...new Set([...clean.slice(0, kw), ...hits])].slice(0, KEEP);
-    };
-    // H：形状命中按「形状在标题里 + 记录短」排
-    sets['H G+按标题短记录排'] = fill(shapeScan(all, shapeOf(c.q), terms, { by: 'title', limit: KEEP }).filter((id) => !isSelf(id)));
-    // I：再让「地址」这一类也认半截邮编
-    const shapeI = shapeOf(c.q) === 'postcode' ? 'postcode+' : shapeOf(c.q);
-    sets['I H+半截邮编'] = fill(shapeScan(all, shapeI, terms, { by: 'title', limit: KEEP }).filter((id) => !isSelf(id)));
-    // J：问题**认不出形状**的时候，退回全扫词面。
-    // 这一条是那两道对照题逼出来的：没有形状可扫的问题上，全扫（B）5/5，而现状（A）只有 2/5。
-    // 两种机制补的是两个不相干的洞——有形状的问题靠形状，没形状的问题靠「别只看索引的前几条」。
-    if (shapeOf(c.q)) {
-      sets['J I+无形状时全扫'] = sets['I H+半截邮编'];
-    } else {
-      const scan = fullScan(all, terms, { limit: KEEP }).filter((id) => !isSelf(id));
-      sets['J I+无形状时全扫'] = [...new Set([...clean.slice(0, 6), ...scan])].slice(0, KEEP);
-    }
-    // K：三条腿**一起上**，谁也不许独占名额。
-    //
-    // J 是「有形状就走形状，没形状才全扫」——二选一。日用题上量出这样会坏事：
-    // 「这台机器推荐用哪个本地模型」里的「模型」带个「型」字，触发了型号那一档，
-    // 于是 20 个名额被一堆型号串占满，真正写着「推荐用 qwen3.5:27b」的两条挤不进来（0/2）。
-    // 一个认错的形状不该把整份名额吃掉。所以改成配额：形状最多一半，索引和全扫分剩下的。
-    {
-      const shapeK = shapeOf(c.q) === 'postcode' ? 'postcode+' : shapeOf(c.q);
-      const hits = shapeK ? shapeScan(all, shapeK, terms, { by: 'title', limit: KEEP }).filter((id) => !isSelf(id)) : [];
-      const scan = fullScan(all, terms, { limit: KEEP }).filter((id) => !isSelf(id));
-      const out = [];
-      const add = (list, n) => { for (const id of list) { if (out.length >= KEEP) break; if (n-- <= 0) break; if (!out.includes(id)) out.push(id); } };
-      add(hits, Math.floor(KEEP / 2));      // 形状：最多一半
-      add(clean, 6);                        // 索引原本找到的：留 6 个
-      add(scan, KEEP);                      // 全扫把剩下的填满
-      add(hits, KEEP);                      // 还有空位就再给形状
-      sets['K 三条腿按配额'] = out.slice(0, KEEP);
-    }
-    tally['D 全扫+形状'].ms += tally['B 全扫词面'].ms / CASES.length;
-
-    console.log(`\n════ ${c.q}`);
-    console.log(`   形状 = ${shapeOf(c.q) || '（认不出）'} · 满分 ${c.gold.length} 条`);
-    for (const name of ARCH) {
-      const ids = sets[name];
-      const hit = c.gold.filter((g) => ids.some((x) => x.startsWith(g)));
-      const self = ids.filter(isSelf).length;
-      const t = tally[name]; t.got += hit.length; t.gold += c.gold.length; t.self += self; t.n += 1;
-      const miss = c.gold.filter((g) => !ids.some((x) => x.startsWith(g)));
-      console.log(`   ${name.padEnd(12)} ${ids.length} 条 · 找回 ${hit.length}/${c.gold.length}` +
-        `${miss.length ? ' · 漏 ' + miss.join(' ') : ''}${self ? ' · 自产的 ' + self + ' 条' : ''}`);
-    }
+    const t0 = Date.now();
+    const ids = (await ask.run(c.q, {})).sources.map((e) => e.id);
+    ms += Date.now() - t0;
+    const hit = c.gold.filter((g) => ids.some((x) => x.startsWith(g)));
+    const miss = c.gold.filter((g) => !ids.some((x) => x.startsWith(g)));
+    const s2 = ids.filter(isSelf).length;
+    got += hit.length; gold += c.gold.length; self += s2;
+    console.log(`${String(hit.length + '/' + c.gold.length).padStart(5)}  形状=${(require('../src/main/shape').shapeOf(c.q) || '—').padEnd(13)} ${c.q}`);
+    if (miss.length) console.log(`        漏 ${miss.join(' ')}`);
+    if (s2) console.log(`        混进 briffy 自产的 ${s2} 条`);
   }
   console.log('\n════════ 总计 ════════');
+  console.log(`找回 ${got}/${gold} (${Math.round(got / gold * 100)}%) · 混进自产的 ${self} 条 · 检索共 ${ms}ms`);
+  console.log('（接上形状腿之前是 12/33，36%）');
+  app.quit();
+});
+/* 以下是当初那一串实验变体，留着看是怎么走到这儿的：
   for (const name of ARCH) {
     const t = tally[name];
     console.log(`${name.padEnd(12)} 找回 ${t.got}/${t.gold} (${Math.round(t.got / t.gold * 100)}%) · 混进自产的 ${t.self} 条 · 检索耗时 ${Math.round(t.ms)}ms`);
   }
   app.quit();
 });
+
+*/
