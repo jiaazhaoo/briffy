@@ -1,8 +1,16 @@
 'use strict';
 // 把 site/ 那份双语源文件切成两个真正的单语页面，输出到 site-dist/。
 //
-//   node scripts/build-site.js      →  site-dist/index.html      中文
-//                                      site-dist/en/index.html   English
+//   node scripts/build-site.js      →  site-dist/index.html         中文
+//                                      site-dist/en/index.html      English
+//                                      site-dist/privacy.html       隐私政策（中文）
+//                                      site-dist/en/privacy.html    Privacy policy
+//
+// 下载地址和版本号**不写在页面里**，构建时从唯一来源注入（见下面的 facts）：版本来自 package.json，
+// 扩展商店地址来自 src/main/extension-store.js。所以发一个新版本只要改 package.json 一处，
+// 官网跟着变；扩展还没上架时，页面上那个「装扩展」的按钮会被整个删掉，而不是留一个点不开的链接。
+// 源文件里它们是 {{VERSION}} 这样的占位符，所以直接看 site/index.html 会看到花括号——
+// 要看真东西就 npm run site 之后看 site-dist/。
 //
 // 为什么不直接把带切换按钮的那一页发出去：一个页面服务两种语言，链接分不开、
 // 搜索引擎收不进去、分享出去的标题永远是其中一种。所以发布的是两页，
@@ -18,6 +26,32 @@ const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'site');
 const OUT = path.join(ROOT, 'site-dist');
 const ORIGIN = 'https://briffy.cc';
+const REPO = 'https://github.com/jiaazhaoo/briffy';
+
+/** 每一页一个源文件。名字同时是发布出去的文件名：/privacy 由 privacy.html 供出去。 */
+const PAGES = ['index.html', 'privacy.html'];
+
+// ---------- 要注入的事实 ----------
+// 一处也不许在页面里手写：手写的版本号迟早和发出去的包不是同一个，而这是访客点下载才发现的。
+const pkg = require(path.join(ROOT, 'package.json'));
+const extManifest = require(path.join(ROOT, 'extension', 'manifest.json'));
+const { storeUrl } = require(path.join(ROOT, 'src', 'main', 'extension-store.js'));
+
+/** dmg 的真实大小。本地打过包就用真的，没打过就用上一次记下来的——写错一个体积不值得让构建失败。 */
+const FALLBACK_DMG_MB = 238;
+function dmgSizeMB() {
+  const f = path.join(ROOT, 'release', `briffy-${pkg.version}-arm64.dmg`);
+  try { return Math.round(fs.statSync(f).size / 1048576); } catch (_) { return FALLBACK_DMG_MB; }
+}
+
+const FACTS = {
+  VERSION: pkg.version,
+  DMG_URL: `${REPO}/releases/download/v${pkg.version}/briffy-${pkg.version}-arm64.dmg`,
+  DMG_SIZE: `${dmgSizeMB()} MB`,
+  RELEASES_URL: `${REPO}/releases`,
+  EXT_URL: storeUrl('chrome'),
+  EXT_VERSION: extManifest.version,
+};
 
 /** 页面自己带的静态文件。en/ 那一页在下一级，所以路径要往上退一格 */
 const ASSETS = ['site.css', 'site.js', 'briffy-anim.js', 'favicon.svg', 'og.png', 'shot.svg', 'paper/tokens.css'];
@@ -64,13 +98,17 @@ function stripByClass(html, cls) {
 }
 
 // ---------- 一种语言，一页 ----------
-function build(lang) {
-  const src = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
+function build(lang, page) {
+  const src = fs.readFileSync(path.join(SRC, page), 'utf8');
   const other = lang === 'zh' ? 'en' : 'zh';
   const sub = lang === 'en';                       // English 住在 /en/，静态文件在上一级
   const up = sub ? '../' : '';
 
   let h = stripByClass(src, other);
+
+  // 扩展还没上架：把只有商店地址才成立的东西整个删掉。用的是上面同一把剪刀——
+  // 一个 href 是空字符串的按钮点下去会跳回站点根，看着就是「这个按钮坏了」。
+  if (!FACTS.EXT_URL) h = stripByClass(h, 'x-ext-only');
 
   const meta = (name) => {
     const m = new RegExp(`<meta name="${name}" content="([^"]*)"\\s*/?>`).exec(src);
@@ -95,13 +133,15 @@ function build(lang) {
   // 语言固定下来：<html lang> 说了算，data-fixed-lang 让 site.js 别再按浏览器语言去改它
   h = h.replace(/<html lang="[^"]*">/, `<html lang="${lang === 'zh' ? 'zh-Hans' : 'en'}" data-fixed-lang>`);
 
-  // 每一页认自己，并互相指认
-  const self = lang === 'zh' ? `${ORIGIN}/` : `${ORIGIN}/en/`;
+  // 每一页认自己，并互相指认。首页是目录（带尾斜杠），其余页是一个具体的地址。
+  const slug = page === 'index.html' ? '' : page.replace(/\.html$/, '');
+  const pathOf = (l) => (l === 'zh' ? `/${slug}` : `/en/${slug}`) + (slug ? '' : '');
+  const self = ORIGIN + pathOf(lang);
   h = h.replace(/<link rel="canonical" href="[^"]*"\s*\/?>/,
     `<link rel="canonical" href="${self}" />\n`
-    + `<link rel="alternate" hreflang="zh-Hans" href="${ORIGIN}/" />\n`
-    + `<link rel="alternate" hreflang="en" href="${ORIGIN}/en/" />\n`
-    + `<link rel="alternate" hreflang="x-default" href="${ORIGIN}/" />`);
+    + `<link rel="alternate" hreflang="zh-Hans" href="${ORIGIN + pathOf('zh')}" />\n`
+    + `<link rel="alternate" hreflang="en" href="${ORIGIN + pathOf('en')}" />\n`
+    + `<link rel="alternate" hreflang="x-default" href="${ORIGIN + pathOf('zh')}" />`);
   h = h.replace(/<meta property="og:type" content="website"\s*\/?>/,
     `<meta property="og:type" content="website" />\n`
     + `<meta property="og:url" content="${self}" />\n`
@@ -120,11 +160,20 @@ function build(lang) {
   //
   // href 上带着 ?lang=：那是「他自己挑的」这件事唯一的载体。head 里那段自动判断见到就记下来，
   // 从此不再替他决定——否则从英文页点「中文」会被当场弹回英文。
-  const to = lang === 'zh' ? 'en/?lang=en' : '../?lang=zh';
+  const to = lang === 'zh'
+    ? (slug ? `en/${slug}?lang=en` : 'en/?lang=en')
+    : (slug ? `../${slug}?lang=zh` : '../?lang=zh');
   h = h.replace(/<button type="button" id="langBtn" class="lang"[^>]*>([\s\S]*?)<\/button>/,
     `<a class="lang" href="${to}" hreflang="${other === 'zh' ? 'zh-Hans' : 'en'}">$1</a>`);
   h = h.replace(/<button type="button" class="lang" data-lang-toggle>([\s\S]*?)<\/button>/,
     `<a class="lang" href="${to}" hreflang="${other === 'zh' ? 'zh-Hans' : 'en'}">$1</a>`);
+
+  // 事实最后注入：上面每一步都可能搬动这些字，先填进去只会被搬来搬去。
+  // 留下一个没换掉的 {{...}} 说明源文件里写了个不存在的名字——那种页面不该发出去。
+  h = h.replace(/\{\{([A-Z_]+)\}\}/g, (m, key) => {
+    if (!(key in FACTS)) throw new Error(`${page}: {{${key}}} 不是 FACTS 里的名字`);
+    return FACTS[key];
+  });
 
   return h;
 }
@@ -134,8 +183,10 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(path.join(OUT, 'en'), { recursive: true });
 fs.mkdirSync(path.join(OUT, 'paper'), { recursive: true });
 
-fs.writeFileSync(path.join(OUT, 'index.html'), build('zh'));
-fs.writeFileSync(path.join(OUT, 'en', 'index.html'), build('en'));
+for (const page of PAGES) {
+  fs.writeFileSync(path.join(OUT, page), build('zh', page));
+  fs.writeFileSync(path.join(OUT, 'en', page), build('en', page));
+}
 for (const a of ASSETS) fs.copyFileSync(path.join(SRC, a), path.join(OUT, a));
 
 // 404。两种语言都写在上面——走丢的人不一定是从哪一页走丢的。
@@ -181,8 +232,9 @@ fs.writeFileSync(path.join(OUT, '_headers'), [
   '',
 ].join('\n'));
 
-for (const f of ['index.html', 'en/index.html']) {
+for (const page of PAGES) for (const f of [page, `en/${page}`]) {
   const n = fs.readFileSync(path.join(OUT, f), 'utf8');
-  console.log(f.padEnd(16), (n.length / 1024).toFixed(1) + ' KB');
+  console.log(f.padEnd(20), (n.length / 1024).toFixed(1) + ' KB');
 }
 console.log('→', path.relative(ROOT, OUT));
+console.log(`   v${FACTS.VERSION} · dmg ${FACTS.DMG_SIZE} · 扩展 ${FACTS.EXT_URL ? `已上架 v${FACTS.EXT_VERSION}` : '未上架（页面上那个按钮已删掉）'}`);

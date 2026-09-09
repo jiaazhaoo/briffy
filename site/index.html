@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>briffy — 你照常用电脑，它把这一天记下来</title>
+<title>briffy — 不需要录入和整理的笔记本</title>
 <meta name="description" content="你照常用电脑，briffy 把这一天记下来。不用新建，不用起名，不用打标签，不用打开它——复制、截图、收藏，你已经在做的事就是录入。识别都在本机。macOS / Windows，源码公开、禁止商用。" />
 
 <!-- 两种语言的标题与描述。scripts/build-site.js 按语言挑一份写进真正的 <title> / description /
      og:*，然后把这四行删掉——所以站点的每一个字都只有这一份源文件里有。 -->
-<meta name="x-title-zh" content="briffy — 你照常用电脑，它把这一天记下来" />
-<meta name="x-title-en" content="briffy — use your computer as usual, it writes the day down" />
-<meta name="x-desc-zh" content="你照常用电脑，briffy 把这一天记下来。不用新建，不用起名，不用打标签，不用打开它——复制、截图、收藏，你已经在做的事就是录入。识别都在本机。macOS / Windows，源码公开、禁止商用。" />
-<meta name="x-desc-en" content="Use your computer as usual and briffy writes the day down. Nothing to create, name, tag or open — copying, capturing and saving are already the input. Recognition runs on your own machine. macOS / Windows, source-available and noncommercial." />
+<meta name="x-title-zh" content="briffy — 不需要录入和整理的笔记本" />
+<meta name="x-title-en" content="briffy — a notebook you don’t have to write or tidy" />
+<meta name="x-desc-zh" content="不需要录入和整理的笔记本。治收藏焦虑、收集癖、松鼠症、数字囤积和收藏夹吃灰：收藏、截图、复制的东西自动记下来，存的是整篇正文不是一个链接，自动转成文本、归成主题、写好摘要，一句话就能问出报告。识别和归堆都在本机。macOS / Windows，源码公开、禁止商用。" />
+<meta name="x-desc-en" content="A notebook you don’t have to write or tidy. For digital hoarding, bookmark graveyards and read-it-later piles: saves, screenshots and copies are recorded on their own, the whole article is kept rather than a link, everything becomes text and groups itself into topics with summaries — then one sentence gets you a report. Recognition and grouping run on your own machine. macOS / Windows, source-available and noncommercial." />
 <meta name="theme-color" content="#f3f1f0" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#1b1918" media="(prefers-color-scheme: dark)" />
 <link rel="canonical" href="https://briffy.app/" />
 
 <meta property="og:type" content="website" />
-<meta property="og:title" content="briffy — 你照常用电脑，它把这一天记下来" />
-<meta property="og:description" content="不用新建，不用起名，不用打标签，不用打开它。你已经在做的事，就是录入。" />
+<meta property="og:title" content="briffy — 不需要录入和整理的笔记本" />
+<meta property="og:description" content="收藏、会议、剪贴板、文件——进来就自己归好堆了。" />
 <meta property="og:image" content="og.png" />
 <meta name="twitter:card" content="summary" />
 
@@ -75,9 +75,9 @@
     <span>briffy</span>
   </a>
   <nav class="topnav">
-    <a href="#input"><span class="zh">录入</span><span class="en">Input</span></a>
-    <a href="#papers"><span class="zh">整理</span><span class="en">Filing</span></a>
-    <a href="#ask"><span class="zh">找</span><span class="en">Finding</span></a>
+    <a href="#input"><span class="zh">扔进来</span><span class="en">In</span></a>
+    <a href="#topics"><span class="zh">自己成堆</span><span class="en">Grouping</span></a>
+    <a href="#out"><span class="zh">出口</span><span class="en">Out</span></a>
     <a href="#private"><span class="zh">隐私</span><span class="en">Privacy</span></a>
     <a href="#get"><span class="zh">装它</span><span class="en">Install</span></a>
     <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
@@ -98,87 +98,153 @@
     <span class="mark-hint"><span class="zh">点它</span><span class="en">poke it</span></span>
   </div>
 
-  <h1 class="zh">你照常用电脑，<br />它把这一天记下来。</h1>
-  <h1 class="en">Use your computer as usual.<br />It writes the day down.</h1>
+  <h1 class="zh">不需要录入和整理的笔记本。</h1>
+  <h1 class="en">A notebook you don’t have to write or tidy.</h1>
 
-  <p class="lede zh">不用新建，不用起名，不用打标签，不用打开它。</p>
-  <p class="lede en">Nothing to create, name, tag, or open.</p>
+  <div class="why">
+    <div>
+      <h3 class="zh">不需要录入</h3>
+      <h3 class="en">No writing</h3>
+      <p class="zh">收藏、截图、复制的东西自动记下来；任意文件拖给它就行。</p>
+      <p class="en">Saves, screenshots and copies are recorded on their own — and you can drop any file on it.</p>
+    </div>
+    <div>
+      <h3 class="zh">不需要整理</h3>
+      <h3 class="en">No tidying</h3>
+      <p class="zh">所有内容自动转成文本，自动归成主题、写好摘要。</p>
+      <p class="en">Everything becomes text, then groups itself into topics with the summaries written for you.</p>
+    </div>
+    <div>
+      <h3 class="zh">一句话出一份报告</h3>
+      <h3 class="en">A report in one sentence</h3>
+      <p class="zh">调研报告、行程单、材料表——说一句你要什么，它只读你自己的记录来写，每句标着第几条。</p>
+      <p class="en">A research write-up, an itinerary, a parts list — say what you need. It writes only from your own records, and every line cites the one it came from.</p>
+    </div>
+  </div>
+  </div>
 
   <p class="acts">
-    <a class="btn primary" href="#get"><span class="zh">装它</span><span class="en">Install</span></a>
-    <a class="btn" href="https://github.com/jiaazhaoo/briffy">GitHub</a>
+    <a class="btn primary" href="{{DMG_URL}}"><span class="zh">下载 macOS 版</span><span class="en">Download for macOS</span></a>
+    <a class="btn" href="#get"><span class="zh">其它平台</span><span class="en">Other platforms</span></a>
   </p>
 
   <p class="fine zh">macOS · Windows · 识别都在本机 · 源码公开，禁止商用</p>
   <p class="fine en">macOS · Windows · recognition runs locally · source-available, noncommercial</p>
 </section>
 
-<!-- ══ 收 ══════════════════════════════════════════════════════════════════
-     六条进来的路。写的是能力和它凭什么成立，不是"你可以点它几下"——
-     手势是操作说明，不是理由。 -->
+<!-- ══ 症状 ══════════════════════════════════════════════════════════════════
+     先认领这个感觉，再讲产品。这一段也是全站唯一放"热词"的地方——
+     收藏焦虑 / 收集癖 / 松鼠症 / 数字囤积 / 稍后再读 / 吃灰，
+     它们不是关键词堆砌，它们本来就是同一件事的六个名字。 -->
+<section class="sec" id="hoard">
+  <div class="sec-head">
+    <h2 class="zh">收藏从未停止，学习从未开始</h2>
+    <h2 class="en">Saving never stops. Reading never starts.</h2>
+  </div>
+  <p class="ache zh">收藏焦虑、收集癖、松鼠症、数字囤积、稍后再读、收藏夹吃灰——名字很多，症状只有一个：<b>你收的东西，一次都没回去看过。</b></p>
+  <p class="ache en">Digital hoarding, collector’s itch, the bookmark graveyard, read-it-later, tab hoarding — many names, one symptom: <b>you have never gone back to any of it.</b></p>
+  <p class="ache2 zh">不是你懒。是你存下的只是一个链接，而链接会失效、会要登录、会被改掉；而且它从来没被归到任何地方去。</p>
+  <p class="ache2 en">It isn’t laziness. What you saved was a link — and links rot, ask for a login, get rewritten. And it was never filed anywhere.</p>
+  <p class="ache2 zh"><b>briffy 存的是整篇正文</b>，自动归成主题、写好摘要，还能一句话问出来。收藏夹不用再吃灰。</p>
+  <p class="ache2 en"><b>briffy keeps the whole article</b>, groups it by topic, writes the summary, and answers questions out of it. The graveyard turns back into a notebook.</p>
+</section>
+
+<!-- ══ 扔进来 ══════════════════════════════════════════════════════════════
+     写的是能力和它凭什么成立，不是"你可以点它几下"——手势是操作说明，不是理由。
+     顺序按**意图密度**排，不按功能大小：收藏是低频高意图（点那一下就是"这对我有意义"），
+     剪贴板是高频低意图（复制的大多是过路货）。把剪贴板排在最前面，第一眼看到的就是
+     最冷的那条。 -->
 <section class="sec" id="input">
   <div class="sec-head">
-    <h2 class="zh">一直开着，什么都往里收</h2>
-    <h2 class="en">Always on, everything lands in it</h2>
-    <p class="sub zh">没有「新建记录」这个按钮。</p>
-    <p class="sub en">There is no “new entry” button.</p>
+    <h2 class="zh">扔什么都行</h2>
+    <h2 class="en">Throw anything in</h2>
+    <p class="sub zh">不用建文件夹，不用起名字，不用打标签，也没有「新建记录」这个按钮。</p>
+    <p class="sub en">No folders, no names, no tags — and no “new entry” button.</p>
   </div>
 
   <div class="what">
-    <div class="it">
-      <h3 class="zh">常驻剪贴板</h3>
-      <h3 class="en">It lives on your clipboard</h3>
-      <p class="zh">你按 <kbd>Ctrl</kbd><kbd>C</kbd> 的每一次都落进来——文字、图片、文件。同一次复制只算一条，不会因为格式多就存好几份。</p>
-      <p class="en">Every <kbd>Ctrl</kbd><kbd>C</kbd> lands: text, images, files. One copy is one record — several clipboard flavours of the same thing don’t become several.</p>
-    </div>
-
-    <div class="it">
-      <h3 class="zh">拖什么进来都行</h3>
-      <h3 class="en">Drop anything on it</h3>
-      <p class="zh">图片、PDF、音频、视频、代码、一段选中的文字。超过 200 MB 的不复制，只记住它在哪儿。</p>
-      <p class="en">Images, PDFs, audio, video, code, a selected paragraph. Anything over 200 MB isn’t copied — it just remembers where it lives.</p>
-    </div>
-
     <div class="it">
       <h3 class="zh">任意社媒的收藏，连正文一起</h3>
       <h3 class="en">Any site’s bookmarks, body and all</h3>
       <p class="zh">X 的 Bookmark、Reddit 的 Save、小红书和知乎的收藏。<b>存下来的是整篇正文</b>，不是一个链接——而且是在页面里抽的，所以要登录才看得见的东西也存得下来。</p>
       <p class="en">X’s Bookmark, Reddit’s Save, and the rest. <b>The whole article is archived, not a link</b> — and it’s extracted inside the page, so what only shows up once you’re logged in comes too.</p>
     </div>
-
     <div class="it">
       <h3 class="zh">会议自己录下来</h3>
       <h3 class="en">Meetings record themselves</h3>
       <p class="zh">它不听房间，它跟着麦克风：<b>别的软件打开麦克风，它才录</b>（腾讯会议、Zoom、Teams、Meet⋯⋯）。录完转成文字，还分得出说话人 1 / 2 / 3。默认关着。</p>
       <p class="en">It doesn’t listen to the room, it follows the microphone: <b>it records only when another app opens it</b> (Zoom, Teams, Meet, Tencent Meeting…). Then it’s transcribed and split into speaker 1 / 2 / 3. Off by default.</p>
     </div>
-
+    <div class="it">
+      <h3 class="zh">常驻剪贴板</h3>
+      <h3 class="en">It lives on your clipboard</h3>
+      <p class="zh">你按 <kbd>Ctrl</kbd><kbd>C</kbd> 的每一次都落进来——文字、图片、文件。同一次复制只算一条，不会因为格式多就存好几份。</p>
+      <p class="en">Every <kbd>Ctrl</kbd><kbd>C</kbd> lands: text, images, files. One copy is one record — several clipboard flavours of the same thing don’t become several.</p>
+    </div>
+    <div class="it">
+      <h3 class="zh">拖什么进来都行</h3>
+      <h3 class="en">Drop anything on it</h3>
+      <p class="zh">图片、PDF、音频、视频、代码、一段选中的文字。超过 200 MB 的不复制，只记住它在哪儿。</p>
+      <p class="en">Images, PDFs, audio, video, code, a selected paragraph. Anything over 200 MB isn’t copied — it just remembers where it lives.</p>
+    </div>
     <div class="it">
       <h3 class="zh">任意格式变成文本</h3>
       <h3 class="en">Anything becomes text</h3>
       <p class="zh">截图里的字、录音里的话、PDF、网页正文——全部变成能搜的文字，识别在本机。</p>
       <p class="en">The words inside a screenshot, the words inside a recording, a PDF, a page’s body — all of it becomes searchable text, recognised on your own machine.</p>
-    </div>
-
-    <div class="it">
-      <h3 class="zh">你的 AI 读得到</h3>
-      <h3 class="en">Your AI can read it</h3>
-      <p class="zh">一个<b>只读</b>的 MCP 服务器：Claude、Cursor、VS Code、Codex 接上就能查你的日常上下文。它直接读工作区文件，briffy 开没开都行。</p>
-      <p class="en">A <b>read-only</b> MCP server: Claude, Cursor, VS Code and Codex can query your day. It reads the workspace files directly, so it answers whether or not briffy is running.</p>
-    </div>
-  </div>
+    </div>  </div>
 
   <p class="keys zh">想主动记一笔也行：点它截屏、双击框选、长按说一句，或按 <kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> / <kbd>S</kbd> / <kbd>V</kbd>（macOS 上 <kbd>Cmd</kbd><kbd>Shift</kbd>）。</p>
   <p class="keys en">You can also act on purpose: click it to capture, double-click for a region, hold to speak — or <kbd>Ctrl</kbd><kbd>Alt</kbd> + <kbd>A</kbd> / <kbd>S</kbd> / <kbd>V</kbd> (<kbd>Cmd</kbd><kbd>Shift</kbd> on macOS).</p>
 </section>
 
-<!-- ══ 整理 ════════════════════════════════════════════════════════════════ -->
+<!-- ══ 自己成堆 ══════════════════════════════════════════════════════════════
+     这是「不用整理」这句话唯一的证据，也是自动记录能够存在的前提：
+     只进不收拾，造出来的是一个更大的坟场。
+     一堆就是几张纸摞在一起——所以这里画的是真的一摞，不是一个标签。 -->
+<section class="sec" id="topics">
+  <div class="sec-head">
+    <h2 class="zh">然后它自己成堆</h2>
+    <h2 class="en">Then it piles itself up</h2>
+    <p class="sub zh">讲同一件事的草稿会聚到一起。本子上于是有了一条竖着的线索，不再只是按天排的一条流。</p>
+    <p class="sub en">Drafts about the same thing gather together, so a thread runs down the notebook instead of one stream sorted by day.</p>
+  </div>
+
+  <div class="stacks">
+    <div class="stk">
+      <span class="under u1"></span><span class="under u2"></span>
+      <article class="c lead">
+        <p class="ttl"><span class="zh">Postgres 迁移</span><span class="en">Postgres migration</span></p>
+        <p class="mt"><span class="zh">6 条 · 9/2 – 9/4</span><span class="en">6 drafts · Sep 2 – 4</span></p>
+      </article>
+    </div>
+    <div class="stk">
+      <span class="under u1"></span><span class="under u2"></span>
+      <article class="c lead">
+        <p class="ttl"><span class="zh">显示器选型</span><span class="en">Picking a monitor</span></p>
+        <p class="mt"><span class="zh">4 条 · 8/28 – 9/1</span><span class="en">4 drafts · Aug 28 – Sep 1</span></p>
+      </article>
+    </div>
+    <div class="stk">
+      <span class="under u1"></span><span class="under u2"></span>
+      <article class="c lead">
+        <p class="ttl"><span class="zh">第三季度预算</span><span class="en">Q3 budget</span></p>
+        <p class="mt"><span class="zh">9 条 · 9/1 – 9/6</span><span class="en">9 drafts · Sep 1 – 6</span></p>
+      </article>
+    </div>
+  </div>
+
+  <p class="keys zh">归堆<b>完全在本地，不经过模型</b>——向量本来就在索引里，两百次点积，毫秒级。只有给一堆起名字才用一次 AI。</p>
+  <p class="keys en">The grouping is <b>entirely local and never touches a model</b> — the vectors are already in the index, and it is a couple of hundred dot products. Only naming a pile costs one AI call.</p>
+</section>
+
+<!-- ══ 草稿长什么样 ════════════════════════════════════════════════════════════════ -->
 <section class="sec" id="papers">
   <div class="sec-head">
-    <h2 class="zh">也不用整理</h2>
-    <h2 class="en">And nothing to file</h2>
-    <p class="sub zh">标题、一句话摘要、归到哪一天，软件自己写。你只管往里扔。</p>
-    <p class="sub en">The title, the one-line summary, which day it belongs to — written for you. You just let things land.</p>
+    <h2 class="zh">一张草稿长什么样</h2>
+    <h2 class="en">What a draft looks like</h2>
+    <p class="sub zh">五种草稿，五种纸。认它靠轮廓，不靠图标。标题和那句摘要也是软件写的。</p>
+    <p class="sub en">Five kinds of draft, five kinds of paper — told apart by outline, not icons. The title and the one-line summary are written for you too.</p>
   </div>
 
   <div class="mix" id="mix">
@@ -250,24 +316,22 @@
     <li><span class="zh">剪贴板 · 撕下来的碎片</span><span class="en">Clipboard · torn scrap</span></li>
   </ul>
 
-  <p class="keys zh">每天 08:00，昨天的摘要自己写好，弹一句通知。</p>
-  <p class="keys en">At 08:00 each day, yesterday's summary has written itself.</p>
 </section>
 
-<!-- ══ 找 ══════════════════════════════════════════════════════════════════ -->
-<section class="sec" id="ask">
+<!-- ══ 出口 ══════════════════════════════════════════════════════════════════ -->
+<section class="sec" id="out">
   <div class="sec-head">
-    <h2 class="zh">也不用找</h2>
-    <h2 class="en">And nothing to search</h2>
-    <p class="sub zh">一句话问它。答案标着依据的第几条。</p>
-    <p class="sub en">Ask in a sentence. Every claim carries the record it came from.</p>
+    <h2 class="zh">本子得有出口</h2>
+    <h2 class="en">A notebook needs a way out</h2>
+    <p class="sub zh">只进不出的本子，就是另一个收藏夹。一句话问它，答案标着依据的第几条。</p>
+    <p class="sub en">A notebook you only put things into is just another bookmarks folder. Ask in a sentence; every claim carries the draft it came from.</p>
   </div>
 
   <div class="ask">
     <div class="ask-l">
       <p class="q"><span class="zh">上周那个 Postgres 报错是怎么回事？</span><span class="en">What was that Postgres error last week?</span></p>
-      <p class="a zh">9 月 2 日你截到 <code>duplicate key value violates unique constraint</code><a class="cite" href="#ask">①</a>，当晚说要把迁移脚本回滚重跑<a class="cite" href="#ask">②</a>。第二天剪贴板里出现了 <code>ON CONFLICT DO NOTHING</code><a class="cite" href="#ask">③</a>。</p>
-      <p class="a en">On 2 September you captured <code>duplicate key value violates unique constraint</code><a class="cite" href="#ask">①</a>, and that evening said you'd roll the migration back<a class="cite" href="#ask">②</a>. The next day <code>ON CONFLICT DO NOTHING</code> came through your clipboard<a class="cite" href="#ask">③</a>.</p>
+      <p class="a zh">9 月 2 日你截到 <code>duplicate key value violates unique constraint</code><a class="cite" href="#out">①</a>，当晚说要把迁移脚本回滚重跑<a class="cite" href="#out">②</a>。第二天剪贴板里出现了 <code>ON CONFLICT DO NOTHING</code><a class="cite" href="#out">③</a>。</p>
+      <p class="a en">On 2 September you captured <code>duplicate key value violates unique constraint</code><a class="cite" href="#out">①</a>, and that evening said you'd roll the migration back<a class="cite" href="#out">②</a>. The next day <code>ON CONFLICT DO NOTHING</code> came through your clipboard<a class="cite" href="#out">③</a>.</p>
       <p class="note zh">检索在本地。不联网，不用模型。</p>
       <p class="note en">Retrieval is local. No network, no model.</p>
     </div>
@@ -288,16 +352,31 @@
       </article>
     </div>
   </div>
+
+  <div class="what after">
+    <div class="it">
+      <h3 class="zh">你的 AI 读得到</h3>
+      <h3 class="en">Your AI can read it</h3>
+      <p class="zh">一个<b>只读</b>的 MCP 服务器：Claude、Cursor、VS Code、Codex 接上就能查你的日常上下文。它直接读工作区文件，briffy 开没开都行。</p>
+      <p class="en">A <b>read-only</b> MCP server: Claude, Cursor, VS Code and Codex can query your day. It reads the workspace files directly, so it answers whether or not briffy is running.</p>
+    </div>
+    <div class="it">
+      <h3 class="zh">每天早上，昨天已经写好了</h3>
+      <h3 class="en">Yesterday is written by morning</h3>
+      <p class="zh">到设定时间（默认 08:00）昨天的摘要自己写好，弹一句通知。你没有要求过它。</p>
+      <p class="en">At the hour you set (08:00 by default) yesterday’s summary has written itself, and says so. You never asked for it.</p>
+    </div>
+  </div>
 </section>
 
 <!-- ══ 隐私 ════════════════════════════════════════════════════════════════
      "记一切"必须自己回答"那你是不是在监视我"。不回答，上面所有话都立不住。 -->
 <section class="sec" id="private">
   <div class="sec-head">
-    <h2 class="zh">记一切，不是盯着你</h2>
-    <h2 class="en">Everything, but not surveillance</h2>
-    <p class="sub zh">它只在你动手的那一下记：复制、截图、收藏、说话、拖进来。别的时候它什么都不做。</p>
-    <p class="sub en">It records at the moment you act — a copy, a capture, a save, a sentence, a drop. The rest of the time it does nothing.</p>
+    <h2 class="zh">它凭什么敢一直开着</h2>
+    <h2 class="en">Why it can be always on</h2>
+    <p class="sub zh">因为它<b>不按时间记，按动作记</b>。你不动手的时候，它什么都不做——这不是承诺，是它做不到。</p>
+    <p class="sub en">Because it <b>records by what you do, not by the clock</b>. When you are not doing anything, neither is it — that is not a promise, it is what the mechanism allows.</p>
   </div>
 
   <div class="cols">
@@ -332,29 +411,31 @@
   <div class="sec-head">
     <h2 class="zh">装它</h2>
     <h2 class="en">Install</h2>
-    <p class="sub zh">还没有安装包。从源码跑：</p>
-    <p class="sub en">No installer yet. From source:</p>
+    <p class="sub zh">下载、拖进「应用程序」、打开。没有账号，不用注册，不用配置——第一次启动它自己检查这台电脑，把本机的文字识别和语音识别准备好。</p>
+    <p class="sub en">Download it, drag it to Applications, open it. No account, no sign-up, nothing to configure — on first launch it checks this machine and gets local text and speech recognition ready by itself.</p>
   </div>
 
   <div class="two">
     <div class="col">
-      <pre class="code"><code>git clone https://github.com/jiaazhaoo/briffy.git
-cd briffy
-npm install
-npm start</code></pre>
       <p class="acts">
-        <a class="btn primary" href="https://github.com/jiaazhaoo/briffy"><span class="zh">仓库</span><span class="en">Repository</span></a>
-        <a class="btn" href="https://github.com/jiaazhaoo/briffy/releases"><span class="zh">发布页</span><span class="en">Releases</span></a>
+        <a class="btn primary" href="{{DMG_URL}}"><span class="zh">下载 macOS 版 {{VERSION}}</span><span class="en">Download for macOS {{VERSION}}</span></a>
+        <a class="btn x-ext-only" href="{{EXT_URL}}"><span class="zh">浏览器扩展</span><span class="en">Browser extension</span></a>
       </p>
+      <p class="fine zh">第一次打开会走一遍六步引导：两个语言包 → 权限 → 谁来读这些记录 → 准备本机引擎 → 手势速查。做完就不再出现。</p>
+      <p class="fine en">The first launch walks through six steps: two language packs → permissions → who reads these records → getting the local engines ready → the gestures. It never appears again.</p>
+      <p class="fine zh">Windows 版在<a href="{{RELEASES_URL}}">发布页</a>，还没有代码签名，SmartScreen 会拦一次。也可以<a href="https://github.com/jiaazhaoo/briffy#运行">从源码跑</a>。</p>
+      <p class="fine en">The Windows build is on the <a href="{{RELEASES_URL}}">releases page</a>; it is not code-signed yet, so SmartScreen will stop it once. You can also <a href="https://github.com/jiaazhaoo/briffy">run it from source</a>.</p>
     </div>
 
     <div class="col">
       <dl class="rows tight nums">
-        <div class="row"><dt><span class="zh">安装包</span><span class="en">Installer</span></dt><dd>171 MB</dd></div>
-        <div class="row"><dt><span class="zh">装完</span><span class="en">Installed</span></dt><dd>562 MB</dd></div>
+        <div class="row"><dt><span class="zh">安装包</span><span class="en">Download</span></dt><dd>{{DMG_SIZE}}</dd></div>
+        <div class="row"><dt><span class="zh">装完</span><span class="en">Installed</span></dt><dd>517 MB</dd></div>
+        <div class="row"><dt><span class="zh">系统</span><span class="en">Requires</span></dt><dd>macOS 13+</dd></div>
+        <div class="row"><dt><span class="zh">芯片</span><span class="en">Chip</span></dt><dd><span class="zh">Apple 芯片</span><span class="en">Apple silicon</span></dd></div>
       </dl>
-      <p class="fine zh">英文语音和中英文字识别已内置，断网可用。macOS 需要屏幕录制和麦克风权限。</p>
-      <p class="fine en">English speech and Chinese/English text recognition are bundled; works offline. macOS needs Screen Recording and Microphone.</p>
+      <p class="fine zh">英文语音和中英文字识别已内置，断网可用。其它语言的模型第一次用到时才下载。macOS 需要屏幕录制和麦克风权限，两项都可以不给——对应的功能关着，别的照常。</p>
+      <p class="fine en">English speech and Chinese/English text recognition are bundled, so it works offline. Models for other languages are fetched the first time they are needed. macOS asks for Screen Recording and Microphone; you can refuse either one — that feature stays off and the rest works.</p>
     </div>
   </div>
 </section>
@@ -374,6 +455,8 @@ npm start</code></pre>
     <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
     <a href="https://github.com/jiaazhaoo/briffy/releases"><span class="zh">发布</span><span class="en">Releases</span></a>
     <a href="https://github.com/jiaazhaoo/briffy/blob/main/LICENSE"><span class="zh">许可</span><span class="en">License</span></a>
+    <a class="zh" href="/privacy">隐私</a>
+    <a class="en" href="/en/privacy">Privacy</a>
     <button type="button" class="lang" data-lang-toggle><span class="zh">English</span><span class="en">中文</span></button>
   </nav>
 </footer>

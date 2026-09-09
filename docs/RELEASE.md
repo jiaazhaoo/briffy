@@ -76,6 +76,32 @@ npm run verify:mac
 
 ---
 
+## 发到 GitHub，然后让官网跟上
+
+官网上那个下载按钮的地址是**算出来**的，不是手写的（[scripts/build-site.js](../scripts/build-site.js)
+的 `FACTS`）。所以标签名和文件名必须严格对上，否则按钮 404：
+
+| | 必须是 |
+| --- | --- |
+| Git 标签 | `v0.1.0` —— **带 `v`**，跟着 `package.json` 的 `version` |
+| dmg 的文件名 | `briffy-0.1.0-arm64.dmg` —— electron-builder 的 `artifactName` 已经这么出了，别改名 |
+
+```bash
+gh release create v0.1.0 \
+  release/briffy-0.1.0-arm64.dmg \
+  release/briffy-0.1.0-arm64-mac.zip \
+  release/latest-mac.yml \
+  --title "briffy 0.1.0" --notes-file <(echo "第一个公开版本")
+
+npm run deploy        # 官网重新构建 + 发到 briffy.cc，下载按钮指向上面这个 tag
+```
+
+**顺序不能反**：先建 release 再 `npm run deploy`。反了的话官网上线时那个链接指着一个还不存在的
+tag，中间那段时间点下载就是 404。
+
+`npm run deploy` 顺便把 dmg 的**真实体积**读出来写进页面（读的是本地 `release/` 里那个文件），
+所以要在打完包的那台机器上发布。
+
 ## 验证（每次发布都要跑）
 
 ```bash
@@ -120,5 +146,9 @@ open ~/Downloads/briffy-*.dmg
 **版本号还是 `0.1.0`。** 第一个公开版本按惯例该是 `1.0.0`。这是你的决定，改 `package.json > version` 一处即可。
 
 **`NSScreenCaptureUsageDescription` 是装饰。** 留在 Info.plist 里说明意图，但 macOS 的屏幕录制授权弹窗**不读 Info.plist**，用的是系统固定文案。别指望改这句话能改屏幕上的字。
+
+**扩展是另一条发布线。** 浏览器扩展不跟着应用版本走，也不从这里发——见
+[docs/chrome-web-store.md](chrome-web-store.md)。上架之后要回来填一处
+[src/main/extension-store.js](../src/main/extension-store.js)，应用里的引导页和官网上那个按钮会一起亮起来。
 
 **Windows 那条路没动。** `npm run dist:win` 照旧，`build.win` 一个字没改。Windows 侧的代码签名（EV 证书 / Azure Trusted Signing）是另一件事。

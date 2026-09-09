@@ -78,7 +78,7 @@
 | Category | Productivity（副类：Utilities） |
 | Keywords (100) | `screenshot,ocr,voice notes,transcribe,clipboard,journal,daily,notes,capture,offline,local ai` |
 | Support URL | `https://github.com/jiaazhaoo/briffy/issues` |
-| Privacy Policy URL | ⚠️ **待发布**，正文见 [docs/PRIVACY.md](../PRIVACY.md) |
+| Privacy Policy URL | ✅ `https://briffy.cc/privacy`（源文件 [site/privacy.html](../../site/privacy.html)） |
 | Copyright | `2026 Jia Zhao` |
 | Age Rating | 4+（无用户生成内容分享、无社交、无广告） |
 
