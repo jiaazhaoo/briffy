@@ -31,7 +31,7 @@ Module._load = function (req, ...rest) {
   if (req === 'electron') return { app: { getPath: () => path.join(__dirname, '.no-userdata') } };
   return realLoad.call(this, req, ...rest);
 };
-const { Store, BUCKETS } = require('../src/main/store');
+const { Store, BUCKETS, entrySub, entryBucket } = require('../src/main/store');
 
 const WS = process.argv[2]
   || path.join(process.env.HOME, 'Library/Application Support/briffy/workspace');
@@ -100,6 +100,27 @@ for (const q of QUERIES) {
     }
     }
   }
+}
+
+// 二级的值是**开集**，只有剪贴板那一格是闭集。文件那格踩过这个坑：一开始用 entryFormat
+// 那张 11 项的固定表，于是 .sketch 和 .dmg 一起进了「其它」。这一段守着它——
+// 拖进来的每一种扩展名都得是自己的一格。
+{
+  const drop = (name) => ({ id: name, title: name, path: `files/2026-09-09/${name}` });
+  const cases = [['合同.pdf', 'PDF'], ['P60.PDF', 'PDF'], ['设计稿.sketch', 'SKETCH'],
+    ['账目.csv', 'CSV'], ['素材.zip', 'ZIP'], ['安装包.dmg', 'DMG'], ['照片.HEIC', 'HEIC']];
+  for (const [name, want] of cases) {
+    const e = drop(name);
+    checks++;
+    if (entryBucket(e) !== 'file') fail.push(`${name} 该落在「文件」那一格，实际是 ${entryBucket(e)}`);
+    checks++;
+    if (entrySub(e) !== want) fail.push(`${name} 的二级该是 ${want}，实际是 ${entrySub(e)}`);
+  }
+  // 每一种都得是自己的一格，不能挤在一起
+  eq(new Set(cases.map(([n]) => entrySub(drop(n)))).size, 6, '七个文件分出六种扩展名');
+  // 没有扩展名的（拖进来的一条网址）退回格式
+  eq(entrySub({ id: 'u', type: 'url', mime: 'text/uri-list', title: 'Example Domain', path: '' }),
+    'link', '拖进来的网址退回「链接」');
 }
 
 // 那条规矩只在「没选一级」时生效：点了「剪贴板」那一格就必须看得见剪贴板

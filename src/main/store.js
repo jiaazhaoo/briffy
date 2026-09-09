@@ -276,18 +276,39 @@ function entryBucket(e) {
 }
 
 /**
+ * 拖进来的东西是什么类型：**用真的扩展名**。
+ *
+ * 不用 entryFormat 那张表，因为拖进来的可以是任何东西——.sketch、.csv、.heic、.key、.dmg——
+ * 而那张表只有 11 项，它们会全被归进「其它」，于是「文件」那一格的二级永远只有两三个词，
+ * 其中一个还叫「其它」。**这一格的值是开集，得跟着库里真有什么长。**
+ * 没有扩展名的（拖进来的一条网址）退回格式，那时它是「链接」。
+ * @returns {string} 大写的扩展名（PDF、DOCX、ZIP），或者格式名，或者 '?'
+ */
+function fileKind(e) {
+  const name = String((e && (e.path || e.originalPath || e.title)) || '');
+  const m = name.match(/\.([A-Za-z0-9]{1,8})$/);
+  if (m) return m[1].toUpperCase();
+  const f = entryFormat(e);
+  return f === 'other' ? UNKNOWN : f;
+}
+
+/**
  * 二级。**每一格问的问题不一样**，这正是这套分法好用的地方——一个维度对所有东西问同一句话，
  * 就总有一半的东西答不上来（旧的「来源」那一档里最大的一项是「未知」，144 条）。
- *   收藏 / 截图    从哪儿来（站点、应用）：你要找的是「B 站收藏的那条」「Claude 里截的那张」
- *   剪贴板 / 文件   是什么（文字、图片、PDF）：它们的来处太杂，问来处等于没问
- *   录音           哪只麦克风
+ *
+ * **四格是开集，只有剪贴板是闭集**（2026-09-09 用户点出来的）：
+ *   收藏 / 截图    从哪儿来——站点名、应用名，库里出现过什么就有什么
+ *   文件           是什么——**真的扩展名**，见 fileKind
+ *   录音           哪只麦克风——设备名
+ *   剪贴板         是什么——**这一格才该用那张固定的表**：剪贴板只装得下那么几样东西
  * @returns {string} 二级的值；这一格答不上来就是 '?'
  */
 function entrySub(e) {
   const b = entryBucket(e);
   if (b === 'saved' || b === 'shot') return entryOrigin(e);
   if (b === 'voice') return String((e && e.mic) || '').trim() || UNKNOWN;
-  return entryFormat(e);
+  if (b === 'file') return fileKind(e);
+  return entryFormat(e);          // 剪贴板：唯一一格闭集
 }
 
 function readJson(file, fallback) {
