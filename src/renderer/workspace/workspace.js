@@ -1783,6 +1783,7 @@
   async function pickModel(provider, model) {
     const patch = { provider };
     if (provider === 'ollama' && model) patch.ollamaModel = model;
+    if (provider === 'openrouter' && model) patch.openrouterModel = model;
     closeModelTray();
     try {
       const u = await ws.saveSettings(patch);
@@ -1801,6 +1802,8 @@
     const box = $('#modelTray');
     if (!box) return;
     if (!state.providerStatus) { try { await loadProviderStatus(); } catch (_) { /* 拿不到就按已知的画 */ } }
+    // 目录只有设置页加载过；托盘要靠它列模型，所以这儿也得有一份（有缓存就是本地读文件）
+    if (!state.orModels) { try { await loadOpenrouterModels(); } catch (_) { /* 没有就退回一行 */ } }
     const s = state.settings || {};
     const cur = s.provider || 'openrouter';
     const rows = [];
@@ -1813,13 +1816,29 @@
       }
     }
     rows.push(`<div class="grp">${esc(t('modelRemote'))}</div>`);
-    for (const p of ['openrouter']) {
-      const ready = provReady(p);
-      const name = s.openrouterModel || '';
-      const label = `${PROV_LABEL[p]}${name ? ` · ${name}` : ''}`;
-      const why = ready ? '' : t(MISS_LABEL[provMissing(p)] || 'modelNotSet');
-      rows.push(`<button type="button" class="${cur === p ? 'on' : ''}" data-prov="${p}"${ready ? '' : ' disabled'}>`
-        + `${esc(label)}${why ? ` — ${esc(why)}` : ''}</button>`);
+    if (!provReady('openrouter')) {
+      // 还没配好：给一行说清楚差什么。列出十几个都点不动的模型只是噪音。
+      const why = t(MISS_LABEL[provMissing('openrouter')] || 'modelNotSet');
+      rows.push(`<button type="button" data-prov="openrouter" disabled>${esc(PROV_LABEL.openrouter)} — ${esc(why)}</button>`);
+    } else {
+      // **列模型，不列服务商。** 以前这儿一家一行（Claude / OpenRouter / 自定义），点一下换的是
+      // 服务商；2026-09-09 收成一家之后，那一行永远就是当前这个，点了什么也不会发生——
+      // 用户的原话是「登录 openrouter 后为啥不能切换模型」。
+      //
+      // 列哪些：OpenRouter 目录里带 ~ 前缀的那十几个「latest」别名。它们是各家的当家模型
+      // （Claude、GPT、Gemini、Grok、DeepSeek、Kimi、GLM），**而且是 OpenRouter 自己维护的**——
+      // 写死一份名单在我们代码里，过两个月就是一份旧名单。整份目录有三百多个，那是设置页
+      // 那个输入框的事（它带着全部型号和价钱），不是一只托盘的事。
+      const all = state.orModels || [];
+      const list = all.filter((m) => String(m.id || '').startsWith('~'));
+      if (s.openrouterModel && !list.some((m) => m.id === s.openrouterModel)) {
+        list.unshift({ id: s.openrouterModel, name: s.openrouterModel });   // 你现在用的那个总在
+      }
+      for (const m of (list.length ? list : [{ id: s.openrouterModel || '', name: s.openrouterModel || PROV_LABEL.openrouter }])) {
+        const on = cur === 'openrouter' && m.id === s.openrouterModel;
+        rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="openrouter" data-model="${esc(m.id)}">`
+          + `${esc(String(m.name || m.id).replace(/^~/, ''))}</button>`);
+      }
     }
     box.innerHTML = rows.join('');
     box.hidden = false;
