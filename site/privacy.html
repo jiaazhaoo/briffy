@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>briffy — 隐私政策</title>
+<meta name="description" content="briffy 没有服务器。截图、录音、剪贴板和文件都留在你自己的电脑上；只有你自己配置了 AI 服务或外部连接时，被处理的那一条记录才会离开这台机器。" />
+
+<!-- 两种语言的标题与描述。scripts/build-site.js 按语言挑一份，然后把这四行删掉。 -->
+<meta name="x-title-zh" content="briffy — 隐私政策" />
+<meta name="x-desc-zh" content="briffy 没有服务器、没有账号、没有统计代码。截图、录音、剪贴板和文件都留在你自己的电脑上；只有你自己配置了 AI 服务或外部连接时，被处理的那一条记录才会离开这台机器，直接发给你自己的账号。" />
+<meta name="x-title-en" content="briffy — Privacy Policy" />
+<meta name="x-desc-en" content="briffy has no server, no account and no analytics. Screenshots, recordings, clipboard items and files stay on your own computer; something leaves only for a feature you turn on yourself, and then it goes to your own account with that provider." />
+<meta name="theme-color" content="#f3f1f0" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1b1918" media="(prefers-color-scheme: dark)" />
+<link rel="canonical" href="https://briffy.cc/privacy" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="briffy — 隐私政策" />
+<meta property="og:description" content="没有服务器，没有账号，没有统计代码。" />
+<meta property="og:image" content="og.png" />
+<meta name="twitter:card" content="summary" />
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Source+Sans+3:wght@400;600&family=Noto+Sans+SC:wght@400;600&display=swap" />
+
+<link rel="stylesheet" href="paper/tokens.css" />
+<link rel="stylesheet" href="site.css" />
+
+<!-- 和首页同一段自动判断，同一套规矩：只有中文那一页替人做决定，跟着 ?lang= 过来的算他自己挑的。
+     这一页也要有——分享出去的隐私政策链接和首页一样会落到任何人手里。 -->
+<script>
+(function () {
+  var root = document.documentElement;
+  if (!root.hasAttribute('data-fixed-lang')) return;
+  var KEY = 'briffy.site.lang';
+  var save = function (v) { try { localStorage.setItem(KEY, v); } catch (e) { /* 隐私窗口 */ } };
+  var read = function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+
+  var picked = /[?&]lang=(zh|en)\b/.exec(location.search);
+  if (picked) { save(picked[1]); history.replaceState(null, '', location.pathname); return; }
+  if (root.lang === 'en') return;
+
+  var want = read();
+  if (!want) {
+    var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+    want = /^zh\b/i.test(first) ? 'zh' : 'en';
+  }
+  if (want === 'en') location.replace('en/privacy');
+})();
+</script>
+</head>
+<body>
+<a class="skip" href="#main"><span class="zh">跳到正文</span><span class="en">Skip to content</span></a>
+
+<header class="top">
+  <a class="brand zh" href="/">
+    <span class="brand-mark" id="markSmall" aria-hidden="true"></span>
+    <span>briffy</span>
+  </a>
+  <a class="brand en" href="/en/">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span>briffy</span>
+  </a>
+  <nav class="topnav">
+    <a class="zh" href="/">回首页</a>
+    <a class="en" href="/en/">Home</a>
+    <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
+    <button type="button" id="langBtn" class="lang" aria-label="Switch language">
+      <span class="zh">EN</span><span class="en">中文</span>
+    </button>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- ══ 一句话 ══════════════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">隐私政策</h2>
+    <h2 class="en">Privacy Policy</h2>
+    <p class="sub zh"><b>briffy 没有服务器。</b>你的截图、录音、剪贴板和文件都留在你自己的电脑上；只有你自己配置了 AI 服务或外部连接时，被处理的那一条记录才会离开这台机器，直接发给<b>你自己的</b>账号。</p>
+    <p class="sub en"><b>briffy has no server.</b> Your screenshots, recordings, clipboard and files stay on your own computer. Something leaves this machine only when you have configured an AI service or an external connection yourself — and then it goes directly to <b>your own</b> account with that provider, never to us.</p>
+  </div>
+  <p class="fine zh">生效日期 2026-09-08 · 版本 1.0 · 适用于 briffy 桌面端（macOS / Windows）和 briffy 浏览器扩展</p>
+  <p class="fine en">Effective 8 September 2026 · Version 1.0 · Covers the briffy desktop app (macOS / Windows) and the briffy browser extension</p>
+</section>
+
+<!-- ══ 1 桌面端记下什么 ═════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">桌面端记下什么</h2>
+    <h2 class="en">What the desktop app records</h2>
+    <p class="sub zh">下面每一项都只写在<b>你电脑上</b>的工作区目录（默认 <code>~/Library/Application Support/briffy/workspace</code>，可在设置里改）。</p>
+    <p class="sub en">Every item below is written only to the workspace folder on <b>your own computer</b> (by default <code>~/Library/Application Support/briffy/workspace</code>, changeable in Settings).</p>
+  </div>
+
+  <div class="legal">
+    <dl class="rows tight">
+      <div class="row"><dt><span class="zh">截图原图</span><span class="en">Screenshots</span></dt><dd><span class="zh">你点 briffy、按快捷键、或框选的时候</span><span class="en">When you click briffy, press the shortcut, or drag a region</span></dd></div>
+      <div class="row"><dt><span class="zh">截图里的文字</span><span class="en">Text in a screenshot</span></dt><dd><span class="zh">本机 OCR（PP-OCRv6 + onnxruntime）认出来的</span><span class="en">Read on this machine by PP-OCRv6 + onnxruntime</span></dd></div>
+      <div class="row"><dt><span class="zh">录音</span><span class="en">Recordings</span></dt><dd><span class="zh">你主动开始的语音笔记；或者你打开了「自动录音」之后，任何时候有人说话（见下一节）</span><span class="en">Voice notes you start yourself — or, with “automatic recording” on, whenever somebody speaks (see the next section)</span></dd></div>
+      <div class="row"><dt><span class="zh">转写与说话人分段</span><span class="en">Transcripts and speakers</span></dt><dd><span class="zh">本机 Whisper 和 sherpa-onnx 做的</span><span class="en">Produced on this machine by Whisper and sherpa-onnx</span></dd></div>
+      <div class="row"><dt><span class="zh">剪贴板内容</span><span class="en">Clipboard items</span></dt><dd><span class="zh">你每次复制的文字、图片、文件。可在设置里关掉</span><span class="en">Text, images and files you copy. Can be turned off in Settings</span></dd></div>
+      <div class="row"><dt><span class="zh">拖进来的东西</span><span class="en">What you drop on it</span></dt><dd><span class="zh">文件、链接、自己写的笔记</span><span class="en">Files, links, notes you write yourself</span></dd></div>
+      <div class="row"><dt><span class="zh">当时开着哪个窗口</span><span class="en">Which window was open</span></dt><dd><span class="zh">应用名和窗口标题，让一条记录说得出自己来自哪儿</span><span class="en">The app name and window title, so a record can say where it came from</span></dd></div>
+      <div class="row"><dt><span class="zh">没有文字的图片里有什么</span><span class="en">What a wordless picture holds</span></dt><dd><span class="zh">本机图像分类器 / macOS 自带的图像识别</span><span class="en">A local image classifier, or macOS’s own recogniser</span></dd></div>
+      <div class="row"><dt><span class="zh">设置与你填的 API Key</span><span class="en">Settings and your API keys</span></dt><dd><span class="zh">Key 用系统钥匙串加密保存（macOS Keychain / Windows DPAPI）</span><span class="en">Keys are encrypted with the system keychain (macOS Keychain / Windows DPAPI)</span></dd></div>
+    </dl>
+
+    <p class="zh"><b>briffy 没有账号，不需要注册，也不认识你是谁。</b>上面每一项都只写在磁盘上，删除工作区目录即全部消失。</p>
+    <p class="en"><b>briffy has no account, needs no sign-up, and does not know who you are.</b> Everything above lives on disk only; delete the workspace folder and it is all gone.</p>
+  </div>
+</section>
+
+<!-- ══ 2 自动录音 ══════════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">自动录音，单独说</h2>
+    <h2 class="en">Automatic listening, stated plainly</h2>
+    <p class="sub zh">这是 briffy 唯一一件<b>不问就做</b>的事，所以把它讲全。</p>
+    <p class="sub en">This is the one thing briffy does <b>without being asked</b>, so here it is in full.</p>
+  </div>
+
+  <div class="legal">
+    <p class="zh"><b>默认关闭。</b>不打开它，麦克风只在你主动开始一段语音笔记时打开。</p>
+    <p class="en"><b>It is off by default.</b> Leave it off and the microphone opens only while you are recording a voice note.</p>
+    <p class="zh">在 设置 › 录音 里打开之后，briffy 会一直持有麦克风，<b>只要有人说话就存一段录音</b>，不需要你按任何键。于是会议和通话会进工作区，不管当时有没有人打算记它，<b>包括房间里其他人的声音</b>。只要它在跑，macOS 就一直显示橙色的麦克风指示点。</p>
+    <p class="en">With it on (Settings › Recording), briffy holds the microphone and <b>files a recording whenever somebody speaks</b> — no keypress needed. Meetings and calls end up in the workspace whether or not anyone meant them to, <b>other people’s voices included</b>. macOS shows the orange microphone indicator the whole time it runs.</p>
+    <p class="zh">录音和转写<b>依然只写在本机</b>。但转写出来的文字会和其它记录一样，在你配了云端 AI 服务时被送去写标题和摘要。</p>
+    <p class="en">Recordings and their transcripts <b>still never leave your machine</b>. The transcribed text, though, is treated like any other record: with a cloud AI service configured, it is sent off to have a title and summary written.</p>
+    <p class="zh"><b>录音别人是否合法，取决于你在哪里。</b>有些国家和地区要求所有被录的人都同意。这一层 briffy 不能替你判断，也不替你承担；开这个开关之前请自己确认。</p>
+    <p class="en"><b>Whether recording other people is lawful depends on where you are.</b> Some jurisdictions require everyone’s consent. briffy cannot make that judgement for you and does not carry it for you; please check before turning this on.</p>
+  </div>
+</section>
+
+<!-- ══ 3 什么会离开这台电脑 ═════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">什么会离开这台电脑</h2>
+    <h2 class="en">What leaves this machine</h2>
+    <p class="sub zh">只有你自己开启的功能才会联网。默认安装、什么都不配的情况下，briffy 除了下载它需要的本地模型之外<b>不发送任何东西</b>。</p>
+    <p class="sub en">Only features you turn on yourself use the network. Installed and left unconfigured, briffy <b>sends nothing at all</b> beyond fetching the local models it needs.</p>
+  </div>
+
+  <div class="legal">
+    <h3><span class="zh">AI 服务（写标题、摘要、回答提问）</span><span class="en">The AI service (titles, summaries, answers)</span></h3>
+    <p class="zh">你在 设置 › AI 服务 里四选一。选定之后，<b>被处理的那一条记录的内容</b>会发给该服务：截图图片本身、OCR 文字、PDF 正文、抓取到的网页正文，以及你在「问」里输入的问题和被检索到的记录摘录。</p>
+    <p class="en">You pick one of four in Settings › AI service. From then on, <b>the content of the record being processed</b> is sent there: the screenshot image itself, its OCR text, PDF or web-page text, plus the questions you type in Ask and excerpts of the records it retrieved.</p>
+    <dl class="rows tight">
+      <div class="row"><dt>Claude (Anthropic)</dt><dd><span class="zh"><code>api.anthropic.com</code>，用你自己的 API Key 或你自己登录的 Claude 账号</span><span class="en"><code>api.anthropic.com</code>, under your own API key or your own signed-in Claude account</span></dd></div>
+      <div class="row"><dt>OpenRouter</dt><dd><span class="zh"><code>openrouter.ai</code>，再由它转发给你选的模型提供方</span><span class="en"><code>openrouter.ai</code>, which forwards to the model provider you chose</span></dd></div>
+      <div class="row"><dt><span class="zh">自定义接口</span><span class="en">Custom endpoint</span></dt><dd><span class="zh">你自己填的 base URL（LM Studio / vLLM / DeepSeek 等）</span><span class="en">Whatever base URL you enter (LM Studio, vLLM, DeepSeek…)</span></dd></div>
+      <div class="row"><dt><span class="zh">本地模型 (Ollama)</span><span class="en">Local model (Ollama)</span></dt><dd><span class="zh"><code>127.0.0.1:11434</code> — <b>不出本机</b></span><span class="en"><code>127.0.0.1:11434</code> — <b>never leaves the machine</b></span></dd></div>
+    </dl>
+    <p class="zh"><b>这是转发，不是我们收集。</b>briffy 不保存、不代理、也看不到这些请求——它们从你的电脑直连服务商，用的是你自己的凭据。不想让任何内容离开本机，就选 Ollama，或者干脆不配：不配时程序照常可用，标题退回文件名，摘要退化为清单，「问」这一页仍然能在本地检索。</p>
+    <p class="en"><b>This is forwarding, not collection on our part.</b> briffy neither stores nor proxies these requests and cannot see them — they go straight from your computer to the provider under your own credentials. Want nothing to leave? Choose Ollama, or configure nothing: titles fall back to filenames, summaries to a list, and Ask still searches locally.</p>
+
+    <h3><span class="zh">你主动接入的外部服务</span><span class="en">Services you connect yourself</span></h3>
+    <dl class="rows tight">
+      <div class="row"><dt>Notion</dt><dd><span class="zh">你在授权页勾选的页面，读取内容存进工作区</span><span class="en">The pages you tick on the authorisation screen, read into your workspace</span></dd></div>
+      <div class="row"><dt>Gmail</dt><dd><span class="zh"><code>gmail.readonly</code> — <b>只读</b>，不发信、不改标签、不删邮件</span><span class="en"><code>gmail.readonly</code> — <b>read-only</b>. No sending, no relabelling, no deleting</span></dd></div>
+    </dl>
+    <p class="zh">OAuth 授权用的是你自己的凭据，令牌用系统钥匙串加密保存在本机，可以在设置里断开。</p>
+    <p class="en">OAuth runs under your own credentials; tokens are encrypted in the system keychain on your machine, and you can disconnect in Settings.</p>
+
+    <h3><span class="zh">下载（不含任何用户数据）</span><span class="en">Downloads (no user data in them)</span></h3>
+    <dl class="rows tight">
+      <div class="row"><dt><code>huggingface.co</code></dt><dd><span class="zh">语音识别模型（也可在设置里改成 <code>hf-mirror.com</code>）</span><span class="en">Speech-recognition models (or <code>hf-mirror.com</code>, if you set that)</span></dd></div>
+      <div class="row"><dt><code>github.com</code></dt><dd><span class="zh">说话人分段模型</span><span class="en">Speaker-diarisation models</span></dd></div>
+      <div class="row"><dt><code>ollama.com</code></dt><dd><span class="zh">列出可用的本地模型</span><span class="en">Listing the available local models</span></dd></div>
+      <div class="row"><dt><code>api.zeroeval.com</code></dt><dd><span class="zh">一天一次读取公开的模型评测榜，用来推荐模型</span><span class="en">One read a day of a public model leaderboard, to recommend a model</span></dd></div>
+      <div class="row"><dt><span class="zh">你保存的那个网址</span><span class="en">A link you saved</span></dt><dd><span class="zh">你存了一个链接，就得去读它</span><span class="en">You saved a link, so it has to be fetched</span></dd></div>
+    </dl>
+    <p class="zh">这些请求里<b>没有你的任何数据</b>——只有一个 <code>user-agent: briffy</code>。</p>
+    <p class="en">These requests carry <b>none of your data</b> — just a <code>user-agent: briffy</code>.</p>
+  </div>
+</section>
+
+<!-- ══ 4 浏览器扩展 ════════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">浏览器扩展</h2>
+    <h2 class="en">The browser extension</h2>
+    <p class="sub zh">扩展<b>只和同一台电脑上的 briffy 说话</b>（<code>127.0.0.1:47831</code>）。它没有自己的服务器，也不向任何第三方发送东西。</p>
+    <p class="sub en">The extension talks <b>only to briffy on the same computer</b> (<code>127.0.0.1:47831</code>). It has no server of its own and sends nothing to any third party.</p>
+  </div>
+
+  <div class="legal">
+    <dl class="rows tight">
+      <div class="row"><dt><span class="zh">你勾选的媒体</span><span class="en">Media you tick</span></dt><dd><span class="zh">面板里勾中的图片、视频、音频，交给本机的 briffy</span><span class="en">The images, video and audio you select in the panel, handed to briffy locally</span></dd></div>
+      <div class="row"><dt><span class="zh">你收藏的页面</span><span class="en">Pages you save</span></dt><dd><span class="zh">你按了网页自己的「收藏」时，那一页连正文一起存进 briffy</span><span class="en">When you press a site’s own save button, that page and its text are kept in briffy</span></dd></div>
+      <div class="row"><dt><span class="zh">媒体请求的地址</span><span class="en">Media request URLs</span></dt><dd><span class="zh">只<b>看</b>经过的地址，用来找出 DOM 里看不见的视频流。不拦截、不改写、<b>不读响应内容</b></span><span class="en">URLs are <b>observed</b> only, to find streams the page never puts in its markup. Nothing is blocked or rewritten, and <b>no response body is ever read</b></span></dd></div>
+      <div class="row"><dt><span class="zh">当前页的地址和标题</span><span class="en">The active page’s URL and title</span></dt><dd><span class="zh"><b>默认关闭。</b>只有 briffy 明确要求时才发（让存下来的东西知道自己来自哪儿）</span><span class="en"><b>Off by default.</b> Sent only when briffy explicitly asks, so a saved item knows where it came from</span></dd></div>
+      <div class="row"><dt><span class="zh">当前页的正文</span><span class="en">The active page’s text</span></dt><dd><span class="zh"><b>默认关闭。</b>只有你在 briffy 里打开「不用动手存的那一层」之后才发</span><span class="en"><b>Off by default.</b> Sent only after you turn on briffy’s “no-hands” layer</span></dd></div>
+    </dl>
+    <p class="zh">后两项默认是关着的：扩展启动时它们都是 <code>false</code>，要等本机的 briffy 在回应里明确要求才会打开——也就是说 briffy 必须正在运行，而且那个设置是你自己开的。</p>
+    <p class="en">The last two start switched off: both flags are <code>false</code> when the extension starts, and turn on only if briffy’s reply explicitly asks for them — which means briffy has to be running with a setting you turned on yourself.</p>
+    <p class="zh">扩展<b>不监视浏览</b>：认收藏那一层平时什么都不做，只有一次保存手势真的发生之后才去读页面。它不需要账号，也不存任何东西到云上。</p>
+    <p class="en">The extension <b>does not watch you browse</b>: the save-detection layer sits still and reads the page only after a save gesture has actually happened. It needs no account and stores nothing in any cloud.</p>
+    <p class="fine zh">端口可以在 设置 里改，也可以把这个本机接口整个关掉。</p>
+    <p class="fine en">The port is configurable in Settings, and the whole local endpoint can be switched off.</p>
+  </div>
+</section>
+
+<!-- ══ 5 不做什么 ══════════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">我们不做什么</h2>
+    <h2 class="en">What briffy does not do</h2>
+  </div>
+
+  <div class="legal">
+    <p class="zh"><b>没有遥测、没有分析、没有崩溃上报。</b>代码里没有任何统计 SDK；源码是公开的，这一条可以自己 <code>grep</code> 验证。</p>
+    <p class="en"><b>No telemetry, no analytics, no crash reporting.</b> There is no analytics SDK anywhere in the code; the source is public, so you can <code>grep</code> for it yourself.</p>
+    <p class="zh"><b>没有 briffy 的服务器。</b>上面所有目的地都是第三方或本机，没有一个是我们的。</p>
+    <p class="en"><b>There is no briffy server.</b> Every destination above is either a third party or your own machine. None of them is ours.</p>
+    <p class="zh"><b>不做广告、不做画像、不追踪、不卖数据、不与任何人共享。</b>也不因为「同步」而上传——briffy 不做云同步。</p>
+    <p class="en"><b>No advertising, no profiling, no tracking, no selling, no sharing with anyone.</b> And nothing is uploaded for “sync” — briffy does not sync to a cloud.</p>
+  </div>
+</section>
+
+<!-- ══ 6 权限 ══════════════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">权限</h2>
+    <h2 class="en">Permissions</h2>
+    <p class="sub zh">每一项都可以在「系统设置 › 隐私与安全性」里随时收回。不给的那一项功能关着，别的照常。</p>
+    <p class="sub en">Every one can be revoked at any time in System Settings › Privacy &amp; Security. Refuse one and that feature stays off; the rest works.</p>
+  </div>
+
+  <div class="legal">
+    <dl class="rows tight">
+      <div class="row"><dt><span class="zh">屏幕录制</span><span class="en">Screen Recording</span></dt><dd><span class="zh">截图。<b>没有后台连续录屏</b>——只在你按快捷键或点 briffy 的那一下</span><span class="en">Screenshots. <b>There is no background or periodic capture</b> — only the moment you press the shortcut or click briffy</span></dd></div>
+      <div class="row"><dt><span class="zh">麦克风</span><span class="en">Microphone</span></dt><dd><span class="zh">语音笔记，以及你自己打开的自动录音</span><span class="en">Voice notes, plus automatic recording if you switch it on</span></dd></div>
+      <div class="row"><dt><span class="zh">自动化（Apple 事件）</span><span class="en">Automation (Apple events)</span></dt><dd><span class="zh">知道你当时在看哪个窗口；用 macOS 自带的图像识别描述图片</span><span class="en">Knowing which window you were looking at, and using macOS’s own recogniser to describe pictures</span></dd></div>
+      <div class="row"><dt><span class="zh">辅助功能</span><span class="en">Accessibility</span></dt><dd><span class="zh">只有滚动长截图需要</span><span class="en">Needed only for scrolling long screenshots</span></dd></div>
+      <div class="row"><dt><span class="zh">桌面 / 文档 / 下载</span><span class="en">Desktop / Documents / Downloads</span></dt><dd><span class="zh">复制你拖进来或批量导入的文件</span><span class="en">Copying files you drop on it or choose during a bulk import</span></dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ══ 7 你的数据由你处置 ═══════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">你的数据由你处置</h2>
+    <h2 class="en">Your data is yours</h2>
+  </div>
+
+  <div class="legal">
+    <dl class="rows tight">
+      <div class="row"><dt><span class="zh">看</span><span class="en">Read it</span></dt><dd><span class="zh">工作区就是普通的文件夹：JSON + PNG + WAV + Markdown，用任何工具都能打开</span><span class="en">The workspace is an ordinary folder — JSON, PNG, WAV and Markdown. Open it with anything</span></dd></div>
+      <div class="row"><dt><span class="zh">导出</span><span class="en">Export it</span></dt><dd><span class="zh">直接拷贝那个文件夹</span><span class="en">Copy that folder</span></dd></div>
+      <div class="row"><dt><span class="zh">删</span><span class="en">Erase it</span></dt><dd><span class="zh">删除工作区目录，或在应用内删除单条记录。没有回收站，没有副本</span><span class="en">Delete the folder, or a single record inside the app. There is no trash and no second copy</span></dd></div>
+      <div class="row"><dt><span class="zh">搬</span><span class="en">Move it</span></dt><dd><span class="zh">在设置里换一个工作区位置</span><span class="en">Point Settings at another location</span></dd></div>
+      <div class="row"><dt><span class="zh">卸载</span><span class="en">Uninstall</span></dt><dd><span class="zh">删掉 briffy.app，再删掉 <code>~/Library/Application Support/briffy/</code>。钥匙串里名为 briffy 的条目可在「钥匙串访问」中删除</span><span class="en">Delete briffy.app, then <code>~/Library/Application Support/briffy/</code>. Keychain entries named briffy can be removed in Keychain Access</span></dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ══ 8 其余 ══════════════════════════════════════════════════════════════ -->
+<section class="sec">
+  <div class="sec-head">
+    <h2 class="zh">其余</h2>
+    <h2 class="en">The rest</h2>
+  </div>
+
+  <div class="legal">
+    <h3><span class="zh">儿童</span><span class="en">Children</span></h3>
+    <p class="zh">briffy 不面向 13 岁以下儿童，也不有意收集他们的信息。</p>
+    <p class="en">briffy is not directed at children under 13 and does not knowingly collect their information.</p>
+
+    <h3><span class="zh">变更</span><span class="en">Changes</span></h3>
+    <p class="zh">政策变更会更新本页顶部的版本与日期，并写进发布说明。实质性变更（例如新增一个会发送数据的目的地）会在应用内说明。</p>
+    <p class="en">Changes update the version and date at the top of this page and are noted in the release notes. A material change — a new destination that receives data, say — is explained inside the app.</p>
+
+    <h3><span class="zh">联系</span><span class="en">Contact</span></h3>
+    <p class="zh"><a href="mailto:zhaojia789456@gmail.com">zhaojia789456@gmail.com</a> · <a href="https://github.com/jiaazhaoo/briffy/issues">GitHub Issues</a></p>
+    <p class="en"><a href="mailto:zhaojia789456@gmail.com">zhaojia789456@gmail.com</a> · <a href="https://github.com/jiaazhaoo/briffy/issues">GitHub Issues</a></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-l">
+    <span class="brand-mark" id="markFoot" aria-hidden="true"></span>
+    <div>
+      <p class="zh"><b>briffy</b>　把你一天里看到的、听到的、收到的记下来。</p>
+      <p class="en"><b>briffy</b>　Writing down what you saw, heard and were handed.</p>
+      <p class="fine"><span class="zh">源码公开，禁止商用</span><span class="en">Source-available, noncommercial</span> · © 2026 Jia Zhao</p>
+    </div>
+  </div>
+  <nav class="foot-r">
+    <a class="zh" href="/">回首页</a>
+    <a class="en" href="/en/">Home</a>
+    <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
+    <a href="https://github.com/jiaazhaoo/briffy/blob/main/LICENSE"><span class="zh">许可</span><span class="en">License</span></a>
+    <button type="button" class="lang" data-lang-toggle><span class="zh">English</span><span class="en">中文</span></button>
+  </nav>
+</footer>
+
+<script src="briffy-anim.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

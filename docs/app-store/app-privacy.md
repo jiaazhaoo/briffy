@@ -2,7 +2,7 @@
 
 App Store Connect › App Privacy 的问卷答案，每一项都注明依据的代码位置。**这份表照抄即可**，但第 4 节列出的三处判断题请先读一遍。
 
-配套材料：[docs/PRIVACY.md](../PRIVACY.md)（隐私政策正文，需挂到一个公网 URL 才能提交）。
+配套材料：隐私政策正文在 [site/privacy.html](../../site/privacy.html)，发布出去是 <https://briffy.cc/privacy>。
 
 ---
 
@@ -84,7 +84,7 @@ briffy 的 OCR（PP-OCRv6 + onnxruntime）、语音转写（Whisper）、说话�
 
 1. **Review Notes 里主动写明**：默认关闭、需要用户在设置里显式打开、打开时 macOS 全程显示橙色麦克风指示点、录音只写在本机。
 2. **应用内的告知**。打开这个开关时应当有一次明确的说明（会录到别人、当地法律可能要求所有人同意），而不是一个光秃秃的 toggle。这是**功能改动**，建议在提交前做掉。
-3. **隐私政策里单独一节**。已写：[docs/PRIVACY.md](../PRIVACY.md) §2.5。
+3. **隐私政策里单独一节**。已写：<https://briffy.cc/privacy> 的「自动录音，单独说」。
 
 ### Sensitive Info 报 No 的边界
 
@@ -96,8 +96,8 @@ briffy 的 OCR（PP-OCRv6 + onnxruntime）、语音转写（Whisper）、说话�
 
 | 项 | 状态 |
 | --- | --- |
-| Privacy Policy URL（必填，公网可访问） | ⚠️ **还没有**。[docs/PRIVACY.md](../PRIVACY.md) 已写好，需发布到网上（GitHub Pages 最省事） |
+| Privacy Policy URL（必填，公网可访问） | ✅ `https://briffy.cc/privacy` · `https://briffy.cc/en/privacy`（源文件 [site/privacy.html](../../site/privacy.html)，`npm run deploy` 发出去） |
 | 第三方 SDK 申报 | `@anthropic-ai/sdk` — 用于把内容发给用户自己的 Anthropic 账号。`@huggingface/transformers` / `onnxruntime-node` / `sherpa-onnx-node` / `ppu-paddle-ocr` 全部本机推理，不联网上报 |
 | `PrivacyInfo.xcprivacy` 隐私清单 | **macOS 不需要**。required-reason API 与隐私清单的强制要求只针对 iOS / iPadOS / tvOS / watchOS |
 | 出口合规（Export Compliance） | 已在 Info.plist 里写了 `ITSAppUsesNonExemptEncryption = false`：只用 HTTPS 和系统钥匙串，属豁免。这样每次提交不再被问 |
-| Data Use 与政策一致性 | 本表与 [docs/PRIVACY.md](../PRIVACY.md) 第 1、2 节逐条对应；改一处必须改另一处 |
+| Data Use 与政策一致性 | 本表与 [site/privacy.html](../../site/privacy.html) 逐条对应；改一处必须改另一处 |

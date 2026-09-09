@@ -93,9 +93,20 @@ main { display: block; }
 
 h1 { margin: 0; font: 600 var(--t-hero)/1.12 var(--sans); letter-spacing: -.012em;
   text-wrap: balance; max-width: 16em; }
-html[lang="zh-Hans"] h1 { letter-spacing: 0; line-height: 1.2; }
+/* 中文标题放宽到整列：16em 会把最后一个字挤到下一行（「截的 / 图」）。
+   拉丁的 16em 是按词长调的，别一起动。 */
+html[lang="zh-Hans"] h1 { letter-spacing: 0; line-height: 1.2; max-width: 18em; }
 .lede { margin: clamp(20px, 2.6vw, 30px) 0 0; max-width: 34em;
   font-size: var(--t-lede); line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
+/* 标题是一句断言，这两块是它的两条理由。紧跟在标题下面，按钮之前——
+   先让人信，再让人点。 */
+.why { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--a4) clamp(28px, 3.6vw, 52px);
+  margin: clamp(22px, 2.8vw, 32px) 0 0; }
+.why h3 { margin: 0 0 4px; font: 600 var(--t-h3)/1.4 var(--sans); }
+.why p { margin: 0; color: var(--ink-2); font-size: var(--t-fine); line-height: 1.7;
+  text-wrap: pretty; }
+
 .acts { display: flex; gap: var(--a3); flex-wrap: wrap; margin: clamp(26px, 3.4vw, 38px) 0 0; }
 .btn { display: inline-block; padding: 10px 18px; background: var(--tone); color: var(--ink);
   font-size: var(--t-fine); font-weight: 600; }
@@ -125,6 +136,7 @@ h4 { margin: var(--a5) 0 var(--a4); font: 600 var(--t-h3)/1.4 var(--sans); }
 .it p { margin: 0; color: var(--ink-2); font-size: var(--t-fine); line-height: 1.7;
   text-wrap: pretty; }
 .it p b { color: var(--ink); }
+.what.after { margin-top: clamp(46px, 6vw, 78px); max-width: 860px; }
 
 .rows { margin: 0; }
 .row { display: grid; grid-template-columns: 9.5em 1fr; gap: var(--a3) var(--a4);
@@ -139,6 +151,30 @@ h4 { margin: var(--a5) 0 var(--a4); font: 600 var(--t-h3)/1.4 var(--sans); }
 kbd { display: inline-block; background: var(--tone); color: var(--ink-2);
   font: 600 11.5px/1 var(--sans); padding: 4px 5px; margin: 0 1px; vertical-align: baseline; }
 .keys { margin: var(--a5) 0 0; color: var(--ink-3); font-size: var(--t-fine); }
+
+/* ══ 症状 ══════════════════════════════════════════════════════════════════
+   一段印在纸上的话，没有别的东西。它的分量全靠字号和留白。 */
+.ache { margin: 0; max-width: 34em; font-size: var(--t-lede); line-height: 1.6;
+  color: var(--ink); text-wrap: pretty; }
+.ache2 { margin: var(--a4) 0 0; max-width: 36em; color: var(--ink-2);
+  font-size: var(--t-fine); line-height: 1.75; text-wrap: pretty; }
+.ache2 b { color: var(--ink); }
+
+/* ══ 一堆 ══════════════════════════════════════════════════════════════════
+   一个主题不是一个标签，是几张纸摞在一起——所以画的是真的一摞：底下两张各错开一点，
+   露出来的边就是"还有别的"。它们是记录，所以有影子（这一页上有影子的只有记录）。 */
+/* 宽度用应用里那一列的真实尺寸（240px），和五种纸一样——拉宽了就不像一摞纸，像一排按钮 */
+.stacks { display: grid; grid-template-columns: repeat(auto-fit, 240px);
+  justify-content: start; gap: clamp(30px, 4vw, 56px); }
+.stk { position: relative; margin: 0 14px 14px 0; }
+.stk .under { position: absolute; inset: 0; background: var(--slip); box-shadow: var(--e1); }
+.stk .under.u1 { transform: translate(13px, 13px); }
+.stk .under.u2 { transform: translate(6px, 6px); }
+.stk .lead { position: relative; padding: var(--a3); }
+.stk .ttl { margin: 0; font: 600 15px/1.45 var(--sans); }
+.stk .mt { margin: 3px 0 0; color: var(--ink-3); font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums; }
+.stk:hover .lead { transform: translateY(-2px); box-shadow: var(--e2); }
 
 /* ══ 五种纸 ════════════════════════════════════════════════════════════════
    这一段的卡片是**应用里的真实尺寸**（240px 一列，--a4 的沟）：
@@ -286,3 +322,21 @@ html[lang="en"] .q::after { content: "”"; }
   .c, .btn, .lang { transition: none; }
   .c:hover { transform: none; }
 }
+
+/* ── 隐私政策那一页 ─────────────────────────────────────────────────────────
+   一列会读到底的散文，所以正文宽度收到 40em、段距用 --a3。
+   没有新的视觉语言：没有框、没有线、没有影子，分组还是只靠留白。
+   为什么不复用 .honest：它是「一屏里的一段强调」，上边距 clamp(52px,7vw,92px)——
+   一页十几段接连用它，段与段之间会变成一串洞。 */
+.legal { max-width: 40em; }
+.legal h3 { margin: var(--a5) 0 var(--a3); }
+.legal h3:first-child { margin-top: 0; }
+.legal p { margin: 0 0 var(--a3); color: var(--ink-2); text-wrap: pretty; }
+.legal p b { color: var(--ink); }
+.legal p:last-child { margin-bottom: 0; }
+.legal .fine { margin: var(--a4) 0 0; }
+/* 政策里的表格就是「一项 → 它去哪儿」，和装它那一节的规格表同一个东西，
+   只是左栏要宽一点装得下一句话。 */
+.legal .rows { margin: 0 0 var(--a3); }
+.legal .row { grid-template-columns: 13em 1fr; align-items: baseline; }
+@media (max-width: 560px) { .legal .row { grid-template-columns: 1fr; gap: 2px; } }

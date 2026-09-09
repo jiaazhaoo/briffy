@@ -1,7 +1,7 @@
 {
   "name": "briffy",
   "productName": "briffy",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
   "main": "src/main/main.js",
   "private": true,
@@ -30,6 +30,8 @@
     "fetch-models": "node scripts/fetch-bundled-models.js",
     "preview": "node dev/preview/serve.js",
     "site": "node scripts/build-site.js",
+    "ext:pack": "node scripts/pack-extension.js",
+    "store:assets": "electron scripts/gen-store-assets.js",
     "deploy": "npm run site && wrangler deploy",
     "pack": "npm run fetch-models && npm run fetch-fonts && electron-builder --dir",
     "dist": "npm run fetch-models && npm run fetch-fonts && electron-builder",

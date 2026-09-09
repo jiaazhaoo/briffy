@@ -6,7 +6,8 @@
 
 ```
 site/                  源
-  index.html           整页，两种语言都在 DOM 里（.zh / .en），本地预览靠按钮切
+  index.html           首页。两种语言都在 DOM 里（.zh / .en），本地预览靠按钮切
+  privacy.html         隐私政策。同一套双语写法，同一套构建
   site.css             版面。视觉标准见 ../.claude/skills/paper-ui/SKILL.md
   site.js              语言切换 · 回形针的表情 · 波形 · 瀑布流
   paper/tokens.css     ← assets/paper/tokens.css 的拷贝
@@ -14,10 +15,16 @@ site/                  源
   favicon.svg  og.png  shot.svg
 
 site-dist/             产物，不进版本库
-  index.html           中文
-  en/index.html        English
+  index.html           中文首页            →  /
+  en/index.html        English             →  /en/
+  privacy.html         隐私政策（中文）      →  /privacy
+  en/privacy.html      Privacy policy      →  /en/privacy
   404.html  _headers   + 上面那几个静态文件
 ```
+
+**加一页**：在 `site/` 里写一个同样双语的 html，把文件名加进 `scripts/build-site.js` 的 `PAGES`。
+文件名就是地址（`privacy.html` → `/privacy`），中英两份和 canonical / hreflang / 语言链接
+都由构建自己算出来。
 
 ## 三条命令
 
@@ -40,8 +47,31 @@ npm run deploy              # 切完直接发到 briffy.cc
 它还会在 `<html>` 上打一个 `data-fixed-lang`，`site.js` 见到就不再按浏览器语言去改 `<html lang>`——
 不然仅存的那一份文案会被 CSS 藏掉，剩下一张空白的纸。
 
-**站点的每一个字都只在 `site/index.html` 里**，包括两种语言的标题和描述
+**每一页的每一个字都只在它自己那份源文件里**，包括两种语言的标题和描述
 （躺在 `x-title-*` / `x-desc-*` 四个 meta 里，构建时挑走再删掉）。
+
+## 版本号和下载地址不写在页面里
+
+写死的版本号迟早和发出去的包不是同一个，而这是**访客点了下载才发现**的。所以它们在源文件里是占位符，
+构建时从唯一来源注入：
+
+| 占位符 | 来自 |
+| --- | --- |
+| `{{VERSION}}` | `package.json` 的 `version` |
+| `{{DMG_URL}}` | 上面那个版本 → `.../releases/download/v<版本>/briffy-<版本>-arm64.dmg` |
+| `{{DMG_SIZE}}` | 本地 `release/` 里那个 dmg 的真实大小；没打过包就用脚本里记的上一次 |
+| `{{RELEASES_URL}}` | 发布页 |
+| `{{EXT_URL}}` | [src/main/extension-store.js](../src/main/extension-store.js)，和应用里那个引导页同一处 |
+| `{{EXT_VERSION}}` | `extension/manifest.json` 的 `version` |
+
+于是**发一个新版本只要改 `package.json` 一处**，官网跟着变。写了个不存在的名字构建会直接报错，
+不会把一个 `{{FOO}}` 发到线上。
+
+**扩展还没上架时**（`EXT_URL` 是空的），页面上那个「装扩展」的按钮会被**整个删掉**——
+用的是删另一种语言那把同样的剪刀，认 `class="x-ext-only"`。一个 href 是空字符串的按钮点下去
+会跳回站点根，看着就是「这个按钮坏了」。
+
+代价：**直接看 `site/index.html` 会看到花括号**。要看真东西就 `npm run site` 之后看 `site-dist/`。
 
 ## 自动判断中英文
 
@@ -73,7 +103,9 @@ npm run deploy              # 切完直接发到 briffy.cc
 不用再去后台点一遍。只发静态文件的 Worker 不需要 `main`。
 
 `/en` 会自动跳到 `/en/`（`html_handling: auto-trailing-slash`）——少了那道斜杠，
-页面里的相对路径会落到站点根上。找不到的地址走 `404.html`。
+页面里的相对路径会落到站点根上。同一条规则把 `privacy.html` 供在 `/privacy` 上（**不带**尾斜杠，
+因为它是一个文件而不是目录），所以那一页的静态资源仍然按站点根算，和首页一样。
+找不到的地址走 `404.html`。
 
 第一次在别的机器上发之前要先 `npx wrangler login`。
 
