@@ -74,6 +74,9 @@ const DEFAULT_SETTINGS = {
   localApiPort: 47831,
   // ---- AI provider ----
   provider: 'anthropic',          // 'anthropic' | 'openrouter' | 'ollama' | 'custom'
+  // 发给 AI 之前把秘密盖掉（src/main/redact.js）。存下来的记录一个字不动，改的只有发出去的那一份。
+  // 'off' 不动 · 'secrets' 密钥·卡号·身份证·写着名字的密码（默认）· 'all' 再加邮箱和手机号
+  redact: 'secrets',
   anthropicAuth: 'apiKey',        // 'apiKey' | 'account' (signed in via `ant auth login`)
   openrouterModel: 'anthropic/claude-opus-5',
   ollamaHost: 'http://127.0.0.1:11434',
