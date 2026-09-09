@@ -1197,49 +1197,74 @@
     for (const c of cols) c.rows = [...fold(stops[c.si].members.slice(1)), ...c.rows];
     const rowW = (r) => (r.kind === 'member' ? 16 + textW(node(r.entry) + (r.n > 1 ? ` ×${r.n}` : ''), 12)
       : 16 + textW(clipT(whyText(r.why), 18), 11) + 8 + textW(node(stops[r.si].entry), 12));
-    const xs = []; let x = GX;
-    cols.forEach((c, i) => {
-      xs.push(x);
+    // 每一列要多宽：站头 + 线上的字，或者底下最宽的那一行
+    const colW = cols.map((c, i) => {
       const w = textW(headT(stops[c.si].entry), 12);
       const edge = (g.edges || [])[i];
       const need = edge ? textW(clipT(whyText(edge.why), 22), 11) + 24 : GAP;
       const below = c.rows.reduce((m, r) => Math.max(m, rowW(r)), 0);
-      x += Math.max(w + Math.max(GAP, need), below + 28);
+      return Math.max(w + Math.max(GAP, need), below + 28);
     });
-    const width = x + GX;
-    const rows = cols.reduce((m, c) => Math.max(m, c.rows.length), 0);
-    const height = GY + 12 + (rows ? ROW * rows + 6 : 0);
-    let svg = '';
+    // **折行，不横滚。** 一行放得下几站放几站，放不下的从下一行左边接着，接口处写「↳ 理由」。
+    // 主轴八站两千像素宽，横向滚动看不见头尾；折成三行，一屏读完。
+    const maxW = Math.max(360, ($('#evRows') ? $('#evRows').clientWidth : 800) - 24);
+    const lines = [[]];
+    let lineW = GX;
     cols.forEach((c, i) => {
-      const x0 = xs[i];
-      const head = stops[c.si].entry;
-      const w = textW(headT(head), 12);
-      svg += `<g class="ev-node" data-id="${esc(head.id)}"><text class="core" x="${x0}" y="${GY}">${esc(headT(head))}</text></g>`;
-      const edge = (g.edges || [])[i];
-      if (edge && cols[i + 1]) {
-        const x1 = x0 + w + 8; const x2 = xs[i + 1] - 8;
-        svg += `<line x1="${x1}" y1="${GY - 4}" x2="${x2}" y2="${GY - 4}"/>`
-          + `<text class="why" x="${(x1 + x2) / 2}" y="${GY - 9}" text-anchor="middle">${esc(clipT(whyText(edge.why), 22))}</text>`;
-      }
-      if (c.rows.length) {
-        const tx = x0 + 5;
-        svg += `<line x1="${tx}" y1="${GY + 6}" x2="${tx}" y2="${GY + 12 + ROW * c.rows.length - 10}"/>`;
-        c.rows.forEach((r, j) => {
-          const y = GY + 12 + ROW * (j + 1) - 10;
-          svg += `<line x1="${tx}" y1="${y - 4}" x2="${tx + 10}" y2="${y - 4}"/>`;
-          if (r.kind === 'member') {
-            svg += `<g class="ev-node" data-id="${esc(r.entry.id)}"><text class="core member" x="${tx + 16}" y="${y}">${esc(node(r.entry))}${r.n > 1 ? `<tspan class="why"> ×${r.n}</tspan>` : ''}</text></g>`;
-          } else {
-            const en = stops[r.si].entry;
-            const why = clipT(whyText(r.why), 18);
-            const ww = why ? textW(why, 11) + 8 : 0;
-            svg += (why ? `<text class="why" x="${tx + 16}" y="${y}">${esc(why)}</text>` : '')
-              + `<g class="ev-node" data-id="${esc(en.id)}"><text class="core" x="${tx + 16 + ww}" y="${y}">${esc(node(en))}</text></g>`;
-          }
-        });
-      }
+      if (lines[lines.length - 1].length && lineW + colW[i] > maxW) { lines.push([]); lineW = GX; }
+      lines[lines.length - 1].push(i);
+      lineW += colW[i];
     });
-    // 尺寸写在行内：这张纸上有一条给图标定 16px 的 svg 规则，谱系图不是图标
+    let svg = '';
+    let top = 0;
+    let width = 0;
+    lines.forEach((line, li) => {
+      const first = line[0];
+      // 接上一行的那一段理由，写在这一行开头，站头往右让
+      const cont = li > 0 ? (g.edges || [])[first - 1] : null;
+      const contT = cont ? `↳ ${clipT(whyText(cont.why), 22)}` : '';
+      let x = GX + (contT ? textW(contT, 11) + 10 : 0);
+      const gy = top + GY;
+      if (contT) svg += `<text class="why" x="${GX}" y="${gy}">${esc(contT)}</text>`;
+      let rowsHere = 0;
+      line.forEach((i, k) => {
+        const c = cols[i];
+        const head = stops[c.si].entry;
+        const w = textW(headT(head), 12);
+        svg += `<g class="ev-node" data-id="${esc(head.id)}"><text class="core" x="${x}" y="${gy}">${esc(headT(head))}</text></g>`;
+        const edge = (g.edges || [])[i];
+        if (edge && k + 1 < line.length) {
+          const x1 = x + w + 8; const x2 = x + colW[i] - 8;
+          svg += `<line x1="${x1}" y1="${gy - 4}" x2="${x2}" y2="${gy - 4}"/>`
+            + `<text class="why" x="${(x1 + x2) / 2}" y="${gy - 9}" text-anchor="middle">${esc(clipT(whyText(edge.why), 22))}</text>`;
+        } else if (edge && cols[i + 1]) {
+          // 行尾：一小截线说「还没完」
+          svg += `<line x1="${x + w + 8}" y1="${gy - 4}" x2="${x + w + 24}" y2="${gy - 4}"/>`;
+        }
+        if (c.rows.length) {
+          const tx = x + 5;
+          svg += `<line x1="${tx}" y1="${gy + 6}" x2="${tx}" y2="${gy + 12 + ROW * c.rows.length - 10}"/>`;
+          c.rows.forEach((r, j) => {
+            const y = gy + 12 + ROW * (j + 1) - 10;
+            svg += `<line x1="${tx}" y1="${y - 4}" x2="${tx + 10}" y2="${y - 4}"/>`;
+            if (r.kind === 'member') {
+              svg += `<g class="ev-node" data-id="${esc(r.entry.id)}"><text class="core member" x="${tx + 16}" y="${y}">${esc(node(r.entry))}${r.n > 1 ? `<tspan class="why"> ×${r.n}</tspan>` : ''}</text></g>`;
+            } else {
+              const en = stops[r.si].entry;
+              const why = clipT(whyText(r.why), 18);
+              const ww = why ? textW(why, 11) + 8 : 0;
+              svg += (why ? `<text class="why" x="${tx + 16}" y="${y}">${esc(why)}</text>` : '')
+                + `<g class="ev-node" data-id="${esc(en.id)}"><text class="core" x="${tx + 16 + ww}" y="${y}">${esc(node(en))}</text></g>`;
+            }
+          });
+          rowsHere = Math.max(rowsHere, c.rows.length);
+        }
+        x += colW[i];
+      });
+      width = Math.max(width, x + GX);
+      top += GY + 12 + (rowsHere ? ROW * rowsHere + 6 : 0) + (li + 1 < lines.length ? 10 : 0);
+    });
+    const height = top;
     return `<div class="ev-graph"><svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="width:${width}px;height:${height}px">${svg}</svg></div>`;
   }
   async function renderEvents() {
@@ -1253,8 +1278,9 @@
     // 散的默认收着、名字铅笔色，点一下还是能摊开。散不散看**密度**：认得出的锚词 / 核心条数。
     // 开发笔记那一团五十条，锚词是 Users、Running 这种代码里捡来的词，按条数过了线，按密度 0.1 没过；
     // 那一晚十三条，锚词一把，0.7。
-    // 0.4：开发笔记那团靠 Ollama / GPU / EDID 这些技术词凑到 0.29，那一晚 0.77、报名 0.6。
-    const loose = (e) => (e.quality || 0) / Math.max(1, e.members.filter((m) => m.tier === 'core').length) < 0.4;
+    // 1.2：量出来开发笔记那团是 0.98（代码标识符全算成了认得出的词），显示器 1.6、那一晚 1.9。
+    // 代价是回形针 logo 那件（锚词全是两字汉语：笑脸 · 卡通 · 蓝色，算 0）也收着——点一下就开。
+    const loose = (e) => (e.quality || 0) / Math.max(1, e.members.filter((m) => m.tier === 'core').length) < 1.2;
     for (const e of list) if (loose(e) && !evSeen.has(e.id)) { evClosed.add(e.id); evSeen.add(e.id); }
     box.innerHTML = back + list.map((e) => {
       const core = e.members.filter((m) => m.tier === 'core');

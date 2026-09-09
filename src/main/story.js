@@ -117,7 +117,7 @@ function edgesOf(id, ctx) {
   // （泰晤士河 ↔ Thames，staines-upon-thames ⊃ thames）。
   if (ctx.ev) {
     for (const e of links.evidenceFor(id, ctx.ev, { limit: EV_LIMIT })) {
-      push(e.id, 'word', wordWeight(e.df, e.facets), { pairs: e.pairs, df: e.df });
+      push(e.id, 'word', wordWeight(e.df, e.facets), { pairs: e.pairs, df: e.df, facets: e.facets || 1 });
     }
   }
   for (const n of (ctx.near ? ctx.near(id) : [])) push(n, 'near', W.near);
@@ -157,7 +157,7 @@ function grow(seed, ctx, { floor = FLOOR, decay = DECAY, max = MAX } = {}) {
       if (s <= (score.get(e.to) || 0)) continue;
       score.set(e.to, s);
       hop.set(e.to, (hop.get(cur) || 0) + 1);
-      via.set(e.to, { from: cur, kind: e.kind, pairs: e.pairs || null, name: e.name || '', df: e.df });
+      via.set(e.to, { from: cur, kind: e.kind, pairs: e.pairs || null, name: e.name || '', df: e.df, facets: e.facets });
     }
   }
   const members = [...score.entries()]
@@ -238,6 +238,33 @@ function nameOf(members, ctx, { words = 3 } = {}) {
  * @returns {{id:string, name:string, members:{id:string, score:number, tier:'core'|'touch', via?:object}[]}[]}
  */
 const MUTUAL_K = 3;      // 互为前几近邻才算一条边。3 的时候核心块干净（那一晚 9/1），5 就焊成一片（18/108）
+
+/**
+ * 一条链接硬不硬——能不能拿来决定「谁是核心」、能不能当主轴上的一段。
+ *
+ * 只对上**一个软词**的不算。软词：没有数字、不是全大写、不是地名 / 日期 / 数量、汉语两个字的。
+ * 实测主轴上「I was a registered → Reading the Paper Record」那一段的证据是 Read，
+ * 「→ Scan to Boundary」是 FULL_PLANS ≈ Full——读的人一眼就说不相关，而它们就是靠这种
+ * 单个泛词的链接进了核心。UKPC（全大写）、TW18 4JG（邮编）、Runnymede（地名）单独就够硬；
+ * 对上两个词以上的，两个软词也算（London · Staines）。
+ * 同一页永远硬（那是精确的）；同一段操作永远软；向量算硬（它另有 0.70 的门槛）。
+ */
+function hardPair(p) {
+  const t = String(p.a || '');
+  if (p.k === 'place' || p.k === 'date' || p.k === 'qty') return true;
+  if (/\d/.test(t)) return true;
+  if (t.length >= 2 && t === t.toUpperCase() && /[A-Z]/.test(t)) return true;
+  if (/[\u3400-\u9fff]/.test(t)) return t.length >= 3;
+  return false;
+}
+function strong(x) {
+  const w = x && x.why;
+  if (!w) return false;
+  if (w.kind === 'page' || w.kind === 'near') return true;
+  if (w.kind === 'run') return false;
+  const ps = w.pairs || [];
+  return ps.length >= 2 || (ps.length === 1 && hardPair(ps[0]));
+}
 const EVENT_MIN = 3;     // 少于这么几条不算一件事，那只是一条记录和它的邻居
 const ANCHOR_DF = 8;     // 一个词罕见到这个份上，才算锚词
 const EVENT_SHARE = 3;   // 两块共有这么多个锚词才并。2 的时候显示器那件并进了 39 条背景，3 的时候 5 条
@@ -245,7 +272,11 @@ const TOUCH_K = 5;       // 沾边看前几条
 
 function events(lists, ctx) {
   const ids = [...lists.keys()];
-  const top = new Map(ids.map((id) => [id, new Map((lists.get(id) || []).slice(0, MUTUAL_K).map((x) => [x.id, x]))]));
+  // 前 k 里**不算同一页的边**：一页有三条摘录，满分的同一页边就把它的前三占光，它和别处的
+  // 词面链接永远排第四——赛程那页因此和 Ultra 报名页分成了两件事。同一页另有归站和并事件在管。
+  // 软链接也不算（见 strong）。
+  const top = new Map(ids.map((id) => [id, new Map((lists.get(id) || [])
+    .filter((x) => x.why && x.why.kind !== 'page' && strong(x)).slice(0, MUTUAL_K).map((x) => [x.id, x]))]));
   // 互为近邻的边 → 连通块
   const parent = new Map(ids.map((id) => [id, id]));
   const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
@@ -295,6 +326,45 @@ function events(lists, ctx) {
       }
     }
   });
+  // 两块之间有一条**双向的**链接对上了三件独立的事（facets ≥ 3），也是一件事——和上面
+  // 「共有三个锚词」是同一个标准，只是证据落在一条链接上。赛程那页和 Ultra 报名页之间就是这样：
+  // Ultra · 50km · Challenge 三处对上，两边都把对方列在清单里；可 Ultra 这个词在库里出现太多，
+  // 够不上锚词，两块的锚词对不上。
+  // **必须双向。** 单向的话，一条引用了「Ultra · 50km · Runnymede」当例子的开发笔记也对上三处，
+  // 实测把六条报名页整个并进了开发笔记那团（73 条）。笔记列着报名页，报名页不列笔记——
+  // 引用是单向的，一件事是双向的。
+  const listsAt = (id) => new Map((lists.get(id) || []).map((x) => [x.id, x]));
+  cores.forEach((c, i) => {
+    for (const id of c) {
+      const back = listsAt(id);
+      for (const x of (lists.get(id) || [])) {
+        const j = coreAt.get(x.id);
+        if (j === undefined || j === i || !x.why || x.why.kind !== 'word') continue;
+        if ((x.why.facets || 0) < EVENT_SHARE) continue;
+        const y = listsAt(x.id).get(id);
+        if (!y || !y.why || y.why.kind !== 'word' || (y.why.facets || 0) < EVENT_SHARE) continue;
+        par[f(i)] = f(j);
+      }
+    }
+  });
+  // 同一样东西存了两份、落在两块里，那两块就是一件事。「1st Half Challenge」是赛程那页的摘录，
+  // 「1st Half Challenge (~50km)」是报名页上抄的——一条记录的两个副本把那一晚的两半接起来。
+  // 判副本用标题：一样，或者一个是另一个的开头（至少 12 个字，短的撞上是常事）。
+  if (ctx.titleOf) {
+    const key = (id) => String(ctx.titleOf(id) || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const seen = [];   // [title, block]
+    cores.forEach((c, i) => {
+      for (const id of c) {
+        const t = key(id);
+        if (t.length < 12) continue;
+        for (const [u, j] of seen) {
+          if (j === i) continue;
+          if (t === u || t.startsWith(u) || u.startsWith(t)) par[f(i)] = f(j);
+        }
+        seen.push([t, i]);
+      }
+    });
+  }
   const groups = new Map();
   cores.forEach((c, i) => { const r = f(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(...c); });
   // 合成，再找沾边的
@@ -313,7 +383,7 @@ function events(lists, ctx) {
     const best = new Map();   // 事件 -> 最强的那条链接
     for (const x of (lists.get(id) || []).slice(0, TOUCH_K)) {
       const k = inCore.get(x.id);
-      if (k === undefined || k === mine) continue;
+      if (k === undefined || k === mine || !strong(x)) continue;
       const had = best.get(k);
       if (!had || x.score > had.score) best.set(k, x);
     }
@@ -335,7 +405,11 @@ function events(lists, ctx) {
     }
     e.quality = hard;
   }
-  return out.sort((a, b) => (b.quality - a.quality) || (b.members.filter((m) => m.tier === 'core').length - a.members.filter((m) => m.tier === 'core').length));
+  // 按**密度**排（认得出的锚词 / 核心条数），不按锚词的绝对数：开发笔记那团五十八条，锚词五十七个
+  // （代码里的标识符全是大写开头），绝对数最高，密度 0.98；停车申诉三条、锚词十三个，密度 4.3。
+  // 量出来的次序：申诉 4.3 · 报名 2.4 · 那一晚 1.9 · 显示器 1.6 · 开发笔记 1.0 · 散的 0.1。
+  const dens = (e) => (e.quality || 0) / Math.max(1, e.members.filter((m) => m.tier === 'core').length);
+  return out.sort((a, b) => (dens(b) - dens(a)) || (b.members.filter((m) => m.tier === 'core').length - a.members.filter((m) => m.tier === 'core').length));
 }
 
 /**
@@ -358,7 +432,7 @@ function events(lists, ctx) {
  *            hang:{stop:number, to:number, why:object|null, score:number}[]}}
  *   stops[i].id 是这一站的代表（那一页本身，或分最高的那条）；spine / edges / hang 里都是站的下标
  */
-function lineage(event, lists) {
+function lineage(event, lists, titleOf = null) {
   const core = event.members.filter((m) => m.tier === 'core');
   const coreIds = core.map((m) => m.id);
   const coreSet = new Set(coreIds);
@@ -381,11 +455,37 @@ function lineage(event, lists) {
   // 一页自己不能再是别页的摘录（那是页面图里两页互相引用的老毛病），页永远当站头
   const isPage = new Set(pageOf.values());
   for (const id of isPage) pageOf.delete(id);
+  // 摘录太多的「页」是工作台，不是一页：开了一整周的终端窗口底下二十五条，归成一站就是一根
+  // 二十五行的柱子。超过 PAGE_FULL × 2 条的，各自当站（和 pageWeight 的稀释是同一个判断）。
+  const count = new Map();
+  for (const p of pageOf.values()) count.set(p, (count.get(p) || 0) + 1);
+  for (const [id, p] of [...pageOf]) if ((count.get(p) || 0) > PAGE_FULL * 2) pageOf.delete(id);
   const groups = new Map();
   for (const id of coreIds) {
     const head = pageOf.get(id) || id;
     if (!groups.has(head)) groups.set(head, []);
     if (head !== id) groups.get(head).push(id);
+  }
+  // 同一页存了几次的副本归一站：「赛程分前后半程-Claude」「赛程分前后半程 - Claude」
+  // 「Fulham 赛程分前后半程 - Claude」是一页存了三次，各占一站的话主轴上就是同一句话三遍。
+  // 判副本用标题：去掉空格和标点之后一样，或者一个含着另一个（至少 8 个字）。
+  if (titleOf) {
+    const norm = (id) => String(titleOf(id) || '').toLowerCase().replace(/[\s\p{P}]+/gu, '');
+    const heads = [...groups.keys()];
+    const into = new Map();   // 站头 -> 并进哪个站头
+    for (let i = 0; i < heads.length; i++) {
+      const a = norm(heads[i]);
+      if (a.length < 8) continue;
+      for (let j = 0; j < i; j++) {
+        const b = norm(heads[j]);
+        if (b.length < 8 || into.has(heads[j])) continue;
+        if (a === b || a.includes(b) || b.includes(a)) { into.set(heads[i], heads[j]); break; }
+      }
+    }
+    for (const [from, to] of into) {
+      groups.get(to).push(from, ...groups.get(from));
+      groups.delete(from);
+    }
   }
   const stops = [...groups.entries()].map(([head, rest]) => ({
     id: head,
@@ -399,7 +499,7 @@ function lineage(event, lists) {
     for (const x of lists.get(a) || []) {
       if (!coreSet.has(x.id)) continue;
       const i = stopOf.get(a); const j = stopOf.get(x.id);
-      if (i === j || !x.why || x.why.kind === 'run' || x.why.kind === 'page') continue;
+      if (i === j || !x.why || x.why.kind === 'run' || x.why.kind === 'page' || !strong(x)) continue;
       const k = i < j ? `${i}|${j}` : `${j}|${i}`;
       const had = best.get(k);
       if (!had || x.score > had.score) best.set(k, { a: i < j ? i : j, b: i < j ? j : i, why: x.why, score: x.score });
@@ -468,4 +568,4 @@ function eventsOf(id, list) {
   return out.sort((a, b) => (a.tier === b.tier ? b.score - a.score : a.tier === 'core' ? -1 : 1));
 }
 
-module.exports = { grow, events, eventsOf, lineage, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };
+module.exports = { grow, events, eventsOf, lineage, hardPair, strong, nameOf, edgesOf, wordWeight, pageWeight, FLOOR, DECAY, MAX, W, ANCHOR_DF, EVENT_MIN, EVENT_SHARE, MUTUAL_K, TOUCH_K, PAGE_FULL, EV_LIMIT };
