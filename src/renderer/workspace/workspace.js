@@ -6,9 +6,10 @@
   const T = {
     zh: {
       tabEntries: '记录', tabAsk: '问', tabSettings: '设置', close: '关闭窗口', newNote: '记一句话', noteHint: '回车保存，Esc 关掉', save: '保存', brandSub: '每天的小记录',
-      searchPlaceholder: '搜索标题 / 文字 / 画面内容', quickPlaceholder: '记一句话', allDates: '全部日期',
+      searchPlaceholder: '搜索标题 / 文字 / 画面内容', quickPlaceholder: '记一句话',
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
+      askEmptyTitle: '问问你自己的记录',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
       near: '相近', untitled: '无标题',
       openFile: '打开原文件', revealFile: '在文件夹中显示',
@@ -16,9 +17,18 @@
       chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', modelRemote: '联网的', modelNotSet: '还没配', modelNow: '改用 {name}',
       missAccount: '还没登录', missKey: '缺 API Key', missBaseUrl: '缺接口地址', missModel: '缺模型名', missHost: '缺地址', citeMore: '它还看了 {n} 条',
       trailOff: '「路过」还没开。它把你在哪个应用、看哪个网页记下来，不用你动手存。去 设置 › 自动采集 打开。',
-      trailEmpty: '这一天没有痕迹。', trailMin: '{n} 分', trailShort: '还有 {n} 段更短的',
-      trailPages: '{n} 页', trailAll: '看全部', dimType: '类型', dimOrigin: '来源',
-      fAll: '全部', fClear: '清空', fMoreN: '更多 {n}', fLess: '收起', fUnknown: '未知',
+      trailEmpty: '这一天没有痕迹。', trailShort: '还有 {n} 段更短的',
+      durHM: '{h} 小时 {m} 分', durM: '{m} 分',
+      trailAwake: '在电脑前 {t}', trailBlocks: '{n} 段', trailBlocksHead: '都在做什么',
+      trailWhere: '时间花在哪儿', trailOther: '其它 {n} 个', trailDaysN: '{n} 天有痕迹',
+      trailRead: '读过的东西', trailReadN: '{n} 页 · {s} 个站点', trailNoPages: '这一天没有读到网页正文。它由浏览器扩展交上来，装了扩展才有。',
+      trailNoSite: '别的', trailFound: '找到 {n} 页', trailFoundSub: '在你读过但没存的东西里搜「{q}」', trailNoHit: '没找到。这里搜的是你读过的网页正文，不是记录。',
+      trailPages: '{n} 页', trailAll: '看全部',
+      fAll: '全部', fMoreN: '更多 {n}', fLess: '收起', fUnknown: '未知',
+      fAnyTime: '不限', fToday: '今天', fYest: '昨天', fWeek: '近 7 天',
+      bClip: '剪贴板', bShot: '截图', bSaved: '收藏', bFile: '文件', bVoice: '录音',
+      fAllNoClip: '「全部」里不含剪贴板——要看它就点旁边那一格。设置里可以改。',
+      sClipboardInAll: '把剪贴板也算进「全部」（默认不算：它一天到晚自己往里掉）',
       tImage: '图片', tText: '文字', tAudio: '音频', tVideo: '视频', tPdf: 'PDF', tDoc: '文档',
       tSheet: '表格', tSlides: '幻灯片', tArchive: '压缩包', tLink: '链接', tOther: '其它',
       askWhole: '这段时间的全部记录', askRecent: '最近 {n} 条 · 这段时间共 {of} 条', askNoMatch: '没有找到相关的记录。换个说法，或者去「记录」里翻翻。',
@@ -37,7 +47,10 @@
       sContext: '记录来源', sContextOn: '保存时记下当时的应用、窗口和网页地址',
       sContextHint: '只在你按下保存的那一刻问一次系统，平时不会盯着你的屏幕。窗口标题需要「辅助功能」权限；网页地址由浏览器扩展提供，关掉这项就不再索取。',
       sContextTest: '看看现在能读到什么',
+      sTrailOn: '不用动手：把你在哪个应用、看哪个网页，连同网页正文一起记下来',
+      sTrailHint: '这是 briffy 里唯一一样不用你动手存的东西，所以它默认关着，也不进「记录」那一页——它有自己的地方（工作区里的 trail/）。每两秒问一次前台是哪个应用（实测 0.31% 的一个核），变了才记一条；网页正文由扩展在页面里直接读，不截屏、不做文字识别（0.2 毫秒读一万两千字，而识别一屏要 800 毫秒还只认得出一千一百字）。一分钟没人动就停。微信、Telegram 这类不交出正文的应用只记窗口标题，不碰内容。每天约 1MB。',
       sConnect: '接进来', cNotConnected: '没连', cConnect: '连接', cSync: '同步', cSyncing: '同步中…',
+      sConnectHint: '把 Notion 的页面和 Gmail 的邮件同步进工作区，之后它们和你自己存的东西一样可以搜、可以问。凭据是你自己的：Notion 用你建的 integration token（你决定它能看见哪些页面），Gmail 用你在 Google Cloud 建的桌面端 client——Google 把读邮件列为受限权限，内置的 client 会让每个人都卡在一张警告页上。只读，不发信、不改标签、不删邮件。断开只清凭据，已经同步进来的记录一条都不动。',
       cDisconnect: '断开', cSynced: '已同步 {n} 条', cNever: '还没同步过', cConnecting: '连接中…',
       cNotionToken: 'integration token', cNotionHelp: '在 notion.so/my-integrations 建一个内部集成，再把要同步的页面「连接」给它',
       cImport: '导出文件', cImportPick: '选文件…', cImportDoing: '正在收…',
@@ -93,24 +106,31 @@
       sDroppedHint: '截图一定会做文字识别；拖进来或复制来的图片可以选择要不要。识别不出文字的图片，会由本机分类器说出画面里有什么。',
       sDownloadsHint: '文字识别和语音识别的模型都在第一次用到时下载到本机，之后完全离线。网络不通时可以填一个镜像。',
       gLook: '外观与语言', gPet: '快捷键', gAI: 'AI 服务', gEngines: '本机引擎', gCapture: '自动采集', gAbout: '工作区与关于',
-      sAI: 'AI 服务', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)',
+      sAI: 'AI 服务',
+      sResident: '常驻模型', sUseNow: '现在用', sLocalModel: '本地模型', sNetModel: '网络模型', sResidentOne: '常驻',
+      sHave: '这台电脑上', sAddOther: '加一个', sAddOtherBtn: '设为常驻',
+      mdPin: '设为常驻', mdUnpin: '取消常驻', mdPinned: '常驻',
+      residentFull: '常驻最多三个，先取消一个', residentAlready: '它已经在常驻里了',
+      residentHint: '常驻最多三个 —— 输入框旁边那只托盘里列的就是它们；点「用它」换现在用哪一个。', sPullOther: '别的模型', sPullOtherHint: '上面这份名单是按这台电脑挑的。Ollama 库里还有很多，知道名字就直接填，下下来就能用。', modelDefault: '默认', sCanGet: '可以下载', sNoLocalYet: '还没下载模型，从下面挑一个', residentNone: '还没选',
+      localOffline: 'Ollama 没在运行', localNoModel: '还没下载模型', localNotHere: '还没下下来', mdlLocal: '本地', mdlNet: '网络',
+      sNetHint: 'OpenRouter 是一个中转：一个 Key 就能用上各家的模型，按用量付费。正文会离开这台电脑——不想让它出门就用本地模型。',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: '用 OpenRouter 账号登录', sRefreshModels: '刷新模型列表',
       sModelOther: '其他型号', modelsHead: '{n} 个模型 · 目录更新于 {at}', modelsNone: '还没连上 OpenRouter',
       modelMore: '在设置里选…',
       tierCheap: '省', tierUsual: '常用', tierTop: '最强', modelMine: '自己填的',
-      sOllamaHost: '地址', sDetect: '重新检测', sOllamaModel: '使用的模型', sUseRecommended: '用推荐的', sPull: '下载模型',
+      sOllamaHost: '地址', sDetect: '重新检测', sPull: '下载模型',
       sNormalizeZh: '中文语音转写统一为所选的简体 / 繁体（不是翻译）',
       sAIHint: '给标题、每日摘要和问答用。没有配置时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。',
       configured: '当前使用：{label}', notConfigured: '还没配置，标题先用文件名',
       loginWaiting: '已打开浏览器，请在页面里完成登录…', loginOk: '登录成功，Key 已保存',
       hwLocal: '本机', hwCores: '{n} 线程', hwNoGpu: '未检测到', hwRecommend: '推荐', hwAlternatives: '备选',
-      ollamaRunning: '运行中 {version}', ollamaInstalled: '已安装：{models}', ollamaNoModels: '还没有模型，点「下载模型」',
-      sModels: '模型', sOtherModel: '用别的模型（手动填名称）', sState: '状态', sTestRun: '问它一句',
+      ollamaRunning: '运行中 {version}', ollamaInstalled: '已下载 {n} 个模型', ollamaNoModels: '还没有模型，点「下载模型」',
+      sModels: '模型', sState: '状态', sTestRun: '问它一句',
       sOllamaHint: 'Ollama 是在你自己电脑上跑模型的程序。装好并启动之后，briffy 就完全离线工作。',
       sModelsHint: '三档是按这台电脑的内存和显卡算出来的：轻松＝几乎不占资源，勉强＝能加载但会慢。分数来自公开评测榜（ifeval 看它照不照你说的格式答，mmlu-pro 看它知不知道），不是按名字猜的。', fitEasy: '轻松跑', fitOk: '跑得动', fitTight: '勉强，会慢', fitNo: '这台跑不动',
       tierEasy: '轻松', tierEasyWhy: '几乎不占资源，答得最快', tierMedium: '适中', tierMediumWhy: '这台电脑的合适档位', tierStretch: '勉强', tierStretchWhy: '能加载，但会慢',
       mdScored: '评测 {n} 分',
-      mdInstalled: '已下载', mdUse: '使用', mdInUse: '正在用', mdGet: '下载', mdDelete: '删除', mdRecommended: '最适合这台电脑', mdVision: '能看图', mdTextOnly: '只读文字', mdLive: '来自 Ollama 官方库，按公开评测榜和这台电脑排序（{n} 个模型有实测分）· 每天更新', mdCached: '离线，用的是上次缓存的列表',
+      mdInstalled: '已下载', mdUse: '使用', mdInUse: '正在用', mdGet: '下载', mdDelete: '删除', mdRecommended: '最适合这台电脑', mdVision: '能看图', mdTextOnly: '只读文字', mdLive: '来自 Ollama 官方库，按公开评测榜和这台电脑排序（{n} 个模型有实测分）· 每天更新', mdCached: '离线，用的是上次缓存的列表', mdAllHere: '目录里的都下过了',
       mdConfirmDelete: '删除 {model}？它占的磁盘空间会释放，需要时可以再下。', resumeTitle: '上次没下完：{model}', resumeGot: '已下 {got} / {total}', resumeGo: '继续下载', resumeDrop: '不下了',
       hwPick: '推荐在这台电脑上用 {model}', hwSize: '下载约 {gb} GB', hwWhy: '为什么是它？还有别的选择', ollamaReady: 'Ollama 已就绪',
       jobInstallStarting: '准备安装…', jobInstallDownloading: '正在下载 Ollama', jobInstallInstalling: '正在安装', jobInstallVerifying: '正在校验', jobInstallDone: '装好了',
@@ -142,14 +162,16 @@
       ffmpegFound: 'ffmpeg {version} 已就绪（{path}）', ffmpegMissing: '没有找到 ffmpeg —— 分片流可以被发现，但合并不了', ffmpegInstalling: '正在安装…', ffmpegManual: '这台电脑没有可用的包管理器，请手动安装：{url}',
       sLocalApi: '允许浏览器扩展连接（本机接口，仅监听 127.0.0.1）', sLocalApiPort: '端口', sExportExt: '导出扩展文件夹…', sOpenExt: '打开扩展文件夹', sExtHelp: '安装步骤',
       apiRunning: '接口运行中：http://127.0.0.1:{port}{last}', apiStopped: '接口已关闭，扩展无法连接', apiLast: '，最近一次接收：{time}',
+      extStore: '<b>从扩展商店安装</b><br>点 <a href="{store}" target="_blank" rel="noopener">打开扩展商店</a>，在商店页面点「添加至 Chrome」。装好之后上面那个状态灯会自己变实心。<br><br>下面几步是备用的：公司策略禁掉了商店、或者你想装一个改过的版本时才用。<br><br>',
       extSteps: '<b>Chrome / Edge 安装步骤</b><br>1. 点「导出扩展文件夹…」把扩展复制到一个你不会删掉的位置（也可以直接用下面这个自带路径）。<br>2. 浏览器地址栏打开 <code>chrome://extensions</code>（Edge 是 <code>edge://extensions</code>）。<br>3. 打开右上角的「开发者模式」。<br>4. 点「加载已解压的扩展程序」，选择那个文件夹。<br>5. 在任意网页点扩展图标，或按 <code>Alt+Shift+D</code>。<br><br>扩展文件夹：<code>{dir}</code><br>如果扩展显示「briffy 未运行」，检查上面的端口是否和扩展设置里的一致。',
       extExported: '扩展已导出到 {dir}',
     },
     en: {
       tabEntries: 'Entries', tabAsk: 'Ask', tabSettings: 'Settings', close: 'Close window', newNote: 'Jot a line', noteHint: 'Enter saves, Esc closes', save: 'Save', brandSub: 'your daily log',
-      searchPlaceholder: 'Search title, text, what is in a picture', quickPlaceholder: 'Note to self', allDates: 'All dates',
+      searchPlaceholder: 'Search title, text, what is in a picture', quickPlaceholder: 'Note to self',
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
+      askEmptyTitle: 'Ask your own log',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
       near: 'related', untitled: 'Untitled',
       openFile: 'Open the file', revealFile: 'Show in folder',
@@ -157,9 +179,18 @@
       chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', modelRemote: 'Remote', modelNotSet: 'not set up', modelNow: 'Now using {name}',
       missAccount: 'not signed in', missKey: 'no API key', missBaseUrl: 'no endpoint', missModel: 'no model name', missHost: 'no host', citeMore: 'Also looked at {n}',
       trailOff: '"Passed by" is off. It notes which app you were in and which page you were reading, without you saving anything. Turn it on in Settings › Capture.',
-      trailEmpty: 'Nothing from this day.', trailMin: '{n} min', trailShort: '{n} shorter stretches',
-      trailPages: '{n} pages', trailAll: 'Show all', dimType: 'Type', dimOrigin: 'From',
-      fAll: 'All', fClear: 'Clear', fMoreN: '{n} more', fLess: 'Less', fUnknown: 'Unknown',
+      trailEmpty: 'Nothing from this day.', trailShort: '{n} shorter stretches',
+      durHM: '{h} h {m} min', durM: '{m} min',
+      trailAwake: '{t} at the machine', trailBlocks: '{n} stretches', trailBlocksHead: 'What you were doing',
+      trailWhere: 'Where the time went', trailOther: '{n} others', trailDaysN: '{n} days tracked',
+      trailRead: 'What you read', trailReadN: '{n} pages · {s} sites', trailNoPages: 'No page text from this day. It comes from the browser extension — install it and this fills up.',
+      trailNoSite: 'other', trailFound: '{n} pages', trailFoundSub: 'searching what you read but never saved: "{q}"', trailNoHit: 'Nothing. This searches the pages you read, not your records.',
+      trailPages: '{n} pages', trailAll: 'Show all',
+      fAll: 'All', fMoreN: '{n} more', fLess: 'Less', fUnknown: 'Unknown',
+      fAnyTime: 'Any time', fToday: 'Today', fYest: 'Yesterday', fWeek: 'Last 7 days',
+      bClip: 'Clipboard', bShot: 'Screenshots', bSaved: 'Saved', bFile: 'Files', bVoice: 'Recordings',
+      fAllNoClip: 'The clipboard is not counted in "All" -- click it to see it. Changeable in settings.',
+      sClipboardInAll: 'Count the clipboard in "All" (off by default: it fills up on its own all day)',
       tImage: 'Pictures', tText: 'Text', tAudio: 'Audio', tVideo: 'Video', tPdf: 'PDF', tDoc: 'Documents',
       tSheet: 'Spreadsheets', tSlides: 'Slides', tArchive: 'Archives', tLink: 'Links', tOther: 'Other',
       askWhole: 'everything from that stretch', askRecent: 'the {n} most recent of {of} in this range', askNoMatch: 'Nothing in the log matches that. Try other words, or browse Entries.',
@@ -180,7 +211,10 @@
       sContext: 'Where it came from', sContextOn: 'Record the app, window and page address at the moment of a save',
       sContextHint: 'Asked once, at the instant you save something -- briffy never watches your screen. The window title needs Accessibility permission; the page address comes from the browser extension, and turning this off stops asking for both.',
       sContextTest: 'See what it can read now',
+      sTrailOn: 'Hands off: keep track of which app you are in and which page you are reading, along with the text of that page',
+      sTrailHint: 'The one thing in briffy you never save by hand, which is why it is off by default and why it does not go on the Records page — it has a place of its own (trail/ in the workspace). Every two seconds it asks which app is in front (measured at 0.31% of one core) and writes a line only when the answer changes; the text of a web page is read inside the page by the extension, with no screenshot and no text recognition (0.2 ms to read twelve thousand characters, where recognising one screenful takes 800 ms and makes out only eleven hundred). It stops after a minute with nobody at the machine. Apps that do not hand over their text, WeChat and Telegram among them, leave only a window title behind — never the content. About 1MB a day.',
       sConnect: 'Bring in', cNotConnected: 'not connected', cConnect: 'Connect', cSync: 'Sync', cSyncing: 'syncing…',
+      sConnectHint: 'Sync your Notion pages and your Gmail mail into the workspace; from then on they can be searched and asked about like anything you saved yourself. The credentials are your own: Notion uses an integration token you create (you decide which pages it can see), Gmail uses a Desktop client you create in Google Cloud — Google lists reading mail as a restricted scope, and a built-in client would leave everyone stuck on a warning page. Read only: it never sends mail, changes labels or deletes anything. Disconnecting clears the credentials and nothing else — not one of the records already synced in is touched.',
       cDisconnect: 'Disconnect', cSynced: '{n} brought in', cNever: 'never synced', cConnecting: 'connecting…',
       cNotionToken: 'integration token', cNotionHelp: 'Make an internal integration at notion.so/my-integrations, then connect the pages you want to it',
       cImport: 'Export file', cImportPick: 'Choose…', cImportDoing: 'Reading…',
@@ -236,24 +270,31 @@
       sDroppedHint: 'Screenshots are always read for text; pictures you drop or copy in are up to you. A picture with no text is described by the classifier on this machine instead.',
       sDownloadsHint: 'The text and speech models download on first use and run offline afterwards. Fill in a mirror if the download cannot reach it.',
       gLook: 'Look & language', gPet: 'Shortcuts', gAI: 'AI service', gEngines: 'On-device engines', gCapture: 'What gets recorded', gAbout: 'Workspace & about',
-      sAI: 'AI service', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)',
+      sAI: 'AI service',
+      sResident: 'Resident model', sUseNow: 'Using now', sLocalModel: 'Local model', sNetModel: 'Remote model', sResidentOne: 'Resident',
+      sHave: 'On this machine', sAddOther: 'Add one', sAddOtherBtn: 'Keep resident',
+      mdPin: 'Keep resident', mdUnpin: 'Remove', mdPinned: 'resident',
+      residentFull: 'Three resident models at most — remove one first', residentAlready: 'Already resident',
+      residentHint: 'Three at most — these are what the picker beside the ask box lists; "Use" switches which one is running.', sPullOther: 'Another model', sPullOtherHint: 'The shelves above are cut for this machine. Ollama\u2019s library has many more \u2014 type a name and it downloads.', modelDefault: 'default', sCanGet: 'Available to download', sNoLocalYet: 'Nothing downloaded yet \u2014 pick one below', residentNone: 'not chosen yet',
+      localOffline: 'Ollama is not running', localNoModel: 'no model downloaded', localNotHere: 'not downloaded', mdlLocal: 'Local', mdlNet: 'Remote',
+      sNetHint: 'OpenRouter is a relay: one key gets you every vendor\u2019s models, billed by usage. Your text leaves this machine \u2014 use a local model if you would rather it did not.',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: 'Sign in with OpenRouter', sRefreshModels: 'Refresh model list',
       sModelOther: 'Another model', modelsHead: '{n} models · catalogue updated {at}', modelsNone: 'Not connected to OpenRouter yet',
       modelMore: 'Choose in settings…',
       tierCheap: 'light', tierUsual: 'everyday', tierTop: 'top', modelMine: 'yours',
-      sOllamaHost: 'Address', sDetect: 'Detect again', sOllamaModel: 'Model to use', sUseRecommended: 'Use recommended', sPull: 'Download model',
+      sOllamaHost: 'Address', sDetect: 'Detect again', sPull: 'Download model',
       sNormalizeZh: 'Normalise Chinese transcripts to the selected Simplified / Traditional script (not a translation)',
       sAIHint: 'Used for titles, the daily summary and questions. Without one, titles fall back to file names and the summary becomes a plain list. Titles and summaries are written in your first language; captured text (OCR, transcripts) stays as it is.',
       configured: 'In use: {label}', notConfigured: 'Not configured yet – titles fall back to the file name',
       loginWaiting: 'Browser opened – finish signing in there…', loginOk: 'Signed in, key saved',
       hwLocal: 'This machine', hwCores: '{n} threads', hwNoGpu: 'none detected', hwRecommend: 'Recommendation', hwAlternatives: 'Alternatives',
-      ollamaRunning: 'running {version}', ollamaInstalled: 'installed: {models}', ollamaNoModels: 'no models yet – click "Download model"',
-      sModels: 'Models', sOtherModel: 'Use a different model (type its name)', sState: 'Status', sTestRun: 'Ask it something',
+      ollamaRunning: 'running {version}', ollamaInstalled: '{n} downloaded', ollamaNoModels: 'no models yet – click "Download model"',
+      sModels: 'Models', sState: 'Status', sTestRun: 'Ask it something',
       sOllamaHint: 'Ollama is the program that runs models on your own machine. Once it is installed and running, briffy works entirely offline.',
       sModelsHint: 'The three shelves are cut for this machine\u2019s memory and graphics: comfortable means it barely uses the machine, a stretch means it loads but will be slow. Scores come from public leaderboards (ifeval for following the shape you asked for, mmlu-pro for knowing things), not guessed from the name.', fitEasy: 'runs easily', fitOk: 'runs fine', fitTight: 'tight, will be slow', fitNo: 'too big for this machine',
       tierEasy: 'Comfortable', tierEasyWhy: 'barely uses the machine, answers fastest', tierMedium: 'Balanced', tierMediumWhy: 'the right trade for this machine', tierStretch: 'A stretch', tierStretchWhy: 'it loads, but it will be slow',
       mdScored: 'scored {n}',
-      mdInstalled: 'downloaded', mdUse: 'Use', mdInUse: 'in use', mdGet: 'Download', mdDelete: 'Delete', mdRecommended: 'best fit for this machine', mdVision: 'reads images', mdTextOnly: 'text only', mdLive: "From Ollama's library, ranked by public benchmarks and this machine ({n} scored) · refreshed daily", mdCached: 'Offline — showing the last cached list',
+      mdInstalled: 'downloaded', mdUse: 'Use', mdInUse: 'in use', mdGet: 'Download', mdDelete: 'Delete', mdRecommended: 'best fit for this machine', mdVision: 'reads images', mdTextOnly: 'text only', mdLive: "From Ollama's library, ranked by public benchmarks and this machine ({n} scored) · refreshed daily", mdCached: 'Offline — showing the last cached list', mdAllHere: 'Everything in the catalogue is already here',
       mdConfirmDelete: 'Delete {model}? The disk space comes back and you can download it again later.', resumeTitle: 'Not finished last time: {model}', resumeGot: '{got} of {total} downloaded', resumeGo: 'Resume', resumeDrop: 'Forget it',
       hwPick: 'Recommended for this machine: {model}', hwSize: 'about {gb} GB to download', hwWhy: 'Why this one, and what else there is', ollamaReady: 'Ollama is ready',
       jobInstallStarting: 'Getting ready…', jobInstallDownloading: 'Downloading Ollama', jobInstallInstalling: 'Installing', jobInstallVerifying: 'Verifying', jobInstallDone: 'Installed',
@@ -283,17 +324,22 @@
       sExtension: 'Browser extension', sExtensionHint: 'Collect pictures and video from web pages. With the extension installed, click its icon on any page (or press Alt+Shift+D) to see every image, video and audio file there and save the ones you tick.',
       sLocalApi: 'Allow the browser extension to connect (local endpoint, 127.0.0.1 only)', sLocalApiPort: 'Port', sExportExt: 'Export extension folder…', sOpenExt: 'Open extension folder', sExtHelp: 'Installation steps',
       apiRunning: 'Endpoint running: http://127.0.0.1:{port}{last}', apiStopped: 'Endpoint off – the extension cannot connect', apiLast: ', last received {time}',
+      extStore: '<b>Install from the extension store</b><br>Click <a href="{store}" target="_blank" rel="noopener">Open the extension store</a>, then "Add to Chrome" on the store page. The status light above fills in by itself once it works.<br><br>The steps below are the fallback: for when a company policy blocks the store, or you want to run a modified build.<br><br>',
       extSteps: '<b>Chrome / Edge</b><br>1. Click "Export extension folder…" to copy the extension somewhere permanent (or use the bundled path below).<br>2. Open <code>chrome://extensions</code> (Edge: <code>edge://extensions</code>).<br>3. Turn on "Developer mode".<br>4. Click "Load unpacked" and choose that folder.<br>5. Click the extension icon on any page, or press <code>Alt+Shift+D</code>.<br><br>Extension folder: <code>{dir}</code><br>If the extension says briffy is not running, check that the port above matches the one in the extension settings.',
       extExported: 'Extension exported to {dir}',
     },
   };
-  const ICONS = { screenshot: '📸', image: '🖼️', audio: '🎙️', pdf: '📄', text: '📝', url: '🔗', note: '🗒️', file: '📎' };
+  // trail = 你读过但没存的一页网页（ask.js 第四条腿）。它长得和别的引用一样，但点开是回到那一页
+  const ICONS = { screenshot: '📸', image: '🖼️', audio: '🎙️', pdf: '📄', text: '📝', url: '🔗', note: '🗒️', file: '📎', trail: '🌐' };
 
   const state = {
     meta: null, settings: null, ui: 'zh', entries: [], dates: [], selectedId: null, editing: false,
-    query: '', date: '', source: '', pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
-    // 两个维度叠着筛：类型（是什么）、来源（从哪儿来）。dim 是当前展开的那一个。
-    f: { type: '', origin: '' }, dim: 'type', dimOpen: false,
+    // range 是时间那一排：'' 不限 / today / yest / w7。它也收得下一个具体日期——
+    // briffy://day/<date> 送来的就是一天，那时那一排上会多长出一格写着那一天。
+    query: '', range: '', source: '', pinned: false, pinnedCount: 0, counts: null, chat: [], tab: 'entries',
+    // 两级：bucket 是屏幕上那五种纸里的哪一种，sub 是在那一种里再收一刀。
+    // 换 bucket 一定要把 sub 清掉——「文字」在剪贴板里和在文件里不是同一个东西。
+    f: { bucket: '', sub: '' },
     selecting: false, picked: new Set(),
     view: 'grid',
     boxesOn: false, boxes: null,      // the OCR line boxes of the record currently open
@@ -520,19 +566,23 @@
     // 「全部」里不含剪贴板：它一天到晚自己往里掉，一屏九成是剪贴板就不叫「全部」了。
     // 但这条只管**没筛没搜**的那一屏——你点了一个来源、一个类型，或者打了字去搜，
     // 那就是你明确要的东西，这条规矩不该盖过它。
-    const asked = state.query || state.f.type || state.f.origin;
+    // 「全部」里默认不含剪贴板（331 条里 262 条是它）。这条规矩以前是写死的一句 if，
+    // 现在是**设置里一个开关**，而且它在屏幕上是看得见的：「全部 69 · 剪贴板 262」——
+    // 两个数摆在一起，本身就说明了「全部」里没有剪贴板。
+    // 更早的时候数数那一路还不知道有这条规矩，于是筛选行上写着「文字 203」而屏上摆着 19 条。
+    // 一个筛选器的全部本事就是「点下去之后屏上剩什么」，数错了它就什么都不是。
+    const dates = rangeDates(state.range);
+    const hideInAll = hiddenInAll();
     state.entries = await ws.listEntries({
-      query: state.query,
-      dates: state.date ? [state.date] : null,
-      type: state.f.type,
-      origin: state.f.origin,
-      exclude: asked ? null : ['clipboard'],
+      query: state.query, dates, bucket: state.f.bucket, sub: state.f.sub, hideInAll,
     });
-    ws.stats().then((st) => { state.counts = st; state.pinnedCount = st.pinned || 0; renderDims(); }).catch(() => {});
-    renderDateFilter();
+    // **数数和筛选给的是同一套条件**，而且底下是同一个判据（store.entryMatches 被这两条路共用）。
+    // 数和屏幕因此不可能再对不上——它们不是两段各自算的代码了。
+    ws.stats({ query: state.query, dates, bucket: state.f.bucket, sub: state.f.sub, hideInAll })
+      .then((st) => { state.counts = st; state.pinnedCount = st.pinned || 0; renderDims(); }).catch(() => {});
     renderDims();
     renderList();
-    renderAxis();
+    if (state.view === 'trail') renderTrailAxis(); else renderAxis();   // 这一页的轴是它自己的那一份
     if (state.selectedId && !state.entries.some((e) => e.id === state.selectedId)) closeDetail();
     addNear();
   }
@@ -568,73 +618,166 @@
     renderAxis();
   }
 
-  // ---------- 筛选：两个维度，叠着用 ----------
+  // ---------- 筛选：两级，一级就是屏幕上那五种纸 ----------
   //
-  // 两个维度回答两个不同的问题，混在一行里就说不清了：
-  //   类型  这是什么   —— 图片 / 文本 / 网页 / 录音
-  //   来源  从哪儿来   —— 小红书 / 哔哩哔哩 / Claude / Terminal，实在不知道就退回它是怎么进来的
+  // 2026-09-09 用户定的分法，这一处的第六版，也是第一版**和眼睛看到的东西对得上**的。
+  // 前五版筛的都是「格式」（文字 / 图片 / 链接）——可一张从剪贴板来的图和一张截图都算「图片」，
+  // 它们在屏幕上是两种完全不一样的纸，也根本不是同一件事。判据在 store.js（entryBucket / entrySub）。
   //
-  // 它们是**叠**的：「小红书上的图片」这种要求只有叠起来才成立。所以上面那行同时也是
-  // 「现在叠了哪几个」，右端一个「清空」——两个能同时按的东西，不写出来就会丢失「现在在看什么」。
+  //   一级   剪贴板 262 · 截图 34 · 收藏 19 · 文件 8 · 录音 7   互斥、全覆盖，加起来一定＝全库
+  //   二级   跟着一级换，因为每一格该问的问题不一样：
+  //            剪贴板 → 文字 186 · 图片 63 · 链接 13         是什么
+  //            截图   → Claude 19 · 未知 11 · WeChat 1 …     从哪儿来
+  //            收藏   → 哔哩哔哩 6 · X 6 · Facebook 2 …      从哪儿来，多的在前
+  //            文件   → PDF 5 · 链接 3                       是什么
+  //            录音   → 按麦克风
   //
-  // 这儿本来还有第三个维度「主题」，是向量归堆的结果。2026-09-07 拿掉了：它决定谁算成员很差
-  // （一整件事只圈住五条，里面还有两个语言选择条和一个日期），而它旁边就站着一套说得出理由的
-  // 关系（详情页底下那条清单）。两套逻辑并排，读的人只会更糊涂。
-  // 类型按**格式**分（store.js 的 entryFormat）：截图和网页存下来的图都是图片，随手记和邮件都是文字。
-  // 「怎么进来的」是「来源」那一档的事，两件事混在一格里就都说不清。
+  // **一个维度对所有东西问同一句话，就总有一半答不上来**——这是旧那一档「来源」真正的毛病：
+  // 它最大的一格是「未知」，144 条，占 44%。分了级之后没有这个问题：问截图从哪儿来是有答案的，
+  // 而剪贴板压根不问这一句。
+  //
+  // **二级只在选了一级之后才出现**，所以默认那一屏仍然只有一行字。这和 2026-09-07 被否掉的
+  // 第 ① 版（「维度名一排 + 值一排」）不是一回事：那一版上面那排是**维度名**，点一下换的是
+  // 「列什么」而不是「筛什么」；这里上面那排自己就在筛（点「截图」当场只剩 34 条），
+  // 下面那排是在它里头再收一刀。一个是换挡，一个是父子。
+  //
+  // 去掉的：右边那只「来源」下拉（它的活儿现在是收藏和截图各自的二级）、「剪贴板」那个开关
+  // （它现在是一级里的一格）、还有「全部里悄悄扣掉剪贴板」那条规矩——**「全部」从此就是全部**。
+  // 那条规矩存在的理由是没有一个好办法把剪贴板单独拎出来，现在有了：它就在旁边站着。
+
+  // 类型按**格式**分（store.js 的 entryFormat）。它现在只用在二级里（剪贴板装着什么、
+  // 拖进来的是什么文件），不再是顶上那一排——顶上那排是纸的种类。
   const TYPE_LABEL = { image: 'tImage', text: 'tText', audio: 'tAudio', video: 'tVideo', pdf: 'tPdf',
     doc: 'tDoc', sheet: 'tSheet', slides: 'tSlides', archive: 'tArchive', link: 'tLink', other: 'tOther' };
-  // 来源里那几个不是站点也不是应用的值，是「实在不知道从哪儿来」时退回的采集方式
-  // 「来源」里只有真的来源：站点和应用。不知道就写「未知」，不拿「剪贴板」「截图」去糊——
-  // 那是「怎么进来的」，拿它当「从哪儿来的」是循环的，而且会变成这一格里最大的一块。
-  const ORIGIN_LABEL = { '?': 'fUnknown' };
-  const DIMS = [['type', 'dimType'], ['origin', 'dimOrigin']];
-  const originName = (k) => (ORIGIN_LABEL[k] ? t(ORIGIN_LABEL[k]) : k);
-  // 认不出来的类型用它自己的名字，不要都翻成「其它」——两个不同的值顶着同一个标签，
-  // 界面上就成了两个一模一样的词，点哪个都说不清。
-  const valueName = (dim, k) => (dim === 'type' ? (TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k) : originName(k));
+  // 排在前面的是库里最多的那几格。顺序写死，不按数排——一排词的位置每次进来都不一样，
+  // 肌肉记忆就没了；数会变，位置不该跟着变。
+  const BUCKETS = [['clip', 'bClip'], ['shot', 'bShot'], ['saved', 'bSaved'], ['file', 'bFile'], ['voice', 'bVoice']];
+  /** 「全部」里不算哪几格。只有剪贴板这一格有这个待遇，设置里可以关掉（clipboardInAll）。 */
+  function hiddenInAll() {
+    return (state.settings || {}).clipboardInAll ? null : ['clip'];
+  }
+  /** 二级那个值写成什么。剪贴板和文件里装的是格式（有译名），别的是站点 / 应用 / 麦克风的原名。 */
+  function subName(bucket, k) {
+    if (k === '?') return t('fUnknown');
+    if (bucket === 'clip' || bucket === 'file') return TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k;
+    return k;
+  }
+  let moreValues = false;      // 二级值多的时候（比如截图的来源应用），先只露前八个
+
+  // 时间：几个词，站在筛选那一行的最前面。
+  //
+  // 它以前是右上角一个叫「全部日期」的 select——**和筛选是同一件事（把这一屏变短），
+  // 却待在另一行、长着另一副样子**，而且一天一格，翻到第三十天才找得到「上周」。
+  // 想看某一天仍然有办法：右边那条轴点一下就跳过去。
+  const RANGES = [['', 'fAnyTime'], ['today', 'fToday'], ['yest', 'fYest'], ['w7', 'fWeek']];
+  /** 这一天算在那个时间档里吗。**新到的一条走这儿**：它那一天可能还不在 state.dates 里。 */
+  function inRange(dateKey, range = state.range) {
+    if (!range) return true;
+    if (range === 'today') return dateKey === todayKey();
+    if (range === 'yest') return dateKey === todayKey(-1);
+    if (range === 'w7') return dateKey >= todayKey(-6);
+    return dateKey === range;            // 具体的一天
+  }
+  /** 一个时间档是哪几天。**去问库要东西走这儿**：只有真有文件的那些天值得读。
+      null＝不限（listEntries 和 stats 都认这个）。 */
+  function rangeDates(range) {
+    if (!range) return null;
+    if (range === 'today') return [todayKey()];
+    if (range === 'yest') return [todayKey(-1)];
+    if (range === 'w7') return state.dates.filter((d) => inRange(d, 'w7'));
+    return [range];
+  }
 
   /**
-   * 当前维度有哪些值可选，大的在前。
+   * 筛选行上的一个词。
    *
-   * 「未知」永远排最后，不管它多大。这一栏的标准是**一格 = 一个你会想按它筛的地方**，
-   * 而「未知」不是一个地方，是「没记下来」。它现在是这个工作区里最大的一格（119 条，
-   * 几乎一半，因为「记下是从哪个应用复制的」这件事是 09-05 傍晚才上的功能），
-   * 排在最前面就等于整行第一眼看上去全是噪声——而它恰恰是唯一一个点了也说明不了什么的格子。
-   * @returns {[string, number][]}
+   * 数**平时不写出来**，只在选中的那个和鼠标停住的那个上出现（谁显示由 CSS 说了算）。
+   * 一行十几个数字读起来是一条数字带，不是一排能按的词。但**位置一直留着**（.n 是定宽的），
+   * 不然鼠标扫过去整行字会跟着左右跳。数本身还是真的——它等于点下去之后屏上的条数。
    */
-  function valuesOf(dim) {
-    const c = state.counts || {};
-    if (dim === 'type') return Object.entries(c.byType || {}).sort((a, b) => b[1] - a[1]);
-    const rank = (k) => (k === '?' ? 1 : 0);
-    return Object.entries(c.byOrigin || {}).sort((a, b) => (rank(a[0]) - rank(b[0])) || (b[1] - a[1]));
+  function fword(dim, val, label, n, on, title = '') {
+    return `<button type="button" class="src-chip${on ? ' active' : ''}${n ? '' : ' zero'}" data-${dim}="${esc(val)}"`
+      + `${title ? ` title="${esc(title)}"` : ''}>`
+      + `${esc(String(label).slice(0, 20))}<span class="n">${n}</span></button>`;
+  }
+  function moreChip(total, shownN) {
+    if (total > shownN) return `<button type="button" class="src-chip more" data-more="1">${esc(t('fMoreN', { n: total - shownN }))}</button>`;
+    return moreValues && total > 8 ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fLess'))}</button>` : '';
   }
 
   function renderDims() {
-    const box = $('#dims');
-    if (!box) return;
-    const any = DIMS.some(([k]) => state.f[k]);
-    box.innerHTML = DIMS.map(([k, label]) => {
-      const on = state.f[k];
-      return `<button type="button" class="src-chip dim${state.dim === k ? ' open' : ''}${on ? ' active' : ''}" data-dim="${k}">`
-        + `${esc(t(label))}${on ? `<span class="n">${esc(String(valueName(k, on)).slice(0, 14))}</span>` : ''}</button>`;
-    }).join('')
-      + (any ? `<button type="button" class="src-chip clear" data-clear="1">${esc(t('fClear'))}</button>` : '');
-    renderValues();
+    renderDates();
+    renderBuckets();
+    renderSub();
   }
 
-  let moreValues = false;
-  function renderValues() {
-    const box = $('#sources');
+  /** 时间那一排。 */
+  /** 这个时间档是不是把整个库都装下了（那它就筛不掉任何东西）。 */
+  function coversAll(range) {
+    const days = rangeDates(range);
+    return !!days && state.dates.every((d) => days.includes(d));
+  }
+
+  function renderDates() {
+    const box = $('#fdates');
     if (!box) return;
-    const dim = state.dim;
-    const all = valuesOf(dim);
-    const shown = moreValues ? all : all.slice(0, 8);
-    box.innerHTML = `<button type="button" class="src-chip${state.f[dim] ? '' : ' active'}" data-val="">${esc(t('fAll'))}</button>`
-      + shown.map(([k, n]) => `<button type="button" class="src-chip${state.f[dim] === k ? ' active' : ''}${n ? '' : ' zero'}" data-val="${esc(k)}">`
-        + `${esc(String(valueName(dim, k)).slice(0, 18))}<span class="n">${n}</span></button>`).join('')
-      + (all.length > shown.length ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fMoreN', { n: all.length - shown.length }))}</button>`
-        : (moreValues && all.length > 8 ? `<button type="button" class="src-chip more" data-more="1">${esc(t('fLess'))}</button>` : ''));
+    const byDay = (state.counts || {}).byDay || {};
+    let all = 0; for (const d of Object.keys(byDay)) all += byDay[d];
+    const rows = RANGES.slice();
+    // deep link 指到某一天：给它一格，不然这一排上一个字都不写、却明明筛着
+    if (state.range && !rows.some(([v]) => v === state.range)) rows.push([state.range, '']);
+    box.innerHTML = rows.map(([v, key]) => {
+      const days = rangeDates(v);
+      const keys = days || Object.keys(byDay);
+      let n = 0; for (const d of keys) n += byDay[d] || 0;
+      // **永远筛不窄任何东西的词不占位置**：库里只有六天的时候，「近 7 天」和「不限」
+      // 装的是同一批记录，一行上就出现两个一模一样的数。库长过七天它自己就回来了。
+      //
+      // 判据看的是**整个库**（state.dates），不是眼下这一刀。按眼下这一刀算的话，
+      // 点一下「剪贴板」——剩下的三条正好都在今天——「今天」当场就消失了：
+      // 一排词跟着点击忽隐忽现，肌肉记忆就没了。这条和「顺序写死、不按数排」是同一条。
+      if (v && state.range !== v && coversAll(v)) return '';
+      return fword('range', v, key ? t(key) : fmtShortDate(v), n, state.range === v);
+    }).join('');
+  }
+
+  /** 一级：五种纸。「全部」在最前面，后面按写死的顺序，一条都没有的那一格不显示。 */
+  function renderBuckets() {
+    const box = $('#fbuckets');
+    if (!box) return;
+    const c = state.counts || {};
+    const by = c.byBucket || {};
+    // 「全部」的数是 stats 单独算的，**不是五格之和**：点它等于回到「没选一级」，
+    // 而「全部里不含剪贴板」那条规矩只在那时生效。差出来的那一截正是被挡住的剪贴板。
+    const hid = hiddenInAll();
+    box.innerHTML = fword('bucket', '', t('fAll'), c.allCount || 0, !state.f.bucket,
+      hid ? t('fAllNoClip') : '')
+      + BUCKETS.filter(([k]) => by[k] || state.f.bucket === k)
+        .map(([k, label]) => fword('bucket', k, t(label), by[k] || 0, state.f.bucket === k)).join('');
+  }
+
+  /**
+   * 二级：在选中的那一格里再收一刀。没选一级就整排不出现。
+   *
+   * **只剩一个值的时候也不出现**——一个筛不掉任何东西的词不值得占一行（录音只有一只麦克风、
+   * 文件全是 PDF，都会碰上）。
+   */
+  function renderSub() {
+    const box = $('#fsub');
+    if (!box) return;
+    const b = state.f.bucket;
+    const by = (state.counts || {}).bySub || {};
+    const rows = Object.entries(by).filter(([, n]) => n)
+      // 多的在前，「未知」永远最后：它不是一个地方，是「没记下来」
+      .sort((x, y) => (x[0] === '?' ? 1 : 0) - (y[0] === '?' ? 1 : 0) || y[1] - x[1]);
+    if (b && state.f.sub && !rows.some(([v]) => v === state.f.sub)) rows.unshift([state.f.sub, 0]);
+    if (!b || rows.length <= 1) { box.hidden = true; box.innerHTML = ''; return; }
+    const shown = moreValues ? rows : rows.slice(0, 8);
+    let all = 0; for (const [, n] of rows) all += n;
+    box.hidden = false;
+    box.innerHTML = fword('sub', '', t('fAll'), all, !state.f.sub)
+      + shown.map(([k, n]) => fword('sub', k, subName(b, k), n, state.f.sub === k)).join('')
+      + moreChip(rows.length, shown.length);
   }
 
   // 左边的时间轴：一天一行，相对日 + 条数。日期抬头已经不显示了，所以哪一天只由它说。
@@ -676,13 +819,6 @@
     if (el) box.scrollTo({ top: Math.max(0, el.offsetTop - 14), behavior: 'smooth' });
   }
 
-  function renderDateFilter() {
-    const sel = $('#dateFilter');
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">${esc(t('allDates'))}</option>` + state.dates.map((d) => `<option value="${d}">${esc(fmtDate(d))}</option>`).join('');
-    sel.value = state.dates.includes(cur) ? cur : '';
-  }
-
   function statusPill(e) {
     // 搜出来的「意思相近」要标出来。用现成的 .pill——房里已经有「一个词」这个说法了，别再造一个
     if (e.near) return `<span class="pill near">${esc(t('near'))}</span>`;
@@ -700,7 +836,6 @@
   // inside them are labelled, and the rail down the right edge is the whole scroll in miniature.
   const ROW_TARGET = 150;                       // px; the height a row is aimed at before it is justified
   const ROW_GAP = 8;
-  const TEXT_RATIO = { note: 2, text: 2, url: 2, audio: 2, pdf: 1.6, file: 1.6, video: 1.8, media: 1.8 };
   // 一条记录长成哪种纸。
   // **剪贴板排在图片前面**：从剪贴板来的东西就该长成撕下来的那一片纸，是图也一样——
   // 一屏里「哪些是我复制来的」比「哪些有画面」更要紧，而拍立得会把它伪装成一张截图。
@@ -712,28 +847,30 @@
     if (e.type === 'note' || e.type === 'text') return 'note';
     return 'file';
   }
-  // 形状是宽高比：一条磁带 / 一张索引卡 / 一张正方形便利贴 / 一片撕下来的纸。
-  // 每种再分大中小——**一条记录该占多大，取决于它有多少东西可看**，不是取决于它是哪一类。
-  // 一段 7 秒的录音和一段 5 分钟的录音占同样大的地方，是上一版最刺眼的毛病。
-  // 瀑布流是等高行，同一行里高度是共享的，所以「大小」落在**宽度**上：小的窄，大的宽。
-  const SIZE_RATIO = {
-    voice: { s: 1.5, m: 2.4, l: 3.4 },
-    note:  { s: 0.85, m: 1.15, l: 1.6 },
-    clip:  { s: 0.9, m: 1.2, l: 1.6 },
-    mark:  { s: 1.3, m: 1.8, l: 2.4 },
-    file:  { s: 1.3, m: 1.6, l: 2 },
-  };
-  // 有多少东西可看：录音看时长，别的看字数。图片不参与——它的形状是它自己的，不该被我们改。
-  function cardSize(e) {
+  // **只有两种尺寸**（2026-09-08）：正方（小）· 两个正方那么宽的长方（大）。
+  // 瀑布流是等高行，同一行里高度是共享的，所以「尺寸」只能落在宽度上——这两种就是宽高比 1 和 2。
+  // 之前是五种纸各自一套 s/m/l 的宽高比（0.85 到 3.4，十五个数），一屏上每张卡都是不同的形状，
+  // 排出来没有节奏；两种就有了节奏，而且一行的宽高比之和一定是整数，行高不会磨出零头。
+  const TILE_S = 1;    // 一格：正方
+  const TILE_L = 2;    // 两格：宽正好等于两张小卡 **加上它们之间那道缝**
+
+  // 大还是小：**取决于这条记录有多少东西可看**，不是取决于它是哪一类。
+  // 一段 7 秒的录音和一段 5 分钟的录音占同样大的地方，是这套尺寸最早那一版最刺眼的毛病。
+  function isBigTile(e) {
+    if (isPicture(e)) {
+      const w = Number(e.width) || 0, h = Number(e.height) || 0;
+      const r = w && h ? w / h : (ratioCache.get(e.id) || 4 / 3);
+      return r >= 1.4;         // 横的占两格，竖的和方的占一格——不然横图挤进正方要切掉一半
+    }
     const kind = cardKind(e);
-    if (kind === 'voice') { const s = Number(e.durationSec) || 0; return s < 20 ? 's' : s < 120 ? 'm' : 'l'; }
+    if (kind === 'voice') return (Number(e.durationSec) || 0) >= 20;
     // 量的必须是**卡片上看得见的那些字**。收藏卡只显示标题和域名，拿它藏起来的整页摘录去算大小，
-    // 就会得到一张又宽又空的卡——这是上一版那两张大白卡的来源。
+    // 就会得到一张又宽又空的卡。
     const shown = kind === 'mark' ? cardTitle(e) : (cardText(e) || cardTitle(e));
     const n = String(shown || '').trim().length;
-    if (kind === 'mark') return n < 18 ? 's' : n < 44 ? 'm' : 'l';
-    return n < 40 ? 's' : n < 160 ? 'm' : 'l';
+    return kind === 'mark' ? n >= 18 : n >= 40;
   }
+
   const SOURCE_LABEL = { screenshot: 'srcScreenshot', clipboard: 'srcClipboard', bookmark: 'srcBookmark', browser: 'srcBrowser', voice: 'srcVoice', other: 'srcOther' };
   // 「其它」这一组在筛选器上是一个词，在一行上得说清楚到底是哪一件
   const OTHER_LABEL = { note: 'srcNote', file: 'srcFile' };
@@ -770,9 +907,11 @@
   // "Nothing here" used to mean two opposite things: nothing was worth keeping, or briffy was closed
   // and the day was never offered. It knows which now (src/main/uptime.js), so it says which.
   async function emptyReason() {
-    if (!state.date || state.query || state.f.type || state.f.origin) return '';
+    // 只有真的只看着**一天**的时候才说得通：「不限」「近 7 天」说不出是哪一天关着机器。
+    const days = rangeDates(state.range);
+    if (!days || days.length !== 1 || state.query || state.f.bucket || state.f.sub) return '';
     try {
-      const st = await ws.dayStats(state.date);
+      const st = await ws.dayStats(days[0]);
       if (st.status === 'off') return t('dayWasOff');
       if (st.status === 'idle') return t('dayWasIdle', { min: st.uptimeMinutes });
     } catch (_) { /* an older workspace has no record of this */ }
@@ -807,29 +946,39 @@
     return text.slice(title.length).replace(/^[\s\u3000·、，。：:,.-]+/, '');
   }
 
-  // The shape of the box a record gets. A picture keeps its own, within limits -- a very tall one
-  // would otherwise shrink to a sliver, a very wide one swallow a row. Words get a fixed 3:2 card.
-  function tileRatio(e) {
-    if (!isPicture(e)) return (SIZE_RATIO[cardKind(e)] || SIZE_RATIO.file)[cardSize(e)];
-    const w = Number(e.width) || 0, h = Number(e.height) || 0;
-    const r = w && h ? w / h : (ratioCache.get(e.id) || 4 / 3);
-    return Math.min(Math.max(r, 0.55), 2.4);
-  }
+  // 一条记录占几格：一格（正方），或者两格。没有第三种。
+  function tileUnits(e) { return isBigTile(e) ? TILE_L : TILE_S; }
 
   // Flickr's justified layout: fill a row until the boxes at the target height overflow the width,
   // then scale that row so the widths sum exactly to it. The last row keeps the target height unless
   // it is nearly full, so a lone final picture is not blown up to the width of the page.
-  function justify(items, width, target = ROW_TARGET, gap = ROW_GAP) {
+  // **固定列数的网格：整页一个方格边长，所有卡片同高。**
+  //
+  // 之前是 Flickr 那种等高行——每一行自己算高度去铺满宽度，于是一行 4 格的行，格子比一行 6 格的
+  // 大三分之一，同样一张小卡在这一行是 196、下一行是 150。既然尺寸只有两种，那就该真的只有两种。
+  //
+  // 列宽是一次算出来的：`cols = round((width + gap) / (target + gap))`，然后
+  // `cell = (width - (cols-1) * gap) / cols`。大卡的宽 = **两个方格 ＋ 中间那道缝**
+  // （`2 * cell + gap`），不是「方格的两倍」——差的正好是一个 gap，列就是这么对不齐的。
+  //
+  // **一行只剩一格、下一张又是大卡时，把它收成小卡**，不留窟窿。记录是按时间排的，
+  // 不能为了填满而重排顺序；而「大还是小」本来就是个看内容多少的估计，收一格不损失什么，
+  // 一行末尾空一个格子却会被读成「这儿少了一张」。
+  function gridPlan(items, width, target = ROW_TARGET, gap = ROW_GAP) {
+    const cols = Math.max(2, Math.round((width + gap) / (target + gap)));
+    const cell = (width - (cols - 1) * gap) / cols;
     const rows = [];
     let row = [];
-    const widthAt = (r, h) => r.reduce((a, it) => a + tileRatio(it) * h, 0) + gap * (r.length - 1);
-    const fit = (r) => (width - gap * (r.length - 1)) / r.reduce((a, x) => a + tileRatio(x), 0);
-    for (const it of items) {
-      row.push(it);
-      if (widthAt(row, target) >= width) { rows.push({ items: row, h: Math.min(fit(row), target * 1.3) }); row = []; }
+    let used = 0;
+    for (const e of items) {
+      let u = tileUnits(e);
+      if (used + u > cols) u = TILE_S;      // 到这儿剩的一定正好是一格
+      row.push({ e, u });
+      used += u;
+      if (used >= cols) { rows.push(row); row = []; used = 0; }
     }
-    if (row.length) rows.push({ items: row, h: widthAt(row, target) / width >= 0.7 ? fit(row) : target });
-    return rows;
+    if (row.length) rows.push(row);         // 最后一行排不满就不排满，不拉伸
+    return { cols, cell, rows };
   }
 
   // 卡片上不写时间。
@@ -912,9 +1061,25 @@
     return `${Math.floor(n / 60)}\u2032${String(n % 60).padStart(2, '0')}\u2033`;
   };
 
-  function tileEl(e) {
+  // 碎片歪着贴。角度**由 id 定死**：随机的话每次重排都换一个角度，一屏卡片会集体抖一下。
+  // **0.6–1.5 度，左右各一半，还有三成完全不歪**（2026-09-09 用户改的：3 度太多了）。
+  // 一屏碎片要是每张都歪着，那就成了一种规律——「随手扔的」这件事恰恰要靠**有的正有的歪**才成立。
+  // 返回的是一段 css 文本，因为网格那边是整句 `style.cssText = …` 写进去的，
+  // 在 tileEl 里 `setProperty` 会被那一句抹掉。
+  function tiltVar(e) {
+    if (cardKind(e) !== 'clip') return '';
+    let h = 0;
+    for (const ch of String(e.id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const bucket = h % 10;
+    if (bucket < 3) return '';                                  // 三成正着贴
+    const deg = (0.6 + (bucket - 3) * 0.15) * (h & 16 ? 1 : -1);
+    return `--tilt:${deg.toFixed(2)}deg;`;
+  }
+
+  function tileEl(e, units) {
     const el = document.createElement('div');
-    el.className = `jg-tile k-${cardKind(e)} z-${cardSize(e)}${state.picked.has(e.id) ? ' picked' : ''}`
+    const u = units || (isBigTile(e) ? TILE_L : TILE_S);
+    el.className = `jg-tile k-${cardKind(e)} z-${u === TILE_L ? 'l' : 's'}${state.picked.has(e.id) ? ' picked' : ''}`
       + (cardKind(e) === 'clip' && isPicture(e) ? ' has-cap' : '');
     el.dataset.id = e.id;
     el.setAttribute('role', 'button');
@@ -1006,18 +1171,23 @@
         const block = document.createElement('div');
         block.className = 'jg-rows';
         let top = 0;
-        for (const row of justify(items, width)) {
-          let left = 0;
-          for (const e of row.items) {
-            const w = tileRatio(e) * row.h;
-            const tile = tileEl(e);
-            // --lines: how many 18px lines of the slip are left for words -- the row height less the slip's
-            // padding (14+15), its label row (19) and its tag row (17+8). See .jg-txt in the css.
-            tile.style.cssText = `left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${w.toFixed(1)}px;height:${row.h.toFixed(1)}px;--lines:${Math.max(1, Math.floor((row.h - 78) / 18))};--nlines:${Math.max(1, Math.floor((row.h - 62) / 26))};--clines:${Math.max(1, Math.floor((row.h - 74) / 21))}`;
+        const plan = gridPlan(items, width);
+        const h = plan.cell;
+        // --lines: how many 18px lines of the slip are left for words -- the card height less the slip's
+        // padding (14+15), its label row (19) and its tag row (17+8). See .jg-txt in the css.
+        // 整页一个高度，所以这三个数也只算一次。
+        const vars = `--lines:${Math.max(1, Math.floor((h - 78) / 18))};--nlines:${Math.max(1, Math.floor((h - 62) / 26))};--clines:${Math.max(1, Math.floor((h - 74) / 21))};`;
+        for (const row of plan.rows) {
+          let used = 0;
+          for (const { e, u } of row) {
+            const w = u * h + (u - 1) * ROW_GAP;      // 两格的那张要把中间那道缝也吃掉
+            const left = used * (h + ROW_GAP);
+            const tile = tileEl(e, u);
+            tile.style.cssText = `left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;${vars}${tiltVar(e)}`;
             block.appendChild(tile);
-            left += w + ROW_GAP;
+            used += u;
           }
-          top += row.h + ROW_GAP;
+          top += h + ROW_GAP;
         }
         block.style.height = `${Math.max(0, top - ROW_GAP)}px`;
         frag.appendChild(block);
@@ -1110,50 +1280,168 @@
   const SHORT_S = 180;
   let trailOpen = new Set();
   let trailAll = false;
+  let trailDayList = null;      // 有痕迹的那些天（新的在前），只问一次
+  let trailFold = new Set();    // 收起来的站点
+  let trailBlocks = false;      // 「都在做什么」那一段展开没有
 
+  /** 现在在看哪一天的痕迹。它和记录页那个日期筛选是两回事——那边筛的是记录，这边只有一天。 */
+  function trailDay() { return state.trailDate || (trailDayList && trailDayList[0]) || todayKey(); }
+
+  /** 秒 → 人话。这一页上到处是时长，写法只该有一种。 */
+  function fmtDur(secs) {
+    const m = Math.max(1, Math.round(secs / 60));
+    return m >= 60 ? t('durHM', { h: Math.floor(m / 60), m: m % 60 }) : t('durM', { m });
+  }
+
+  /**
+   * 「路过」这一页。
+   *
+   * **它的主语是「读过的东西」，不是「时段」。**（2026-09-09 重做第二版。）第一版把时段列成
+   * 一张表、再加一条按应用的时间统计——用户原话「我还是看不出来自动监听页面的可视化价值」，
+   * 而他是对的：「今天你在 Claude 上花了 6 小时」你自己知道，时间报表是别人的产品。
+   * 这一层唯一不可替代的那件事是——**你记得读过一个东西，但你没存它**。
+   * 那些正文（每天几十页，中位数 559 字的原文）在这之前是只写不读的：界面上要点开某一行
+   * 才看得见，搜索框在这一页什么都不做，ask.js 里 trail 这个词一次都没出现。
+   *
+   * 所以现在：
+   *   · 顶上一句「这一天什么样」，一行，不是一节；
+   *   · **读过的东西**按站点分组（不是按「工作 / 消遣」分——那是替你下判断，
+   *     而按站点分同样能让你找工作那几页时不必翻过 60 条视频）；
+   *   · 时段收进一个折叠里，它是佐证不是内容。
+   * 搜索框在这一页搜的是网页正文，而且**不限这一天**：「我记得读过一个东西」不带日期。
+   */
   async function renderTrail() {
     const box = $('#tvRows');
     if (!box) return;
     if (!state.settings || state.settings.recordTrail !== true) {
       box.innerHTML = `<div class="tv-note">${esc(t('trailOff'))}</div>`;
+      renderTrailAxis();
       return;
     }
-    const day = state.date || todayKey();
+    if (!trailDayList) { try { trailDayList = await ws.trailDays(); } catch (_) { trailDayList = []; } }
+
+    // 搜索：跨所有天，平铺，不分组——你在找一个东西，不是在读某一天
+    const q = (state.query || '').trim();
+    if (q) {
+      let hits = [];
+      try { hits = await ws.trailFind(q); } catch (_) { hits = []; }
+      renderTrailAxis();
+      box.innerHTML = `<div class="tv-head"><span class="d">${esc(t('trailFound', { n: hits.length }))}</span>`
+        + `<span class="s">${esc(t('trailFoundSub', { q }))}</span></div>`
+        + (hits.length ? `<div class="tv-pg-list">${hits.map(pageRow).join('')}</div>`
+          : `<div class="tv-note">${esc(t('trailNoHit'))}</div>`);
+      return;
+    }
+
+    const day = trailDay();
     let all = [];
-    try { all = await ws.trailSessions(day); } catch (_) { all = []; }
-    if (!all.length) { box.innerHTML = `<div class="tv-note">${esc(t('trailEmpty'))}</div>`; return; }
+    let pages = [];
+    try { [all, pages] = await Promise.all([ws.trailSessions(day), ws.trailPages(day)]); } catch (_) { /* 空的就画空的 */ }
+    all = all || []; pages = pages || [];
+    renderTrailAxis();
+    if (!all.length && !pages.length) {
+      box.innerHTML = `<div class="tv-head"><span class="d">${esc(relDay(day))}</span></div>`
+        + `<div class="tv-note">${esc(t('trailEmpty'))}</div>`;
+      return;
+    }
+    const total = all.reduce((n, b) => n + b.secs, 0);
+    const byApp = new Map();
+    for (const b of all) byApp.set(b.app, (byApp.get(b.app) || 0) + b.secs);
+    const apps = [...byApp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    // 「这一天什么样」是一行小字，不是一整节：它是背景，不是内容
+    const head = `<div class="tv-head"><span class="d">${esc(relDay(day))}</span>`
+      + `<span class="s">${esc(t('trailAwake', { t: fmtDur(total) }))}`
+      + (apps.length ? ` · ${esc(apps.map(([a, x]) => `${a} ${fmtDur(x)}`).join(' · '))}` : '')
+      + `</span></div>`;
+
+    // ── 读过的东西：按站点分组 ──
+    const bySite = new Map();
+    for (const p of pages) {
+      const s2 = p.site || t('trailNoSite');
+      if (!bySite.has(s2)) bySite.set(s2, []);
+      bySite.get(s2).push(p);
+    }
+    const sites = [...bySite.entries()].sort((a, b) => b[1].length - a[1].length);
+    const read = sites.length
+      ? `<h3 class="tv-h">${esc(t('trailRead'))}<span>${esc(t('trailReadN', { n: pages.length, s: sites.length }))}</span></h3>`
+        + sites.map(([site, list]) => {
+          const shut = trailFold.has(site);
+          return `<div class="tv-site${shut ? ' shut' : ''}">`
+            + `<button type="button" class="tv-site-h" data-site="${esc(site)}">`
+            + `<span class="nm">${esc(site)}</span><span class="n">${list.length}</span></button>`
+            + (shut ? '' : `<div class="tv-pg-list">${list.map(pageRow).join('')}</div>`)
+            + `</div>`;
+        }).join('')
+      : `<h3 class="tv-h">${esc(t('trailRead'))}</h3><div class="tv-note">${esc(t('trailNoPages'))}</div>`;
+
+    // ── 都在做什么：佐证，默认收起 ──
     const shown = trailAll ? all : all.filter((b) => b.secs >= SHORT_S);
     const hidden = all.length - shown.length;
-    box.innerHTML = shown.map((b, i) => {
-      const key = b.from;
-      const open = trailOpen.has(key);
-      const mins = Math.max(1, Math.round(b.secs / 60));
-      const title = b.window && b.window !== b.app ? b.window : '';
-      return `<div class="tv-row${open ? ' open' : ''}" data-key="${esc(key)}" role="button" tabindex="0">`
-        + `<span class="tm">${esc(fmtTime(b.from))}–${esc(fmtTime(b.to))}</span>`
-        + `<span class="dur">${esc(t('trailMin', { n: mins }))}</span>`
-        + `<span class="app">${esc(b.app)}</span>`
-        + `<span class="ti">${esc(title)}</span>`
-        + `${b.pages.length ? `<span class="np">${esc(t('trailPages', { n: b.pages.length }))}</span>` : ''}`
-        + `</div>`
-        + (open && b.pages.length
-          ? `<div class="tv-pages">${b.pages.map((p) => `<div class="tv-page"><div class="ti">${esc(p.title || p.url)}</div>`
-            + `<div class="bb">${esc(String(p.text || '').slice(0, 600))}</div></div>`).join('')}</div>`
-          : '');
-    }).join('')
-      + (hidden > 0 ? `<button type="button" class="tv-more" data-trail-all="1">${esc(t('trailShort', { n: hidden }))} · ${esc(t('trailAll'))}</button>` : '');
+    const longest = shown.reduce((n, b) => Math.max(n, b.secs), 1);
+    const blocks = `<h3 class="tv-h fold${trailBlocks ? ' open' : ''}" data-blocks="1">${esc(t('trailBlocksHead'))}`
+      + `<span>${esc(t('trailBlocks', { n: all.length }))}</span></h3>`
+      + (trailBlocks
+        ? shown.map((b) => {
+          const key = b.from;
+          const open = trailOpen.has(key);
+          const title = b.window && b.window !== b.app ? b.window : '';
+          // 开方，不是线性：一天里最长那段常常是最短那段的一百倍
+          const w = Math.sqrt(b.secs / longest);
+          return `<div class="tv-row${open ? ' open' : ''}${b.pages.length ? ' has-pages' : ''}" data-key="${esc(key)}" role="button" tabindex="0">`
+            + `<span class="tm">${esc(fmtTime(b.from))}–${esc(fmtTime(b.to))}</span>`
+            + `<span class="dur"><i style="--w:${w.toFixed(3)}"></i>${esc(fmtDur(b.secs))}</span>`
+            + `<span class="ti"><span class="nm">${esc(title || b.app)}</span>`
+            + `${title ? `<i class="app">${esc(b.app)}</i>` : ''}</span>`
+            + `<span class="np">${b.pages.length ? esc(t('trailPages', { n: b.pages.length })) : ''}</span>`
+            + `</div>`
+            + (open && b.pages.length
+              ? `<div class="tv-pages">${b.pages.map((p) => `<div class="tv-page"><div class="ti">${esc(p.title || p.url)}</div>`
+                + `<div class="bb">${esc(String(p.text || '').slice(0, 600))}</div></div>`).join('')}</div>`
+              : '');
+        }).join('')
+          + (hidden > 0 ? `<button type="button" class="tv-more" data-trail-all="1">${esc(t('trailShort', { n: hidden }))} · ${esc(t('trailAll'))}</button>` : '')
+        : '');
+
+    box.innerHTML = head + read + blocks;
+  }
+
+  /** 一页读过的网页。点它就在浏览器里打开——你要的就是回到那一页。 */
+  function pageRow(p) {
+    return `<a class="tv-pg" href="${esc(p.url)}" data-url="${esc(p.url)}" title="${esc(p.url)}">`
+      + `<span class="tm">${esc(p.day && p.day !== trailDay() ? relDay(p.day) : fmtTime(p.at))}</span>`
+      + `<span class="nm">${esc(p.title || p.url)}</span>`
+      + `<span class="bb">${esc(p.snippet || p.text || '')}</span></a>`;
+  }
+
+  /**
+   * 这一页的轴。**它和记录页那条轴不是一件事**：那边是索引（滚到哪儿它跟到哪儿），
+   * 这边是换台——这一页一次只讲一天，点一天就是换一天。所以列的是「有痕迹的那些天」，
+   * 不是「有记录的那些天」，也不带条数：那个数在记录页上是「这天存了几条」，
+   * 搬到这儿会被读成「这天有几段」，而它不是。
+   * （之前这一页压根没管轴，dayScroller 把它当成网格页，于是轴去找一个 hidden 容器里的锚点——
+   *  高亮不动、点一天也跳不动，用户原话「时间轴好像也不太对劲」。）
+   */
+  function renderTrailAxis() {
+    const day = trailDay();
+    const days = trailDayList || [];
+    const searching = !!(state.query || '').trim();
+    $('#axis').innerHTML = days.map((d) => `<button type="button" class="ax${!searching && d === day ? ' now' : ''}" data-day="${esc(d)}">`
+      + `<span>${esc(relDay(d))}</span></button>`).join('');
+    $('#sideStats').textContent = days.length ? t('trailDaysN', { n: days.length }) : '';
   }
 
   function applyView(view) {
     state.view = ['list', 'trail'].includes(view) ? view : 'grid';
     try { localStorage.setItem('briffy.view', state.view); } catch (_) { /* storage unavailable */ }
+    document.body.dataset.view = state.view;       // 筛选那一行只属于「记录」，见 workspace.css
     $('#entryGrid').hidden = state.view !== 'grid';
     $('#entryList').hidden = state.view !== 'list';
     $('#entryTrail').hidden = state.view !== 'trail';
-    if (state.view === 'trail') renderTrail();
     for (const b of document.querySelectorAll('#viewSeg button')) b.classList.toggle('active', b.dataset.view === state.view);
     if (state.view === 'grid') jgIds = '';          // dealt while hidden, if at all: deal it again at its real width
+    if (state.view === 'trail') { renderTrail(); return; }   // 轴归它自己管（renderTrailAxis）
     renderList();
+    renderAxis();                                  // 从「路过」切回来，轴得换回记录那一份
     markAxis();                                    // 轴跟的是当前这张纸，换了纸就得重新看一眼
     if (state.view === 'list') renderDetail();
   }
@@ -1494,11 +1782,13 @@
   function upsert(entry) {
     const i = state.entries.findIndex((x) => x.id === entry.id);
     if (i >= 0) state.entries[i] = entry;
-    else if (!state.date || state.date === entry.dateKey) {
+    else if (inRange(entry.dateKey)) {
       state.entries.push(entry);
       state.entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
-    if (!state.dates.includes(entry.dateKey)) { state.dates.unshift(entry.dateKey); state.dates.sort().reverse(); renderDateFilter(); }
+    // 那一排词上的数下一次 loadEntries 才刷新——它们来自 stats，一条一条地改会和屏幕对不上，
+    // 而「数必须等于屏幕上的条数」正是这一版的全部意思。
+    if (!state.dates.includes(entry.dateKey)) { state.dates.unshift(entry.dateKey); state.dates.sort().reverse(); }
   }
 
   async function detailAction(action, btn = null) {
@@ -1689,7 +1979,8 @@
   // 存在磁盘上（src/main/chats.js），一条一个文件。在这之前 state.chat 只在内存里，
   // 切到别的页再回来就空了——问过一遍的东西第二天翻不回去。
   //
-  // 左列只有字：按天分组，一条一行。没有框、没有线——和记录页的筛选行同一种说法。
+  // **左列每条是一张便签**：按天分组，一条一张。一次问答不是导航，它是你留下的东西——
+  // 能打开、能改名、能删掉，跟主页上一张记录同一类，所以用同一种纸（见 workspace.css .cl-row）。
   async function loadChats() {
     try { state.chatList = await ws.chats(); } catch (_) { state.chatList = []; }
     renderChatList();
@@ -1734,7 +2025,14 @@
     const box = $('#askAnswer');
     const turns = state.chat;
     if (!turns.length && !state.ask.busy) {
-      box.innerHTML = `<div class="empty"><span>${esc(t('askEmpty'))}</span></div>`;
+      // 一条都没问过的时候，这一栏是整页最大的一块空。原来只往里放一句灰字，
+      // 那句话既没有分量也没有归属，一整屏白里就它一行——这一页读起来是散沙，一半来自这儿。
+      // 现在给它一个重心：一句满墨的主语 + 一行说明。
+      // （中间有过一排「试试这么问」的例句，2026-09-09 去掉了：它们是四条替你想好的问题，
+      // 摆在一页正中间，比你自己要问的那句还响。）
+      box.innerHTML = `<div class="ask-blank">`
+        + `<h2>${esc(t('askEmptyTitle'))}</h2>`
+        + `<p>${esc(t('askEmpty'))}</p></div>`;
       return;
     }
     let html = turns.map(turnHtml).join('');
@@ -1746,7 +2044,8 @@
   function citeCard(e, n, cited) {
     const thumb = (e.type === 'screenshot' || e.type === 'image') && e.fileUrl
       ? `<img src="${esc(e.fileUrl)}" loading="lazy" alt="" />` : (ICONS[e.type] || ICONS.file);
-    return `<button type="button" class="citecard${cited ? ' cited' : ''}" data-id="${esc(e.id)}" data-n="${n}">`
+    return `<button type="button" class="citecard${cited ? ' cited' : ''}" data-id="${esc(e.id)}"`
+      + `${e.type === 'trail' && e.url ? ` data-url="${esc(e.url)}"` : ''} data-n="${n}">`
       + `<span class="cn">${n}</span><span class="ct">${thumb}</span>`
       + `<span class="cb"><b>${esc(cardTitle(e))}</b><span>${esc(fmtTime(e.createdAt))}</span></span></button>`;
   }
@@ -1791,12 +2090,10 @@
   // 没配好的也列出来但点不动——「这里为什么没有 OpenRouter」比「点了没反应」更难查。
   const PROV_LABEL = { openrouter: 'OpenRouter', ollama: 'Ollama' };
 
-  /** 当前用的是哪个，短的那种写法。 */
+  /** 当前用的是哪个，短的那种写法。和托盘、设置页那两行「常驻」读同一对函数。 */
   function modelLabel() {
-    const s = state.settings || {};
-    const p = s.provider || 'openrouter';
-    if (p === 'ollama') return s.ollamaModel || (state.providerStatus?.recommendation?.model) || 'Ollama';
-    return (s.openrouterModel || '').split('/').pop() || 'OpenRouter';
+    const p = (state.settings || {}).provider || 'openrouter';
+    return (p === 'ollama' ? residentLocal() : residentNet()) || PROV_LABEL[p] || '';
   }
   function renderModelBtn() {
     const b = $('#btnModel');
@@ -1808,7 +2105,7 @@
 
   // 差什么才能用。**主进程算好了送过来**（providerStatus.missingBy），这儿不另立一套——
   // 判「配没配好」的规矩只该有一份，抄第二遍就会漂，而漂了没人发现。
-  const MISS_LABEL = { account: 'missAccount', apiKey: 'missKey', baseUrl: 'missBaseUrl', model: 'missModel', host: 'missHost' };
+  const MISS_LABEL = { apiKey: 'missKey', model: 'missModel', host: 'missHost' };
   function provMissing(p) {
     const by = (state.providerStatus || {}).missingBy;
     if (!by) return '';
@@ -1834,43 +2131,154 @@
     $('#btnModel')?.parentElement.classList.remove('open');
   }
 
+  /**
+   * 托盘里就是**架子上的那几个**：本地最多三个、网络最多三个，一边一组。
+   *
+   * 以前这儿把本机所有下载过的模型一条条列出来，再加一条联网的、一条「在设置里选…」——
+   * 用户原话「聊天窗口的模型选择也乱七八糟的」。挑模型是设置页那两段的事（摆架子），
+   * 这只托盘只做一件事：**在架子上的那几个之间翻一下**。跑不起来的那条留着但点不动，
+   * 写清楚差什么——「这里为什么没有本地模型」比「点了没反应」更难查。
+   */
   async function openModelTray() {
     const box = $('#modelTray');
     if (!box) return;
     if (!state.providerStatus) { try { await loadProviderStatus(); } catch (_) { /* 拿不到就按已知的画 */ } }
-    // 目录只有设置页加载过；托盘要靠它列模型，所以这儿也得有一份（有缓存就是本地读文件）
-    if (!state.orModels) { try { await loadOpenrouterModels(); } catch (_) { /* 没有就退回一行 */ } }
-    const s = state.settings || {};
-    const cur = s.provider || 'openrouter';
+    if (!state.orModels) { try { await loadOpenrouterModels(); } catch (_) { /* 没有就退回 id */ } }
+    const cur = (state.settings || {}).provider || 'openrouter';
+    const ol = (state.providerStatus || {}).ollama || {};
+    const here = new Set((ol.models || []).map((m) => (typeof m === 'string' ? m : m.name)));
+    const netWhy = provMissing('openrouter') ? t(MISS_LABEL[provMissing('openrouter')] || 'modelNotSet') : '';
     const rows = [];
-    const local = (state.providerStatus?.ollama?.models || []).map((m) => (typeof m === 'string' ? m : m.name)).filter(Boolean);
-    if (local.length) {
-      rows.push(`<div class="grp">${esc(PROV_LABEL.ollama)}</div>`);
-      for (const m of local) {
-        const on = cur === 'ollama' && (s.ollamaModel === m || (!s.ollamaModel && modelLabel() === m));
-        rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="ollama" data-model="${esc(m)}">${esc(m)}</button>`);
+    for (const prov of ['ollama', 'openrouter']) {
+      const word = t(prov === 'ollama' ? 'mdlLocal' : 'mdlNet');
+      const list = residentList(prov);
+      if (!list.length) {
+        rows.push(`<button type="button" disabled><span class="w">${esc(word)}</span>`
+          + `<i class="miss">${esc(prov === 'ollama' ? t('localNoModel') : t('residentNone'))}</i></button>`);
+        continue;
       }
-    }
-    // 联网那一栏**只放你现在用的那一个**，外加一条通往设置。
-    //
-    // 这儿一度列过十几个（各家的当家型号），用户原话是「模型选择框贼乱现在，展开有一堆模型」。
-    // 托盘是在你要问问题的那一刻顺手换一下，不是挑模型的地方；挑模型现在有设置里那一片
-    // 常驻的选择器（按公司分组、每家分档，见 renderModelPick）。本机那几个仍然全列——
-    // 它们是「已经下到这台电脑上」的，就那么几个，而且换起来不花钱。
-    rows.push(`<div class="grp">${esc(t('modelRemote'))}</div>`);
-    if (!provReady('openrouter')) {
-      const why = t(MISS_LABEL[provMissing('openrouter')] || 'modelNotSet');
-      rows.push(`<button type="button" data-prov="openrouter" disabled>${esc(PROV_LABEL.openrouter)} — ${esc(why)}</button>`);
-    } else {
-      const id = s.openrouterModel || '';
-      const m = (state.orModels || []).find((x) => x.id === id);
-      const name = String((m && m.name) || id || PROV_LABEL.openrouter).replace(/^~/, '');
-      rows.push(`<button type="button" class="${cur === 'openrouter' ? 'on' : ''}" data-prov="openrouter" data-model="${esc(id)}">${esc(name)}</button>`);
+      for (const id of list) {
+        const name = prov === 'ollama' ? id : orName((state.orModels || []).find((x) => x.id === id), id);
+        const why = prov === 'ollama'
+          ? (!ol.running ? t('localOffline') : !here.has(id) ? t('localNotHere') : '')
+          : netWhy;
+        const on = cur === prov && residentOf(prov) === id && !why;
+        rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="${prov}" data-model="${esc(id)}"${why ? ' disabled' : ''}>`
+          + `<span class="w">${esc(word)}</span>${esc(name)}${why ? ` <i class="miss">${esc(why)}</i>` : ''}</button>`);
+      }
     }
     rows.push(`<button type="button" data-mdl-more="1">${esc(t('modelMore'))}</button>`);
     box.innerHTML = rows.join('');
     box.hidden = false;
     $('#btnModel').parentElement.classList.add('open');
+  }
+
+  // 「没选过的时候用哪个」那两个默认在主进程（llm.config），随 providerStatus.resident 送过来。
+  // 这儿不再自己写一份——写第二份就会和主进程真正用的那个漂开，而漂了没人发现。
+  function residentOf(prov) {
+    const s = state.settings || {};
+    return (prov === 'ollama' ? s.ollamaModel : s.openrouterModel)
+      || ((state.providerStatus || {}).resident || {})[prov] || '';
+  }
+  /** 常驻的那个本地模型。 */
+  function residentLocal() { return residentOf('ollama'); }
+  /**
+   * 本地这一边**这一刻**跑不跑得起来：Ollama 在不在、常驻的那个下没下。
+   * 不用 llm.missing 那份「配没配」——地址和模型名都有默认值，所以那份对本地永远说「好了」，
+   * 而「Ollama 根本没装」正是这儿最常见的那一种不能用。
+   * @returns {string} 空字符串 = 现在就能用；否则是一句能读的话
+   */
+  function localMissing() {
+    const ol = (state.providerStatus || {}).ollama || {};
+    const here = new Set((ol.models || []).map((m) => (typeof m === 'string' ? m : m.name)));
+    const local = residentLocal();
+    if (!ol.running) return t('localOffline');
+    if (!local) return t('localNoModel');
+    if (!here.has(local)) return t('localNotHere');
+    return '';
+  }
+  /**
+   * 一个联网模型在界面上写成什么。
+   *
+   * 两件事：① **带上版本号**。`~…-latest` 那些别名自己的名字里没有版本
+   * （「Google Gemini Pro Latest」），主进程按价目表认出了它这一刻指向谁（`m.resolved`），
+   * 有就用那个——一片写着「Gemini Pro」「GPT」的词看不出你在用哪一代
+   * （2026-09-09 用户原话「最基本的版本数字都没有」）。
+   * ② **去掉公司名**：目录里是「Anthropic: Claude Opus 5」，而「哪一家」在那片词里由行首说，
+   * 托盘上没人问。先按 id 里的厂商键去（`x-ai` 认得出 `xAI`），再兜一道通用的「某某：」。
+   * @param {object} m 目录条目
+   * @param {string} id 它的 id（认不出条目时退回用 id 显示）
+   */
+  function orName(m, id) {
+    const vendor = String(id || (m && m.id) || '').replace(/^~/, '').split('/')[0];
+    let out = String((m && (m.resolved || m.name)) || id || '').replace(/^~/, '');
+    if (vendor) out = out.replace(new RegExp('^' + vendor.replace(/[^a-z0-9]/gi, '[^a-z0-9]?') + '[:\\s]+', 'i'), '');
+    return out.replace(/^[^:]{1,24}:\s*/, '').replace(/\s*Latest$/i, '');
+  }
+  // ── 常驻模型：一边一只最多三格的架子 ────────────────────────────────────
+  //
+  // 「在用」和「常驻」是两件事，2026-09-09 用户定的（原话「常驻模型是允许选择三个的」，
+  // 追问后是「本地三个网络三个」）：
+  //   · **常驻** = 架子上摆着的那几个，最多三个。输入框旁边那只托盘列的就是它们。
+  //   · **在用** = 架子上正拿着的那一个（provider + ollamaModel / openrouterModel）。
+  // 所以设置里一行有两个动作：把它摆上架子 / 从架子上拿起来用。架子满了就先拿一个下来——
+  // 没有「悄悄挤掉最早那个」这种事：一个你自己摆上去的东西不该被别的操作顺手扔掉。
+  const RESIDENT_MAX = 3;
+  const MODEL_KEY = { ollama: 'ollamaModel', openrouter: 'openrouterModel' };
+  const RESIDENT_KEY = { ollama: 'ollamaResident', openrouter: 'openrouterResident' };
+
+  /** 这一边架子上有哪几个。从没设过就把「在用的那一个」当作架子上唯一的一件。 */
+  function residentList(prov) {
+    const raw = (state.settings || {})[RESIDENT_KEY[prov]];
+    const list = (Array.isArray(raw) ? raw : []).filter(Boolean).slice(0, RESIDENT_MAX);
+    if (list.length) return list;
+    const one = residentOf(prov);
+    return one ? [one] : [];
+  }
+
+  /** 存架子（顺带可以换「在用的是哪一个」）。和别处一样：立刻生效，没有保存键。 */
+  async function saveResident(prov, list, active) {
+    const patch = { [RESIDENT_KEY[prov]]: list };
+    if (active) { patch[MODEL_KEY[prov]] = active; patch.provider = prov; }
+    Object.assign(state.settings, patch);
+    if (prov === 'ollama' && active) $('#ollamaModel').value = active;
+    if (active) $('#provider').value = prov;
+    try {
+      const u = await ws.saveSettings(patch);
+      state.settings = u;
+    } catch (e) { toast(String(e && e.message || e)); }
+    renderProviderSeg();
+    renderResident();
+    renderModelPick();
+    renderModelCards();
+  }
+
+  /** 摆上架子 / 从架子上拿下来。 */
+  async function togglePin(prov, model) {
+    const list = residentList(prov);
+    if (list.includes(model)) {
+      const left = list.filter((x) => x !== model);
+      // 把正拿着的那个放回去了：改拿架子上剩下的第一个，别留下一个「在用一件不在架子上的东西」
+      const active = residentOf(prov) === model && left.length ? left[0] : '';
+      await saveResident(prov, left, active);
+      return;
+    }
+    if (list.length >= RESIDENT_MAX) { toast(t('residentFull')); return; }
+    await saveResident(prov, list.concat(model));
+  }
+
+  /** 从架子上拿起来用（同时换到这一边）。 */
+  async function useResident(prov, model) {
+    const list = residentList(prov);
+    await saveResident(prov, list.includes(model) ? list : list.concat(model).slice(0, RESIDENT_MAX), model);
+    toast(t('modelNow', { name: prov === 'ollama' ? model : orName((state.orModels || []).find((x) => x.id === model), model) }));
+  }
+
+  /** 常驻的那个网络模型，写成人看的样子。 */
+  function residentNet() {
+    const id = residentOf('openrouter');
+    if (!id) return '';
+    return orName((state.orModels || []).find((x) => x.id === id), id);
   }
 
   let flashTimer = null;
@@ -1888,7 +2296,7 @@
   // A source can be anywhere in the log, so the entries tab has to drop its filters to show it.
   async function openEntry(id) {
     state.query = ''; $('#search').value = '';
-    state.date = ''; $('#dateFilter').value = '';
+    state.range = '';
     await loadEntries();
     switchTab('entries');
     setSelecting(false);
@@ -2011,14 +2419,11 @@
     $('#captureToClipboard').checked = s.captureToClipboard !== false;
     $('#hotkeyError').textContent = m.hotkeyError || '';
     // 老设置里可能存着一个已经不存在的来源（2026-09-09 去掉了 Claude 直连和自定义接口）。
-    // 给 <select> 赋一个它没有的值，结果是 value 变成空字符串——下拉一片空白，连带
-    // showProviderPanel 找不到任何 panel-${p}，整块设置就消失了。对不上就落回第一档。
-    $('#provider').value = s.provider || 'openrouter';
-    if (!$('#provider').value) $('#provider').value = 'openrouter';
+    // 认不出来就落回网络那一档：写死一个默认，总比让「现在用哪一块」变成空白强。
+    $('#provider').value = ['ollama', 'openrouter'].includes(s.provider) ? s.provider : 'openrouter';
     $('#redact').value = s.redact || 'secrets';
     $('#openrouterKey').value = '';
     $('#openrouterKeyStatus').textContent = keyStatus(s.hasOpenrouterKey, s.openrouterKeyHint);
-    $('#openrouterModel').value = s.openrouterModel || '';
     $('#ollamaHost').value = s.ollamaHost || '';
     $('#ollamaModel').value = s.ollamaModel || '';
     for (const b of document.querySelectorAll('#themeSeg button')) b.classList.toggle('active', b.dataset.theme === (s.theme || 'system'));
@@ -2037,6 +2442,7 @@
     renderMicNow(m.listen);
     renderConnect();
     $('#clipboardWatch').checked = s.clipboardWatch !== false;
+    $('#clipboardInAll').checked = s.clipboardInAll === true;
     $('#clipboardMinChars').value = s.clipboardMinChars ?? 12;
     $('#localApi').checked = s.localApi !== false;
     $('#localApiPort').value = s.localApiPort ?? 47831;
@@ -2046,10 +2452,11 @@
       : t('apiStopped');
     renderMicOptions(state.mics || [], s.micDeviceId || '', s.micLabel || '');
     if (!state.mics) loadMics();
-    showProviderPanel();
+    renderProviderSeg();
     loadProviderStatus();
     renderModelPick();
-    if ($('#provider').value === 'openrouter' && !state.orModels) loadOpenrouterModels();
+    // 两块都常驻在页面上，所以网络那块的目录也得有，不再等你切过去才拉
+    if (!state.orModels) loadOpenrouterModels().catch(() => {});
     $('#sttModel').innerHTML = m.sttModels.map((x) => `<option value="${x.id}"${x.id === s.sttModel ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
     $('#ocrModel').innerHTML = [`<option value="">${esc(t('ocrAuto'))}</option>`]
       .concat((m.ocrModels || []).map((x) => `<option value="${esc(x.id)}"${x.id === s.ocrModel ? ' selected' : ''}>${esc(x.name)} · ${x.bundled ? t('bundled') : `${x.sizeMB} MB`}</option>`)).join('');
@@ -2096,6 +2503,7 @@
     if (ev) ev.preventDefault();
     const l1 = $('#lang1').value; const l2 = $('#lang2').value;
     if (l1 === l2) { toast(t('sameLang')); return; }
+    const clipWas = (state.settings || {}).clipboardInAll === true;
     const patch = {
       languages: [l1, l2],
       hotkeyRegion: $('#hotkeyRegion').value.trim(),
@@ -2111,9 +2519,10 @@
     Object.assign(patch, {
       redact: $('#redact').value,
       provider: $('#provider').value,
-      openrouterModel: $('#openrouterModel').value.trim() || 'anthropic/claude-opus-5',
       ollamaHost: $('#ollamaHost').value.trim() || 'http://127.0.0.1:11434',
-      ollamaModel: $('#ollamaModel').value.trim(),
+      // openrouterModel / ollamaModel **不在这里**：「在用哪一个」由「用它」和输入框旁那只托盘
+      // 立刻存（saveResident），而这张表单每改一项就把所有字段整份送一遍——
+      // 送的是渲染时的旧值，等于把你刚换的那个踩回去。
       normalizeChineseScript: $('#normalizeChineseScript').checked,
       recordContext: $('#recordContext').checked,
       recordTrail: $('#recordTrail').checked,
@@ -2121,6 +2530,7 @@
       autoRecordAllow: allowList.slice(),
       diarize: $('#diarize').checked,
       clipboardWatch: $('#clipboardWatch').checked,
+      clipboardInAll: $('#clipboardInAll').checked,
       clipboardMinChars: Math.max(1, Number($('#clipboardMinChars').value) || 12),
       ocrModel: $('#ocrModel').value,
       localApi: $('#localApi').checked,
@@ -2137,6 +2547,9 @@
     const updated = await ws.saveSettings(patch);
     await refreshMeta(updated);
     flashSaved();
+    // 这一项直接改「全部」那一屏上有什么，所以改完要当场重新取一次——
+    // 别的设置项都不动列表，refreshMeta 只重画不重取
+    if (((updated || {}).clipboardInAll === true) !== clipWas) await loadEntries();
     if (patch.workspaceDir !== undefined) { toast(t('dirChanged')); await loadEntries(); }
   }
   async function refreshMeta(settings) {
@@ -2256,26 +2669,51 @@
   function formOverride() {
     return {
       provider: $('#provider').value,
-      openrouterKey: $('#openrouterKey').value.trim(), openrouterModel: $('#openrouterModel').value.trim(),
-      ollamaHost: $('#ollamaHost').value.trim(), ollamaModel: $('#ollamaModel').value.trim(),
+      openrouterKey: $('#openrouterKey').value.trim(),
+      ollamaHost: $('#ollamaHost').value.trim(),   // 模型名不用送：它已经存进去了（见 settingsPatch）
     };
   }
-  function showProviderPanel() {
-    const p = $('#provider').value;
-    for (const el of document.querySelectorAll('.panel')) el.classList.toggle('active', el.id === `panel-${p}`);
+  /**
+   * 「现在用哪一块」。**它只换常驻，不换页面**——两块设置一直都在，
+   * 变的只有那个 seg 上加粗的那一个，和对应那一段标题旁边那道荧光笔。
+   */
+  function renderProviderSeg() {
+    const p = $('#provider').value || 'openrouter';
+    for (const b of document.querySelectorAll('#providerSeg button')) b.classList.toggle('active', b.dataset.prov === p);
+    $('#sec-local').classList.toggle('in-use', p === 'ollama');
+    $('#sec-net').classList.toggle('in-use', p === 'openrouter');
   }
+  /** 两段各自那行「常驻：架子上摆着谁」。设置页和底下那只托盘读的是同一组函数，不另立一套。 */
+  function renderResident() {
+    const why = localMissing();
+    const local = residentList('ollama');
+    $('#localNow').textContent = !local.length ? t('residentNone')
+      : local.map((m) => (residentOf('ollama') === m ? `${m} · ${t('mdInUse')}` : m)).join('、') + (why ? ` · ${why}` : '');
+    const net = residentList('openrouter');
+    $('#netNow').textContent = !net.length ? t('residentNone')
+      : net.map((id) => {
+        const n = orName((state.orModels || []).find((x) => x.id === id), id);
+        return residentOf('openrouter') === id ? `${n} · ${t('mdInUse')}` : n;
+      }).join('、');
+    renderModelBtn();
+  }
+
   async function loadProviderStatus(refresh = false) {
     try {
       state.providerStatus = await ws.providerStatus({ refresh });
       renderProviderStatus();
     } catch (e) {
-      $('#hwBox').textContent = String(e.message || e);
+      $('#ollamaState').textContent = String(e.message || e);
     }
   }
   function renderProviderStatus() {
     const st = state.providerStatus;
     if (!st) return;
-    $('#providerConfigured').textContent = st.configured ? t('configured', { label: st.label }) : t('notConfigured');
+    // 配好了就什么都不说：那一排词已经写着用哪一块，下面那段还写着常驻的是谁——
+    // 同一件事说三遍。只有「还没配好」是新消息，那时它是一句警告。
+    const cfgLine = $('#providerConfigured');
+    cfgLine.textContent = st.configured ? '' : t('notConfigured');
+    cfgLine.classList.toggle('warn', !st.configured);
     const hw = st.hardware || { gpus: [], cpu: '', cores: 0, ramGB: 0 };
     const rec = st.recommendation || { reason: '', notes: [], alternatives: [], model: '' };
     const ol = st.ollama || { running: false, models: [] };
@@ -2296,51 +2734,65 @@
     if (ol.running) {
       const names = ol.models.map((m) => m.name);
       state$.className = 'st ok';
-      state$.textContent = t('ollamaReady') + (names.length ? ` · ${t('ollamaInstalled', { models: names.join(', ') })}` : '');
-      $('#ollamaModels').innerHTML = names.map((n) => `<option value="${esc(n)}"></option>`).join('');
+      state$.textContent = t('ollamaReady') + (names.length ? ` · ${t('ollamaInstalled', { n: names.length })}` : '');
     } else {
       state$.className = 'st warn';
       state$.textContent = ol.installed ? t('ollamaNotStarted', { binary: ol.binary || '' }) : t('ollamaNotInstalled');
     }
     const alts = rec.alternatives.map((x) => `<code>${esc(x.model)}</code> ${x.sizeGB} GB · ${esc(x.note)}`).join('<br>');
-    $('#hwBox').innerHTML = `<div class="lede">${esc(t('hwPick', { model: pickModel || '?' }))}${size ? ` <span class="muted">${esc(size)}</span>` : ''}</div>`
+    state.hwHtml = `<div class="lede">${esc(t('hwPick', { model: pickModel || '?' }))}${size ? ` <span class="muted">${esc(size)}</span>` : ''}</div>`
       + `<details class="why"><summary>${esc(t('hwWhy'))}</summary>`
       + `<div>${esc(rec.reason)}${rec.notes.length ? ` ${esc(rec.notes.join(' '))}` : ''}</div>`
       + `<div class="muted">${esc(hw.cpu)} · ${esc(t('hwCores', { n: hw.cores }))} · RAM ${hw.ramGB} GB · ${esc(gpus)}</div>`
       + (alts ? `<div class="alts"><b>${esc(t('hwAlternatives'))}</b><br>${alts}</div>` : '')
       + `</details>`;
-    $('#ollamaModel').placeholder = rec.model || '';
+    $('#pullOther').placeholder = rec.model || '';
     renderModelCards();
+    renderResident();
     // only offer the step that is actually needed
     $('#ollamaSetup').classList.toggle('hidden', !!ol.running);
     $('#btnInstallOllama').classList.toggle('hidden', !!ol.installed);
     $('#btnStartOllama').classList.toggle('hidden', !ol.installed);
     $('#btnPull').disabled = !ol.running;
   }
-  // What decides a multi-gigabyte download: which model, how big, and whether this machine can run it.
-  // A text field with a datalist answered none of those, and a model already on disk looked identical
-  // to one that was not.
-  // Three shelves, three models each, cut for this machine and this week: what runs comfortably here,
-  // what is a fair trade, and the heaviest that will load at all. Quality is a public leaderboard score
-  // (ifeval for following instructions in the shape asked for, mmlu-pro for knowing things), not a
-  // guess from the name -- so the table moves when the leaderboard does.
+  // 决定一次几个 GB 的下载的是三件事：哪个模型、多大、这台电脑跑不跑得动。
+  // 一个带 datalist 的文本框一件也答不了，而已经下到本机的模型和还没下的长得一模一样。
+  //
+  // **名单分成两份**：「这台电脑上」——已经有的，点一下就用；「可以下载」——还没有的，
+  // 一档一档，按这台电脑的内存和显卡切。以前两份混在同一片三档里，一行上同时挂着
+  // 下载 / 使用 / 删除三个按钮，用户原话「下载模型功能也看不懂」。分开之后每一行只剩
+  // 一件事：有的那份是「用它」，没有的那份是「下它」。
+  // 档里的分数来自公开评测榜（ifeval 看它照不照你说的格式答，mmlu-pro 看它知不知道），
+  // 不是按名字猜的——所以这张表会跟着榜单动。
   const TIERS = [['easy', 'tierEasy'], ['medium', 'tierMedium'], ['stretch', 'tierStretch']];
   // 一个模型是一行，不是一张卡片。九张带影子的白方块把设置页变成了另一个应用的界面 ——
   // 这一页上只有真实物件才有影子，而目录里的一个名字不是物件。名字 / 说明 / 动作三列对齐，
   // 正在用的那一行划一道荧光笔（选中永远是荧光笔，不是抬起来）。
-  function modelRow(m, installed, current, running) {
-    const have = installed.has(m.model);
-    const inUse = m.model === current;
-    const bits = [`${m.sizeGB} GB`, m.vision ? t('mdVision') : t('mdTextOnly')];
+  function modelRow(m, { have, inUse, running, pinned, full }) {
+    const bits = [];
+    if (m.sizeGB) bits.push(`${m.sizeGB} GB`);
+    if (m.vision) bits.push(t('mdVision'));
+    else if (m.measured) bits.push(t('mdTextOnly'));   // 目录不认识的（自己 pull 的）不瞎说
     if (m.measured) bits.push(t('mdScored', { n: (m.quality * 100).toFixed(0) }));
-    if (have) bits.push(t('mdInstalled'));
     if (inUse) bits.push(t('mdInUse'));
+    // 一行上两个动作，因为「摆上架子」和「拿起来用」是两件事（见 residentList 那一段）：
+    // 没摆上去的只有「设为常驻」，摆上去的才有「用它」。架子满了那个键就点不动，
+    // 并且说清楚为什么——悄悄挤掉你自己摆上去的那一个，比点不动糟得多。
     const acts = [];
     if (!have) acts.push(`<button type="button" class="btn primary" data-get="${esc(m.model)}"${running ? '' : ' disabled'}>${esc(t('mdGet'))}</button>`);
-    else if (!inUse) acts.push(`<button type="button" class="btn" data-use="${esc(m.model)}">${esc(t('mdUse'))}</button>`);
-    if (have) acts.push(`<button type="button" class="btn" data-del="${esc(m.model)}">${esc(t('mdDelete'))}</button>`);
+    else if (!pinned) acts.push(`<button type="button" class="btn" data-pin="${esc(m.model)}"${full ? ` disabled title="${esc(t('residentFull'))}"` : ''}>${esc(t('mdPin'))}</button>`);
+    else {
+      if (!inUse) acts.push(`<button type="button" class="btn" data-use="${esc(m.model)}">${esc(t('mdUse'))}</button>`);
+      acts.push(`<button type="button" class="btn quiet" data-unpin="${esc(m.model)}">${esc(t('mdUnpin'))}</button>`);
+    }
+    if (have) acts.push(`<button type="button" class="btn quiet" data-del="${esc(m.model)}">${esc(t('mdDelete'))}</button>`);
     return `<div class="mdl-row${inUse ? ' in-use' : ''}">`
-      + `<span class="mdl-n">${esc(m.model)}${m.recommended ? `<i class="tag-rec">${esc(t('mdRecommended'))}</i>` : ''}</span>`
+      + `<span class="mdl-n">${esc(m.model)}`
+      // 「在架子上」写在名字旁边，不写进右边那串元信息：那一列窄，一个词就把它挤成两行，
+      // 而这不是元信息——它是这一行现在的身份
+      + (pinned && !inUse ? `<i class="tag-pin">${esc(t('mdPinned'))}</i>` : '')
+      + (m.recommended && !have ? `<i class="tag-rec">${esc(t('mdRecommended'))}</i>` : '')
+      + `</span>`
       + `<span class="mdl-m">${esc(bits.join(' · '))}</span>`
       + `<span class="mdl-a">${acts.join('')}</span></div>`;
   }
@@ -2348,18 +2800,43 @@
     const st = state.providerStatus;
     if (!st) return;
     const tiers = (st.catalogue && st.catalogue.tiers) || {};
-    const installed = new Set(((st.ollama && st.ollama.models) || []).map((m) => m.name));
-    const current = state.settings.ollamaModel || (st.recommendation && st.recommendation.model) || '';
+    const cat = new Map();
+    for (const [key] of TIERS) for (const m of tiers[key] || []) cat.set(m.model, m);
+    const have = ((st.ollama && st.ollama.models) || []);
+    const installed = new Set(have.map((m) => m.name));
+    const current = residentLocal();
+    const pinnedSet = new Set(residentList('ollama'));
+    const full = pinnedSet.size >= RESIDENT_MAX;
     const running = !!(st.ollama && st.ollama.running);
-    $('#modelCards').innerHTML = TIERS.map(([key, label]) => {
-      const list = tiers[key] || [];
+
+    // 已经在这台电脑上的。目录里认得的那几个把大小和分数补上，CLI 自己 pull 的那些
+    // 只有 Ollama 报的大小——但它们照样得列出来，否则「我明明下过」就没有着落。
+    const mine = have.map((m) => {
+      const c = cat.get(m.name) || {};
+      return { ...c, model: m.name, sizeGB: c.sizeGB || (m.size ? +(m.size / 1e9).toFixed(1) : 0), vision: c.vision || m.vision };
+    // 架子上的排前面：这份名单里最要紧的就是「哪几个是常驻」
+    }).sort((a, b) => (a.model === current ? -1 : b.model === current ? 1
+      : (pinnedSet.has(b.model) - pinnedSet.has(a.model)) || a.model.localeCompare(b.model)));
+
+    const out = [`<h4>${esc(t('sHave'))}</h4>`, `<p class="st">${esc(t('residentHint'))}</p>`];
+    out.push(mine.length
+      ? `<div class="mdl-tier">${mine.map((m) => modelRow(m, { have: true, inUse: m.model === current, running, pinned: pinnedSet.has(m.model), full })).join('')}</div>`
+      : `<p class="st">${esc(t('sNoLocalYet'))}</p>`);
+    // 「按这台电脑推荐哪个」是这一份名单的开场白，不是整段的：它回答的是「我该下哪个」。
+    // 所以它跟着「可以下载」走，而不是钉在段首和「常驻」抢第一句。
+    out.push(`<h4>${esc(t('sCanGet'))}</h4>`);
+    if (state.hwHtml) out.push(`<div class="hw">${state.hwHtml}</div>`);
+    const gettable = TIERS.map(([key, label]) => {
+      const list = (tiers[key] || []).filter((m) => !installed.has(m.model));
       if (!list.length) return '';
       return `<div class="mdl-tier"><div class="mdl-h">${esc(t(label))}<span>${esc(t(`${label}Why`))}</span></div>`
-        + list.map((m) => modelRow(m, installed, current, running)).join('') + `</div>`;
+        + list.map((m) => modelRow(m, { have: false, inUse: false, running, pinned: false, full })).join('') + `</div>`;
     }).join('');
+    out.push(gettable || `<p class="st">${esc(t('mdAllHere'))}</p>`);
+    $('#modelCards').innerHTML = out.join('');
+
     const c = st.catalogue || {};
-    $('#modelsNote').textContent = c.live
-      ? t('mdLive', { n: c.scored || 0 }) : t('mdCached');
+    $('#modelsNote').textContent = c.live ? t('mdLive', { n: c.scored || 0 }) : t('mdCached');
 
     const pend = st.pendingPull;
     const box = $('#resumePull');
@@ -2379,6 +2856,7 @@
     $('#ollamaModel').value = model;
     await ws.saveSettings({ ollamaModel: model });
     await loadProviderStatus();
+    renderResident();
   }
   async function deleteModel(model) {
     if (!window.confirm(t('mdConfirmDelete', { model }))) return;
@@ -2421,7 +2899,11 @@
   function renderModelPick() {
     const box = $('#modelPick');
     if (!box) return;
-    const cur = ($('#openrouterModel') && $('#openrouterModel').value.trim()) || '';
+    // 框里打了字就听框里的；空着就是「常驻的那个」（没选过时是主进程给的那个默认，
+    // 不能显示成「一个都没选」——那和它真正在用的对不上）
+    const cur = residentOf('openrouter');
+    const pinnedSet = new Set(residentList('openrouter'));
+    const full = pinnedSet.size >= RESIDENT_MAX;
     const all = state.orModels || [];
     const latest = all.filter((m) => String(m.id || '').startsWith('~'));
     if (!latest.length) { box.innerHTML = `<span class="st">${esc(t('modelsNone'))}</span>`; return; }
@@ -2434,40 +2916,61 @@
     }
     const rows = [];
     // 你现在用的那个如果不在名单里（自己打的型号），单独一行排在最前——不能因为切走就找不回来
-    if (cur && !latest.some((m) => m.id === cur)) {
-      rows.push(`<div class="mv-row"><span class="mv-co">${esc(t('modelMine'))}</span>`
-        + `<button type="button" class="mv on" data-mdl="${esc(cur)}">${esc(cur)}</button></div>`);
+    // 架子上有目录里没有的（自己打的型号，或者从没选过、正在用主进程给的那个默认）：
+    // 单开一行排在最前——不能因为它不在目录里就找不回来
+    const strays = [...pinnedSet].filter((id) => !latest.some((m) => m.id === id));
+    if (strays.length) {
+      const word = (state.settings || {}).openrouterModel ? t('modelMine') : t('modelDefault');
+      rows.push(`<div class="mv-row"><span class="mv-co">${esc(word)}</span>`
+        + strays.map((id) => chip({ id, name: id }, cur, pinnedSet, full)).join('') + `</div>`);
     }
     for (const [vendor, list] of [...groups].sort((a, b) => b[1].length - a[1].length)) {
       list.sort((a, b) => price(a) - price(b));
       const chips = list.map((m, k) => {
         const tier = list.length === 1 ? '' : t(PRICE_TIERS[k === 0 ? 0 : k === list.length - 1 ? 2 : 1]);
-        // 行首已经写着公司名了，值里再写一遍就是「anthropic  Anthropic Claude Haiku」。
-        // 各家在目录里的写法不一样（Anthropic: / Anthropic / Z.ai: / xAI:），所以按分组那个
-        // 键去掉：把键里的非字母数字放松成可有可无，z-ai 才认得出 Z.ai，x-ai 认得出 xAI。
-        const vre = new RegExp('^' + vendor.replace(/[^a-z0-9]/gi, '[^a-z0-9]?') + '[:\\s]+', 'i');
-        const name = String(m.name || m.id).replace(/^~/, '').replace(vre, '').replace(/\s*Latest$/i, '');
-        return `<button type="button" class="mv${m.id === cur ? ' on' : ''}" data-mdl="${esc(m.id)}" title="${esc(m.id)}">`
-          + `${esc(name)}${tier ? `<span class="tier">${esc(tier)}</span>` : ''}</button>`;
+        return chip(m, cur, pinnedSet, full, tier);
       }).join('');
       rows.push(`<div class="mv-row"><span class="mv-co">${esc(vendor)}</span>${chips}</div>`);
     }
     box.innerHTML = rows.join('');
   }
 
+  /**
+   * 一个可选的联网模型长什么样。**和本地那份名单是同一套说法**：
+   * 没摆上架子的是一块 `--tone` 的底（点一下摆上去）；摆上去的换成荧光笔，
+   * 右边多一个小 × 把它拿下来；正拿着用的那个再加一个「在用」。
+   * 行首已经写着公司名了，值里再写一遍就是「anthropic  Anthropic Claude Haiku」——写法见 orName。
+   */
+  function chip(m, cur, pinnedSet, full, tier = '') {
+    const pinned = pinnedSet.has(m.id);
+    const inUse = m.id === cur;
+    const cls = `mv${pinned ? ' pin' : ''}${inUse ? ' on' : ''}`;
+    const dis = !pinned && full ? ` disabled title="${esc(t('residentFull'))}"` : '';
+    return `<button type="button" class="${cls}" data-mdl="${esc(m.id)}"${dis} title="${esc(m.id)}">`
+      + `${esc(orName(m, m.id))}${tier ? `<span class="tier">${esc(tier)}</span>` : ''}`
+      + (inUse ? `<span class="tier">${esc(t('mdInUse'))}</span>` : '')
+      + (pinned ? `<span class="x" data-unpin="${esc(m.id)}" role="button" aria-label="${esc(t('mdUnpin'))}">×</span>` : '')
+      + `</button>`;
+  }
+
   function updateOpenrouterInfo() {
-    const id = $('#openrouterModel').value.trim();
+    const id = $('#orAdd').value.trim() || residentOf('openrouter');
     const m = (state.orModels || []).find((x) => x.id === id);
     const head = state.orModels
       ? t('modelsHead', { n: state.orModels.length, at: fmtDate(new Date(state.orModelsAt || Date.now()).toISOString().slice(0, 10)) })
       : '';
     if (!m) { $('#openrouterModelInfo').textContent = head; return; }
+    const shown = m.resolved || m.name;
     const price = m.pricing && m.pricing.prompt >= 0 ? ` · $${(m.pricing.prompt * 1e6).toFixed(2)} / $${(m.pricing.completion * 1e6).toFixed(2)} per 1M tokens` : '';
-    $('#openrouterModelInfo').textContent = `${head ? `${head} · ` : ''}${m.name}${m.context ? ` · ${Math.round(m.context / 1000)}K ctx` : ''}${m.vision ? ` · ${t('orVision')}` : ''}${price}`;
+    $('#openrouterModelInfo').textContent = `${head ? `${head} · ` : ''}${shown}${m.context ? ` · ${Math.round(m.context / 1000)}K ctx` : ''}${m.vision ? ` · ${t('orVision')}` : ''}${price}`;
   }
   let pullingModel = '';
-  async function pullModel() {
-    const model = $('#ollamaModel').value.trim() || (state.providerStatus && state.providerStatus.recommendation.model);
+  /**
+   * 下一个模型。**下什么由调用方说**——名单里那一行、上次没下完那一条、或者
+   * 「别的模型」那个框。以前它从 #ollamaModel 里读，而那个框同时又是「现在用哪个」，
+   * 于是往里打一个还没下的名字，常驻模型当场就被改成了它。
+   */
+  async function pullModel(model) {
     if (!model) return;
     pullingModel = model;
     $('#btnPull').disabled = true;
@@ -2477,7 +2980,7 @@
       const r = await ws.ollamaPull(model);
       if (r && r.ok) {
         finishJob('jobPullDone', { model });
-        await useModel(model);          // downloading it is asking to use it
+        await useModel(model);          // 特地下了它，就是要用它
       } else {
         const code = r && r.code;
         failJob(code === 'ollama-not-installed' ? t('ollamaNotInstalled')
@@ -2608,7 +3111,7 @@
     // 底栏那两个入口是开关：再点一下就回记录页，否则设置页没有出口
     $('#btnSettings').addEventListener('click', () => switchTab(state.tab === 'settings' ? 'entries' : 'settings'));
     $('#btnAskPage').addEventListener('click', () => switchTab(state.tab === 'ask' ? 'entries' : 'ask'));
-    $('#winClose').addEventListener('click', () => window.close());
+    $('#winClose').addEventListener('click', () => (ws.closeWindow ? ws.closeWindow() : window.close()));
     $('#winBack').addEventListener('click', () => switchTab('entries'));
 
     // 拖外部文件进窗口 = 拖到常驻头像上：同一个入口，只是这里多一层蒙版说清楚松手会发生什么
@@ -2642,6 +3145,8 @@
     $('#axis').addEventListener('click', (e) => {
       const b = e.target.closest('.ax');
       if (!b) return;
+      // 「路过」那一页一次只讲一天，所以点一天是换一天，不是跳过去
+      if (state.view === 'trail') { state.trailDate = b.dataset.day; trailOpen = new Set(); trailAll = false; renderTrail(); return; }
       // 多选模式下（或按住 Cmd），点一天就是选中这一天——轴本来就是按天分的
       if (state.selecting || e.metaKey || e.ctrlKey) { pickDay(b.dataset.day, e.metaKey || e.ctrlKey || e.shiftKey); return; }
       jumpToDay(b.dataset.day);
@@ -2655,32 +3160,68 @@
     if (top && window.ResizeObserver) {
       // 顶栏只在记录页出现，别的页 display:none。那时候量到的是 0，写回去会让记录页的内容
       // 钻到顶栏底下——所以看不见就不改，保留上一次量到的那个数。
+      // 量到的是顶栏的下沿，不是内容该从哪开始 —— 中间还得空一手。以前直接写 r.bottom，
+      // 于是第一排便签紧贴着筛选那行，像是被顶栏切了一刀。
+      const GAP = 26;
       const fit = () => {
         const r = top.getBoundingClientRect();
-        if (r.height > 0) document.documentElement.style.setProperty('--top-h', `${Math.round(r.bottom)}px`);
+        if (r.height > 0) document.documentElement.style.setProperty('--top-h', `${Math.round(r.bottom) + GAP}px`);
       };
       new ResizeObserver(fit).observe(top);
       fit();
     }
     // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
     $('#tvRows').addEventListener('click', (e) => {
+      // 一页读过的网页：点它就回到那一页（在你自己的浏览器里开，不在这扇窗里）
+      const pg = e.target.closest('.tv-pg');
+      if (pg) { e.preventDefault(); ws.openExternal(pg.dataset.url); return; }
+      const site = e.target.closest('[data-site]');
+      if (site) {
+        const k = site.dataset.site;
+        if (trailFold.has(k)) trailFold.delete(k); else trailFold.add(k);
+        renderTrail(); return;
+      }
+      if (e.target.closest('[data-blocks]')) { trailBlocks = !trailBlocks; renderTrail(); return; }
       if (e.target.closest('[data-trail-all]')) { trailAll = true; renderTrail(); return; }
-      const row = e.target.closest('.tv-row');
+      const row = e.target.closest('.tv-row.has-pages');
       if (!row) return;
       const k = row.dataset.key;
       if (trailOpen.has(k)) trailOpen.delete(k); else trailOpen.add(k);
       renderTrail();
     });
-        $('#dims').addEventListener('click', (e) => {
-      if (e.target.closest('[data-clear]')) { state.f = { type: '', origin: '' }; loadEntries(); return; }
-      const b = e.target.closest('[data-dim]');
-      if (!b) return;
-      const k = b.dataset.dim;
-      if (state.dim === k && state.f[k]) { state.f[k] = ''; loadEntries(); return; }
-      state.dim = k; moreValues = false; renderDims();
+    $('#search').addEventListener('input', (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        state.query = e.target.value;
+        // 「路过」那一页搜的是读过的网页正文，不是记录——这一页上没有记录
+        if (state.view === 'trail') { renderTrail(); return; }
+        loadEntries();
+      }, 200);
     });
-    $('#search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { state.query = e.target.value; loadEntries(); }, 200); });
-    $('#dateFilter').addEventListener('change', (e) => { state.date = e.target.value; loadEntries(); });
+    $('#fdates').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-range]');
+      if (!b) return;
+      state.range = b.dataset.range;
+      loadEntries();
+    });
+    // 一级：换一格就把二级清掉（「文字」在剪贴板里和在文件里不是同一个东西），
+    // 顺便把「更多」收回去——上一格展开了八个以上，下一格不该继承那个状态。
+    $('#fbuckets').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-bucket]');
+      if (!b || state.f.bucket === b.dataset.bucket) return;
+      state.f.bucket = b.dataset.bucket;
+      state.f.sub = '';
+      moreValues = false;
+      loadEntries();
+    });
+    // 二级：在这一格里再收一刀。再点一次同一个就是取消。
+    $('#fsub').addEventListener('click', (e) => {
+      if (e.target.closest('[data-more]')) { moreValues = !moreValues; renderSub(); return; }
+      const b = e.target.closest('[data-sub]');
+      if (!b) return;
+      state.f.sub = state.f.sub === b.dataset.sub ? '' : b.dataset.sub;
+      loadEntries();
+    });
     $('#quickAdd').addEventListener('submit', async (e) => {
       e.preventDefault();
       const v = $('#quickInput').value.trim();
@@ -2693,15 +3234,6 @@
       if (!b) return;
       for (const x of document.querySelectorAll('#themeSeg button')) x.classList.toggle('active', x === b);
       await ws.saveSettings({ theme: b.dataset.theme });      // seeing it change is the confirmation
-    });
-    // 下面那行：选当前维度的值。再点一次同一个就是取消。
-    $('#sources').addEventListener('click', (e) => {
-      if (e.target.closest('[data-more]')) { moreValues = !moreValues; renderValues(); return; }
-      const chip = e.target.closest('[data-val]');
-      if (!chip) return;
-      const v = chip.dataset.val;
-      state.f[state.dim] = state.f[state.dim] === v ? '' : v;
-      loadEntries();
     });
     let lastPicked = null;
     // Press: open the record, or in select mode pick it. Shift picks everything between this and the
@@ -2864,19 +3396,27 @@ $('#chatNew').addEventListener('click', () => newChat());
       runAsk();
     });
     $('#askAnswer').addEventListener('click', (e) => { const c = e.target.closest('.cite'); if (c) flashSource(c.dataset.n); });
-    $('#askAnswer').addEventListener('click', (e) => { const card = e.target.closest('.citecard'); if (card) openEntry(card.dataset.id); });
+    $('#askAnswer').addEventListener('click', (e) => {
+      const card = e.target.closest('.citecard');
+      if (!card) return;
+      // 路过那一层的引用不是一条记录，工作区里没有它——点它就回到那一页
+      if (card.dataset.url) { ws.openExternal(card.dataset.url); return; }
+      openEntry(card.dataset.id);
+    });
     $('#modelCards').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
-      if (b.dataset.get) { $('#ollamaModel').value = b.dataset.get; pullModel(); }
-      else if (b.dataset.use) useModel(b.dataset.use);
+      if (b.dataset.get) pullModel(b.dataset.get);
+      else if (b.dataset.use) useResident('ollama', b.dataset.use);
+      else if (b.dataset.pin) togglePin('ollama', b.dataset.pin);
+      else if (b.dataset.unpin) togglePin('ollama', b.dataset.unpin);
       else if (b.dataset.del) deleteModel(b.dataset.del);
     });
     $('#resumePull').addEventListener('click', async (e) => {
       const b = e.target.closest('button');
       if (!b) return;
       if (b.id === 'btnDropPull') { await ws.forgetPendingPull(); await loadProviderStatus(); return; }
-      if (b.dataset.get) { $('#ollamaModel').value = b.dataset.get; pullModel(); }
+      if (b.dataset.get) pullModel(b.dataset.get);
     });
     // One group at a time. The pet picker is heavy, so it is only built when its group is opened.
     $('#settingsNav').addEventListener('click', (e) => {
@@ -2897,7 +3437,8 @@ $('#chatNew').addEventListener('click', () => newChat());
 
     const form = $('#settingsForm');
     form.addEventListener('submit', (e) => e.preventDefault());
-    const isSetting = (el) => el && el.matches('input, select') && el.id !== 'workspaceDir';
+    // #pullOther 是「下哪个」，不是一个设置项——它在表单里，但存不进 settings
+    const isSetting = (el) => el && el.matches('input, select') && !['workspaceDir', 'pullOther', 'openrouterModel'].includes(el.id);
     form.addEventListener('change', (e) => { if (isSetting(e.target)) queueSave(); });
     // 「再加一个」：回车或离开都算加。它不是一个设置项（名单在 allowList 里），所以不能交给上面那条
     const addBox = $('#autoRecordAllowAdd');
@@ -2922,7 +3463,16 @@ $('#chatNew').addEventListener('click', () => newChat());
       e.target.value = [...mods, key].join('+');
       queueSave();
     });
-    $('#provider').addEventListener('change', () => { showProviderPanel(); if ($('#provider').value === 'openrouter' && !state.orModels) loadOpenrouterModels(); });
+    // 换常驻：改隐藏的那个载体，重画 seg 和两行「常驻」，立刻存（这一页没有保存键）
+    $('#providerSeg').addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-prov]');
+      if (!b) return;
+      $('#provider').value = b.dataset.prov;
+      state.settings.provider = b.dataset.prov;   // 存回来之前，托盘上那个名字也得是对的
+      renderProviderSeg();
+      renderResident();
+      queueSave();
+    });
     const clearSecret = (field) => async () => { const u = await ws.saveSettings({ [field]: '' }); await refreshMeta(u); toast(t('keyCleared')); };
     $('#btnClearOpenrouterKey').addEventListener('click', clearSecret('openrouterKey'));
     $('#btnOpenrouterLogin').addEventListener('click', async () => {
@@ -2936,16 +3486,32 @@ $('#chatNew').addEventListener('click', () => newChat());
       }
     });
     $('#btnOpenrouterModels').addEventListener('click', () => loadOpenrouterModels(true));
-    // 点一片词里的一个 = 换模型。和筛选托盘同一种交互：点谁谁变荧光笔，立刻生效（没有保存键）。
-    $('#modelPick').addEventListener('click', (ev) => {
+    // 点一片词里的一个 = 摆上架子 / 拿起来用；点它右边那个小 × = 从架子上拿下来。
+    // 和本地那份名单同一套动作，立刻生效（这一页没有保存键）。
+    $('#modelPick').addEventListener('click', async (ev) => {
+      const x = ev.target.closest('[data-unpin]');
+      if (x) { ev.preventDefault(); await togglePin('openrouter', x.dataset.unpin); updateOpenrouterInfo(); return; }
       const b = ev.target.closest('button[data-mdl]');
-      if (!b) return;
-      $('#openrouterModel').value = b.dataset.mdl;
-      renderModelPick();
+      if (!b || b.disabled) return;
+      const id = b.dataset.mdl;
+      // 没摆上去的先摆上去；已经在架子上的，点一下就是拿起来用
+      if (residentList('openrouter').includes(id)) await useResident('openrouter', id);
+      else await togglePin('openrouter', id);
       updateOpenrouterInfo();
-      queueSave();
     });
-    $('#openrouterModel').addEventListener('input', () => { renderModelPick(); updateOpenrouterInfo(); });
+    // 目录之外的型号：往架子上摆一个。**它不直接改「在用的是哪一个」**——
+    // 那件事只由「用它」和托盘做，和本地那份名单一样。
+    const addOther = async () => {
+      const id = $('#orAdd').value.trim();
+      if (!id) return;
+      if (residentList('openrouter').includes(id)) { toast(t('residentAlready')); return; }
+      await togglePin('openrouter', id);
+      $('#orAdd').value = '';
+      updateOpenrouterInfo();
+    };
+    $('#orAdd').addEventListener('input', updateOpenrouterInfo);
+    $('#orAdd').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } });
+    $('#btnAddOther').addEventListener('click', addOther);
     $('#btnModel').addEventListener('click', (e) => {
       e.stopPropagation();
       if ($('#modelTray').hidden) openModelTray(); else closeModelTray();
@@ -2966,8 +3532,7 @@ $('#chatNew').addEventListener('click', () => newChat());
     // 点别处就收起来。托盘是落下来的东西，不是一个你要再点一次才关得掉的面板。
     document.addEventListener('click', (e) => { if (!e.target.closest('.askmdl')) closeModelTray(); });
     $('#btnDetect').addEventListener('click', () => loadProviderStatus(true));
-    $('#btnUseRecommended').addEventListener('click', () => { if (state.providerStatus) $('#ollamaModel').value = state.providerStatus.recommendation.model; });
-    $('#btnPull').addEventListener('click', pullModel);
+    $('#btnPull').addEventListener('click', () => pullModel($('#pullOther').value.trim() || $('#pullOther').placeholder));
     $('#btnInstallOllama').addEventListener('click', installOllama);
     $('#btnStartOllama').addEventListener('click', startOllama);
     $('#btnDownloadOllama').addEventListener('click', () => ws.openExternal('https://ollama.com/download'));
@@ -2990,7 +3555,10 @@ $('#chatNew').addEventListener('click', () => newChat());
     $('#btnMicTest').addEventListener('click', testMic);
     $('#btnExtHelp').addEventListener('click', () => {
       const box = $('#extHelp');
-      box.innerHTML = t('extSteps', { dir: (state.meta.extensionDir || '') });
+      // 上架之后商店是第一条路，加载已解压退成备用；还没上架时 extensionStoreUrl 是空的，
+      // 这一段整个不出现——一个点不开的「去商店」比没有更糟。见 src/main/extension-store.js
+      const store = state.meta.extensionStoreUrl || '';
+      box.innerHTML = (store ? t('extStore', { store }) : '') + t('extSteps', { dir: (state.meta.extensionDir || '') });
       box.classList.toggle('hidden');
     });
     // Shows what this machine can actually answer -- and, the first time, makes macOS ask for the
@@ -3009,7 +3577,8 @@ $('#chatNew').addEventListener('click', () => newChat());
       const dir = await ws.exportExtension();
       if (dir) toast(t('extExported', { dir }));
     });
-    $('#hwBox').addEventListener('click', (e) => {
+    // 那句硬件说明现在画在名单里（renderModelCards），所以这条委托跟着挂到名单上
+    $('#modelCards').addEventListener('click', (e) => {
       const a = e.target.closest('[data-action="downloadOllama"]');
       if (a) { e.preventDefault(); ws.openExternal('https://ollama.com/download'); }
     });
@@ -3054,8 +3623,8 @@ $('#chatNew').addEventListener('click', () => newChat());
       if (tab === 'entries' && arg) {
         // briffy://day/<date> hands over a date, briffy://entry/<id> an id -- both arrive here.
         if (/^\d{4}-\d{2}-\d{2}$/.test(arg)) {
-          state.date = arg; state.selectedId = null;
-          loadEntries().then(() => { const sel = $('#dateFilter'); if (sel) sel.value = arg; });
+          state.range = arg; state.selectedId = null;      // 具体的一天，时间那一排上多长出一格
+          loadEntries();
         } else {
           state.selectedId = arg; state.editing = false;
           loadEntries().then(() => { if (state.entries.some((x) => x.id === arg)) openDetail(arg); else { renderList(); renderDetail(); } });

@@ -46,19 +46,14 @@ select:hover { color: var(--ink); }
 .src-chip { display: inline-flex; align-items: baseline; gap: 5px; border: 0; background: transparent; color: var(--ink-3);
   padding: 0; font: 400 var(--fs-act)/1.4 var(--sans); cursor: pointer; text-align: left; }
 .src-chip:hover { color: var(--ink-2); }
-/* 筛选是两行：上面三个维度名，下面当前那个维度的值。两行要能一眼分出来，靠的是字号和墨色，
-   不是线和框（全仓只有输入框底下那一道发丝线）。
-   维度名有两种「亮」，别混：
-     .open    下面正展开的是它 —— 满墨加粗，不划线（划线是「选中了一个值」的说法）
-     .active  这个维度已经筛上了 —— 后面直接把选中的值写出来，那比任何记号都清楚 */
-.sources.dims { padding-top: 2px; gap: var(--a4); }
-.sources.dims .src-chip { font-size: var(--fs-meta); }
-.src-chip.dim.open { color: var(--ink); font-weight: 600; }
-.src-chip.dim.active { text-decoration: none; }
-.src-chip.dim .n { opacity: 1; color: var(--ink); }
-.src-chip.clear { color: var(--ink-3); margin-left: auto; }
 .src-chip.active { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
-.src-chip .n { font-variant-numeric: tabular-nums; opacity: .6; font-weight: 400; }
+/* 数**平时不写出来**，只在选中的那个和鼠标停住的那个上出现：一行十几个数字读起来是一条
+   数字带，不是一排能按的词（2026-09-09 用户定的）。数本身还是真的，只是不再一起喊。
+   **位置一直留着**（定宽 + opacity，不是 display:none）：鼠标扫过去整行字跟着左右跳，
+   比十几个数字还难受。宽度按三位数留，这一格里没有四位数的库。 */
+.src-chip .n { display: inline-block; width: 2.1em; text-align: left;
+  font-variant-numeric: tabular-nums; font-weight: 400; opacity: 0; transition: opacity .12s ease-out; }
+.src-chip:hover .n, .src-chip.active .n { opacity: .55; }
 .src-chip.zero { opacity: .4; }
 
 
@@ -123,34 +118,86 @@ input[type="checkbox"]:checked::after { opacity: 1; }
    macOS 的窗口控件历来在那儿，手会自己往那儿去 */
 /* 拖拽带要给窗口边框让开 6px。无边框窗口靠边上那几个像素来改大小，而 `-webkit-app-region: drag`
    会把那几个像素抢走——顶到 0 的话，上边、左上、右上三处都拖不动，「想改窗口大小非常困难」就是这么来的。 */
-.winbar { position: fixed; top: 6px; left: 6px; right: 6px; height: 30px; z-index: 30; -webkit-app-region: drag; }
-.wclose { position: absolute; left: 8px; top: 0; -webkit-app-region: no-drag; padding: 3px; }
-.wclose svg { width: 15px; height: 15px; }
+/* 拖拽带自己要从 6px 起（无边框窗口靠那几个像素改大小），但里面那一排托盘要落在 20 上，
+   所以补 14 的上内边距——托盘正好 20..50，和右上角那只、和底下那三只同一个数 */
+.winbar { position: fixed; top: 6px; left: 6px; right: 6px; height: 44px; z-index: 30; -webkit-app-region: drag;
+  padding: 14px 14px 0; display: flex; align-items: center; }
+/* 关闭：右上角一只正方托盘，和看图窗、详情卡片上那几只同一种东西——`--slip` 的底、直角、有影子。
+   离窗口边 14px（不是底部托盘那 20px）：底下那三只浮在滚动的卡片上，四周要自己撑开距离；
+   这一只贴着窗口自己的边，边就是它的留白。上下左右都是 14，托盘的四边留白一样这条仍然成立。 */
+/* 定在窗口上，不待在 .winbar 里面：那条带子是 `-webkit-app-region: drag`，
+   而拖拽区里的 no-drag 挖洞是按未变形的盒子算的——托盘一旦 translateY(-50%)，
+   能点的那块洞和看得见的托盘就错开了，于是「叉叉点了没反应」。 */
+/* 流内元素，不 absolute、不 fixed：`-webkit-app-region: no-drag` 在拖拽区里挖的那个洞，
+   是按未脱离文档流、未变形的盒子算的。一旦 fixed（或者带 transform），看得见的托盘和能点的
+   那块洞就错开了——之前两版「叉叉点了没反应」都是这一条。.winbar 的 padding 把它送到
+   离窗口边 20 的地方，和别的托盘一个数。 */
+.wtray { flex: none;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 0; background: var(--slip); box-shadow: var(--e-tray); color: var(--ink-2);
+  cursor: pointer; padding: 0; -webkit-app-region: no-drag; }
+.wtray:hover { color: var(--ink); }
+.wtray:active { transform: translateY(1px); }
+.wtray svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: square; stroke-linejoin: miter; }
 /* 「回记录」站在同一个角落，但对到页边那条线上（--pad，减掉 winbar 自己的 6px），
    于是它和底下那一列的第一个字同一条左边线。导航是字，不是图标——箭头只是个提示。 */
-.wback { position: absolute; left: calc(var(--pad) - 6px); top: 0; -webkit-app-region: no-drag;
-  display: none; align-items: baseline; gap: 6px; border: 0; background: transparent; cursor: pointer;
-  padding: 4px 0; color: var(--ink-3); font: 400 var(--fs-nav)/1.4 var(--sans); }
+.wback { -webkit-app-region: no-drag; flex: none; margin-right: auto;
+  display: none; align-items: center; gap: 6px; border: 0; background: transparent; cursor: pointer;
+  padding: 0; color: var(--ink-3); font: 400 var(--fs-nav)/1.4 var(--sans); }
 .wback:hover { color: var(--ink); }
 .wback:active { transform: translateY(1px); }
 .wback .ar { font-size: 12px; }
-body[data-tab="ask"] .wback, body[data-tab="settings"] .wback { display: inline-flex; }
-body[data-tab="ask"] .wclose, body[data-tab="settings"] .wclose { display: none; }
+body[data-tab="ask"] .wback, body[data-tab="settings"] .wback { display: flex; }
+/* 子页没有搜索和筛选，那条带子上只留「← 记录」 */
+body:not([data-tab="entries"]) .top-row { display: none; }
+body[data-tab="ask"] .wtray, body[data-tab="settings"] .wtray { display: none; }
 
 /* 顶栏不是托盘：托盘属于底部（浮在滚动内容上的常驻工具）。顶部是导航和筛选，就是纸上的字。
    参照 are.na 的 Explore 页和 Steidl：它们顶上没有条、没有底色、没有边框，只有字。
    两行：搜索 + 「怎么看」在第一行，来源筛选在第二行。两行都从内容列的左边起。 */
 /* 内容让开顶栏的那一截。以前这个数是 112px，写死在两个地方（.jg-scroll 的 inset 和 .lv 的
    padding-top）——顶栏一多一行就穿帮，而且要改两处才对得上。现在由 workspace.js 量出来写进来。 */
-:root { --top-h: 112px; }
-.top { position: fixed; top: 38px; left: 0; right: 0; z-index: 20;
-  padding: 0 var(--axis) 0 var(--pad); }
-.top-row { display: flex; align-items: baseline; gap: var(--a5); }
-.search { flex: 0 1 300px; min-width: 120px; }
-.view { margin-left: auto; display: flex; align-items: center; gap: var(--a3); flex: none; }
-/* 日期给死宽度：select 的自动宽度按最长的那一项算，会在文字和箭头之间留一大截空 */
-.view .select { width: 96px; border-bottom: 0; padding: 0 14px 0 0; font-size: var(--fs-act); color: var(--ink-3);
-  background-position: right 4px top 7px, right 0 top 7px; }
+/* 这扇窗的四边是同一个数。之前是五个：上 14、左 40（纸）/20（托盘）、右边时间轴一直顶到 0、
+   右上角托盘 14、底下托盘 20 —— 五个都差一点，所以怎么看都不齐。现在页边就是托盘离边的那个数，
+   搜索托盘、筛选那行、第一张便签、左下角的加号，左边全站在同一条线上。 */
+:root { --pad: var(--tray-inset); --top-h: 107px;
+  /* 顶栏右端要让开右上角那只 30px 的托盘，再空一个 --a4 */
+  --tray-gap: calc(var(--tray-inset) + 30px + var(--a4)); }
+/* 只剩筛选这一行。搜索和「怎么看」搬进了 .winbar —— 那条 34px 的拖拽带原来只放一个 ×，
+   下面再单起一行放搜索，等于为一个关闭键花掉一整行。 */
+/* 右边让开时间轴，再让开右上角那只托盘一格 —— 顶栏两行共用这一条右边线，
+   不能一行让 46 一行让 72，两条差一点点的右边线正是「边距很怪」的样子 */
+/* 左边比页边多 3px：托盘和便签都带影子，那圈影子会往左漫出去一点，所以一行光秃秃的字
+   落在同一个数上，看着是它突出来了。这 3px 是给眼睛的，不是给尺子的。 */
+.top { position: fixed; top: 64px; left: 0; right: 0; z-index: 20;
+  padding: 0 var(--tray-gap) 0 calc(var(--pad) + 3px); }
+/* 住在拖拽带里：左边让开 × 到页边那条线，右边让开时间轴。中间那段空白不设 no-drag，
+   窗口还是从那儿拖 */
+.top-row { flex: 1; min-width: 0; padding-right: var(--a4);
+  display: flex; align-items: center; gap: var(--a5); }
+/* 一只和关闭同高的托盘：`--slip` 的底、直角、有影子，里面一枚放大镜和一行字。
+   以前它是一句浮在纸上的灰字，看不出是能打字的地方；落笔时那道发丝线也只有落笔了才看得见。 */
+.search { flex: 0 1 320px; min-width: 150px; height: 30px; display: flex; align-items: center;
+  gap: 8px; padding: 0 11px; background: var(--slip); box-shadow: var(--e-tray);
+  -webkit-app-region: no-drag; cursor: text; }
+.search:focus-within { box-shadow: var(--e1); }
+.view { margin-left: auto; display: flex; align-items: center; gap: var(--a3); flex: none;
+  -webkit-app-region: no-drag; }
+/* 一行两群：左边「按什么筛」，右边「筛成什么」，中间一整个 --a5。窗口窄了就折行，
+   顶栏的高度是量出来的，折了也不会压住第一张便签 */
+.filters-row { display: flex; align-items: baseline; gap: var(--a5); flex-wrap: wrap; }
+/* 筛选那一行：时间在前，一级（五种纸）在后，中间隔着 .filters-row 那一整个 --a5。
+   两群都是纸上的字，同一种 .src-chip——它们回答的是同一个问题：这一屏上还剩什么。
+   （右上角那个「全部日期」的 select 因此没有了，样式一并撤掉。）
+   词之间收到 --a3：每个词自己已经带着一格定宽的数字位，再用 --a4 会散成一片。 */
+.fdates, .fbuckets { flex: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--a3); }
+/* 二级：**另起一行，往里缩一个 --a4**——它是上一行某个词底下的东西，不是并排的第三群。
+   缩进是唯一说得出「父子」的手段（这套里没有线、没有框、没有底纹）。
+   没选一级的时候它整个不在，所以默认那一屏还是只有一行字。 */
+.fsub { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--a3);
+  margin: var(--a2) 0 0 var(--a4); }
+.fsub[hidden] { display: none; }
 /* 网格 / 列表 / 选择是三件不同的事，所以是图标不是并排的三个词 */
 .seg { display: flex; gap: 2px; }
 .seg button { display: inline-flex; border: 0; background: transparent; padding: 4px; cursor: pointer; color: var(--ink-3); }
@@ -160,20 +207,19 @@ body[data-tab="ask"] .wclose, body[data-tab="settings"] .wclose { display: none;
 .ico.sm { padding: 4px; color: var(--ink-3); }
 .ico.sm svg { width: 16px; height: 16px; }
 .ico.sm.on { color: var(--ink); }
-.sources { margin-top: var(--a3); display: flex; flex-wrap: wrap; gap: var(--a4); }
-.search { flex: 1; min-width: 0; }
 /* 平时它只是一句灰字，和旁边那排词同一个身份；落笔才画那道发丝线 */
-.search input { font-size: var(--fs-body); border-bottom-color: transparent; }
-.search input:focus { border-bottom-color: var(--ink); }
-.search svg { display: none; }
-.search input { width: 100%; }
-.filters { display: flex; align-items: baseline; gap: var(--a4); padding: var(--a3) 0 0; }
-.sources { display: flex; flex-wrap: wrap; gap: var(--a3); flex: 1; min-width: 0; }
-.filters .view { display: flex; align-items: baseline; gap: var(--a3); flex: none; }
-.filters .select { width: auto; min-width: 0; font-size: var(--fs-act); color: var(--ink-3); border-bottom: 0; padding-bottom: 0; }
+.search svg { display: block; flex: none; width: 14px; height: 14px; fill: none; stroke: var(--ink-3);
+  stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: miter; }
+.search:focus-within svg { stroke: var(--ink-2); }
+.search input { flex: 1; min-width: 0; width: auto; padding: 0; border: 0; background: transparent;
+  font-size: var(--fs-body); line-height: 1; color: var(--ink); }
+.search input:focus { outline: none; }
+/* 系统给 type=search 画的那个清除键是个圆的灰点，和全直角对不上 */
+.search input::-webkit-search-cancel-button { -webkit-appearance: none; }
 
 /* 中间：左时间轴 + 卡片 */
-.mid { display: flex; min-height: 0; }
+/* 时间轴以前一直顶到窗口右边缘，右边就没有边距可言。让它和别的东西站在同一条边上 */
+.mid { display: flex; min-height: 0; padding-right: var(--tray-inset); }
 
 /* 时间轴：一天一行。相对日在左、条数在右——完整日期由卡片区的抬头去说，两边不重复。
    滚动时它自己跟着走，所以永远知道现在停在哪一天 */
@@ -203,7 +249,7 @@ body[data-tab="ask"] .wclose, body[data-tab="settings"] .wclose { display: none;
 /* 不是一条栏，是三只浮在纸上的托盘：左边新建，中间问，右边状态和设置。
    托盘是真实物件，所以有影子——这是「只有记录才有影子」的唯一例外 */
 .dock { position: fixed; bottom: var(--tray-inset); z-index: 25; display: flex; align-items: center; gap: var(--a2);
-  height: var(--tray-h); background: var(--slip); box-shadow: var(--e2); padding: 0 10px; }
+  height: var(--tray-h); background: var(--slip); box-shadow: var(--e-tray); padding: 0 10px; }
 /* 上下正中间那两只是同一件东西的两头：一个问记录，一个搜记录。
    中间这只的宽度交给里面那行字：短句子就是一只小托盘，长句子先把托盘撑宽，撑到上限了才换行——
    所以不是「输入框在托盘里滚」，是托盘跟着你写的东西长。 */
@@ -219,13 +265,17 @@ body[data-tab="ask"] .wclose, body[data-tab="settings"] .wclose { display: none;
 .ico svg { width: 18px; height: 18px; }
 /* 问：一个输入框、左边是桌面形象、右边是送出。输入框还是那道发丝线，它不是浮起来的面板。
    align-items: flex-end —— 输入框长高的时候，头像和送出留在底下那一行，不跟着被拉长。 */
-.ask-bar { min-width: 0; display: flex; align-items: flex-end; gap: var(--a2); }
+/* flex: 1 —— 这一行要把托盘填满。之前它按内容收成 223px，而托盘的 min-width 是 340，
+   于是右边空出 117px，送出那个箭头就停在托盘正中间。 */
+.ask-bar { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: var(--a2); }
 .ask-bar .pet { border: 0; background: transparent; padding: 0; cursor: pointer; flex: none; line-height: 0; }
 .ask-bar .pet img { width: 24px; height: 24px; object-fit: cover; display: block; transition: transform .12s; }
 .ask-bar .pet:hover img { transform: translateY(-2px); }
 /* field-sizing: content 让它按内容自己定尺寸——没有一行 JS 在量 scrollHeight。
    宽度到上限之后开始换行，最多三行，第四行起自己滚。 */
-.ask-bar textarea { field-sizing: content; min-width: 15ch; max-width: 100%; max-height: calc(3lh);
+/* flex: 1 1 auto（不是 flex: 1，那是 basis 0）：basis 仍然是 field-sizing 量出来的内容宽度，
+   所以句子长了照样把托盘撑开；同时它又能长出去吃掉托盘里多余的宽度，右边不留空。 */
+.ask-bar textarea { flex: 1 1 auto; field-sizing: content; min-width: 15ch; max-width: 100%; max-height: calc(3lh);
   font: inherit; font-size: var(--fs-body); line-height: 1.6; resize: none; overflow-y: auto;
   border: 0; border-bottom: 1px solid transparent; background: transparent; color: inherit;
   padding: 2px 0 3px; scrollbar-gutter: stable; }
@@ -279,13 +329,18 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 滚动区从顶栏底下开始，不是"顶到窗口顶上再垫 112px 的内边距"——
    顶栏是印在纸上的字、没有底色，所以垫出来的那 112px 拦不住任何东西：一往下滚，
    便签就从那几个字上面爬过去。让框自己起在 112，溢出的部分被框裁掉，字底下就永远是干净的。 */
-.jg-scroll { position: absolute; inset: var(--top-h) 0 0; overflow-y: auto; overflow-x: hidden; padding: 0 var(--a3) 92px var(--pad); scrollbar-width: none; }
+.jg-scroll { position: absolute; inset: var(--top-h) 0 0; overflow-y: auto; overflow-x: hidden; padding: 0 0 92px var(--pad); scrollbar-width: none; }
 .jg-scroll::-webkit-scrollbar { width: 0; height: 0; }
 /* 哪一天由左边的时间轴说，这里只剩一天与一天之间的留白（外加给时间轴当锚点）。
    千万别再让它 sticky 带底色：一个没有字的不透明块钉在滚动区顶上，就是一条划过去会盖住卡片的横带 */
-.jg-day { height: var(--a5); }
+/* 一天和下一天之间。这一块曾经是 --a5（54）——那是**日期抬头还不显示**时定的数，它当时是
+   唯一说「换天了」的东西。现在每条带子自己写着日期，它就只剩「多空一手」这一件事，
+   而 54 加上带子自己的 --a2，一天结束的地方就空出 62px 的白，比一条记录还高。
+   现在是 --a4：带子和带子之间 8，天和天之间 34，还是四倍多，读得出来，但不是个洞。 */
+.jg-day { height: var(--a4); }
 .jg-day:first-child { height: 0; }
-.jg-hour { display: flex; align-items: center; gap: 8px; margin: var(--a2) 0 var(--a3); font: 400 var(--fs-meta)/1 var(--sans);
+/* 同上：日期抬头是字，它下面那排便签是带影子的纸，差 3px 才看着是齐的 */
+.jg-hour { display: flex; align-items: center; gap: 8px; padding-left: 3px; margin: var(--a2) 0 var(--a3); font: 400 var(--fs-meta)/1 var(--sans);
   color: var(--ink-3); font-variant-numeric: tabular-nums; }
 /* 日期是一个词，不让它在汉字和数字之间自己撑开 */
 .jg-hour b { color: var(--ink-2); font-weight: 600; text-autospace: no-autospace; }
@@ -342,25 +397,76 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 一段一行，读起来是一页日记：时间在左（和网格的时间轴同一个位置），时长、应用、标题依次退墨。
    没有框、没有线、没有颜色——它和列表是同一种东西，只是说的是另一件事。 */
 .tv .lv-rows { grid-column: 1 / -1; }
-.tv-row { display: grid; grid-template-columns: 108px 46px 96px 1fr auto; align-items: baseline;
-  gap: var(--a3); padding: var(--a2) 0; cursor: pointer; }
-.tv-row:hover .ti { color: var(--ink); }
+/* ---------- 路过：一次只讲一天 ---------- */
+/* 抬头：哪一天 + 这一天什么样。日期吃字阶最上面那一档——这一页的主语就是「一天」 */
+.tv-head { display: flex; align-items: baseline; gap: var(--a3); flex-wrap: wrap; margin-bottom: var(--a5); }
+.tv-head .d { font: var(--w-day) var(--fs-day)/1.3 var(--sans); color: var(--ink); }
+.tv-head .s { color: var(--ink-3); font-size: var(--fs-meta); }
+
+/* 小标题：一节的名字 + 一句它有多少。这一页只有两节，所以不用更重的东西分它们 */
+.tv-h { display: flex; align-items: baseline; gap: var(--a3); margin: var(--a5) 0 var(--a3);
+  font: var(--w-title) var(--fs-title)/1.5 var(--sans); color: var(--ink); }
+.tv-h span { font: 400 var(--fs-meta)/1.5 var(--sans); color: var(--ink-3); }
+.tv-h:first-child { margin-top: 0; }
+/* 「都在做什么」是佐证不是内容，所以它是一个能收起来的标题 */
+.tv-h.fold { cursor: pointer; }
+.tv-h.fold::before { content: '▸'; margin-right: 2px; color: var(--ink-3); font-size: 10px; }
+.tv-h.fold.open::before { content: '▾'; }
+
+/* ── 读过的东西：按站点分组 ──
+   不按「工作 / 消遣」分——那是替你下判断，而按站点分同样能让你找工作那几页时
+   不必翻过 60 条视频（2026-09-09 用户原话）。 */
+.tv-site { margin-bottom: var(--a4); }
+.tv-site-h { display: flex; align-items: baseline; gap: var(--a2); width: 100%; text-align: left;
+  border: 0; background: none; padding: 2px 0; cursor: pointer;
+  font: 400 var(--fs-act)/1.6 var(--sans); color: var(--ink-2); }
+.tv-site-h:hover { color: var(--ink); }
+.tv-site-h .n { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.tv-site-h::before { content: '▾'; color: var(--ink-3); font-size: 10px; }
+.tv-site.shut .tv-site-h::before { content: '▸'; }
+.tv-pg-list { display: flex; flex-direction: column; }
+/* 一页读过的网页：时间 · 标题 · 一行正文。**正文要露在外面**——
+   这一层的价值就是那几行字，藏在点开里等于没有 */
+.tv-pg { display: grid; grid-template-columns: 62px minmax(0, 1fr); column-gap: var(--a3);
+  padding: 5px 0 5px var(--a4); text-decoration: none; cursor: pointer; }
+.tv-pg:hover .nm { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.tv-pg .tm { color: var(--ink-3); font: 400 var(--fs-meta)/1.7 var(--sans); font-variant-numeric: tabular-nums; }
+.tv-pg .nm { color: var(--ink-2); font: 400 var(--fs-body)/1.6 var(--sans);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-pg .bb { grid-column: 2; color: var(--ink-3); font: 400 var(--fs-meta)/1.6 var(--sans);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-pg .bb:empty { display: none; }
+
+/* ── 都在做什么：一段一行。它是佐证，默认收起来 ──
+   第三格永远有字：没有窗口标题的应用（Claude、AnyDesk）原来在正中间留下一个空列，
+   一屏看过去是一排洞；应用名跟在标题后面而不是顶到右边缘——顶到右边，标题一短，
+   中间那一大截空白就是这一页最散的地方。 */
+.tv-row { display: grid; grid-template-columns: 108px 76px minmax(0, 1fr) auto; align-items: baseline;
+  gap: var(--a3); padding: 7px 0; cursor: default; }
+.tv-row.has-pages { cursor: pointer; }
 .tv-row .tm { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; }
-.tv-row .dur { color: var(--ink-2); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; text-align: right; }
-.tv-row .app { color: var(--ink-2); font-size: var(--fs-meta); }
-.tv-row .ti { color: var(--ink-2); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tv-row.open .ti { color: var(--ink); font-weight: 600; }
-.tv-row .np { color: var(--ink-3); font-size: var(--fs-meta); }
-/* 点开才展的那几页正文：缩到标题那一栏，靠留白分组，不加线 */
-.tv-pages { padding: 0 0 var(--a4) calc(108px + 46px + 96px + var(--a3) * 3); }
+/* 时长底下一道按长短缩放的细线：一列数字读不出「这段是那段的一百倍」 */
+.tv-row .dur { position: relative; color: var(--ink-2); font: 400 var(--fs-meta)/1.5 var(--sans);
+  font-variant-numeric: tabular-nums; text-align: right; }
+.tv-row .dur i { position: absolute; right: 0; bottom: -3px; height: 2px; width: calc(var(--w) * 100%); background: var(--ink-3); opacity: .45; }
+.tv-row .ti { display: flex; align-items: baseline; gap: var(--a3); min-width: 0;
+  color: var(--ink-2); font-size: var(--fs-body); }
+.tv-row .ti .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-row .ti .app { flex: none; font-style: normal; color: var(--ink-3); font-size: var(--fs-meta); }
+.tv-row:hover .ti .nm { color: var(--ink); }
+.tv-row.open .ti .nm { color: var(--ink); font-weight: 600; }
+.tv-row .np { color: var(--ink-3); font-size: var(--fs-meta); min-width: 3em; text-align: right; }
+.tv-pages { padding: 0 0 var(--a4) calc(108px + 76px + var(--a3) * 2); }
 .tv-page + .tv-page { margin-top: var(--a3); }
 .tv-page .ti { font: 600 var(--fs-body)/1.5 var(--sans); color: var(--ink); }
 .tv-page .bb { color: var(--ink-2); font: 400 var(--fs-body)/1.6 var(--sans); margin-top: var(--a1);
-  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.tv-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a5) 0; max-width: 46ch; line-height: 1.7; }
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.tv-note { color: var(--ink-3); font-size: var(--fs-body); padding: var(--a4) 0; max-width: 46ch; line-height: 1.7; }
 .tv-more { border: 0; background: transparent; color: var(--ink-3); font: 400 var(--fs-act)/1.5 var(--sans);
   padding: var(--a3) 0; cursor: pointer; }
 .tv-more:hover { color: var(--ink); }
+/* 筛选那一行筛的是记录，而「路过」这一页上没有记录——留着只会让人以为它没生效 */
+body[data-view="trail"] .filters-row { display: none; }
 
 .lv-rows { overflow: auto; padding: 0 var(--a3) 92px calc(var(--pad) - 12px); scrollbar-width: none; }
 .lv-rows::-webkit-scrollbar, .lv-prev::-webkit-scrollbar { width: 0; height: 0; }
@@ -523,22 +629,26 @@ body[data-tab="settings"] .d-mid { display: none; }
 .detail h3, .dt-sec h3 { margin: 0; font: 400 var(--fs-meta)/1.4 var(--sans); color: var(--ink-3); }
 
 .preview { margin: 0; }
-/* 高度由图自己的比例说了算，只在太高的时候才封顶——原来死封 380px 又补一块灰底，
-   一张宽截图就被压成中间一条、两边两块灰 */
-.preview img { display: block; width: 100%; height: auto; max-height: 46vh; object-fit: contain; cursor: zoom-in; }
+/* **预览就是那张图本身，四边不许有底色。**（2026-09-09 用户原话「不能有左右两侧黑边，
+   我们就是直接用最大高度或宽度来」。）`width: 100%` + `object-fit: contain` 是个陷阱：
+   元素占满整行、图在元素里居中，于是一张竖的（PDF 首页、手机截图）左右各留一条底色。
+   改成两边都只给上限、宽高都 auto：宽的先顶到 100%，高的先顶到 46vh，
+   元素自己收成图的大小，没有可留边的地方。 */
+.preview img { display: block; width: auto; height: auto; max-width: 100%; max-height: 46vh;
+  margin: 0 auto; cursor: zoom-in; }
 /* 一条笔记没有「东西」可看，只有它存在哪儿。那就写成一行，别摆成一整块居中的灰板 */
 .dt.bare .preview .file { display: flex; align-items: center; gap: var(--a3); padding: var(--a3);
   text-align: left; font-size: 20px; }
 .dt.bare .preview .file small { margin-top: 0; }
 .preview audio { width: 100%; display: block; padding: 4px 0; }
 .preview .file { padding: 26px; text-align: center; font-size: 32px; background: var(--slip-2); }
-/* 有缩略图的时候这块不再是「一个大图标」：图自己占满宽度、交回自己的比例，46vh 封顶
-   （和图片那一档同一条规矩）。内边距收到 --a3，路径和那两个小词落在图底下。 */
-/* 有缩略图的时候这块不再是「一个大图标」，内边距收到 --a3；图自己占满宽度。
-   （详情那层的 .bare 也一起去掉了，见 workspace.js：bare 的意思是「没东西可看」。）
-   路径那一行在图底下居中；两个文件动作已经搬到右上角那排托盘里了。 */
-.preview .file.has-thumb { padding: var(--a3); font-size: 0; text-align: center; }
-.preview .file .fthumb { display: block; width: 100%; max-height: 46vh; object-fit: contain; }
+/* 有缩略图的时候这块不再是「一个大图标」，所以也不再是一块板：**底色去掉、内边距去掉**——
+   一张 PDF 首页是竖的，铺在一块 --slip-2 上就是两边各一条深色边（同上一条）。
+   图自己就是内容，路径那一行在它底下居中。
+   （详情那层的 .bare 也一起去掉了，见 workspace.js：bare 的意思是「没东西可看」。
+   两个文件动作已经搬到右上角那排托盘里了。） */
+.preview .file.has-thumb { padding: 0; background: none; font-size: 0; text-align: center; }
+.preview .file .fthumb { display: block; width: auto; height: auto; max-width: 100%; max-height: 46vh; margin: 0 auto; }
 .preview .file.has-thumb small { font-size: var(--fs-meta); }
 .preview .file small { display: block; font-size: var(--fs-meta); color: var(--ink-3); margin-top: var(--a2); word-break: break-all; }
 /* 「打开原文件 / 在文件夹中显示」：并排两个小词，和机器写的那几段旁边的复制同一档 */
@@ -640,7 +750,9 @@ body[data-tab="settings"] .d-mid { display: none; }
 /* 六组是顶上一排词，站在记录页筛选行的位置。往下每组一行两栏：左栏这组的名字（和第一行同一条基线），
    右栏这组的全部内容——小灰词和控件同一行，勾选框、按钮、状态从右栏起始线起头。整页只有两条竖线。
    说明收在名字旁一个小 i 里，停上去才说话。没有保存键：改一项就生效，右端轻轻亮一下「已保存」 */
-.settings { --fl: 140px; --lw: 124px; display: flex; flex-direction: column; overflow: hidden; padding: 48px var(--pad) 0; width: 100%; }
+/* 上边距要盖过 .winbar（6..52）——那条带子是拖拽区，压在标签行上就会把最上面几像素的点击
+   变成拖窗口 */
+.settings { --fl: 140px; --lw: 124px; display: flex; flex-direction: column; overflow: hidden; padding: 62px var(--pad) 0; width: 100%; }
 .sg-nav { flex: none; display: flex; align-items: baseline; gap: var(--a4); max-width: 900px; margin-bottom: var(--a5); }
 .sg-btn { border: 0; background: transparent; color: var(--ink-3); padding: 0; cursor: pointer; font: 400 var(--fs-nav)/1.4 var(--sans); white-space: nowrap; }
 .sg-btn:hover { color: var(--ink-2); }
@@ -680,10 +792,17 @@ body[data-tab="settings"] .d-mid { display: none; }
 .st { flex-basis: 100%; margin: 0; font-size: var(--fs-meta); color: var(--ink-3); line-height: 1.6; }
 .st:empty { display: none; }
 .st.warn { color: var(--stamp); }
-/* 选中的那个来源把自己的 section 直接交给 .sg-pane：display: contents 让包着它的 div 不产生盒子，
-   所以来源的设置和别的组共用同一条竖线、同一个 --a5 间距，而不是缩在一块里 */
-.panel { display: none; }
-.panel.active { display: contents; }
+/* **只显示你正在用的那一块。**（2026-09-09 用户原话「我选了网络模型了就不要有这一堆了」。）
+   本地那一段是一张长表——状态、常驻、已下的、能下的三档、地址；你选了网络模型的时候，
+   它们一条也不是你要读的东西，堆在那儿只是把真正该读的那几行推到屏幕外。
+   「现在用」那一排词既换常驻也换这里显示哪一块——它俩本来就是同一件事，
+   所以那一段的组名旁边不再挂「在用」的小词：屏幕上只有一块，没有第二个可能。 */
+#sec-local:not(.in-use), #sec-net:not(.in-use) { display: none; }
+/* 「现在用」那两个词比视图切换那档响一点：它管的是「拿什么答」，不是「怎么看」 */
+.wide-seg { gap: var(--a3); }
+.wide-seg button { padding: 2px 0; font: 400 var(--fs-act)/1.6 var(--sans); }
+.wide-seg button.active { color: var(--ink); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
 @media (max-width: 760px) { .card-section { grid-template-columns: 1fr; row-gap: var(--a1); } .f, .f.wide, .body > :not(.f) { grid-template-columns: 1fr; padding-left: 0; } .fl { text-align: left; } }
 
 /* 说明：名字旁一个小 i。停上去，它变成一张压在页面上的小便签 */
@@ -746,7 +865,14 @@ body[data-tab="settings"] .d-mid { display: none; }
 /* ---------- 模型 ---------- */
 /* 一行一个模型。九张带影子的白方块曾经把这一页变成了另一个应用；目录里的一个名字不是物件，
    所以它没有底、没有影子、没有框——三列对齐就够读了，正在用的那行划一道荧光笔。 */
-.mdl { max-width: 640px; margin-top: var(--a2); }
+.mdl-list { max-width: 640px; margin-top: var(--a2); }
+/* 两份名单：已经有的、可以下的。h4 是 .body 里那档小标题，两份之间隔一手 */
+.mdl-list h4:first-child { margin-top: 0; }
+.mdl-list .mdl-tier + h4 { margin-top: var(--a5); }
+/* 「按这台电脑推荐哪个」跟在「可以下载」底下：它是这份名单的开场白，
+   所以不能比自己的标题还响——满墨半粗留给 h4 */
+.mdl-list .hw { margin: 0 0 var(--a3); }
+.mdl-list .hw .lede { font-weight: 400; color: var(--ink-2); }
 .mdl-tier + .mdl-tier { margin-top: var(--a4); }
 .mdl-h { display: flex; align-items: baseline; gap: var(--a2); font-size: var(--fs-act); color: var(--ink-2);
   font-weight: 600; margin-bottom: var(--a1); }
@@ -764,6 +890,9 @@ body[data-tab="settings"] .d-mid { display: none; }
 .fit.ok { color: var(--accent); }
 .fit.tight { color: var(--warn); }
 .fit.no { color: var(--stamp); }
+/* 「在架子上」：和「最适合这台电脑」同一个位置、同一个形，但轻一档——
+   一个是这台电脑给的建议，一个是你自己摆上去的事实，前者才该抢眼 */
+.tag-pin { display: inline-block; margin-left: var(--a2); font-style: normal; background: var(--marker); color: var(--ink); padding: 0 6px; font: 400 var(--fs-meta)/17px var(--sans); }
 .tag-rec { display: inline-block; margin-left: var(--a2); font-style: normal; background: var(--ink); color: var(--slip); padding: 0 6px; font: 400 var(--fs-meta)/17px var(--sans); }
 .resume { margin: var(--a3) 0; padding: 11px 13px; background: var(--marker); display: flex; align-items: center; gap: var(--a3); flex-wrap: wrap; }
 
@@ -803,9 +932,29 @@ body[data-tab="settings"] .d-mid { display: none; }
 /* 这一页没有顶栏，所以不吃 --top-h，用和右边那一列一样的上边距——两列的第一行才对得齐 */
 :root { --chat-rail: 232px; }
 .chatlist { width: var(--chat-rail); flex: none; overflow: auto; padding: 60px var(--a3) 100px var(--pad); }
-.chatlist #chatNew { margin-bottom: var(--a4); }
+/* **问过的每一条都是一张便签，不是一行字**（2026-09-09，用户原话「至少历史聊天得有托盘吧」）。
+   原来这一列是「只有字，没有框没有线」——按「导航是纸上的字」那条办的。但一次问答不是导航：
+   它是你留下的东西，能打开、能改名、能删掉，跟主页上一张记录是同一类东西。
+   同一类东西就该是同一种纸：`--slip` 的底、直角、有影子。
+   影子用 `--e-tray`（10px 模糊）不用 `--e1`（16px）——一张 40px 高的小纸套上给 200px 便签
+   调的影子就是一团脏，这条和托盘那次是同一条。 */
+.chatlist #chatNew { display: block; width: 100%; text-align: left; margin-bottom: var(--a4);
+  background: var(--slip); box-shadow: var(--e-tray); color: var(--ink);
+  padding: 9px 12px; font: var(--w-title) var(--fs-body)/1.4 var(--sans);
+  transition: transform .12s ease, box-shadow .12s ease; }
+.chatlist #chatNew::before { content: '+ '; color: var(--ink-3); }
+.chatlist #chatNew:hover { transform: translateY(-2px); box-shadow: var(--e1); }
+.chatlist #chatNew:active { transform: translateY(0); }
 .cl-band { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); margin: var(--a4) 0 var(--a2); }
-.cl-row { display: flex; align-items: baseline; gap: var(--a2); padding: var(--a1) 0; cursor: pointer; }
+.cl-band:first-child { margin-top: 0; }
+.cl-row { display: flex; align-items: baseline; gap: var(--a2); cursor: pointer;
+  background: var(--slip); box-shadow: var(--e-tray); padding: 9px 12px; margin-bottom: var(--a2);
+  transition: transform .12s ease, box-shadow .12s ease; }
+/* 一张便签的常态是躺着，鼠标经过抬 2px 换深一档的影——和主页上的记录一模一样 */
+.cl-row:hover { transform: translateY(-2px); box-shadow: var(--e1); }
+/* 选中不是层级，是荧光笔划过：纸没有动 */
+.cl-row.on { background: var(--marker); }
+.cl-row.on:hover { transform: none; box-shadow: var(--e-tray); }
 .cl-row .ti { flex: 1; min-width: 0; color: var(--ink-2); font-size: var(--fs-body);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cl-row:hover .ti { color: var(--ink); }
@@ -821,10 +970,20 @@ body[data-tab="settings"] .d-mid { display: none; }
   padding: 60px calc(var(--chat-rail) + var(--a4)) 100px var(--a4); }
 /* 全站只有一个正文宽度（.md 660px），这一栏不另开一档 */
 .askcol > .md { max-width: 660px; margin: 0 auto; }
-/* 一条都没问过的时候，那句提示贴着输入框走：它是在说明底下那个框，
-   独自吊在半空的话，一整屏空白里就它一行，谁也不挨着谁。 */
-.askcol:has(.empty) { display: flex; flex-direction: column; justify-content: flex-end; }
-.askcol .empty { padding: 0; }
+/* 一条都没问过的时候，这一栏是整页最大的一块空。以前往里放一句灰字，还把它推到贴着输入框——
+   那是在给一句没有分量的话找个依靠，页面因此散成四角各一件东西。
+   现在它自己就是一块有重心的东西，所以回到这一栏的正中间：一句满墨的主语、一行说明、
+   几句能点的例子。整页于是只有一个视觉重心，左边那列和底下那只托盘都清楚地从属于它。 */
+.askcol:has(.ask-blank) { display: flex; flex-direction: column; justify-content: center; }
+/* **flex 列里的 `margin: 0 auto` 会把这一项收成它内容那么宽**（auto 外边距吃掉剩余空间，
+   覆盖了 stretch）。`.md` 本来就带 `margin: 0 auto`，于是空状态下答案栏从 660 缩成 442、
+   还右移了 109px——和底下那只输入托盘对不上，这一页因此又歪了一次。
+   补一个 `width: 100%`，max-width 才重新说了算。 */
+.askcol:has(.ask-blank) > .md { width: 100%; }
+.ask-blank { padding-bottom: var(--a5); }
+/* 主语吃字阶最上面那一档，和一轮问答里的问题同级——这一页的主语就是「问」这件事 */
+.ask-blank h2 { margin: 0 0 var(--a2); font: var(--w-day) var(--fs-day)/1.35 var(--sans); color: var(--ink); }
+.ask-blank p { margin: 0; color: var(--ink-2); max-width: 34em; }
 
 /* 底下那只托盘在记录页上是「浮在素材上面的工具」，所以它按内容收成一只小的。
    到了「问」这一页它就是这一页的输入框本身，一只小托盘吊在一整屏空白的正中间没有道理——
@@ -833,9 +992,10 @@ body[data-tab="settings"] .d-mid { display: none; }
 /* 660 是正文的宽度，+20 是托盘自己那圈内边距——对齐的是里面的字，不是托盘的纸边 */
 body[data-tab="ask"] .dock.d-mid { width: min(680px, calc(100vw - var(--chat-rail) - 2 * var(--a4)));
   min-width: 0; max-width: none; }
-body[data-tab="ask"] .ask-bar { width: 100%; }
 body[data-tab="ask"] .ask-bar .pet { display: none; }
-body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none; }
+/* 模型选择只属于「问」那一页 */
+body:not([data-tab="ask"]) .askmdl { display: none; }
+body[data-tab="ask"] .ask-bar textarea { min-width: 0; max-width: none; }
 .turn { padding-bottom: var(--a5); }
 /* 一轮问答的主语是那个问题——和记录页里「一天」的地位一样，所以吃字阶最上面那一档。
    在这之前它是 13/600，和正文同一个大小，一页读下来分不出哪句是问、哪段是答。 */
@@ -879,25 +1039,37 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 /* 名字顶掉了时间那一格。它比时间长，所以要能收尾；也不需要等宽数字了 */
 .jg-tile .lab .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-variant-numeric: normal; }
-/* 抬头那一行：名字在前，来源**紧跟在后面**（不是顶到另一头去——那样读起来是两件事）。
-   两个都不许长大（flex-grow 0），所以它们并排挨着；挤不下的时候来源先收，
-   收缩系数 6 比 1——名字是这一行的主语，来源只是补一句。 */
-.jg-tile .cap .nm, .jg-tile .lab .nm { flex: 0 1 auto; min-width: 0; color: var(--ink-2);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.jg-tile .cap .src, .jg-tile .lab .src { flex: 0 6 auto; min-width: 0; color: var(--ink-3);
+/* 抬头那一行：**名字占满左边，来源钉在最右**（2026-09-09 用户定的）。
+   在这之前两个都可以收，来源收得还快 6 倍——于是一排卡片扫过去，来源全是「We…」「W…」，
+   那一档信息等于**被吃掉了**：它本来就只有一个词，收一半就什么都不剩。
+   现在来源 `flex: none`，永远完整；名字 `flex: 1` 吃掉剩下的宽度。
+
+   **名字长了不用省略号，用虚化**：右端一道 20px 的遮罩把字淡出去。省略号是一个「还有」的记号，
+   要占三个字符宽，而且和后面那个词挤在一起读起来像同一串；虚化不占宽度，
+   也天然说明「这行还没完，只是这儿装不下了」。名字短的时候遮罩落在空白上，看不见。
+
+   **名字是这张卡的主语，所以吃标题那一档**（用户定的「标题再显眼一些」）：13/600 满墨，
+   来源留在 11px 铅笔色，两档拉开。 */
+.jg-tile .cap .nm, .jg-tile .lab .nm { flex: 1; min-width: 0;
+  color: var(--ink); font: var(--w-title) var(--fs-title)/1.35 var(--sans);
+  white-space: nowrap; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 20px), transparent); }
+/* 来源不收。留一道上限只是防个别超长的应用名把名字挤没，真收起来才用省略号 */
+.jg-tile .cap .src, .jg-tile .lab .src { flex: none; max-width: 45%; color: var(--ink-3);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jg-tile .cap { display: flex; align-items: baseline; gap: 6px; }
 /* 剪贴板里那张图：上沿给名字，所以图往下让 */
-.k-clip .cap { position: absolute; left: 10px; right: 10px; top: 5px; height: 16px;
+.k-clip .cap { position: absolute; left: 10px; right: 10px; top: 5px; height: 19px;
   color: var(--ink-3); font-size: var(--fs-meta); }
-.k-clip.has-cap > img { top: 26px; height: calc(100% - 52px); }
+.k-clip.has-cap > img { top: 29px; height: calc(100% - 55px); }
 
 /* 1 · 录音 —— 一条磁带。底边一整条是磁粉，转写只留一行 */
 .k-voice { background: var(--p-voice); padding: var(--a3); }
 .k-voice .lab { position: absolute; left: var(--a3); right: var(--a3); top: var(--a3); }
 /* 转写占中间那块。它是机器从声音里转出来的，不是你写的字，所以用淡墨——
    这一条贯穿五种纸：你写的满墨，你选的满墨半粗，别人的和机器的都淡一档 */
-.k-voice .said { position: absolute; left: var(--a3); right: var(--a3); top: 34px; bottom: 38px;
+.k-voice .said { position: absolute; left: var(--a3); right: var(--a3); top: 37px; bottom: 38px;
   color: var(--ink-2); font-size: var(--fs-body); line-height: 1.6;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--clines, 3); overflow: hidden; }
 /* 时长归到磁带那条上去：它本来就属于磁带，顺便躲开右上角的状态角标 */
@@ -913,12 +1085,12 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 .k-shot { background: var(--p-shot); overflow: hidden; }
 /* 绝对定位的 <img> 只给 inset 是不会被拉伸的（替换元素用自己的原始尺寸），得算死宽高 */
 /* 照片是压进相纸里的，接缝处有一道极浅的凹陷——这是"贴上去"和"印进去"的区别 */
-.jg-tile.k-shot > img { position: absolute; left: 8px; top: 30px; width: calc(100% - 16px); height: calc(100% - 38px);
+.jg-tile.k-shot > img { position: absolute; left: 8px; top: 32px; width: calc(100% - 16px); height: calc(100% - 40px);
   object-fit: cover; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .07); }
 /* 上沿那道边上写的是**名字加来源**，不是时间：一张截图待在哪一天哪一个小时，网格已经说了；
    而这是这张卡片上唯一一行字，它该说这是什么。
    放上沿不放底下：一眼扫过去视线先落在卡片上沿，名字该在那儿等着。 */
-.k-shot .cap { position: absolute; left: 10px; right: 10px; top: 8px; height: 20px;
+.k-shot .cap { position: absolute; left: 10px; right: 10px; top: 7px; height: 22px;
   display: flex; align-items: baseline; gap: 6px; color: var(--ink-3);
   font-size: var(--fs-meta); min-width: 0; overflow: hidden; }
 .k-shot .cap svg { width: 12px; height: 12px; }
@@ -951,6 +1123,14 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 /* 5 · 剪贴板 —— 一片撕下来的纸。撕过的边不齐，box-shadow 只会画矩形，所以改用两层
    drop-shadow（数值同 --e1），影子跟着撕痕走 */
 /* 撕下来的碎片是贴着字撕的，所以边窄 */
+/* **碎片是歪着的**（2026-09-09 用户定的）。0.6–1.5 度，左右各一半，**还有三成完全不歪**——
+   每张都歪就成了一种规律，「随手扔的」这件事恰恰要靠有的正有的歪才成立。
+   角度由记录 id 定死（`--tilt` 写在行内），所以同一条永远歪同一个角度，重排也不会跳。
+   这是全应用第二处允许旋转的地方——另一处是拖拽中的 1.5°。理由说得通：这是一片**撕下来**
+   的纸，随手扔在那儿，正着贴反而不像撕的。
+   hover 的抬起要**接在旋转后面**，不能覆盖它，否则一碰鼠标它就正过来了。 */
+.k-clip { transform: rotate(var(--tilt, 0deg)); }
+.k-clip:hover { transform: translateY(-2px) rotate(var(--tilt, 0deg)); z-index: 2; }
 .k-clip { background: var(--p-clip); padding: 22px 10px 26px; box-shadow: none;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .10)) drop-shadow(0 4px 10px rgba(0, 0, 0, .10));
   /* 撕口的深浅要不匀：一排等高的齿是邮票的齿孔，不是撕出来的 */
@@ -1001,7 +1181,7 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
    文件纸左边有两个装订孔，所以整块和抬头都让开 28px。 */
 .jg-file { position: absolute; inset: 0; padding: 30px 8px 8px 28px; }
 .jg-file img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.jg-file .cap { position: absolute; left: 28px; right: 10px; top: 8px; height: 20px; }
+.jg-file .cap { position: absolute; left: 28px; right: 10px; top: 7px; height: 22px; }
 .k-file::before, .k-file::after { content: ''; position: absolute; left: 8px; width: 12px; height: 12px;
   background: var(--page); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .30), inset 0 -1px 0 rgba(255, 255, 255, .5); }
 .k-file::before { top: 30%; }
@@ -1065,6 +1245,9 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
 .mdl-tray button.on { color: var(--ink); font-weight: var(--w-title); }
 .mdl-tray button[disabled] { color: var(--ink-3); cursor: default; }
 .mdl-tray button[disabled]:hover { background: none; }
+/* 托盘里只有两条，所以每条前面写着它是哪一边——铅笔色的一个小词，对齐成一列 */
+.mdl-tray .w { display: inline-block; width: 38px; color: var(--ink-3); font-size: var(--fs-meta); }
+.mdl-tray .miss { font-style: normal; color: var(--ink-3); }
 
 /* 设置里那一片常驻的模型：一家一行，行首是公司名（铅笔色），后面是它的几档。
    值的长相**和筛选托盘完全一样**（--tone 底、选中换 --marker、直角、无影）——
@@ -1077,5 +1260,12 @@ body[data-tab="ask"] .ask-bar textarea { flex: 1; min-width: 0; max-width: none;
   background: var(--tone); color: var(--ink-2);
   padding: 4px 8px; font: 400 var(--fs-act)/1.5 var(--sans); white-space: nowrap; }
 .mv:hover { background: var(--tone-2); color: var(--ink); }
+/* 摆上架子的换荧光笔；正拿着用的那个再加粗——两级，一眼分得出「架子上的」和「手里的」 */
+.mv.pin { background: var(--marker); color: var(--ink); }
 .mv.on { background: var(--marker); color: var(--ink); font-weight: 600; }
+.mv[disabled] { opacity: .45; cursor: default; }
+.mv[disabled]:hover { background: var(--tone); color: var(--ink-2); }
+/* 从架子上拿下来。它是这块词自己的一部分，所以不另给底色、不另给框 */
+.mv .x { margin-left: 2px; padding: 0 2px; color: var(--ink-3); font-weight: 400; cursor: pointer; }
+.mv .x:hover { color: var(--stamp); }
 .mv .tier { flex: none; font-weight: 400; color: var(--ink-3); font-size: var(--fs-meta); }

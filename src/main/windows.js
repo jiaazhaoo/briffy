@@ -5,6 +5,7 @@ const { app, BrowserWindow, ipcMain, nativeImage, screen } = require('electron')
 const path = require('path');
 const { entrySource } = require('./store');   // 哪种纸：剪贴板 / 收藏要靠它分
 const { pathToFileURL } = require('url');
+const petGround = require('./pet-ground');
 
 // The pet window is larger than the 54px circle it shows (see pet.css --s / --d): the
 // transparent margin is where the shadow, the recording ring and every gesture happen,
@@ -101,8 +102,9 @@ function createPetWindow() {
   // this flag is all it takes to stay out of it.
   petWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
   petWin.loadFile(rendererPath('pet', 'index.html'));
-  petWin.once('ready-to-show', () => { if (!petHidden) petWin.showInactive(); watchFullscreen(); });
-  petWin.on('closed', () => { petWin = null; });
+  petWin.once('ready-to-show', () => { if (!petHidden) petWin.showInactive(); watchFullscreen(); watchPetGround(); });
+  petWin.on('closed', () => { petWin = null; petGround.reset(); });
+  screen.on('display-metrics-changed', () => petGroundChanged('换屏', true));
   petWin.webContents.on('did-finish-load', () => sendState());
   petWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   return petWin;
@@ -283,6 +285,17 @@ function setPetState(next, opts = {}) {
   }
 }
 function getState() { return state; }
+// 它站在什么颜色上——量脚下的真实像素，见 pet-ground.js
+function watchPetGround() {
+  petGround.watch(
+    // 排除不了自己就不量：那样裁出来的正好是它自己，量到的是它自己的蓝
+    () => (petWin && !petWin.isDestroyed() && !petHidden && EXCLUDE_FROM_CAPTURE ? petWin.getBounds() : null),
+    (ground) => sendPetCommand('config', { ground }),
+  );
+}
+/** 脚下那块底可能变了。force＝出生 / 拖走 / 换屏；不 force 的会被 pet-ground 的节流挡住 */
+function petGroundChanged(why, force) { petGround.refresh({ force, why }); }
+
 function sendPetCommand(cmd, payload) {
   if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet:command', { cmd, ...payload });
 }
@@ -359,7 +372,7 @@ function setPetHidden(hidden) {
   if (hidden) hideShelf({ now: true });
   petHidden = !!hidden;
   store.updateSettings({ petHidden });
-  if (petHidden) { if (petWin) petWin.hide(); } else if (petWin) petWin.showInactive();
+  if (petHidden) { if (petWin) petWin.hide(); } else if (petWin) { petWin.showInactive(); petGroundChanged('重新显示', true); }
 }
 function isPetHidden() { return petHidden; }
 
@@ -380,6 +393,7 @@ function dragEnd() {
   const c = clampToDisplays(x, y);   // 松手就停在原地，只保证它整个还在屏幕里
   petWin.setPosition(c.x, c.y);
   store.updateSettings({ petPosition: c });
+  petGroundChanged('拖走', true);          // 换了地方，脚下那块底多半也换了
 }
 
 // ---------- first run ----------
@@ -481,6 +495,14 @@ function openWorkspace(tab, arg) {
     });
     pendingNavigate = tab ? { tab, arg } : null;
     syncDock();
+    // 渲染进程死在哪儿要说出来。它一旦在初始化时抛异常，静态 HTML 还在、动态的全没有，
+    // 窗口就是一块白板——外面看不出任何线索，主进程日志也干干净净。
+    // 2026-09-09 为了查一次「软件变成白板」补的：宁可多两行日志，也别再有一次哑掉的失败。
+    wsWin.webContents.on('console-message', (_e, level, message, line, src) => {
+      if (level >= 2) console.log(`[ws] ${message}  @${String(src).split('/').pop()}:${line}`);
+    });
+    wsWin.webContents.on('preload-error', (_e, file, err) => console.log('[ws] preload', file, err && err.message));
+    wsWin.webContents.on('render-process-gone', (_e, d) => console.log('[ws] 渲染进程没了：', d && d.reason));
     wsWin.loadFile(rendererPath('workspace', 'index.html'));
     wsWin.once('ready-to-show', () => { wsWin.show(); wsWin.focus(); });
     wsWin.on('closed', () => { wsWin = null; syncDock(); });
@@ -510,6 +532,6 @@ module.exports = {
   init, createPetWindow,
   openOnboarding, closeOnboarding, broadcastToOnboarding,
   setPetState, getState, sendPetCommand, hideForCapture, restoreAfterCapture, setPetHidden, isPetHidden,
-  dragStart, dragMove, dragEnd, openWorkspace, broadcastToWorkspace, getPetWindow, getWorkspaceWindow,
+  dragStart, dragMove, dragEnd, petGroundChanged, openWorkspace, broadcastToWorkspace, getPetWindow, getWorkspaceWindow,
   createShelfWindow, hoverPet, hideShelf, isShelfOpen, getShelfWindow,
 };

@@ -43,7 +43,7 @@
     languages: ['zh-Hans', 'en'], hotkey: 'Alt+S', model: 'claude-opus-5', sttModel: 'Xenova/whisper-small', sttLanguage: 'auto', summaryTime: '08:00',
     workspaceDir: '', hfMirror: '', tessLangPath: '', petHidden: false, ocrDroppedImages: true, normalizeChineseScript: true, micDeviceId: '', micLabel: '',
     recordTrail: true,          // 预览里开着，好看见「路过」那一页
-    ocrEngine: 'paddle', ocrModel: '', clipboardWatch: true, clipboardMinChars: 12, localApi: true, localApiPort: 47831,
+    ocrEngine: 'paddle', ocrModel: '', clipboardWatch: true, clipboardInAll: false, clipboardMinChars: 12, localApi: true, localApiPort: 47831,
     provider: 'ollama', openrouterModel: 'anthropic/claude-opus-5', ollamaHost: 'http://127.0.0.1:11434', ollamaModel: '',
     hasOpenrouterKey: true, openrouterKeyHint: 'sk-or-v1…a1b2', 
   };
@@ -60,10 +60,29 @@
   // same rule as store.js entrySource(): where it came in through, which `type` alone cannot say
   const srcOf = (e) => (e.origin === 'clipboard' ? 'clipboard' : e.origin === 'bookmark' ? 'bookmark' : e.origin === 'browser' ? 'browser'
     : e.type === 'screenshot' ? 'screenshot' : e.type === 'audio' ? 'voice' : 'other');
+  // 和 store.js 的 entryBucket / entrySub 同一套：一级是屏幕上那五种纸，二级每格问自己的问题
+  const fmtOf = (e) => (/^image/.test(e.mime || '') || e.type === 'image' || e.type === 'screenshot' ? 'image'
+    : /^audio/.test(e.mime || '') || e.type === 'audio' ? 'audio'
+      : /pdf/.test(e.mime || '') || /\.pdf$/i.test(e.title || '') ? 'pdf'
+        : /^video/.test(e.mime || '') || e.type === 'video' ? 'video'
+          : e.type === 'url' ? 'link' : 'text');
+  const bucketOf = (e) => {
+    if (e.pinned) return 'saved';
+    const s = srcOf(e);
+    return s === 'bookmark' || s === 'browser' ? 'saved'
+      : s === 'clipboard' ? 'clip' : s === 'screenshot' ? 'shot' : s === 'voice' ? 'voice' : 'file';
+  };
+  const subOf = (e) => {
+    const b = bucketOf(e);
+    if (b === 'saved' || b === 'shot') return originOf(e);
+    if (b === 'voice') return String(e.mic || '').trim() || '?';
+    return fmtOf(e);
+  };
   const pub = (e) => ({ ...e, source: srcOf(e), absPath: e.path ? 'C:\\briffy\\' + e.path : '' });
   window.ws = {
     getSettings: async () => ({ settings, avatarUrl: '/assets/pet/avatar.png', languages, sttModels: [{ id: 'Xenova/whisper-tiny', name: 'Whisper tiny (~40 MB)' }, { id: 'Xenova/whisper-small', name: 'Whisper small (~250 MB, recommended)' }], platform: 'win32', version: '0.1.0', screenPermission: 'granted', hotkeyError: '', workspaceDir: 'C:\\Users\\User\\AppData\\Roaming\\briffy\\workspace', stats: { days: 3, entries: entries.length }, localApi: { running: true, port: 47831, lastReceived: null }, extensionDir: 'C:\\local project\\briffy\\extension', setup: null,
       ocrModels: [{ id: 'v6-small', name: 'PP-OCRv6 small', sizeMB: 26 }, { id: 'v6-tiny', name: 'PP-OCRv6 tiny', sizeMB: 12 }, { id: 'v5-mobile', name: 'PP-OCRv5 mobile', sizeMB: 24 }] }),
+    closeWindow: () => console.log('[mock] close window'),
     saveSettings: async (patch) => { Object.assign(settings, patch); return settings; },
     testProvider: async () => { await sleep(600); return { ok: true, model: 'qwen3.5:9b', reply: 'OK' }; },
     providerStatus: async () => ({ catalogue: { live: true, at: Date.now(), scored: 13, tiers: {
@@ -86,8 +105,17 @@
       ? { host: 'http://127.0.0.1:11434', running: false, installed: false, reason: 'not-installed', models: [] }
       : new URLSearchParams(location.search).get('ollama') === 'stopped'
         ? { host: 'http://127.0.0.1:11434', running: false, installed: true, binary: 'C:\\Users\\User\\AppData\\Local\\Programs\\Ollama\\ollama.exe', reason: 'not-running', models: [] }
-        : { host: 'http://127.0.0.1:11434', running: true, version: '0.12.1', installed: true, models: [{ name: 'qwen3.5:9b', size: 6.6e9 }, { name: 'gemma3:4b', size: 3.3e9 }] }), anthropic: { hasProfile: false, profiles: [], envKey: false, cliInstalled: false }, configured: true, label: 'qwen3.5:9b (Ollama)', provider: settings.provider }),
-    openrouterModels: async () => ({ ok: true, models: [{ id: 'anthropic/claude-opus-5', name: 'Anthropic: Claude Opus 5', context: 1000000, vision: true, pricing: { prompt: 0.000005, completion: 0.000025 } }, { id: 'anthropic/claude-sonnet-5', name: 'Anthropic: Claude Sonnet 5', context: 1000000, vision: true, pricing: { prompt: 0.000002, completion: 0.00001 } }, { id: 'qwen/qwen3.8-flash', name: 'Qwen: Qwen3.8 Flash', context: 1000000, vision: true, pricing: { prompt: 1.5e-7, completion: 4.7e-7 } }] }),
+        : { host: 'http://127.0.0.1:11434', running: true, version: '0.12.1', installed: true, models: [{ name: 'qwen3.5:9b', size: 6.6e9 }, { name: 'gemma3:4b', size: 3.3e9 }] }), anthropic: { hasProfile: false, profiles: [], envKey: false, cliInstalled: false }, configured: true, label: 'qwen3.5:9b (Ollama)', provider: settings.provider,
+      missingBy: { ollama: '', openrouter: settings.hasOpenrouterKey ? '' : 'apiKey' },
+      resident: { ollama: settings.ollamaModel || 'qwen3.5:9b', openrouter: settings.openrouterModel || 'anthropic/claude-opus-5' } }),
+    openrouterModels: async () => ({ ok: true, models: [{ id: 'anthropic/claude-opus-5', name: 'Anthropic: Claude Opus 5', context: 1000000, vision: true, pricing: { prompt: 0.000005, completion: 0.000025 } }, { id: 'anthropic/claude-sonnet-5', name: 'Anthropic: Claude Sonnet 5', context: 1000000, vision: true, pricing: { prompt: 0.000002, completion: 0.00001 } }, { id: 'qwen/qwen3.8-flash', name: 'Qwen: Qwen3.8 Flash', context: 1000000, vision: true, pricing: { prompt: 1.5e-7, completion: 4.7e-7 } },
+      { id: '~anthropic/claude-haiku', name: 'Anthropic: Claude Haiku Latest', resolved: 'Anthropic: Claude Haiku 4.5', context: 200000, vision: true, pricing: { prompt: 1e-6, completion: 5e-6 } },
+      { id: '~anthropic/claude-sonnet', name: 'Anthropic: Claude Sonnet Latest', resolved: 'Anthropic: Claude Sonnet 5', context: 1000000, vision: true, pricing: { prompt: 3e-6, completion: 1.5e-5 } },
+      { id: '~anthropic/claude-opus', name: 'Anthropic: Claude Opus Latest', resolved: 'Claude Opus 5', context: 1000000, vision: true, pricing: { prompt: 5e-6, completion: 2.5e-5 } },
+      { id: '~openai/gpt-5', name: 'OpenAI: GPT-5 Latest', resolved: 'OpenAI: GPT-5.6 Sol', context: 400000, vision: true, pricing: { prompt: 1.2e-6, completion: 1e-5 } },
+      { id: '~openai/gpt-5-mini', name: 'OpenAI: GPT-5 Mini Latest', resolved: 'OpenAI: GPT-5.4 Mini', context: 400000, vision: true, pricing: { prompt: 2.5e-7, completion: 2e-6 } },
+      { id: '~google/gemini-3-pro', name: 'Google: Gemini 3 Pro Latest', resolved: 'Google: Gemini 3.1 Pro Preview', context: 2000000, vision: true, pricing: { prompt: 2e-6, completion: 1.2e-5 } },
+      { id: '~google/gemini-3-flash', name: 'Google: Gemini 3 Flash Latest', resolved: 'Google: Gemini 3.8 Flash', context: 1000000, vision: true, pricing: { prompt: 1.5e-7, completion: 6e-7 } }] }),
     openrouterLogin: async () => { await sleep(800); settings.hasOpenrouterKey = true; return settings; },
     openrouterCancelLogin: async () => {},
     ollamaPull: async (model) => {
@@ -128,7 +156,18 @@
     openExtensionGuide: async () => ({ ok: true, url: 'http://127.0.0.1:47831/install' }),
     onExtension: on('ws:extension'),
     // 「路过」：从真实的一天量出来的形状——一天七百多段，够三分钟的七十来段
-    trailDays: async () => ['2026-09-06'],
+    trailDays: async () => ['2026-09-09', '2026-09-07', '2026-09-06'],
+    trailPages: async (day) => [
+      { day: day, at: '2026-09-06T01:03:00.000Z', url: 'https://planauditinge2e.geonarvis.com/read', site: 'planauditinge2e.geonarvis.com', title: '阅读纸质记录', text: '在英国买房，市政委员会必须告知你相关的法律条件：车库不能改建成商铺，公寓在停车场建成之前不能入住。' },
+      { day: day, at: '2026-09-06T01:20:00.000Z', url: 'https://planextracte2e.geonarvis.com/scan', site: 'planextracte2e.geonarvis.com', title: 'Scan to Boundary', text: '00_00024_FUL 5 pages in · 2 plans filed · 2 traced · $0.061 Cartref, Queen…' },
+      { day: day, at: '2026-09-06T03:12:00.000Z', url: 'https://bilibili.com/v1', site: 'bilibili.com', title: '【4K】机械质感巅峰传承｜英雄内战：钢铁侠战甲合集', text: '本期视频整理了历代战甲的机械结构演示…' },
+      { day: day, at: '2026-09-06T03:40:00.000Z', url: 'https://bilibili.com/v2', site: 'bilibili.com', title: '打破十连败梦魇！王祉怡逆天跟随挣扎杀穿安洗莹夺冠！', text: '2026 年全英公开赛女单决赛…' },
+      { day: day, at: '2026-09-06T04:02:00.000Z', url: 'https://claude.ai/x', site: 'claude.ai', title: 'Dell S2725QC 还值得买吗', text: '这块屏物理密度 296 PPI，LoDPI 的软化被高密度掩盖了大半。' },
+      { day: day, at: '2026-09-06T05:11:00.000Z', url: 'https://linkedin.com/in/x', site: 'linkedin.com', title: 'Someone · Planning consultant', text: '' },
+    ],
+    trailFind: async (q) => [
+      { day: '2026-09-07', at: '2026-09-06T01:03:00.000Z', url: 'https://planauditinge2e.geonarvis.com/read', site: 'planauditinge2e.geonarvis.com', title: '阅读纸质记录', snippet: '…市政委员会必须告知你相关的法律条件：车库不能改建成商铺…' },
+    ],
     trailSessions: async () => {
       const mk = (h, m, mins, app, w, pages = []) => ({
         from: `2026-09-06T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`,
@@ -147,6 +186,8 @@
         mk(11, 46, 91, 'Claude', 'Claude'),
         mk(13, 6, 8, 'Finder', 'Downloads'),
         mk(15, 20, 2, 'Telegram', 'Telegram @ jia'),
+        mk(16, 0, 320, 'Claude', 'Claude'),
+        mk(21, 30, 4, 'AnyDesk', 'AnyDesk'),
       ];
     },
     // 问过的那些对话
@@ -207,12 +248,15 @@
     onOllamaPull: on('ws:ollama-pull-progress'),
     chooseDir: async () => 'D:\\briffy',
     listDates: async () => [...new Set(entries.map((e) => e.dateKey))].sort().reverse(),
-    listEntries: async ({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false, type = '', origin = '', ids = null } = {}) => {
+    listEntries: async ({ query = '', dates = null, source = '', sources = null, exclude = null, pinned = false, type = '', origin = '', bucket = '', sub = '', hideInAll = null, ids = null } = {}) => {
       const only = Array.isArray(ids) && ids.length ? new Set(ids) : (Array.isArray(ids) ? new Set() : null);
       const want = Array.isArray(sources) && sources.length ? new Set(sources) : (source ? new Set([source]) : null);
       const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
+      const hide = Array.isArray(hideInAll) && hideInAll.length ? new Set(hideInAll) : null;
       return entries.filter((e) => (!only || only.has(e.id))
-        && (!type || e._fmt === type)
+        && (bucket ? bucketOf(e) === bucket : !hide || !hide.has(bucketOf(e)))
+        && (!sub || subOf(e) === sub)
+        && (!type || fmtOf(e) === type)
         && (!origin || originOf(e) === origin)
         && (!dates || dates.includes(e.dateKey))
         && (!want || want.has(srcOf(e)))
@@ -254,23 +298,41 @@
       return { ...base, model: 'qwen3.5:9b (Ollama)', used: [1, 2].filter((n) => n <= hits.length),
         answer: `会议定在**明天上午十点**，和产品团队一起过第三季度的预算和路线图 [1]。语音笔记里还提到下午三点要讨论产品方案，预算要先发给张老师 [2]。\n\n- 相关材料：《第三季度预算与路线图会议.pdf》，6 页 [1]\n- 待办：把会议纪要发给王经理 [1]` };
     },
-    stats: async () => {
+    // 和真的那一份同一套：给它 listEntries 那套条件，它数的就是屏幕上会有几条。
+    // 每一档放开自己那一维、照筛别的，所以每个词后面的数就是「点它之后还剩几条」。
+    stats: async ({ dates = null, type = '', origin = '', bucket = '', sub = '', hideInAll = null, exclude = null } = {}) => {
+      const inDates = Array.isArray(dates) ? new Set(dates) : null;
+      const skip = Array.isArray(exclude) && exclude.length ? new Set(exclude) : null;
       const bySource = { screenshot: 0, clipboard: 0, bookmark: 0, browser: 0, voice: 0, other: 0 };
-      for (const e of entries) bySource[srcOf(e)]++;
-      // 三个维度的计数：类型、来源（站点优先，其次应用，再退回采集方式）
-      const byType = {}; const byOrigin = {};
+      const byType = {}; const byOrigin = {}; const byDay = {};
+      const byBucket = { clip: 0, shot: 0, saved: 0, file: 0, voice: 0 }; const bySub = {};
+      const hide = Array.isArray(hideInAll) && hideInAll.length ? new Set(hideInAll) : null;
+      let shown = 0; let allCount = 0;
       for (const e of entries) {
-        const fmt = /^image/.test(e.mime || '') || e.type === 'image' || e.type === 'screenshot' ? 'image'
-          : /^audio/.test(e.mime || '') || e.type === 'audio' ? 'audio'
-          : /pdf/.test(e.mime || '') || /\.pdf$/i.test(e.title || '') ? 'pdf'
-          : /^video/.test(e.mime || '') || e.type === 'video' ? 'video'
-          : e.type === 'url' ? 'link' : 'text';
+        const fmt = fmtOf(e);
         e._fmt = fmt;
-        byType[fmt] = (byType[fmt] || 0) + 1;
         const o = originOf(e);
-        byOrigin[o] = (byOrigin[o] || 0) + 1;
+        const okDate = !inDates || inDates.has(e.dateKey);
+        const okType = !type || fmt === type;
+        const okOrigin = !origin || o === origin;
+        const okSkip = !skip || !skip.has(srcOf(e));
+        const okInAll = !hide || !hide.has(bucketOf(e));
+        const okBucket = bucket ? bucketOf(e) === bucket : okInAll;
+        const okSub = !sub || subOf(e) === sub;
+        const rest = okType && okOrigin && okSkip;
+        if (rest && okBucket && okSub) byDay[e.dateKey] = (byDay[e.dateKey] || 0) + 1;
+        if (okDate && okBucket && okSub) {
+          if (okOrigin && okSkip) byType[fmt] = (byType[fmt] || 0) + 1;
+          if (okType && okSkip) byOrigin[o] = (byOrigin[o] || 0) + 1;
+          if (okType && okOrigin) bySource[srcOf(e)]++;
+        }
+        if (okDate && rest) byBucket[bucketOf(e)]++;
+        if (okDate && rest && okInAll) allCount++;
+        if (okDate && rest && bucket && okBucket) { const k = subOf(e); bySub[k] = (bySub[k] || 0) + 1; }
+        if (okDate && rest && okBucket && okSub) shown++;
       }
-      return { days: 3, entries: entries.length, pinned: entries.filter((e) => e.pinned).length, bySource, byType, byOrigin };
+      return { days: 3, entries: entries.length, pinned: entries.filter((e) => e.pinned).length,
+        bySource, byType, byOrigin, byDay, byBucket, bySub, allCount, shown };
     },
     onEntry: on('ws:entry'), onSummary: on('ws:summary'), onSettings: on('ws:settings'), onNavigate: on('ws:navigate'),
   };

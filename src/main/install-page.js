@@ -1,10 +1,15 @@
 'use strict';
-// The page briffy opens in the user's browser to walk them through loading the extension.
-// It lives on the app's own local endpoint, so it can poll the app and announce success by itself —
-// browsers refuse to open chrome://extensions from a command line, so the address is offered for pasting.
+// The page briffy opens in the user's browser to walk them through installing the extension.
+// It lives on the app's own local endpoint, so it can poll the app and announce success by itself.
+//
+// Two paths, and which one is on top is decided by extension-store.js:
+//   published    one step -- a link to the web store. The manual route folds away into <details>.
+//   not yet      the three manual steps, as before. Browsers refuse to open chrome://extensions from
+//                a command line, so the address is offered for pasting instead.
 
 const fs = require('fs');
 const path = require('path');
+const { storeUrl } = require('./extension-store');
 
 // The animated mark, inlined. This page is served over http from the app's own endpoint, so it
 // cannot reach a file:// asset; and it is the first thing a lot of people see of briffy, so it is
@@ -38,6 +43,10 @@ const TEXT = {
     copy: '复制',
     copied: '已复制',
     browserHint: '如果你用的是 Edge，地址换成 edge://extensions；Brave 是 brave://extensions。',
+    storeStep: '从扩展商店安装',
+    storeDesc: '点下面这个按钮，在商店页面点「添加至 Chrome」。装好之后这一页会自己变绿。',
+    storeBtn: '打开扩展商店',
+    manualToggle: '装不了？手动加载（三步）',
   },
   en: {
     title: 'briffy browser extension',
@@ -54,6 +63,10 @@ const TEXT = {
     copy: 'Copy',
     copied: 'Copied',
     browserHint: 'On Edge use edge://extensions, on Brave brave://extensions.',
+    storeStep: 'Install from the extension store',
+    storeDesc: 'Click the button below, then click "Add to Chrome" on the store page. This page turns green by itself once it works.',
+    storeBtn: 'Open the extension store',
+    manualToggle: 'Cannot install it? Load it manually (three steps)',
   },
 };
 
@@ -66,6 +79,25 @@ function installPage(opts = {}) {
   const dir = escapeHtml(opts.extensionDir || '');
   const scheme = opts.browser === 'edge' ? 'edge' : 'chrome';
   const address = `${scheme}://extensions/`;
+  const store = storeUrl(opts.browser);
+
+  // 手动那三步。发布之后它们还在，只是折进 <details>：企业策略禁掉商店、想装改过的版本、
+  // 或者干脆在 Firefox 上——这条路不能没有。
+  const manualSteps = `<ol>
+    <li>
+      <h2>${escapeHtml(t.step1)}</h2>
+      <p>${escapeHtml(t.step1desc)}</p>
+      <div class="copyrow"><code id="addr">${escapeHtml(address)}</code><button data-copy="addr">${escapeHtml(t.copy)}</button></div>
+    </li>
+    <li>
+      <h2>${escapeHtml(t.step2)}</h2>
+      <p>${escapeHtml(t.step2desc)}</p>
+    </li>
+    <li>
+      <h2>${escapeHtml(t.step3)}</h2>
+      <div class="copyrow"><code id="dir">${dir}</code><button data-copy="dir">${escapeHtml(t.copy)}</button></div>
+    </li>
+  </ol>`;
   return `<!doctype html>
 <html lang="${opts.lang === 'en' ? 'en' : 'zh'}">
 <head>
@@ -107,6 +139,13 @@ function installPage(opts = {}) {
   button:active { transform:translate(2px,2px); box-shadow:none; }
   button.done { border-color:var(--ok); color:var(--ok); }
   .hint { font-size:12.5px; color:var(--ink-2); margin-top:18px; }
+  a.gostore { display:inline-block; text-decoration:none; border:1px solid var(--ink); background:var(--ink); color:var(--sheet);
+    padding:10px 18px; box-shadow:2px 2px 0 var(--shadow-ink); font-size:14px; font-weight:600; margin:4px 0 2px; }
+  a.gostore:active { transform:translate(2px,2px); box-shadow:none; }
+  details.manual { margin-top:26px; }
+  details.manual > summary { cursor:pointer; font-size:13px; color:var(--ink-2); }
+  details.manual > summary:hover { color:var(--ink); }
+  details.manual > ol { margin-top:18px; }
   .head { display:flex; align-items:center; gap:14px; margin-bottom:8px; }
   .head h1 { margin:0; }
   .mark { width:44px; height:44px; flex:none; }
@@ -120,19 +159,11 @@ function installPage(opts = {}) {
 
   <div class="status waiting" id="status"><span class="dot"></span><span id="statusText">${escapeHtml(t.waiting)}</span></div>
 
-  <ol>
+  ${store ? `<ol>
     <li>
-      <h2>${escapeHtml(t.step1)}</h2>
-      <p>${escapeHtml(t.step1desc)}</p>
-      <div class="copyrow"><code id="addr">${escapeHtml(address)}</code><button data-copy="addr">${escapeHtml(t.copy)}</button></div>
-    </li>
-    <li>
-      <h2>${escapeHtml(t.step2)}</h2>
-      <p>${escapeHtml(t.step2desc)}</p>
-    </li>
-    <li>
-      <h2>${escapeHtml(t.step3)}</h2>
-      <div class="copyrow"><code id="dir">${dir}</code><button data-copy="dir">${escapeHtml(t.copy)}</button></div>
+      <h2>${escapeHtml(t.storeStep)}</h2>
+      <p>${escapeHtml(t.storeDesc)}</p>
+      <a class="gostore" href="${escapeHtml(store)}" target="_blank" rel="noopener">${escapeHtml(t.storeBtn)}</a>
     </li>
     <li>
       <h2>${escapeHtml(t.step4)}</h2>
@@ -140,7 +171,17 @@ function installPage(opts = {}) {
     </li>
   </ol>
 
-  <p class="hint">${escapeHtml(t.browserHint)}</p>
+  <details class="manual">
+    <summary>${escapeHtml(t.manualToggle)}</summary>
+    ${manualSteps}
+    <p class="hint">${escapeHtml(t.browserHint)}</p>
+  </details>` : `${manualSteps.replace('</ol>', `<li>
+      <h2>${escapeHtml(t.step4)}</h2>
+      <p>${t.step4desc}</p>
+    </li>
+  </ol>`)}
+
+  <p class="hint">${escapeHtml(t.browserHint)}</p>`}
 </div>
 <script>${anim()}</script>
 <script>

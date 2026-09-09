@@ -15,17 +15,15 @@
        （在那两页上 ⌘W 照样关窗，所以关闭这条路没断。） -->
   <div class="winbar">
     <button type="button" id="winBack" class="wback"><span class="ar" aria-hidden="true">←</span><span data-i18n="tabEntries">记录</span></button>
-    <button type="button" id="winClose" class="ico wclose" data-i18n-title="close" aria-label="Close">
-      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
-    </button>
-  </div>
-  <!-- 顶栏不是托盘：托盘属于底部（浮在滚动内容上的常驻工具），顶部是导航和筛选，
-       就是纸上的字。参照 are.na 的 Explore 和 Steidl——它们顶上都没有条，只有字。 -->
-  <header class="top">
+    <!-- 搜索和「怎么看」就住在这条拖拽带里。它以前是一条 30px 的空带子，下面再单起一行放搜索——
+         等于为了一个 × 花掉一整行。中间那段空白仍然是拖拽区（只有搜索框和右边那群是 no-drag）。 -->
     <div class="top-row">
-      <label class="search"><input id="search" type="search" data-i18n-placeholder="searchPlaceholder" /></label>
+      <!-- 搜索也是一只托盘，和右上角那只关闭同高。一句灰字看不出是能往里打字的地方 -->
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /></svg>
+        <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" />
+      </label>
       <div class="view">
-        <select id="dateFilter" class="select"></select>
         <div class="seg" id="viewSeg" role="tablist">
           <button type="button" data-view="grid" class="active" data-i18n-title="viewGrid" aria-label="grid">
             <svg viewBox="0 0 24 24"><path d="M3.5 3.5h7v7h-7zM13.5 3.5h7v7h-7zM3.5 13.5h7v7h-7zM13.5 13.5h7v7h-7z" /></svg>
@@ -44,11 +42,35 @@
         </button>
       </div>
     </div>
-    <!-- 筛选是两行：上面一行是三个维度和各自选中的值，下面一行是当前那个维度的可选值。
-         三个维度**叠着**筛（「小红书上的图片」），所以上面那行同时也是「现在叠了哪几个」，
-         右端一个「清空」。摊成三行值会把顶栏撑高一整行记录的高度，所以只展开一个。 -->
-    <div class="sources dims" id="dims"></div>
-    <div class="sources" id="sources"></div>
+    <!-- 关闭是右上角一只正方托盘，和看图窗右上角那只、详情卡片上那几只是同一件东西。
+         它是这条拖拽带里的一个普通流内元素：`-webkit-app-region: no-drag` 挖的那个洞是按
+         **未脱离文档流、未变形**的盒子算的，所以这只托盘既不能 absolute、也不能 fixed，
+         否则看得见的托盘和能点的那块洞会错开——「叉叉点了没反应」就是这么来的。 -->
+    <button type="button" id="winClose" class="wtray" data-i18n-title="close" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+  </div>
+  <!-- 顶栏不是托盘：托盘属于底部（浮在滚动内容上的常驻工具），顶部是导航和筛选，
+       就是纸上的字。参照 are.na 的 Explore 和 Steidl——它们顶上都没有条，只有字。
+
+       **筛选是两级的，一级就是屏幕上那五种纸**（2026-09-09 用户定的，这一处的第六版）：
+         时间   不限 · 今天 · 昨天 · 近 7 天
+         一级   全部 · 剪贴板 · 截图 · 收藏 · 文件 · 录音     互斥、全覆盖，加起来＝全库
+         二级   跟着一级换，**只在选了一级之后才出现**，所以默认那一屏仍然只有一行字
+       全是纸上的字，没有下拉、没有托盘、没有开关——一排词，一点就筛，再点旁边那个就换。
+       前五版之所以难看，是因为一行上并排站着四种长得一模一样、按起来却各不相同的东西
+       （单选、单选、开关、下拉）。现在只有一种。
+
+       数**平时不写出来**，只在选中的那个和鼠标停住的那个上出现（见 .src-chip .n）——
+       一行十几个数字读起来是一条数字带，不是一排能按的词。数本身仍然是真的：
+       它等于点下去之后屏幕上的条数（store.entryMatches 是「筛」和「数」共用的那一个判据）。 -->
+  <header class="top">
+    <div class="filters-row">
+      <div class="fdates" id="fdates"></div>
+      <div class="fbuckets" id="fbuckets"></div>
+    </div>
+    <!-- 二级：没选一级的时候整排不占地方 -->
+    <div class="fsub" id="fsub" hidden></div>
   </header>
 
   <div class="mid">
@@ -163,6 +185,7 @@
             <h2><span data-i18n="sClipboard">剪贴板</span><span class="info"><i>i</i><span class="tip" data-i18n="sClipboardHint">密码管理器复制的内容会自动跳过；从工作区里复制出去的文字不会重复记录。托盘菜单里也能随时开关。</span></span></h2>
             <div class="body">
             <label class="f check wide"><span class="fc"><input type="checkbox" id="clipboardWatch" /><span data-i18n="sClipboardWatch">实时记录剪贴板（复制的文字、图片、文件都会存入工作区）</span></span></label>
+            <label class="f check wide"><span class="fc"><input type="checkbox" id="clipboardInAll" /><span data-i18n="sClipboardInAll">把剪贴板也算进「全部」（默认不算：它一天到晚自己往里掉）</span></span></label>
             <label class="f"><span class="fl" data-i18n="sClipboardMin">文字至少多少个字才记录</span><span class="fc"><input id="clipboardMinChars" type="number" min="1" max="500" class="short" /></span></label>
             </div>
           </section>
@@ -249,19 +272,24 @@
         </div>
 
         <!-- ================= AI 服务 =================
-             一组一段：先选来源，再只显示这个来源自己的设置（.panel.active 是 display:contents，
-             所以里面的 section 和别的组同一条竖线、同一个间距），Ollama 的模型单开一段。 -->
+             **两块，一直都在**：本地模型（在这台电脑上跑）和网络模型（发出去跑）。
+             顶上那一段只回答一个问题——现在常驻用哪一块；下面两段各自是「怎么把这一块配好」。
+             以前是一个叫「来源」的下拉，选中哪个才显示哪个面板：于是「在用什么」和「怎么配」
+             绞在一起，没选中的那一块干脆看不见（「层级乱，也不知道怎么用」）。
+             下载模型也拆开了：**已经有的**和**可以下的**是两份名单，一份用、一份下，
+             按钮、进度、日志全在同一段里——以前下载键在下面、进度条在上面那一段。 -->
         <div class="sg-pane" data-group="ai">
           <section class="card-section">
-            <h2><span data-i18n="sAI">AI 服务</span><span class="info"><i>i</i><span class="tip" data-i18n="sAIHint">没有配置 AI 服务时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。</span></span></h2>
+            <h2><span data-i18n="sResident">常驻模型</span><span class="info"><i>i</i><span class="tip" data-i18n="sAIHint">给标题、每日摘要和问答用。没有配置时，标题用文件名代替，摘要退化成清单。</span></span></h2>
             <div class="body">
-            <label class="f"><span class="fl" data-i18n="sProvider">来源</span><span class="fc">
-              <select id="provider">
-                <option value="openrouter">OpenRouter</option>
-                <option value="ollama" data-i18n="sProviderOllama">本地模型 (Ollama)</option>
-              </select>
+            <div class="f"><span class="fl" data-i18n="sUseNow">现在用</span><span class="fc">
+              <div class="seg wide-seg" id="providerSeg" role="group">
+                <button type="button" data-prov="ollama" data-i18n="sLocalModel">本地模型</button>
+                <button type="button" data-prov="openrouter" data-i18n="sNetModel">网络模型</button>
+              </div>
+              <input type="hidden" id="provider" />
               <span id="providerConfigured" class="st"></span>
-            </span></label>
+            </span></div>
             <!-- 出门前把秘密盖掉。原件不动，改的只有发出去的那一份（src/main/redact.js） -->
             <label class="f"><span class="fl" data-i18n="sRedact">脱敏</span><span class="fc">
               <select id="redact">
@@ -278,79 +306,75 @@
             </div>
           </section>
 
-          <div id="panel-openrouter" class="panel">
-            <section class="card-section">
-              <h2>OpenRouter</h2>
-              <div class="body">
-              <label class="f"><span class="fl">API Key</span><span class="fc">
-                <input id="openrouterKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
-                <button type="button" class="btn primary" id="btnOpenrouterLogin" data-i18n="sOpenrouterLogin">用 OpenRouter 账号登录</button>
-                <button type="button" class="btn" id="btnClearOpenrouterKey" data-i18n="sClearKey">清除</button>
-                <span class="st" id="openrouterKeyStatus"></span>
-              </span></label>
-              <!-- 模型是一片常驻的词，不是一个下拉框：抄的是手机端那一版（一份手挑的目录、
-                   排头的是默认、底下一行「N 个模型 · 目录更新于 …」）。和筛选那只托盘同一种说法——
-                   每个值都有底，选中的换成荧光笔。想用目录之外的型号就往下面那个框里打。 -->
-              <div class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc">
-                <div id="modelPick" class="mdl-pick"></div>
-                <span class="st" id="openrouterModelInfo"></span>
-              </span></div>
-              <label class="f"><span class="fl" data-i18n="sModelOther">其他型号</span><span class="fc">
-                <input id="openrouterModel" list="openrouterModels" placeholder="anthropic/claude-opus-5" />
-                <datalist id="openrouterModels"></datalist>
-                <button type="button" class="btn" id="btnOpenrouterModels" data-i18n="sRefreshModels">刷新模型列表</button>
-              </span></label>
-              </div>
-            </section>
-          </div>
+          <!-- ── 本地模型：装 Ollama → 挑一个下下来 → 它就是常驻的本地模型 ── -->
+          <section class="card-section start" id="sec-local">
+            <h2><span data-i18n="sLocalModel">本地模型</span><span class="info"><i>i</i><span class="tip" data-i18n="sOllamaHint">Ollama 是在你自己电脑上跑模型的程序。装好并启动之后，briffy 就完全离线工作。</span></span></h2>
+            <div class="body">
+            <div class="f"><span class="fl">Ollama</span><span class="fc">
+              <span id="ollamaState" class="st"></span>
+              <button type="button" class="btn quiet" id="btnDetect" data-i18n="sDetect">重新检测</button>
+            </span></div>
+            <!-- 只给出现在真正需要的那一步：没装给安装，装了没跑给启动 -->
+            <div class="f wide" id="ollamaSetup"><span class="fc">
+              <button type="button" class="btn primary" id="btnInstallOllama" data-i18n="sInstallOllama">一键安装 Ollama</button>
+              <button type="button" class="btn" id="btnStartOllama" data-i18n="sStartOllama">启动 Ollama</button>
+              <button type="button" class="btn" id="btnDownloadOllama" data-i18n="sDownloadOllama">手动下载</button>
+            </span></div>
+            <div class="f"><span class="fl" data-i18n="sResidentOne">常驻</span><span class="fc">
+              <span id="localNow" class="st"></span>
+            </span></div>
+            <div id="resumePull" class="resume hidden"></div>
+            <div id="modelCards" class="mdl-list"></div>
+            <p class="st" id="modelsNote"></p>
+            <div id="ollamaJob" class="job hidden">
+              <div class="job-head"><span id="jobLabel"></span><span id="jobNumbers" class="muted"></span></div>
+              <div class="bar"><i id="jobBar"></i></div>
+              <details id="jobLogBox" class="loginfo"><summary data-i18n="sShowLog">查看详细日志</summary><pre id="installLog" class="log"></pre></details>
+            </div>
+            <div id="pullProgress" class="st"></div>
+            <!-- 目录之外的型号：一个框、一个下载键。**它不是「在用哪个」**——那件事只由上面
+                 那份名单说了算（点「用这个」）。以前这两件事共用同一个输入框，于是往里打字
+                 就等于把常驻模型改成了一个还没下下来的名字。 -->
+            <div class="f"><span class="fl" data-i18n="sPullOther">别的模型</span><span class="fc">
+              <input id="pullOther" placeholder="qwen3:4b" />
+              <span class="info"><i>i</i><span class="tip" data-i18n="sPullOtherHint">上面这份名单是按这台电脑挑的。Ollama 库里还有很多，知道名字就直接填，下下来就能用。</span></span>
+              <button type="button" class="btn" id="btnPull" data-i18n="sPull">下载</button>
+            </span></div>
+            <div class="f"><span class="fl" data-i18n="sOllamaHost">地址</span><span class="fc">
+              <input id="ollamaHost" placeholder="http://127.0.0.1:11434" />
+            </span></div>
+            <input type="hidden" id="ollamaModel" />
+            </div>
+          </section>
 
-          <div id="panel-ollama" class="panel">
-            <section class="card-section">
-              <h2>Ollama<span class="info"><i>i</i><span class="tip" data-i18n="sOllamaHint">Ollama 是在你自己电脑上跑模型的程序。装好并启动之后，briffy 就完全离线工作。</span></span></h2>
-              <div class="body">
-              <label class="f"><span class="fl" data-i18n="sOllamaHost">地址</span><span class="fc">
-                <input id="ollamaHost" placeholder="http://127.0.0.1:11434" />
-                <button type="button" class="btn" id="btnDetect" data-i18n="sDetect">重新检测</button>
-              </span></label>
-              <div class="f"><span class="fl" data-i18n="sState">状态</span><span class="fc">
-                <span id="ollamaState" class="st"></span>
-              </span></div>
-              <div class="f wide" id="ollamaSetup"><span class="fc">
-                <button type="button" class="btn primary" id="btnInstallOllama" data-i18n="sInstallOllama">一键安装 Ollama</button>
-                <button type="button" class="btn" id="btnStartOllama" data-i18n="sStartOllama">启动 Ollama</button>
-                <button type="button" class="btn" id="btnDownloadOllama" data-i18n="sDownloadOllama">手动下载</button>
-              </span></div>
-              <div class="f wide"><span class="fc">
-                <div id="ollamaJob" class="job hidden">
-                  <div class="job-head"><span id="jobLabel"></span><span id="jobNumbers" class="muted"></span></div>
-                  <div class="bar"><i id="jobBar"></i></div>
-                  <details id="jobLogBox" class="loginfo"><summary data-i18n="sShowLog">查看详细日志</summary><pre id="installLog" class="log"></pre></details>
-                </div>
-              </span></div>
-              </div>
-            </section>
-
-            <section class="card-section start">
-              <h2><span data-i18n="sModels">模型</span><span class="info"><i>i</i><span class="tip" data-i18n="sModelsHint">三档是按这台电脑的内存和显卡算出来的：轻松＝几乎不占资源，勉强＝能加载但会慢。分数来自公开评测榜（ifeval 看它照不照你说的格式答，mmlu-pro 看它知不知道），不是按名字猜的。</span></span></h2>
-              <div class="body">
-              <div id="hwBox" class="hw"></div>
-              <div id="resumePull" class="resume hidden"></div>
-              <div id="modelCards" class="mdl"></div>
-              <p class="st" id="modelsNote"></p>
-              <details class="why"><summary data-i18n="sOtherModel">用别的模型（手动填名称）</summary>
-                <div class="fc">
-                  <input id="ollamaModel" list="ollamaModels" placeholder="qwen3.5:9b" />
-                  <datalist id="ollamaModels"></datalist>
-                  <button type="button" class="btn" id="btnUseRecommended" data-i18n="sUseRecommended">用推荐的</button>
-                  <button type="button" class="btn primary" id="btnPull" data-i18n="sPull">下载模型</button>
-                </div>
-              </details>
-              <div id="pullProgress" class="st"></div>
-              <p class="st" id="ollamaTip"></p>
-              </div>
-            </section>
-          </div>
-
+          <!-- ── 网络模型：填 Key → 从那一片词里点一个，它就是常驻的网络模型 ── -->
+          <section class="card-section start" id="sec-net">
+            <h2><span data-i18n="sNetModel">网络模型</span><span class="info"><i>i</i><span class="tip" data-i18n="sNetHint">OpenRouter 是一个中转：一个 Key 就能用上各家的模型，按用量付费。正文会离开这台电脑——不想让它出门就用上面的本地模型。</span></span></h2>
+            <div class="body">
+            <label class="f"><span class="fl">API Key</span><span class="fc">
+              <input id="openrouterKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
+              <button type="button" class="btn primary" id="btnOpenrouterLogin" data-i18n="sOpenrouterLogin">用 OpenRouter 账号登录</button>
+              <button type="button" class="btn" id="btnClearOpenrouterKey" data-i18n="sClearKey">清除</button>
+              <span class="st" id="openrouterKeyStatus"></span>
+            </span></label>
+            <div class="f"><span class="fl" data-i18n="sResidentOne">常驻</span><span class="fc">
+              <span id="netNow" class="st"></span>
+            </span></div>
+            <!-- 模型是一片常驻的词，不是一个下拉框：抄的是手机端那一版（一份手挑的目录、
+                 排头的是默认、底下一行「N 个模型 · 目录更新于 …」）。和筛选那只托盘同一种说法——
+                 每个值都有底，选中的换成荧光笔。想用目录之外的型号就往下面那个框里打。 -->
+            <div id="modelPick" class="mdl-pick"></div>
+            <p class="st" id="openrouterModelInfo"></p>
+            <!-- 目录之外的型号：往架子上加一个。和本地那边「别的模型」是同一件事的两半——
+                 一边是「下一个目录里没有的」，一边是「摆一个目录里没有的」。 -->
+            <div class="f"><span class="fl" data-i18n="sAddOther">加一个</span><span class="fc">
+              <input id="orAdd" list="openrouterModels" placeholder="anthropic/claude-opus-5" />
+              <datalist id="openrouterModels"></datalist>
+              <button type="button" class="btn" id="btnAddOther" data-i18n="sAddOtherBtn">设为常驻</button>
+              <button type="button" class="btn quiet" id="btnOpenrouterModels" data-i18n="sRefreshModels">刷新模型列表</button>
+            </span></div>
+            </div>
+          </section>
         </div>
 
         <!-- ================= 工作区与关于 ================= -->
@@ -398,8 +422,8 @@
       </button>
       <textarea id="askInput" rows="1" data-i18n-placeholder="askPlaceholder" autocomplete="off"
         spellcheck="false" enterkeyhint="send"></textarea>
-      <!-- 用哪个模型答这一句。放在输入框旁边而不是只放设置里：换模型是问之前的决定，
-           而这是你问问题的地方。纸上的字，不是按钮——它跟导航和筛选是同一档。 -->
+      <!-- 用哪个模型答这一句。**只在「问」那一页出现**：那里是一场对话，换模型是对话里的决定；
+           主页这只托盘是「随口问一句」的入口，多一个下拉只会把一行字变成一排控件。 -->
       <div class="askmdl">
         <button type="button" id="btnModel" class="mdl"></button>
         <div class="mdl-tray" id="modelTray" hidden></div>

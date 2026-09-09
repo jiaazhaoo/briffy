@@ -21,6 +21,7 @@ const vocab = require('./vocab');
 const chats = require('./chats');
 const ocrBoxes = require('./ocr-boxes');
 const shape = require('./shape');
+const trail = require('./trail');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -40,6 +41,9 @@ const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably ho
 // 递给模型多少条。要装得下「每一路的第一名」（最多 MAX_QUERIES 条）加上沿链补的那几条，
 // 否则第一轮就白进了——分路的意义在于每一面都有代表，装不下就等于没分。
 const KEEP = 24;
+// 那 24 格里留给「路过」的几格。**给小不给大**：那三条腿翻的是你自己的库，那才是这个产品的
+// 主语；路过是补一句「你还读过这个」。给多了，一天几十页的浏览痕迹会把你自己存的东西挤出去。
+const TRAIL_KEEP = 3;
 // 一条查询最多贡献这么几条。**卡得紧是有道理的**：一个问题有好几个面（起点、终点、停车），
 // 让第一条查询把名额吃光，剩下的面就一条也进不来——今天量到的正是这个，把词揉成一句只捞回
 // 1/7，拆成五条各取前 3 捞回 3/7。
@@ -650,7 +654,35 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
     });
   }
 
-  const entries = ids.slice(0, KEEP).map((id) => store.getEntry(id)).filter(Boolean);
+  // ④ **第四条腿：你没存但读过的那些网页。**
+  //
+  // 记录页是「你决定留下的」，路过那一层是「你没留、但确实经过的」。后者每天几十页原文
+  // （实测中位数 559 字，是扩展在页面里读的 innerText，不是 OCR），而在 2026-09-09 之前
+  // 它对这条路完全不存在——问「上周那篇讲市政条件的东西」，答案就在硬盘上，而这儿看不见。
+  //
+  // 它**不占前三条腿的名额**，另给一小把：那三条腿翻的是你自己的库，那才是这个产品的主语；
+  // 路过是补一句「你还读过这个」。也不走 echoed / junkRecord 那两道闸——那两道认的是
+  // 「记录」的形状（问过的话被复制回工作区、整条都是网页家具），网页正文不是那种东西。
+  const trailHits = [];
+  try {
+    const words = index.termsOf(q).flatMap((t) => String(t.key || '').split(' '))
+      .map((x) => x.toLowerCase()).filter((x) => x.length > 1);
+    for (const p of trail.findPages(words, { limit: TRAIL_KEEP })) {
+      trailHits.push({
+        id: `trail:${p.day}:${p.at}`,
+        type: 'trail',
+        dateKey: p.day,
+        createdAt: p.at,
+        title: p.title || p.site || p.url,
+        url: p.url,
+        source: p.site,
+        text: p.text,
+      });
+    }
+  } catch (e) { console.warn('[ask] 路过那一层没读成', e.message); }
+
+  const entries = ids.slice(0, KEEP - trailHits.length).map((id) => store.getEntry(id)).filter(Boolean)
+    .concat(trailHits);
 
   const base = {
     question: q, answer: '', used: [], model: '',

@@ -40,6 +40,7 @@ const viewer = require('./viewer');
 const setup = require('./setup');
 const permissions = require('./permissions');
 const { installPage } = require('./install-page');
+const { storeUrl } = require('./extension-store');
 const stt = require('./stt');
 const ocr = require('./ocr');
 const fs = require('fs');
@@ -163,6 +164,9 @@ async function main() {
   trail.init({ store });
   chats.init({ store });
   trail.start();
+  // 前台窗口换了，压在回形针底下的那块颜色多半也换了——白蹭 trail 已经在跑的那个 2 秒轮询，
+  // 这一条本身不额外花钱（真正的采样有 8 秒节流，见 pet-ground.js）
+  trail.onAppend(() => windows.petGroundChanged('换窗口', false));
   connect.onProgress((p) => { for (const w of BrowserWindow.getAllWindows()) w.webContents.send('ws:connect-progress', p); });
   ask.warm();                      // 后台把磁盘索引追平，第一次提问就不用等
   // 以前存进来的文件还没有缩略图，后台一点一点补上。限时、可中断、下次接着做——
@@ -675,6 +679,44 @@ function registerHotkeys() {
 }
 
 // ---------- AI provider helpers ----------
+// OpenRouter 的 `~…-latest` 别名**名字里没有版本号**（「Google Gemini Pro Latest」、「OpenAI GPT Latest」）。
+// 界面上一片写着「Gemini Pro」「GPT」的词，看不出你现在用的到底是哪一代
+// （2026-09-09 用户原话「模型名称太简化了，最基本的版本数字都没有，比如 gemini 好像是 3.7 了吧」）。
+// 目录里也没有一个字段说这个别名指向谁，所以**按价目表认亲**：同一家里，
+// 上下文长度、进价和出价三样全都一样的那几个具体型号就是它的候选，取版本号最大的那个。
+// 名字对不上也没关系（`~x-ai/grok-latest` → 「SpaceXAI: Grok 4.6」），价钱对得上就行。
+// 认不出来（三家的具体型号根本不在目录里）就留空，界面退回别名自己的名字——
+// **宁可少说一句，也不能说错一个版本号**。
+function versionKey(id) {
+  const m = String(id).match(/\d+(?:\.\d+)*/g) || ['0'];
+  return m.map((x) => x.split('.').map(Number));
+}
+function newer(a, b) {                       // a 比 b 新？逐段比数字，长的那个在前面相等时算新
+  const x = versionKey(a).flat();
+  const y = versionKey(b).flat();
+  for (let i = 0; i < Math.max(x.length, y.length); i += 1) {
+    const d = (x[i] || 0) - (y[i] || 0);
+    if (d) return d > 0;
+  }
+  return false;
+}
+function resolveLatest(models) {
+  const concrete = models.filter((m) => !String(m.id).startsWith('~') && m.pricing);
+  for (const a of models) {
+    if (!String(a.id).startsWith('~') || !a.pricing) continue;
+    const vendor = a.id.slice(1).split('/')[0];
+    let best = null;
+    for (const m of concrete) {
+      if (m.id.split('/')[0] !== vendor) continue;
+      if (m.context !== a.context) continue;
+      if (m.pricing.prompt !== a.pricing.prompt || m.pricing.completion !== a.pricing.completion) continue;
+      if (!best || newer(m.id, best.id)) best = m;
+    }
+    if (best) a.resolved = best.name;
+  }
+  return models;
+}
+
 const OR_MODELS_TTL = 6 * 60 * 60 * 1000;
 function orModelsFile() { return path.join(app.getPath('userData'), 'openrouter-models.json'); }
 // 交出模型目录，**连它是什么时候拉的一起交**：设置里那句「N 个模型 · 目录更新于 …」要它。
@@ -684,7 +726,7 @@ async function openrouterModels(refresh = false) {
   if (!refresh) {
     try {
       const cached = JSON.parse(fs.readFileSync(orModelsFile(), 'utf8'));
-      if (cached && Date.now() - cached.fetchedAt < OR_MODELS_TTL && Array.isArray(cached.models)) { orModelsAt = cached.fetchedAt; return cached.models; }
+      if (cached && Date.now() - cached.fetchedAt < OR_MODELS_TTL && Array.isArray(cached.models)) { orModelsAt = cached.fetchedAt; return resolveLatest(cached.models); }
     } catch (_) { /* no cache */ }
   }
   const models = (await oai.listModels({ baseUrl: oai.OPENROUTER_BASE, headers: oai.OPENROUTER_HEADERS }))
@@ -692,7 +734,7 @@ async function openrouterModels(refresh = false) {
     .sort((a, b) => a.id.localeCompare(b.id));
   orModelsAt = Date.now();
   try { fs.writeFileSync(orModelsFile(), JSON.stringify({ fetchedAt: orModelsAt, models })); } catch (_) { /* ignore */ }
-  return models;
+  return resolveLatest(models);
 }
 
 // The five worth showing, out of the two hundred in Ollama's library. Live, cached for a day, and if
@@ -753,6 +795,9 @@ async function providerStatus(refresh = false) {
     missingBy: Object.fromEntries(llm.PROVIDERS.map((x) => [x, llm.missing(llm.config(store, { provider: x }))])),
     label: llm.label(cfg),
     provider: cfg.provider,
+    // 两边各自的常驻模型，**算好了送过去**：没选过的时候本地退回按硬件算的推荐、
+    // 网络退回内置那一档，而那两个默认只该有一份（llm.config）。界面自己再写一遍就会漂。
+    resident: { ollama: cfg.ollama.model, openrouter: cfg.openrouter.model },
   };
 }
 
@@ -878,6 +923,8 @@ function setupIpc() {
       suggested: apps.defaultAllow(),
     },
     extensionDir: extensionDir(),
+    // 空字符串 = 扩展还没上架，设置里就不出现「去商店」那一段。见 extension-store.js
+    extensionStoreUrl: storeUrl(defaultBrowser()),
     setup: setup.status(),
     ocrModels: Object.entries(ocr.PADDLE_MODELS).map(([id, m]) => ({ id, name: m.name, sizeMB: m.sizeMB, langs: m.langs, bundled: !!m.bundled })),
   }));
@@ -1069,7 +1116,6 @@ function setupIpc() {
       return ids.map((id) => store.getEntry(id)).filter(Boolean).map(publicEntry);
     } catch (_) { return []; }
   });
-  // 主题：讲同一件事的记录归成的堆。空手是正常的——向量还没补齐，或者这个工作区还没有成堆的东西。
   // 不用动手存的那一层：一天的痕迹和各应用待了多久。空手是正常的——这个功能默认关着。
   ipcMain.handle('ws:trail', (_e, day) => trail.read(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-days', () => trail.days());
@@ -1082,7 +1128,19 @@ function setupIpc() {
   ipcMain.handle('ws:chat-remove', (_e, id) => chats.remove(String(id || '')));
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
-  ipcMain.handle('ws:stats', () => store.stats());
+  // 读过的那些网页：一天的（去过重的），和不限一天的搜。搜不限一天是有意的——
+  // 「我记得读过一个东西」这句话本来就不带日期。
+  ipcMain.handle('ws:trail-pages', (_e, day) => trail.pages(String(day || require('./store').localDateKey()))
+    .map((p) => ({ ...p, site: trail.siteOf(p.url), text: String(p.text || '').slice(0, 400) })));
+  ipcMain.handle('ws:trail-find', (_e, q) => trail.findPages(String(q || '').toLowerCase().split(/\s+/).filter(Boolean), { limit: 80 })
+    .map((p) => ({ ...p, text: '' })));
+  // 关闭工作区窗口。渲染进程里的 window.close() 在 loadFile 出来的顶层窗口上并不可靠
+  // （不是脚本打开的窗口，Chromium 会直接忽略），所以关闭这条路走主进程。
+  ipcMain.on('ws:close', () => {
+    const w = windows.getWorkspaceWindow();
+    if (w && !w.isDestroyed()) w.close();
+  });
+  ipcMain.handle('ws:stats', (_e, opts) => store.stats(opts || {}));
   // Where each line of recognised text sits on a picture; read only when a detail view opens.
   ipcMain.handle('ws:open-viewer', (_e, id) => { viewer.open(id); return true; });
   ipcMain.handle('ws:entry-boxes', (_e, id) => ocrBoxes.load(store.getEntry(id)));

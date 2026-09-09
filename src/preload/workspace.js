@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('ws', {
   // 拖进窗口和拖到常驻头像上是同一件事，所以走同一个 ingest
   drop: (payload) => ipcRenderer.invoke('pet:drop', payload),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file); } catch (_) { return ''; } },
+  closeWindow: () => ipcRenderer.send('ws:close'),
   getSettings: invoke('ws:get-settings'),
   saveSettings: invoke('ws:save-settings'),
   testProvider: invoke('ws:test-provider'),
@@ -56,6 +57,8 @@ contextBridge.exposeInMainWorld('ws', {
   chatRemove: invoke('ws:chat-remove'),
   trailSessions: invoke('ws:trail-sessions'),
   trailDays: invoke('ws:trail-days'),
+  trailPages: invoke('ws:trail-pages'),
+  trailFind: invoke('ws:trail-find'),
   getEntry: invoke('ws:get-entry'),
   deleteEntry: invoke('ws:delete-entry'),
   retryEntry: invoke('ws:retry-entry'),
