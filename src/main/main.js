@@ -267,28 +267,6 @@ async function smokeTest() {
   } else if (mode === 'bench-region') {
     console.log('SMOKE_BENCH region capture stages:');
     await require('../../dev/region-bench.js').bench();
-    // Does setContentProtection keep the pet out of our own captures? If so the hide-and-wait can go.
-    {
-      const { desktopCapturer: dc, screen: sc } = require('electron');
-      const pet = windows.getPetWindow();
-      const d = sc.getPrimaryDisplay();
-      const size = { width: Math.round(d.bounds.width * d.scaleFactor), height: Math.round(d.bounds.height * d.scaleFactor) };
-      const petBounds = pet.getBounds();
-      const cropAt = (img) => img.crop({
-        x: Math.round((petBounds.x - d.bounds.x) * d.scaleFactor), y: Math.round((petBounds.y - d.bounds.y) * d.scaleFactor),
-        width: Math.round(petBounds.width * d.scaleFactor), height: Math.round(petBounds.height * d.scaleFactor),
-      }).toBitmap();
-      const grab = async () => cropAt((await dc.getSources({ types: ['screen'], thumbnailSize: size }))[0].thumbnail);
-      pet.setContentProtection(false); await sleep(400);
-      const withPet = await grab();
-      pet.setContentProtection(true); await sleep(400);
-      const protectedShot = await grab();
-      pet.hide(); await sleep(400);
-      const hidden = await grab();
-      pet.setContentProtection(false); pet.showInactive();
-      const diff = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 8) n++; return Math.round((n / (a.length / 4)) * 100); };
-      console.log(`SMOKE_BENCH content protection: protected-vs-hidden differ ${diff(protectedShot, hidden)}% · visible-vs-hidden differ ${diff(withPet, hidden)}%`);
-    }
     // end-to-end cost of opening the overlay, cold (windows not built yet) and warm (reused)
     const openOnce = async () => {
       const t0 = Date.now();

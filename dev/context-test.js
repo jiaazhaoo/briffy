@@ -134,4 +134,47 @@ ok('links are built the way they are parsed', () => {
   assert.deepStrictEqual(deeplink.parse(deeplink.linkTo.summary('2026-09-05')), { tab: 'summaries', arg: '2026-09-05' });
 });
 
+// ---------- bodyText: the top strip of a full-display capture is the operating system's ----------
+{
+  const fs = require('fs'); const os = require('os'); const path = require('path');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'briffy-boxes-'));
+  ocrBoxes.init({ store: { paths: () => ({ ocr: tmp }) } });
+  const shot = (id, width, extra = {}) => ({ id, dateKey: '2026-09-09', type: 'screenshot', width, height: 1000, ocrBoxes: 2,
+    text: 'Chrome File Edit View History Bookmarks Window Help 58% Sun 6 Sep 23:13\n首页 番剧 直播 游戏中心\n周周怪 园子温的冰冷世界', ...extra });
+  const menu = [line('Chrome File Edit View History Bookmarks Window Help 58% Sun 6 Sep 23:13', 20, 10, 2000, 40)];
+  const body1 = [line('首页 番剧 直播 游戏中心', 100, 300, 600, 40)];
+  const body2 = [line('周周怪 园子温的冰冷世界', 100, 500, 600, 40)];
+  ok('retina full-display capture: the menu-bar line leaves the understood text, the rest stays', () => {
+    const e = shot('a', 5504);
+    ocrBoxes.save(e, [menu, body1, body2], { width: 5504, height: 1000 });
+    assert.strictEqual(ocrBoxes.bodyText(e), '首页 番剧 直播 游戏中心\n周周怪 园子温的冰冷世界');
+    assert.ok(e.text.startsWith('Chrome File Edit'), 'the stored text is untouched');
+  });
+  ok('1x display: the band is 37 px, a line at y=50 is content', () => {
+    const e = shot('b', 1280, { text: 'Recents Shared Favourites\n首页 番剧 直播 游戏中心\n周周怪 园子温的冰冷世界' });
+    ocrBoxes.save(e, [[line('Recents Shared Favourites', 20, 50, 400, 20)], body1, body2], { width: 1280, height: 1000 });
+    assert.strictEqual(ocrBoxes.bodyText(e), e.text);
+  });
+  ok('1x display: a line inside the band goes', () => {
+    const e = shot('c', 1280);
+    ocrBoxes.save(e, [[line('Chrome File Edit View History Bookmarks Window Help 58% Sun 6 Sep 23:13', 20, 4, 900, 20)], body1, body2], { width: 1280, height: 1000 });
+    assert.strictEqual(ocrBoxes.bodyText(e), '首页 番剧 直播 游戏中心\n周周怪 园子温的冰冷世界');
+  });
+  ok('a region capture is left alone even with a line at the top', () => {
+    const e = shot('d', 5504, { region: true });
+    ocrBoxes.save(e, [menu, body1], { width: 5504, height: 1000 });
+    assert.strictEqual(ocrBoxes.bodyText(e), e.text);
+  });
+  ok('no sidecar, no change', () => {
+    const e = shot('e', 5504);
+    assert.strictEqual(ocrBoxes.bodyText(e), e.text);
+  });
+  ok('not a screenshot, no change; empty text stays empty', () => {
+    assert.strictEqual(ocrBoxes.bodyText({ type: 'note', text: 'x\ny' }), 'x\ny');
+    assert.strictEqual(ocrBoxes.bodyText({ type: 'screenshot', width: 5504, ocrBoxes: 1, text: '' }), '');
+    assert.strictEqual(ocrBoxes.bodyText(null), '');
+  });
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
 console.log(`context/boxes/stats/links: ${pass} checks passed`);

@@ -54,17 +54,13 @@ const CHROME = new Set(('privacy policy terms statement cookie cookies settings 
   + 'transactions payment methods profile preferences available select submit continue next previous close '
   + 'download upload share copy edit delete cancel confirm accept decline agree back forward loading error '
   + 'company careers press blog news events legal notice disclaimer copyright reserved rights inc ltd '
-  + 'experience experiences levels challenges min max fee fees total subtotal '
-  // google / maps：地图截图的 OCR 里每一张都有（水印和标题栏），实测「Maps·Google」把
-  // 「Runnymede」连到了「Ok. Ill be home in half an hour」。它们说的是你用了哪个软件，不是内容。
-  + 'google maps '
-  // 菜单栏。全屏截图的 OCR 第一行永远是「Chrome File Edit View History Bookmarks Profiles Tab
-  // Window Help」，每一张都有、每个词都大写，于是「File · Window · History」自己整理成了
-  // 一件事，成员是三张毫不相干的全屏截图。这是操作系统的词汇，列得完。
-  + 'file edit view go window help history bookmarks profiles tab format insert tools reload '
-  // 站点名说的是你在哪个站，不是内容。实测「Gmail」「Facebook」「GitHub」各自单独当了一条边的
-  // 全部理由——详情里「相关」那一栏就写着一个词 Gmail，读的人不知所云。
-  + 'gmail facebook github youtube twitter reddit notion bilibili 哔哩哔哩 instagram linkedin').split(/\s+/));
+  + 'experience experiences levels challenges min max fee fees total subtotal').split(/\s+/));
+// 这张表上曾经还有菜单栏（file edit view … help）、站点名（gmail facebook github …）和 google maps：
+// 全屏截图的 OCR 每一张第一行都是「Chrome File Edit View History」，于是「File · Window · History」
+// 自己整理成了一件事，成员是三张毫不相干的截图；「Gmail」一个词就当了一条边的全部理由。
+// 它们不是内容，是**画面上的家具**——而家具进不进正文是采集的事，不是词表的事（2026-09-09 删）：
+// 截图的正文现在先读辅助功能树（ax-text.js），浏览器只读网页那一块，菜单栏和标签栏根本不在里面；
+// OCR 只兜底。词表越补越长，补的永远是上一张截图。留下的这些是网页里到处都有的功能词。
 // briffy 自己的标题词说的是格式不是内容；站点后缀说的是你在哪个站
 const LABEL = new Set(['语音', '截图', '剪贴板', '剪贴板图片', '图片', 'screenshot', 'clipboard', 'audio', 'voice']);
 const STOP = new Set(('the a an and or of to in on at for with from by is are was were be been am this that these those '

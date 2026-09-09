@@ -26,6 +26,7 @@ const ocrBoxes = require('./ocr-boxes');
 const diarize = require('./diarize');
 const { attribute, asLines, shares } = require('./attribute');
 const foreground = require('./foreground');
+const axText = require('./ax-text');
 const title = require('./title');
 const { clipboard, ClipboardItem } = require('electron');
 const { t } = require('./i18n');
@@ -185,7 +186,7 @@ function retitle({ budgetMs = 600 } = {}) {
 
 // ---------- ingestion ----------
 /** Saves a captured PNG as a screenshot entry, and puts it on the clipboard when the user wants that. */
-function saveShot(png, { width, height, displayLabel, region = false, context = null }) {
+function saveShot(png, { width, height, displayLabel, region = false, context = null, body = null }) {
   const s = store.getSettings();
   const now = new Date();
   const file = uniquePath(dayDir('screenshots'), `${timeStamp(now)}${region ? '-region' : ''}.png`);
@@ -211,6 +212,7 @@ function saveShot(png, { width, height, displayLabel, region = false, context = 
     region,
   });
   attachContext(entry, context);
+  axText.hold(entry.id, body);   // 树的答案在路上；处理这条时先看它，够用就不识别了
   // 存好了就是存好了——后面的 OCR / 起标题是后台的事，不该由它挂在脸上
   windows.setPetState('success', { message: s.captureToClipboard !== false ? t('capturedCopiedShort') : t('capturedShort') });
   enqueue(entry.id);
@@ -222,6 +224,8 @@ async function captureScreenshot() {
   // skipSelf：这一下常常是从 briffy 自己的按钮或托盘按的，那时前台就是 briffy——而拍的是它后面
   // 那个窗口，所以要的是它后面那个应用。见 foreground.frontApp。
   const context = foreground.read({ skipSelf: true });
+  // 同一刻问辅助功能树要正文（ax-text.js）：树只在那扇窗还在屏幕上时有，等处理排到就晚了
+  const body = axText.readFront({ skipSelf: true });
   windows.setPetState('capturing');            // the shutter flash says it; no need to also say it
   const wait = await windows.hideForCapture();
   let shot;
@@ -235,7 +239,7 @@ async function captureScreenshot() {
     throw e;
   }
   windows.restoreAfterCapture();
-  return saveShot(shot.png, { width: shot.width, height: shot.height, displayLabel: shot.displayLabel, context });
+  return saveShot(shot.png, { width: shot.width, height: shot.height, displayLabel: shot.displayLabel, context, body });
 }
 
 /** Drag-a-box capture. Resolves to null when the user cancels. */
@@ -907,15 +911,24 @@ async function processEntry(id) {
             context: [entry.sourceTitle ? `Found on the page: ${entry.sourceTitle}` : '', entry.alt ? `Image description: ${entry.alt}` : ''].filter(Boolean).join('\n') };
           break;
         }
-        if (entry.type === 'screenshot' || s.ocrDroppedImages) {
+        // 正文先问辅助功能树——截图那一刻就问了（captureScreenshot），够用就不再识别；
+        // 拿不到（没授权、那个应用不开放、框选的那一块）才走 OCR。哪条路来的记在 textSource 上。
+        const ax = await axText.take(id);
+        if (ax) {
+          text = ax.text;
+          patch.text = text;
+          patch.textSource = 'ax';
+          store.updateEntry(id, { text, textSource: 'ax' });
+        } else if (entry.type === 'screenshot' || s.ocrDroppedImages) {
           setProgress(id, t('ocrRunning'), true);
           const r = await ocr.recognize(abs, ocrConfig(s, langs), ocrProgress(id));
           text = r.text;
           patch.text = text;
+          patch.textSource = 'ocr';
           patch.ocrModel = r.model;
           store.updateEntry(id, { ocrModel: r.model, ocrMs: r.ms });
           checkOcrSpeed();
-          store.updateEntry(id, { text });
+          store.updateEntry(id, { text, textSource: 'ocr' });
           // The same pass already worked out where every line is; keeping it costs one small file.
           const boxes = ocrBoxes.save(entry, r.lines, { width: entry.width, height: entry.height });
           if (boxes) { patch.ocrBoxes = boxes; store.updateEntry(id, { ocrBoxes: boxes }); }

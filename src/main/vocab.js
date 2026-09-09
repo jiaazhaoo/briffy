@@ -27,8 +27,8 @@
 // 后者是纯粹逐条的、不需要别的记录作证，而且是主力。所以这里只用后者（strip(text, null)）。
 const entity = require('./entity');
 const links = require('./links');
-const mirror = require('./mirror');
 const boilerplate = require('./boilerplate');
+const ocrBoxes = require('./ocr-boxes');
 const { segment } = require('./segment');
 
 // 一条记录一次最多抽这么多词写进表。**比 entity.PER_RECORD 宽**：那个是「挂几个」，
@@ -38,7 +38,7 @@ const STORE_MAX = 60;
 // 2026-09-08 把文件大小（1.1gb）从证据里去掉之后，「Find parking」照样经 1.1gb 连着「Ollama 地址」，
 // 因为那两条的词是改规则之前抽的，voc_done 记着「做过了」。版本对不上就把 voc_done 清掉，
 // 后台那个循环会一条条重抽——和向量换模型自动重建是同一个道理，只是向量把模型名算进了指纹。
-const RULES = 7;
+const RULES = 8;   // 8：CHROME 表去掉菜单栏词和站点名，整屏截图去掉菜单栏那一条（entity.js / ocr-boxes.bodyText，2026-09-09）
 // 包含式别名（staines-upon-thames ⊃ thames）里，长的那个得是复合词——带连字符、空格或数字。
 // 否则英文的词形变化全成了别名（visitors ⊃ visit），和 links.js 里那条同一个规矩。
 const compound = (t) => /[a-z]/.test(t) && /[^a-z]/.test(t);
@@ -52,8 +52,8 @@ function harvest(entries) {
   for (const e of entries || []) {
     // briffy 自己的截图不算数：它的抬头是「全部 截图 剪贴板 收藏 更多」，拿它当过标题，
     // 「全部」就成了正经的抬头词，然后六条不相干的记录经「全部」连成一片。
-    if (e && (e.type === 'screenshot' || e.type === 'image') && mirror.showsSelf(e.text)) continue;
-    if (e && mirror.isMirror(e.text)) continue;
+    // （只剩旧记录会这样，它们盖着 context.self 的章；新的采集里 briffy 自己不在画面上。）
+    if (e && e.context && e.context.self) continue;
     for (const t of segment(entity.headOf(e), '')) if (t.wordLike) titled.add(String(t.w).toLowerCase());
   }
   return { titled: [...titled], places: [...entity.placesIn(entries)] };
@@ -89,7 +89,7 @@ function fill(index, getEntry, { budgetMs = 800, batch = 60 } = {}) {
       const e = getEntry(id);
       // 取不到的记录也要标记做过，否则它每一轮都被挑出来，这个循环就再也走不到头
       if (!e) { index.putVocab(id, []); continue; }
-      const body = boilerplate.strip(String(e.text || ''), null);
+      const body = boilerplate.strip(ocrBoxes.bodyText(e), null);
       // 存进去的次序就是 rank。**排序在这儿定，不在查的时候定**——因为 df 的含义依赖它
       // （见 index-db 里 voc_of.rank 那段）。改排序规则的时候重排 rank 就行，词不用重抽。
       // 只按 nameRank 排，不按 df：这一刻还没有 df，df 正是靠这个 rank 数出来的。

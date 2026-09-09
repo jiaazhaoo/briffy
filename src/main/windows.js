@@ -95,6 +95,7 @@ function createPetWindow() {
   });
   petWin.setAlwaysOnTop(true, 'floating', 1);
   petWin.setContentProtection(EXCLUDE_FROM_CAPTURE);   // keeps the pet out of the screenshots it takes
+  petWin.keepProtected = true;                          // ...and out of everyone else's, always
   // Not over full-screen apps. A film or a presentation is the one time the whole screen is the point,
   // and a character in the corner of it is in the way. On macOS a full-screen app gets a Space of its own and
   // this flag is all it takes to stay out of it.
@@ -131,6 +132,7 @@ function createShelfWindow() {
   });
   shelfWin.setAlwaysOnTop(true, 'floating', 2);
   shelfWin.setContentProtection(EXCLUDE_FROM_CAPTURE);
+  shelfWin.keepProtected = true;
   shelfWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
   shelfWin.loadFile(rendererPath('shelf', 'index.html'));
   shelfWin.on('closed', () => { shelfWin = null; shelfOpen = false; });
@@ -289,7 +291,7 @@ function sendPetCommand(cmd, payload) {
  * Windows 10 2004+ (build 19041) and macOS can mark a window as excluded from screen capture, so the pet
  * stays on screen and simply is not in the picture. Where that is unavailable the windows are hidden the
  * old way, which needs a moment to take effect and makes the pet blink.
- * @returns {boolean} true when the pet can stay visible during a capture
+ * @returns {boolean} true when briffy's windows can stay visible during a capture
  */
 function captureExclusionWorks() {
   if (process.platform === 'darwin') return true;
@@ -299,7 +301,14 @@ function captureExclusionWorks() {
 }
 const EXCLUDE_FROM_CAPTURE = captureExclusionWorks();
 
-/** @returns {number} how long the caller should wait after this before grabbing the screen */
+// 采集的那一下，briffy 自己的每一扇窗都借这个标记消失——工作区、看图窗、录音窗，开着哪扇算哪扇。
+// 不是常开的：这个标记对所有人生效，常开的话你自己按 Cmd+Shift+3 也拍不到 briffy 了。
+// 2026-09-09 量过（scratchpad/protect-test.js，一扇洋红色的窗）：标上 50ms 之后，desktopCapturer、
+// node-screenshots、系统的 screencapture 三条路里它都是 0%，撤掉 50ms 之后又都回到 15%。
+// 于是「拍到自己」——工作区截到自己的清单、事件视图截到事件视图——在源头就没有了，
+// 不用再靠词表认倒影（那个 mirror.js 已经删了）。
+const VEIL_MS = 50;
+let veiled = [];
 // Windows and Linux have no equivalent of the macOS flag, so the screen itself is the signal: when a
 // window goes full-screen the taskbar and the menu bar go with it, and the usable area grows to the
 // whole display. Cheap to check, and wrong only in the moment a bar is auto-hidden for another reason.
@@ -324,15 +333,24 @@ function watchFullscreen() {
   }, 2000);
 }
 
+/** @returns {number} how long the caller should wait after this before grabbing the screen */
 async function hideForCapture() {
   hiddenForCapture = true;
   hideShelf({ now: true });
-  if (EXCLUDE_FROM_CAPTURE) return 0;            // nothing to hide: the windows are not captured anyway
-  if (petWin && petWin.isVisible()) petWin.hide();
-  return 60;
+  if (!EXCLUDE_FROM_CAPTURE) {
+    if (petWin && petWin.isVisible()) petWin.hide();
+    return 60;
+  }
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (w.isDestroyed() || w.keepProtected || !w.isVisible()) continue;
+    w.setContentProtection(true);
+    veiled.push(w);
+  }
+  return veiled.length ? VEIL_MS : 0;
 }
 function restoreAfterCapture() {
   hiddenForCapture = false;
+  for (const w of veiled.splice(0)) if (!w.isDestroyed()) w.setContentProtection(false);
   if (EXCLUDE_FROM_CAPTURE) return;
   if (petWin && !petHidden && !petWin.isVisible()) petWin.showInactive();
 }
