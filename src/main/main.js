@@ -223,7 +223,11 @@ async function main() {
   });
 
   app.on('window-all-closed', () => { /* stay alive in the tray */ });
-  app.on('activate', () => { if (!windows.getPetWindow()) windows.createPetWindow(); windows.openWorkspace('entries'); });
+  // **回到软件不等于回到记录页。** 点 Dock 图标（activate）以前一律传 'entries'，
+  // 而 openWorkspace 对一扇已经开着的窗会照着这个参数发一次 ws:navigate——于是你在
+  // 「问」那一页最小化，再点回来就被踹回了首页。不传页码：已经开着的窗留在你离开的地方，
+  // 没开的窗自己就是从记录页起。要去某一页的那几个入口（深链、设置、每日摘要）照旧传。
+  app.on('activate', () => { if (!windows.getPetWindow()) windows.createPetWindow(); windows.openWorkspace(); });
   app.on('before-quit', () => { store.flushAll(); uptime.stop(); listen.stop(); globalShortcut.unregisterAll(); clipboardWatch.stop(); localApi.stop(); });
   app.on('will-quit', () => { ocr.terminate().catch(() => {}); stt.dispose().catch(() => {}); });
 
@@ -789,7 +793,7 @@ function setupIpc() {
     try { event.sender.startDrag({ file: abs, icon }); } catch (e) { console.warn('[shelf] drag failed:', e.message); }
   });
 
-  ipcMain.on('shelf:open-workspace', () => { windows.hideShelf({ now: true }); windows.openWorkspace('entries'); });
+  ipcMain.on('shelf:open-workspace', () => { windows.hideShelf({ now: true }); windows.openWorkspace(); });
   ipcMain.on('pet:click', () => { workspace.captureScreenshot().catch(() => {}); });
   ipcMain.on('pet:drag-start', (_e, p) => windows.dragStart(p));
   ipcMain.on('pet:drag-move', (_e, p) => windows.dragMove(p));
@@ -834,7 +838,7 @@ function setupIpc() {
     try { return await systemPreferences.askForMediaAccess('microphone'); } catch (_) { return false; }
   });
   ipcMain.on('pet:mic-denied', () => windows.setPetState('error', { message: t('micDenied') }));
-  ipcMain.on('pet:open-workspace', () => windows.openWorkspace('entries'));
+  ipcMain.on('pet:open-workspace', () => windows.openWorkspace());
 
   // --- workspace ---
   ipcMain.handle('ws:get-settings', () => ({

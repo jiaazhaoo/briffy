@@ -533,6 +533,8 @@ body[data-tab="settings"] .d-mid { display: none; }
 .preview audio { width: 100%; display: block; padding: 4px 0; }
 .preview .file { padding: 26px; text-align: center; font-size: 32px; background: var(--slip-2); }
 .preview .file small { display: block; font-size: var(--fs-meta); color: var(--ink-3); margin-top: var(--a2); word-break: break-all; }
+/* 「打开原文件 / 在文件夹中显示」：并排两个小词，和机器写的那几段旁边的复制同一档 */
+.preview .file-acts { display: flex; justify-content: center; gap: var(--a3); margin-top: var(--a2); font-size: var(--fs-meta); }
 .preview a { color: var(--accent); word-break: break-all; text-decoration: none; }
 .preview .link { padding: var(--a3); background: var(--slip-2); }
 .summary-text { margin: 0; line-height: 1.7; color: var(--ink-2); }
