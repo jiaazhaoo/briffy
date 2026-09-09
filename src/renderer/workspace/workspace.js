@@ -95,6 +95,9 @@
       gLook: '外观与语言', gPet: '快捷键', gAI: 'AI 服务', gEngines: '本机引擎', gCapture: '自动采集', gAbout: '工作区与关于',
       sAI: 'AI 服务', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: '用 OpenRouter 账号登录', sRefreshModels: '刷新模型列表',
+      sModelOther: '其他型号', modelsHead: '{n} 个模型 · 目录更新于 {at}', modelsNone: '还没连上 OpenRouter',
+      modelMore: '在设置里选…',
+      tierCheap: '省', tierUsual: '常用', tierTop: '最强', modelMine: '自己填的',
       sOllamaHost: '地址', sDetect: '重新检测', sOllamaModel: '使用的模型', sUseRecommended: '用推荐的', sPull: '下载模型',
       sNormalizeZh: '中文语音转写统一为所选的简体 / 繁体（不是翻译）',
       sAIHint: '给标题、每日摘要和问答用。没有配置时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。',
@@ -235,6 +238,9 @@
       gLook: 'Look & language', gPet: 'Shortcuts', gAI: 'AI service', gEngines: 'On-device engines', gCapture: 'What gets recorded', gAbout: 'Workspace & about',
       sAI: 'AI service', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: 'Sign in with OpenRouter', sRefreshModels: 'Refresh model list',
+      sModelOther: 'Another model', modelsHead: '{n} models · catalogue updated {at}', modelsNone: 'Not connected to OpenRouter yet',
+      modelMore: 'Choose in settings…',
+      tierCheap: 'light', tierUsual: 'everyday', tierTop: 'top', modelMine: 'yours',
       sOllamaHost: 'Address', sDetect: 'Detect again', sOllamaModel: 'Model to use', sUseRecommended: 'Use recommended', sPull: 'Download model',
       sNormalizeZh: 'Normalise Chinese transcripts to the selected Simplified / Traditional script (not a translation)',
       sAIHint: 'Used for titles, the daily summary and questions. Without one, titles fall back to file names and the summary becomes a plain list. Titles and summaries are written in your first language; captured text (OCR, transcripts) stays as it is.',
@@ -1845,31 +1851,23 @@
         rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="ollama" data-model="${esc(m)}">${esc(m)}</button>`);
       }
     }
+    // 联网那一栏**只放你现在用的那一个**，外加一条通往设置。
+    //
+    // 这儿一度列过十几个（各家的当家型号），用户原话是「模型选择框贼乱现在，展开有一堆模型」。
+    // 托盘是在你要问问题的那一刻顺手换一下，不是挑模型的地方；挑模型现在有设置里那一片
+    // 常驻的选择器（按公司分组、每家分档，见 renderModelPick）。本机那几个仍然全列——
+    // 它们是「已经下到这台电脑上」的，就那么几个，而且换起来不花钱。
     rows.push(`<div class="grp">${esc(t('modelRemote'))}</div>`);
     if (!provReady('openrouter')) {
-      // 还没配好：给一行说清楚差什么。列出十几个都点不动的模型只是噪音。
       const why = t(MISS_LABEL[provMissing('openrouter')] || 'modelNotSet');
       rows.push(`<button type="button" data-prov="openrouter" disabled>${esc(PROV_LABEL.openrouter)} — ${esc(why)}</button>`);
     } else {
-      // **列模型，不列服务商。** 以前这儿一家一行（Claude / OpenRouter / 自定义），点一下换的是
-      // 服务商；2026-09-09 收成一家之后，那一行永远就是当前这个，点了什么也不会发生——
-      // 用户的原话是「登录 openrouter 后为啥不能切换模型」。
-      //
-      // 列哪些：OpenRouter 目录里带 ~ 前缀的那十几个「latest」别名。它们是各家的当家模型
-      // （Claude、GPT、Gemini、Grok、DeepSeek、Kimi、GLM），**而且是 OpenRouter 自己维护的**——
-      // 写死一份名单在我们代码里，过两个月就是一份旧名单。整份目录有三百多个，那是设置页
-      // 那个输入框的事（它带着全部型号和价钱），不是一只托盘的事。
-      const all = state.orModels || [];
-      const list = all.filter((m) => String(m.id || '').startsWith('~'));
-      if (s.openrouterModel && !list.some((m) => m.id === s.openrouterModel)) {
-        list.unshift({ id: s.openrouterModel, name: s.openrouterModel });   // 你现在用的那个总在
-      }
-      for (const m of (list.length ? list : [{ id: s.openrouterModel || '', name: s.openrouterModel || PROV_LABEL.openrouter }])) {
-        const on = cur === 'openrouter' && m.id === s.openrouterModel;
-        rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="openrouter" data-model="${esc(m.id)}">`
-          + `${esc(String(m.name || m.id).replace(/^~/, ''))}</button>`);
-      }
+      const id = s.openrouterModel || '';
+      const m = (state.orModels || []).find((x) => x.id === id);
+      const name = String((m && m.name) || id || PROV_LABEL.openrouter).replace(/^~/, '');
+      rows.push(`<button type="button" class="${cur === 'openrouter' ? 'on' : ''}" data-prov="openrouter" data-model="${esc(id)}">${esc(name)}</button>`);
     }
+    rows.push(`<button type="button" data-mdl-more="1">${esc(t('modelMore'))}</button>`);
     box.innerHTML = rows.join('');
     box.hidden = false;
     $('#btnModel').parentElement.classList.add('open');
@@ -2050,6 +2048,7 @@
     if (!state.mics) loadMics();
     showProviderPanel();
     loadProviderStatus();
+    renderModelPick();
     if ($('#provider').value === 'openrouter' && !state.orModels) loadOpenrouterModels();
     $('#sttModel').innerHTML = m.sttModels.map((x) => `<option value="${x.id}"${x.id === s.sttModel ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
     $('#ocrModel').innerHTML = [`<option value="">${esc(t('ocrAuto'))}</option>`]
@@ -2392,15 +2391,79 @@
     const r = await ws.openrouterModels({ refresh });
     if (!r.ok) { $('#openrouterModelInfo').textContent = t('keyFail', { err: r.error }); return; }
     state.orModels = r.models;
+    state.orModelsAt = r.at || Date.now();
     $('#openrouterModels').innerHTML = r.models.map((m) => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    renderModelPick();
     updateOpenrouterInfo();
   }
+  /**
+   * 设置里那一片常驻的模型：**按公司分组，每家按价钱分三档**（省 / 常用 / 最强）。
+   *
+   * 抄的是手机端那一版（ios/Briffy/UI/ModelPicker.swift + Providers/ModelCatalog.swift，
+   * 源码已经不在了，是从编译产物里捞回来的：一份按公司分组的目录、每家三档、
+   * 底下一行「N 个模型 · 目录更新于 …」、「排头的是默认」）。
+   *
+   * **名单实时跟着 OpenRouter 走，不写死。** 只取目录里带 ~ 前缀的那批「latest」别名：
+   * 它们是各家的当家型号，由 OpenRouter 自己维护。整份目录三百多个，里面混着大量旧型号
+   * （claude-3-haiku、claude-opus-4.1 这些），按价钱硬分档会把旧的翻出来当「省」和「最强」。
+   * 想用目录之外的型号，底下「其他型号」那个框照旧能打。
+   *
+   * 档是**按同一家里的价钱名次**排的，不是拿绝对价钱卡线——各家的价位差一个数量级，
+   * 卡绝对值的话 z-ai 全是「省」、anthropic 全是「最强」，那就不叫分档了。
+   * 一家只有一个型号时不标档（无从比较）；两个就是省和最强，中间那些都算常用。
+   *
+   * 长相照 paper-ui 的筛选托盘：每个值都有底（--tone），选中的换荧光笔（--marker），
+   * 排满一行就换行，不给影子——一个可选的值不是一件真实物件。档位是值旁边一个铅笔色的小词，
+   * 不是彩色徽章：一屏一个彩色的额度不花在这儿。
+   */
+  // 不叫 TIERS：那个名字已经被本机模型按硬件分的档占了（easy / medium / stretch）。
+  const PRICE_TIERS = ['tierCheap', 'tierUsual', 'tierTop'];
+  function renderModelPick() {
+    const box = $('#modelPick');
+    if (!box) return;
+    const cur = ($('#openrouterModel') && $('#openrouterModel').value.trim()) || '';
+    const all = state.orModels || [];
+    const latest = all.filter((m) => String(m.id || '').startsWith('~'));
+    if (!latest.length) { box.innerHTML = `<span class="st">${esc(t('modelsNone'))}</span>`; return; }
+    const price = (m) => (m.pricing && m.pricing.prompt >= 0 ? m.pricing.prompt * 1e6 : 0);
+    const groups = new Map();
+    for (const m of latest) {
+      const vendor = String(m.id).slice(1).split('/')[0];
+      if (!groups.has(vendor)) groups.set(vendor, []);
+      groups.get(vendor).push(m);
+    }
+    const rows = [];
+    // 你现在用的那个如果不在名单里（自己打的型号），单独一行排在最前——不能因为切走就找不回来
+    if (cur && !latest.some((m) => m.id === cur)) {
+      rows.push(`<div class="mv-row"><span class="mv-co">${esc(t('modelMine'))}</span>`
+        + `<button type="button" class="mv on" data-mdl="${esc(cur)}">${esc(cur)}</button></div>`);
+    }
+    for (const [vendor, list] of [...groups].sort((a, b) => b[1].length - a[1].length)) {
+      list.sort((a, b) => price(a) - price(b));
+      const chips = list.map((m, k) => {
+        const tier = list.length === 1 ? '' : t(PRICE_TIERS[k === 0 ? 0 : k === list.length - 1 ? 2 : 1]);
+        // 行首已经写着公司名了，值里再写一遍就是「anthropic  Anthropic Claude Haiku」。
+        // 各家在目录里的写法不一样（Anthropic: / Anthropic / Z.ai: / xAI:），所以按分组那个
+        // 键去掉：把键里的非字母数字放松成可有可无，z-ai 才认得出 Z.ai，x-ai 认得出 xAI。
+        const vre = new RegExp('^' + vendor.replace(/[^a-z0-9]/gi, '[^a-z0-9]?') + '[:\\s]+', 'i');
+        const name = String(m.name || m.id).replace(/^~/, '').replace(vre, '').replace(/\s*Latest$/i, '');
+        return `<button type="button" class="mv${m.id === cur ? ' on' : ''}" data-mdl="${esc(m.id)}" title="${esc(m.id)}">`
+          + `${esc(name)}${tier ? `<span class="tier">${esc(tier)}</span>` : ''}</button>`;
+      }).join('');
+      rows.push(`<div class="mv-row"><span class="mv-co">${esc(vendor)}</span>${chips}</div>`);
+    }
+    box.innerHTML = rows.join('');
+  }
+
   function updateOpenrouterInfo() {
     const id = $('#openrouterModel').value.trim();
     const m = (state.orModels || []).find((x) => x.id === id);
-    if (!m) { $('#openrouterModelInfo').textContent = state.orModels ? t('modelsLoaded', { n: state.orModels.length }) : ''; return; }
+    const head = state.orModels
+      ? t('modelsHead', { n: state.orModels.length, at: fmtDate(new Date(state.orModelsAt || Date.now()).toISOString().slice(0, 10)) })
+      : '';
+    if (!m) { $('#openrouterModelInfo').textContent = head; return; }
     const price = m.pricing && m.pricing.prompt >= 0 ? ` · $${(m.pricing.prompt * 1e6).toFixed(2)} / $${(m.pricing.completion * 1e6).toFixed(2)} per 1M tokens` : '';
-    $('#openrouterModelInfo').textContent = `${m.name}${m.context ? ` · ${Math.round(m.context / 1000)}K ctx` : ''}${m.vision ? ` · ${t('orVision')}` : ''}${price}`;
+    $('#openrouterModelInfo').textContent = `${head ? `${head} · ` : ''}${m.name}${m.context ? ` · ${Math.round(m.context / 1000)}K ctx` : ''}${m.vision ? ` · ${t('orVision')}` : ''}${price}`;
   }
   let pullingModel = '';
   async function pullModel() {
@@ -2873,12 +2936,30 @@ $('#chatNew').addEventListener('click', () => newChat());
       }
     });
     $('#btnOpenrouterModels').addEventListener('click', () => loadOpenrouterModels(true));
-    $('#openrouterModel').addEventListener('input', updateOpenrouterInfo);
+    // 点一片词里的一个 = 换模型。和筛选托盘同一种交互：点谁谁变荧光笔，立刻生效（没有保存键）。
+    $('#modelPick').addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-mdl]');
+      if (!b) return;
+      $('#openrouterModel').value = b.dataset.mdl;
+      renderModelPick();
+      updateOpenrouterInfo();
+      queueSave();
+    });
+    $('#openrouterModel').addEventListener('input', () => { renderModelPick(); updateOpenrouterInfo(); });
     $('#btnModel').addEventListener('click', (e) => {
       e.stopPropagation();
       if ($('#modelTray').hidden) openModelTray(); else closeModelTray();
     });
     $('#modelTray').addEventListener('click', (e) => {
+      // 「在设置里选…」：托盘只管顺手换一下，挑模型是设置里那一片常驻选择器的事
+      // 分组切换没有单独的函数，就写在 #settingsNav 那个 click 里——所以点它，别抄一遍逻辑
+      if (e.target.closest('[data-mdl-more]')) {
+        closeModelTray();
+        switchTab('settings');
+        const nav = document.querySelector('#settingsNav [data-group="ai"]');
+        if (nav) nav.click();
+        return;
+      }
       const b = e.target.closest('button[data-prov]');
       if (b && !b.disabled) pickModel(b.dataset.prov, b.dataset.model || '');
     });
