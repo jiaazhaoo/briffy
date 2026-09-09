@@ -656,7 +656,14 @@
   function hiddenInAll() {
     return (state.settings || {}).clipboardInAll ? null : ['clip'];
   }
-  /** 二级那个值写成什么。剪贴板和文件里装的是格式（有译名），别的是站点 / 应用 / 麦克风的原名。 */
+  /**
+   * 二级那个值写成什么。
+   *
+   * **只有剪贴板那一格是闭集**——它装得下的东西就那么几样，所以用 TYPE_LABEL 那张固定表译名。
+   * 别的四格都是开集，值直接就是库里的原话：站点名、应用名、麦克风名、**真的扩展名**
+   * （PDF、SKETCH、DMG）。文件那一格还留着查表，是为了没有扩展名的那种——
+   * 拖进来的一条网址会退回格式 'link'，那时它该写成「链接」而不是 link。
+   */
   function subName(bucket, k) {
     if (k === '?') return t('fUnknown');
     if (bucket === 'clip' || bucket === 'file') return TYPE_LABEL[k] ? t(TYPE_LABEL[k]) : k;

@@ -72,11 +72,19 @@
     return s === 'bookmark' || s === 'browser' ? 'saved'
       : s === 'clipboard' ? 'clip' : s === 'screenshot' ? 'shot' : s === 'voice' ? 'voice' : 'file';
   };
+  // 二级的值是开集，只有剪贴板那一格是闭集——文件那格用**真的扩展名**，不是那张固定的格式表
+  const kindOf = (e) => {
+    const m = String(e.path || e.title || '').match(/\.([A-Za-z0-9]{1,8})$/);
+    if (m) return m[1].toUpperCase();
+    const f = fmtOf(e);
+    return f === 'other' ? '?' : f;
+  };
   const subOf = (e) => {
     const b = bucketOf(e);
     if (b === 'saved' || b === 'shot') return originOf(e);
     if (b === 'voice') return String(e.mic || '').trim() || '?';
-    return fmtOf(e);
+    if (b === 'file') return kindOf(e);
+    return fmtOf(e);              // 剪贴板：唯一一格闭集
   };
   const pub = (e) => ({ ...e, source: srcOf(e), absPath: e.path ? 'C:\\briffy\\' + e.path : '' });
   window.ws = {
