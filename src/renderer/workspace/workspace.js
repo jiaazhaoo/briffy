@@ -10,8 +10,7 @@
       askPlaceholder: '问问你的记录',
       askGo: '问', askEmpty: '用一句话问你自己的记录。可以带上时间：昨天、上周、上个月、最近三天。',
       askThinking: '正在翻记录…', askSourcesHead: '依据的记录', askCount: '{n} 条记录', askRange: '{from} 到 {to}',
-      near: '相近', related: '相关', untitled: '无标题',
-      fromPage: '摘自', samePage: '同一页', sameRun: '同一段操作',
+      near: '相近', untitled: '无标题',
       chatNew: '新的一条', chatNone: '还没问过什么。', chatRename: '改名', chatDelete: '删掉',
       chatConfirm: '删掉这条对话？问过的记录不动。', chatToday: '今天', chatYesterday: '昨天', chatOlder: '更早', viewTrail: '路过', modelRemote: '联网的', modelNotSet: '还没配', modelNow: '改用 {name}',
       missAccount: '还没登录', missKey: '缺 API Key', missBaseUrl: '缺接口地址', missModel: '缺模型名', missHost: '缺地址', citeMore: '它还看了 {n} 条',
@@ -59,8 +58,6 @@
       nSelected: '已选 {n} 项', confirmDeleteMany: '删除选中的 {n} 条记录（及其文件副本）？', deletedN: '已删除 {n} 条',
       dayCount: '{n} 条', jumpTo: '{time} · {title}', today: '今天', yesterday: '昨天',
       viewGrid: '网格', viewList: '列表',
-      viewEvents: '事件', evPending: '还在整理。索引建齐之后，事件会从记录之间的链接上自己长出来。',
-      evCore: '{n} 条', evTouch: '沾边 {n} 条', evOf: '参与', evBack: '回到那条记录',
       selectEntry: '选择一条记录查看详情', noEntries: '还没有记录。按快捷键截图、双击 briffy 录音，或把文件拖到briffy身上。',
       generateSummary: '生成该日摘要', noSummary: '还没有摘要。briffy每天早上会自动生成昨天的摘要。', noEntriesThatDay: '这一天没有记录',
       generating: '生成中…', generated: '摘要已生成', summaryItems: '{n} 条记录', bySource: { claude: 'Claude', local: '本地' },
@@ -154,8 +151,7 @@
       askPlaceholder: 'Ask your log',
       askGo: 'Ask', askEmpty: 'Ask your own log a question. Time words work: yesterday, last week, last month, last 5 days.',
       askThinking: 'Going through the log…', askSourcesHead: 'Sources', askCount: '{n} items', askRange: '{from} to {to}',
-      near: 'related', related: 'Related', untitled: 'Untitled',
-      fromPage: 'Clipped from', samePage: 'Same page', sameRun: 'Same sitting',
+      near: 'related', untitled: 'Untitled',
       chatNew: 'New', chatNone: 'Nothing asked yet.', chatRename: 'Rename', chatDelete: 'Delete',
       chatConfirm: 'Delete this conversation? Your records are untouched.', chatToday: 'Today', chatYesterday: 'Yesterday', chatOlder: 'Earlier', viewTrail: 'Passed by', modelRemote: 'Remote', modelNotSet: 'not set up', modelNow: 'Now using {name}',
       missAccount: 'not signed in', missKey: 'no API key', missBaseUrl: 'no endpoint', missModel: 'no model name', missHost: 'no host', citeMore: 'Also looked at {n}',
@@ -205,8 +201,6 @@
       nSelected: '{n} selected', confirmDeleteMany: 'Delete the {n} selected entries (and their stored copies)?', deletedN: 'Deleted {n}',
       dayCount: '{n} records', jumpTo: '{time} · {title}', today: 'Today', yesterday: 'Yesterday',
       viewGrid: 'Grid', viewList: 'List',
-      viewEvents: 'Events', evPending: 'Still sorting. Events grow out of the links between records once the index is built.',
-      evCore: '{n} records', evTouch: '{n} touching', evOf: 'Part of', evBack: 'Back to that record',
       selectEntry: 'Select an entry to see details', noEntries: 'Nothing yet. Press the shortcut to capture, double-click briffy to record, or drop files on it.',
       generateSummary: 'Generate summary for this day', noSummary: 'No summaries yet. briffy writes one for yesterday every morning.', noEntriesThatDay: 'No entries on that day',
       generating: 'Generating…', generated: 'Summary generated', summaryItems: '{n} items', bySource: { claude: 'Claude', local: 'local' },
@@ -1139,178 +1133,13 @@
       + (hidden > 0 ? `<button type="button" class="tv-more" data-trail-all="1">${esc(t('trailShort', { n: hidden }))} · ${esc(t('trailAll'))}</button>` : '');
   }
 
-  // 事件：软件从记录之间的链接上整理出来的那几件事（主进程 ask.events）。一件一行：名字、几条；
-  // 点开摊出成员。**核心成员满墨，沾边的铅笔色**——它「参与」了这件事只是因为提到了它
-  // （一条开发笔记引用了那晚的地址）。强度用墨说，不画条、不写数。整理没做完就是一句话。
-  const evClosed = new Set();   // 收起来的那几件
-  const evSeen = new Set();     // 已经按「散不散」定过初始开合的那几件
-  let evFrom = '';              // 从哪条记录的详情跳过来的——回去要有路
-  // 谱系图：横向一根主轴，纵向是支线，线上写着为什么连着（用户定的三条：主轴是最硬的那条链，
-  // 支线是挂在它连着的那条底下，线上写共用的词）。字宽用 canvas 量，别按定数排——
-  // 一条「Windsor Road, Egham TW20 0AE」和一条「今天」不该占同样宽。
-  const GX = 8; const GY = 22; const ROW = 26; const GAP = 48;
-  let meas = null;
-  function textW(s, px) {
-    if (!meas) { const c = document.createElement('canvas'); meas = c.getContext('2d'); }
-    meas.font = `${px}px ${getComputedStyle(document.body).fontFamily}`;
-    return Math.ceil(meas.measureText(String(s || '')).width);
-  }
-  const clipT = (s, n) => { const x = String(s || ''); return x.length > n ? `${x.slice(0, n - 1)}…` : x; };
-  // 同一页存过几次的副本并成一条，写 ×N：四行「English (Great Britain)」读的人只会以为是四样东西
-  function fold(entries) {
-    const out = []; const at = new Map();
-    for (const en of entries) {
-      const k = cardTitle(en);
-      if (at.has(k)) { out[at.get(k)].n++; continue; }
-      at.set(k, out.length);
-      out.push({ kind: 'member', entry: en, n: 1 });
-    }
-    return out;
-  }
-  function drawLineage(e) {
-    const g = e.lineage || {};
-    const stops = g.stops || [];
-    const spine = g.spine || [];
-    if (!spine.length || !stops.length) return '';
-    // 站头是故事的一句话，截到 28 个字；站里的成员和挂站短一点，22
-    const node = (en, n = 22) => clipT(cardTitle(en), n);
-    const headT = (en) => node(en, 28);
-    // 一列一站（主轴上的）。列里从上往下：站的头（那一页 / 分最高的那条）、它的其余成员（同一页摘的，
-    // 不用写理由）、然后是挂在它底下的站——连接线上写理由，那一站的成员再往下排。
-    const cols = spine.map((si) => ({ si, rows: [] }));
-    const colOf = new Map(spine.map((si, i) => [si, i]));
-    const pending = (g.hang || []).slice();
-    // 挂站按「挂在谁底下」归列；挂在挂站底下的，跟着它进同一列
-    let moved = true;
-    while (moved && pending.length) {
-      moved = false;
-      for (let k = 0; k < pending.length; k++) {
-        const h = pending[k];
-        const c = colOf.get(h.to);
-        if (c === undefined) continue;
-        cols[c].rows.push({ kind: 'hang', si: h.stop, why: h.why });
-        for (const r of fold(stops[h.stop].members.slice(1))) cols[c].rows.push(r);
-        colOf.set(h.stop, c);
-        pending.splice(k, 1); k--; moved = true;
-      }
-    }
-    for (const c of cols) c.rows = [...fold(stops[c.si].members.slice(1)), ...c.rows];
-    const rowW = (r) => (r.kind === 'member' ? 16 + textW(node(r.entry) + (r.n > 1 ? ` ×${r.n}` : ''), 12)
-      : 16 + textW(clipT(whyText(r.why), 18), 11) + 8 + textW(node(stops[r.si].entry), 12));
-    // 每一列要多宽：站头 + 线上的字，或者底下最宽的那一行
-    const colW = cols.map((c, i) => {
-      const w = textW(headT(stops[c.si].entry), 12);
-      const edge = (g.edges || [])[i];
-      const need = edge ? textW(clipT(whyText(edge.why), 22), 11) + 24 : GAP;
-      const below = c.rows.reduce((m, r) => Math.max(m, rowW(r)), 0);
-      return Math.max(w + Math.max(GAP, need), below + 28);
-    });
-    // **折行，不横滚。** 一行放得下几站放几站，放不下的从下一行左边接着，接口处写「↳ 理由」。
-    // 主轴八站两千像素宽，横向滚动看不见头尾；折成三行，一屏读完。
-    const maxW = Math.max(360, ($('#evRows') ? $('#evRows').clientWidth : 800) - 24);
-    const lines = [[]];
-    let lineW = GX;
-    cols.forEach((c, i) => {
-      if (lines[lines.length - 1].length && lineW + colW[i] > maxW) { lines.push([]); lineW = GX; }
-      lines[lines.length - 1].push(i);
-      lineW += colW[i];
-    });
-    let svg = '';
-    let top = 0;
-    let width = 0;
-    lines.forEach((line, li) => {
-      const first = line[0];
-      // 接上一行的那一段理由，写在这一行开头，站头往右让
-      const cont = li > 0 ? (g.edges || [])[first - 1] : null;
-      const contT = cont ? `↳ ${clipT(whyText(cont.why), 22)}` : '';
-      let x = GX + (contT ? textW(contT, 11) + 10 : 0);
-      const gy = top + GY;
-      if (contT) svg += `<text class="why" x="${GX}" y="${gy}">${esc(contT)}</text>`;
-      let rowsHere = 0;
-      line.forEach((i, k) => {
-        const c = cols[i];
-        const head = stops[c.si].entry;
-        const w = textW(headT(head), 12);
-        svg += `<g class="ev-node" data-id="${esc(head.id)}"><text class="core" x="${x}" y="${gy}">${esc(headT(head))}</text></g>`;
-        const edge = (g.edges || [])[i];
-        if (edge && k + 1 < line.length) {
-          const x1 = x + w + 8; const x2 = x + colW[i] - 8;
-          svg += `<line x1="${x1}" y1="${gy - 4}" x2="${x2}" y2="${gy - 4}"/>`
-            + `<text class="why" x="${(x1 + x2) / 2}" y="${gy - 9}" text-anchor="middle">${esc(clipT(whyText(edge.why), 22))}</text>`;
-        } else if (edge && cols[i + 1]) {
-          // 行尾：一小截线说「还没完」
-          svg += `<line x1="${x + w + 8}" y1="${gy - 4}" x2="${x + w + 24}" y2="${gy - 4}"/>`;
-        }
-        if (c.rows.length) {
-          const tx = x + 5;
-          svg += `<line x1="${tx}" y1="${gy + 6}" x2="${tx}" y2="${gy + 12 + ROW * c.rows.length - 10}"/>`;
-          c.rows.forEach((r, j) => {
-            const y = gy + 12 + ROW * (j + 1) - 10;
-            svg += `<line x1="${tx}" y1="${y - 4}" x2="${tx + 10}" y2="${y - 4}"/>`;
-            if (r.kind === 'member') {
-              svg += `<g class="ev-node" data-id="${esc(r.entry.id)}"><text class="core member" x="${tx + 16}" y="${y}">${esc(node(r.entry))}${r.n > 1 ? `<tspan class="why"> ×${r.n}</tspan>` : ''}</text></g>`;
-            } else {
-              const en = stops[r.si].entry;
-              const why = clipT(whyText(r.why), 18);
-              const ww = why ? textW(why, 11) + 8 : 0;
-              svg += (why ? `<text class="why" x="${tx + 16}" y="${y}">${esc(why)}</text>` : '')
-                + `<g class="ev-node" data-id="${esc(en.id)}"><text class="core" x="${tx + 16 + ww}" y="${y}">${esc(node(en))}</text></g>`;
-            }
-          });
-          rowsHere = Math.max(rowsHere, c.rows.length);
-        }
-        x += colW[i];
-      });
-      width = Math.max(width, x + GX);
-      top += GY + 12 + (rowsHere ? ROW * rowsHere + 6 : 0) + (li + 1 < lines.length ? 10 : 0);
-    });
-    const height = top;
-    return `<div class="ev-graph"><svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="width:${width}px;height:${height}px">${svg}</svg></div>`;
-  }
-  async function renderEvents() {
-    const box = $('#evRows');
-    if (!box) return;
-    let list = [];
-    try { list = await ws.events(); } catch (_) { list = []; }
-    if (state.view !== 'events') return;
-    const back = evFrom ? `<button type="button" class="tv-more ev-back" data-ev-back="1">← ${esc(t('evBack'))}</button>` : '';
-    if (!list.length) { box.innerHTML = `${back}<div class="tv-note">${esc(t('evPending'))}</div>`; return; }
-    // 散的默认收着、名字铅笔色，点一下还是能摊开。散不散看**密度**：认得出的锚词 / 核心条数。
-    // 开发笔记那一团五十条，锚词是 Users、Running 这种代码里捡来的词，按条数过了线，按密度 0.1 没过；
-    // 那一晚十三条，锚词一把，0.7。
-    // 1.2：量出来开发笔记那团是 0.98（代码标识符全算成了认得出的词），显示器 1.6、那一晚 1.9。
-    // 代价是回形针 logo 那件（锚词全是两字汉语：笑脸 · 卡通 · 蓝色，算 0）也收着——点一下就开。
-    const loose = (e) => (e.quality || 0) / Math.max(1, e.members.filter((m) => m.tier === 'core').length) < 1.2;
-    for (const e of list) if (loose(e) && !evSeen.has(e.id)) { evClosed.add(e.id); evSeen.add(e.id); }
-    box.innerHTML = back + list.map((e) => {
-      const core = e.members.filter((m) => m.tier === 'core');
-      const touch = e.members.filter((m) => m.tier !== 'core');
-      const open = !evClosed.has(e.id);
-      return `<div class="ev-row${open ? ' open' : ''}${loose(e) ? ' loose' : ''}" data-ev="${esc(e.id)}" role="button" tabindex="0">`
-        + `<span class="nm">${esc(e.name || t('untitled'))}</span>`
-        + `<span class="n">${esc(t('evCore', { n: core.length }))}${touch.length ? ` · ${esc(t('evTouch', { n: touch.length }))}` : ''}</span>`
-        + `</div>`
-        + (open ? drawLineage(e) : '');
-    }).join('');
-  }
-  /** 从详情里点了一件事：换到事件那种看法，把那件摊开，顶上留一条回去的路 */
-  function openEvent(id) {
-    evFrom = state.selectedId || '';
-    closeDetail();
-    evClosed.delete(id);
-    applyView('events');
-    renderEvents().then(() => { const r = document.querySelector(`.ev-row[data-ev="${CSS.escape(id)}"]`); if (r) r.scrollIntoView({ block: 'start' }); });
-  }
-
   function applyView(view) {
-    state.view = ['list', 'trail', 'events'].includes(view) ? view : 'grid';
+    state.view = ['list', 'trail'].includes(view) ? view : 'grid';
     try { localStorage.setItem('briffy.view', state.view); } catch (_) { /* storage unavailable */ }
     $('#entryGrid').hidden = state.view !== 'grid';
     $('#entryList').hidden = state.view !== 'list';
     $('#entryTrail').hidden = state.view !== 'trail';
-    $('#entryEvents').hidden = state.view !== 'events';
     if (state.view === 'trail') renderTrail();
-    if (state.view === 'events') renderEvents();
     for (const b of document.querySelectorAll('#viewSeg button')) b.classList.toggle('active', b.dataset.view === state.view);
     if (state.view === 'grid') jgIds = '';          // dealt while hidden, if at all: deal it again at its real width
     renderList();
@@ -1455,65 +1284,6 @@
   const detailBox = () => (!$('#detailModal').hidden ? $('#detail') : $('#listDetail'));
   function renderDetail() { renderDetailInto(detailBox()); }
 
-  // ---------- 图谱：一条记录周围两跳 ----------
-  //
-  // 布局是**算出来的，不是模拟出来的**：节点少（实测中位 4 张、最多 10 张），一圈一圈摆开就够，
-  // 而力导向那种要跑物理、每帧重画、位置还每次都不一样——同一条记录两次打开长得不该不一样。
-  // 中心在正中，一跳一圈，二跳外面一圈，各自贴着自己的来处。
-  // 打开一条记录时当场算它的邻居，不存图——存下来只会多一个会过期的东西。
-  // seq 挡住过期的回应：翻得快时前一条的邻居不该落在后一条底下。
-  let relSeq = 0;
-  /**
-   * 和这一条有关的记录：**一条按远近排好的清单，每条说得出为什么**。
-   *
-   * 之前这里是四组分开列的边，外加一张图谱。图谱去掉了——十四张卡、四十多条线、线上还写着字，
-   * 那是一团乱麻，读不出任何东西。分四组也不对：你要的是「和这条最近的是哪几条」，
-   * 不是「按证据种类分好的四张小表」。
-   *
-   * 左边那一栏写**凭什么**：一对词（模糊一致写成 a ≈ b）、那一页的名字、或者「同一段操作」。
-   */
-  /** 一条链接凭什么：一对词（模糊一致写成 a ≈ b）、那一页的名字、或者「同一段操作」。相关清单和谱系图共用。 */
-  function whyText(w) {
-    if (!w) return '';
-    if (w.kind === 'word' && w.pairs) return w.pairs.map((p) => (p.fuzzy ? `${p.a} ≈ ${p.b}` : p.a)).join(' · ');
-    if (w.kind === 'page') return w.name ? `${t('fromPage')} ${w.name}` : t('samePage');
-    if (w.kind === 'run') return t('sameRun');
-    return t('near');
-  }
-
-  async function fillRelated(id, box) {
-    const my = ++relSeq;
-    let l = null;
-    try { l = await ws.links(id); } catch (_) { l = null; }
-    if (my !== relSeq || !l) return;
-    const slot = box.querySelector('.dt-related');
-    if (!slot) return;
-    const list = l.related || [];
-    if (!list.length) { slot.hidden = true; slot.innerHTML = ''; return; }
-    const why = whyText;
-    slot.hidden = false;
-    slot.innerHTML = `<h3>${esc(t('related'))}</h3>`
-      + list.map((x) => `<button type="button" class="rel ev" data-rel="${esc(x.entry.id)}">`
-        + `<span class="tm">${esc(why(x.why))}</span>`
-        + `<span class="ti">${esc(cardTitle(x.entry))}</span></button>`).join('');
-  }
-
-  // 「参与」——这一条在哪几件事里。核心满墨、沾边铅笔色；点一个就去看那件事。空手就整行不出现。
-  let evSeq = 0;
-  async function fillEvents(id, box) {
-    const my = ++evSeq;
-    let list = [];
-    try { list = await ws.eventsOf(id); } catch (_) { list = []; }
-    if (my !== evSeq) return;
-    const slot = box.querySelector('.dt-events');
-    if (!slot) return;
-    if (!list.length) { slot.hidden = true; slot.innerHTML = ''; return; }
-    slot.hidden = false;
-    slot.innerHTML = `<span class="lb">${esc(t('evOf'))}</span>`
-      + list.map((x) => `<button type="button" class="ev-tag ${x.tier === 'core' ? 'core' : 'touch'}" data-evtag="${esc(x.id)}" title="${esc(t('evCore', { n: x.n }))}">${esc(x.name || t('untitled'))}</button>`
-        + (x.tier !== 'core' && x.via ? `<span class="why">${esc(whyText(x.via))}</span>` : '')).join('');
-  }
-
   function renderDetailInto(box) {
     const e = currentEntry();
     if (!e) { box.innerHTML = `<div class="empty"><div class="empty-art">🐾</div><span>${esc(t('selectEntry'))}</span></div>`; return; }
@@ -1574,7 +1344,6 @@
              翻到哪儿都要在手边；日期和你写的那一句读一遍就够了 -->
         <div class="dt-sub">
           <div class="time">${meta.join(' · ')}${ctxUrl}</div>
-          <div class="dt-events" hidden></div>
           <div class="dt-note">
             <input id="noteField" class="note-line" readonly value="${esc(e.note || '')}"
               placeholder="${esc(t('notePlaceholder'))}" aria-label="${esc(t('noteLabel'))}" />
@@ -1589,13 +1358,7 @@
           ${statusLine}
         </div>
         ${machine ? `<div class="dt-machine">${machine}</div>` : ''}
-        <div class="dt-related" hidden></div>
       </div>`;
-
-    // 「相关」——讲同一件事的那几条。慢一拍补上来（要算向量），空手就整块不出现：
-    // 向量分数没有绝对意义，硬凑三条只会给出三条不相干的东西，那比没有更糟。
-    fillRelated(e.id, box);
-    fillEvents(e.id, box);
 
     // The note is the user's own line and nothing else writes it, so it saves itself when they leave it.
     // 一行主题。默认是只读的一句说明，点一下才交出光标——省得一打开详情就有个输入框在等你打字。
@@ -2816,15 +2579,6 @@
       fit();
     }
     // 上面那行：切换展开哪个维度；已经选中的那个再点一下就取消
-// 「相关」里点一条 = 打开那一条。委托到 document 上：这一块在详情面板里，
-    // 而详情面板在列表视图和弹窗里各有一份，两处都要能点。
-        document.addEventListener('click', (ev) => {
-      const b = ev.target.closest && ev.target.closest('[data-rel]');
-      if (!b) return;
-      state.selectedId = b.dataset.rel;
-      if (!state.entries.some((x) => x.id === state.selectedId)) { loadEntries(); return; }
-      renderDetail(); renderList();
-    });
     $('#tvRows').addEventListener('click', (e) => {
       if (e.target.closest('[data-trail-all]')) { trailAll = true; renderTrail(); return; }
       const row = e.target.closest('.tv-row');
@@ -2931,20 +2685,7 @@
       e.preventDefault();
       if (state.selecting) pressEntry(row.dataset.id, e); else openDetail(row.dataset.id);
     });
-    $('#viewSeg').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-view]'); if (b) { evFrom = ''; applyView(b.dataset.view); } });
-    // 事件那种看法：点一行收起 / 摊开，点一条成员开详情，点「沾边 N 条」把沾边的也摊开
-    $('#evRows').addEventListener('click', (e) => {
-      if (e.target.closest('[data-ev-back]')) { const id = evFrom; evFrom = ''; renderEvents(); if (id) openDetail(id); return; }
-      const m = e.target.closest('.ev-node');
-      if (m) { openDetail(m.dataset.id); return; }
-      const row = e.target.closest('.ev-row');
-      if (row) { const id = row.dataset.ev; if (evClosed.has(id)) evClosed.delete(id); else evClosed.add(id); renderEvents(); }
-    });
-    // 详情里「参与」那一行：点一件事就去看它
-    document.addEventListener('click', (e) => {
-      const tag = e.target.closest && e.target.closest('.ev-tag[data-evtag]');
-      if (tag) openEvent(tag.dataset.evtag);
-    });
+    $('#viewSeg').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-view]'); if (b) applyView(b.dataset.view); });
     $('#selectToggle').addEventListener('click', () => setSelecting(!state.selecting));
     $('#bulkBar').addEventListener('click', async (ev) => {
       const b = ev.target.closest('[data-bulk]');

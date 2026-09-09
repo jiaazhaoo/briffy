@@ -15,10 +15,8 @@ const path = require('path');
 const llm = require('./llm');
 const retrieve = require('./retrieve');
 const vector = require('./vector');
-const links = require('./links');
 const boilerplate = require('./boilerplate');
 const title = require('./title');
-const story = require('./story');
 const vocab = require('./vocab');
 const chats = require('./chats');
 const ocrBoxes = require('./ocr-boxes');
@@ -81,16 +79,6 @@ const RF_MIN_SEEDS = 2;
 // （df 30 = 12%）、of 三条（7%）、to 三条（16%），全是虚词；parking 三条（df 11 = 4.3%）、
 // charge 4 条（1.6%）、reading（1.9%）是真的。5% 这条线正好把两边分开。
 const RF_DF = 0.05;
-// 检索够到的那几条之外，再沿链补这么多。链是「说得出理由」的那一路（同一个罕见词、同一页、
-// 同一段操作），它在库大起来之后**不会变差**，而向量会——所以补位交给它，不交给向量。
-const CHAIN_ADD = 6;
-// 拿前几条当种子。这个数卡在 8 的时候实测漏过：「赛程分前后半程」——那一晚唯一一条同时写着
-// 起点和终点的记录——排在第 9，正好在种子之外，于是链没有从它长过，终点地址那条就没被带上来。
-// 同一个问题跑两遍，一遍成一遍不成，差别只是模型改写时吐没吐出「Runnymede」这个词。
-// **能算出来的路不该赌模型说不说得出那个词**，所以种子放宽到把检索够到的都算上。
-// 代价是每个种子一次 story.grow（带向量邻居约 20ms），十二个约 240ms。
-const CHAIN_SEEDS = 12;
-const CHAIN_SPAN = 16;   // 每个种子长这么大的一片就够——要的是近邻，不是整件事
 // 短问句不当回声判据：「今天呢」这种三个字，正文里随手就撞上，挡掉的会是真记录。
 const ECHO_MIN = 8;
 const ASKED_MS = 60 * 1000;   // 问过的话缓存这么久
@@ -161,7 +149,7 @@ let evIdx = null;
 
 function learnFurniture() {
   if (evIdx) return;
-  // 图里的节点得是材料（junkRecord）。判过的记住——一次扩散要问几百次。
+  // 追问要的名字从这张视图里取；不是材料的记录（junkRecord）不出名字。判过的记住。
   // 家具那张表不在这儿取：它是后台慢慢学的，这会儿可能还没有；每条记录第一次被问到时再取。
   //
   // 以前问过的话（被复制回工作区的那几条）不当节点：它们是问题，不是材料，却和那件事的
@@ -179,35 +167,11 @@ function learnFurniture() {
   evIdx.ok = ok;
 }
 
-/**
- * 扩散要用的那一套：页面图、证据词倒排、向量邻居。
- *
- * **算一次，留着用。** 这以前是每次调用都重来一遍：把每一天读进内存、`links.build` 整个工作区，
- * 而它被 linksOf（每开一次详情页）和 chainAround（每问一次）各调一次。250 条上是 6ms，看不出来；
- * 按 O(n) 外推到 20 万条是每开一次详情页 5 秒、把整个工作区抬进堆一次。
- * 而 ask.js 顶上那段注释说的正是同一件事——`listEntries({limit: Infinity})` 是怎么死的。
- *
- * 失效的条件就一个：索引变了。sync 报有天被重建过（r.days > 0），下次再算。
- * 这不是「缓存要不要过期」的问题——图是索引的函数，索引没动，图就没动。
- */
-let ctxCache = null;
-function storyCtx() {
-  try { learnFurniture(); } catch (_) { /* 用上一份 */ }
-  if (ctxCache) return ctxCache;
-  // 四样东西现在都是懒的，一样也不用把工作区读进内存：
-  //   g   页面图 —— 表（vocab.pageGraph）
-  //   ev  词表  —— 表（vocab.lazyView）
-  //   near 向量邻居 —— LSH 粗筛桶，不再全表扫
-  // 于是这个函数本身不要钱了，缓存留着只是省几次建对象。
-  ctxCache = {
-    g: vocab.pageGraph(index),
-    ev: evIdx,
-    ok: evIdx.ok,
-    total: (index.stats() || {}).entries || 0,
-    titleOf: (id) => (store.getEntry(id) || {}).title || '',
-    near: (x) => { try { return vector.related(index, x, { limit: 4 }); } catch (_) { return []; } },
-  };
-  return ctxCache;
+// 页面图（vocab.pageGraph）：一页和从它上面摘下来的那几条。表，不是内存；索引变了就换一份。
+let graphCache = null;
+function pageGraph() {
+  if (!graphCache) graphCache = vocab.pageGraph(index);
+  return graphCache;
 }
 
 /**
@@ -442,39 +406,6 @@ function junkFilter() {
   };
 }
 
-/**
- * 从检索够到的这几条出发，沿链走一跳，补几条它们的近邻。
- *
- * 为什么补位交给链、不交给向量：今天量过，250 条的时候向量前十里排在正确答案前面的已经是
- * 「5381491216421114」「ipaslogo.com」和一行破折号——噪声和答案在同一个距离带（0.38~0.47）。
- * 噪声条数随库线性长，对的答案永远只有几条，所以**向量是唯一一个库越大越差的部件**。
- * 而链走的是硬证据：一个邮编在一百万条里仍然只指着那几条。
- * @returns {string[]}
- */
-function chainAround(seeds, room) {
-  const n = Math.min(CHAIN_ADD, Math.max(0, room));
-  if (!n || !seeds.length) return [];
-  try {
-    const ctx = storyCtx();
-    const have = new Set(seeds);
-    const best = new Map();
-    for (const seed of seeds.slice(0, CHAIN_SEEDS)) {
-      for (const m of story.grow(seed, ctx, { max: CHAIN_SPAN }).members) {
-        if (have.has(m.id)) continue;
-        if ((best.get(m.id) || 0) < m.score) best.set(m.id, m.score);
-      }
-    }
-    return [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([id]) => id);
-  } catch (_) { return []; }        // 长不出来就算了，检索够到的那几条本来就是答案的大半
-}
-
-/** 和这一条共用证据词的那几条，每条带着共用的词。空手是正常的：这一条上没有够罕见的词。 */
-function evidenceOf(id) {
-  try { learnFurniture(); } catch (_) { /* 用上一份 */ }
-  if (!evIdx) return [];
-  try { return links.evidenceFor(String(id || ''), evIdx); } catch (_) { return []; }
-}
-
 function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   index.open(store.userData, store.workspaceDir);
   index.useVecModel(vector.MODEL);
@@ -482,10 +413,9 @@ function refresh({ budgetMs = SYNC_BUDGET_MS } = {}) {
   // onDay：建一天索引的时候顺手把这一天的抬头词和地名收进表里（vocab 的甲那一遍）。
   // 这是唯一一处天然「一天只读一次」的地方，搁在别处就得再把全库读一遍。
   const r = index.sync({ dir: entriesDir(), loadDay: readDay, onDay: (_k, list) => { vocab.collect(index, list); vocab.collectPages(index, list); } }, { budgetMs });
-  // 有天被重建过，图跟着重算；没动就接着用上一份。
-  // **词表视图也得跟着丢**：它按词缓存倒排，新记录抽出的词进不了已经缓存过的那些倒排——
-  // 于是一条新记录在别人的「相关」里永远不出现，直到重启。「自动」双链自动不起来，就是这个。
-  if (r && r.days) { ctxCache = null; evIdx = null; eventsCache = null; listsCache = null; }
+  // 有天被重建过，页面图和词表视图都得跟着丢：词表视图按词缓存倒排，新记录抽出的词进不了
+  // 已经缓存过的那些倒排——于是一条新记录的名字进不了追问的种子，直到重启。
+  if (r && r.days) { graphCache = null; evIdx = null; }
   return r;
 }
 
@@ -530,16 +460,7 @@ function warm() {
       if (!st2.done) { setTimeout(fillVocab, 600); return; }
       const st = index.vocabStats();
       console.log(`[ask] 词表齐了：${st.words} 个词、${st.rows} 行，地名 ${st.places} 个`);
-      // 词表齐了才整理事件——事件是从词表上长出来的，词表没齐整理出来的是残的
-      setTimeout(fillEvents, 800);
     } catch (e) { console.warn('[ask] 抽词没做完：', e.message || e); }
-  };
-  // 每条记录的清单都算一遍，然后整理事件。和补向量同一个形状：限时、可中断。
-  const fillEvents = () => {
-    let r;
-    try { r = eventsStep({ budgetMs: 400 }); } catch (e) { console.warn('[ask] 事件整理没做完：', e.message || e); return; }
-    if (!r.done) { setTimeout(fillEvents, 300); return; }
-    console.log(`[ask] 整理出 ${(eventsCache || []).length} 件事（${r.total} 条清单）`);
   };
   setTimeout(step, 3000);
 }
@@ -607,7 +528,7 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
   }
   const seen = new Set();
   let pick = null;
-  const room = KEEP - CHAIN_ADD;      // 第二轮往后的名额；给链留出位子
+  const room = KEEP;                  // 第二轮往后的名额
   // 每条查询各留一小串，最后**按名次横着取**：先把每条查询的第一名都收进来，再收第二名。
   // 顺着一条条查询收是错的，实测栽过：「起点地址」那条查询的第一名（Bishops Park, Fulham）
   // 排在第十六位，模型根本没读到它，回了一句「记录中未包含起点和终点的详细地址」——
@@ -676,12 +597,6 @@ async function run(question, { limit = MAX_ITEMS, history = [] } = {}) {
   }
   if (!pick) pick = plain;
 
-  // ③ 沿链走一跳补位。找地址那次就靠它：Runnymede Pleasure Ground 和 Windsor Road 共用邮编
-  //    TW20 0AE，检索只够到前者，一跳就把后者带上来了。
-  for (const id of chainAround(ids, KEEP - ids.length)) {
-    if (!seen.has(id) && !echoed(id) && !drop(id)) { seen.add(id); ids.push(id); }
-  }
-
   const entries = ids.slice(0, KEEP).map((id) => store.getEntry(id)).filter(Boolean);
 
   const base = {
@@ -742,12 +657,9 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   // 有意义（那儿按分数排过），在搜索结果里不是。
   const seeds = (exclude || []).slice(0, CHAIN_SEED);
   if (seeds.length) {
-    const g = storyCtx().g;
+    const g = pageGraph();
     for (const seed of seeds) {
-      // 页面图自己带着 linksOf（懒的那份，走表不走内存），没有才退回 links.js 那个。
-      // story.js 里是同一句——只调后者的话这里会抛异常，然后被 catch 悄悄吃掉，
-      // 表现是「这条腿一条也不加」，而不是报错。我在这儿栽过。
-      let l; try { l = g.linksOf ? g.linksOf(seed) : links.linksOf(seed, g); } catch (_) { continue; }
+      let l; try { l = g.linksOf(seed); } catch (_) { continue; }
       const hop = [l.source && l.source.page, ...l.clips].filter(Boolean);
       for (const id of hop.slice(0, CHAIN_HOP)) {
         if (!skip.has(id) && !echoed(id) && !drop(id) && !out.includes(id)) out.push(id);
@@ -791,97 +703,4 @@ async function near(query, { exclude = [], limit = 12 } = {}) {
   return out.slice(0, limit);
 }
 
-/**
- * 和这一条有关的记录，**一条按远近排好的清单**，每条都说得出为什么。
- *
- * 之前这里是四组分开列的边（摘自 / 从这一页摘的 / 同一程 / 同一个词），外加一张图谱。
- * 图谱做不成：十四张卡片、四十多条线，线上还写着字，实测就是一团乱麻，读不出任何东西。
- * 而分四组也不对——**你要的是「和这条最近的是哪几条」，不是「按证据种类分类的四张小表」**。
- *
- * 所以合成一条清单，用 story.grow 排：它本来就是按分数排好的，而且每条都带着
- * 它是被哪条边、哪一对词放进来的。左边写理由，右边写标题。
- * @returns {{related:{id:string, score:number, why:object}[]}}
- */
-// 详情页底下那条清单最多这么几条。长的时候多长一些**再并副本、再截**：同一页存过三次的副本
-// 要并成一条——实测「Ultra Challenge」的十三个格子里七个是副本（English (Great Britain) ×3、
-// Ultra Challenge ×2、Ultra March reddit ×2），两跳才够得到的 Bishops Park 排在后面被截掉。
-const LINKS_MAX = 13;
-const LINKS_GROW = 40;
-// 副本的判据是正文，不是页面图：页面图里一条摘录和它来自的那一页共用一个 key，按它并会把
-// 「这条是从哪一页摘的」那条最值钱的边并没了。同一次存下来的两份，正文开头一字不差。
-const SAME_HEAD = 240;
-function sameKey(id) {
-  const e = store.getEntry(id);
-  if (!e) return '';
-  return `${e.title || ''} ${e.text || ''}`.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, SAME_HEAD);
-}
-
-function linksOf(id) {
-  const me = String(id || '');
-  try {
-    const s = story.grow(me, storyCtx(), { max: LINKS_GROW });
-    const seen = new Set([sameKey(me)].filter(Boolean));   // 种子自己的副本也不用列
-    const related = [];
-    for (const m of s.members) {
-      if (m.id === me) continue;
-      const k = sameKey(m.id);
-      if (k) { if (seen.has(k)) continue; seen.add(k); }
-      // hop 必须带出去：清单里 why 描述的是**最后一跳**，两跳的那条理由讲的是别人之间的关系
-      // （「Ultra Challenge」的清单里「同一页 赛程分前后半程」讲的其实是 1st Half → Bishops Park）。
-      // 谁要拿理由当判据，谁就得先看这是不是一跳。
-      related.push({ id: m.id, score: m.score, hop: m.hop || 0, why: m.via || null });
-      if (related.length >= LINKS_MAX) break;
-    }
-    return { related };
-  } catch (_) { return { related: [] }; }
-}
-
-// ── 事件
-//
-// 从链上整理出来的那几件事（story.events）。算一次留着用，索引变了跟着重算——
-// 和 storyCtx 同一个失效条件。第一次算要把每条锚得住的记录各长一片，260 条上几秒；
-// 所以不在启动那几秒里算，warm() 排在最后做，界面问的时候没算好就先给空的。
-let eventsCache = null;
-let listsCache = null;     // id -> 清单。事件是从全部清单上整理出来的
-let listsAt = 0;           // 算到第几条
-
-/**
- * 事件整理一步：把还没算的清单算几条，算齐了整理。限时、可中断、下次接着做。
- * @returns {{done:boolean, n:number, total:number}}
- */
-function eventsStep({ budgetMs = 400 } = {}) {
-  const ids = index.allIds();
-  if (!listsCache) { listsCache = new Map(); listsAt = 0; }
-  const t0 = Date.now();
-  while (listsAt < ids.length && Date.now() - t0 < budgetMs) {
-    const id = ids[listsAt++];
-    if (!listsCache.has(id)) listsCache.set(id, linksOf(id).related);
-  }
-  if (listsAt < ids.length) return { done: false, n: listsAt, total: ids.length };
-  try {
-    eventsCache = story.events(listsCache, storyCtx());
-    // 每件事画成谱系（主轴、支线、线上的理由），界面直接拿去画
-    const titleOf = storyCtx().titleOf;
-    for (const e of eventsCache) { try { e.lineage = story.lineage(e, listsCache, titleOf); } catch (_) { e.lineage = null; } }
-  } catch (e) { console.warn('[ask] 事件整理不出来：', e.message || e); eventsCache = []; }
-  return { done: true, n: listsAt, total: ids.length };
-}
-
-/** 整理好的那几件事。没算好就是空的。force：现在就算完（台子用）。 */
-function events({ force = false } = {}) {
-  if (force) { listsCache = null; let r; do { r = eventsStep({ budgetMs: 10000 }); } while (!r.done); }
-  return eventsCache || [];
-}
-
-/** 这一条在哪几件事里，各占多少分量。没算好就是空的，界面上什么也不显示。 */
-function eventsOf(id) {
-  return story.eventsOf(id, eventsCache || []);
-}
-
-/** 和这一条讲同一件事的那几条。空手是正常的：向量还没补齐，或者它确实没有近邻。 */
-function relatedTo(id) {
-  try { refresh(); } catch (_) { /* 索引没追平也照样能用已经建好的那部分 */ }
-  try { return vector.related(index, String(id || '')); } catch (_) { return []; }
-}
-
-module.exports = { init, run, near, warm, refresh, junkRecord, relatedTo, linksOf, events, eventsStep, eventsOf, storyCtx, evidenceOf, MAX_ITEMS };
+module.exports = { init, run, near, warm, refresh, junkRecord, MAX_ITEMS };
