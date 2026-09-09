@@ -93,6 +93,7 @@ async function start({ display, rect, strings = {} }) {
   win.setAlwaysOnTop(true, 'screen-saver', 1);
   // The whole point: the strip watches the region without ever being part of it.
   win.setContentProtection(true);
+  win.keepProtected = true;   // 别的窗只在采集那一下消失（windows.hideForCapture），这条是常年的
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   return new Promise((resolve) => {

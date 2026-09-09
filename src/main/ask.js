@@ -17,11 +17,11 @@ const retrieve = require('./retrieve');
 const vector = require('./vector');
 const links = require('./links');
 const boilerplate = require('./boilerplate');
-const mirror = require('./mirror');
 const title = require('./title');
 const story = require('./story');
 const vocab = require('./vocab');
 const chats = require('./chats');
+const ocrBoxes = require('./ocr-boxes');
 const { CJK } = require('./segment');
 const index = require('./index-db');
 const { localDateKey } = require('./store');
@@ -32,6 +32,7 @@ function init(deps) {
   // chats 也要有 store：认「以前问过的话」要翻聊天记录（echoFilter）。main.js 已经初始化过
   // 一次，这里再来一次是幂等的——但少了它，从 bench 或者别的入口进来就悄悄少一道闸。
   try { chats.init({ store }); } catch (_) { /* 翻不了就只挡这一场问过的 */ }
+  ocrBoxes.init({ store });   // 同理：索引和词表要读字框（ocr-boxes.bodyText），bench 进来也得有
 }
 
 const MAX_ITEMS = 40;   // as many as a daily-recap-sized context comfortably holds
@@ -163,20 +164,15 @@ function learnFurniture() {
   // 图里的节点得是材料（junkRecord）。判过的记住——一次扩散要问几百次。
   // 家具那张表不在这儿取：它是后台慢慢学的，这会儿可能还没有；每条记录第一次被问到时再取。
   //
-  // 节点比答案材料**更严一档**：一张画面里有 briffy 的截图（mirror.showsSelf）也不当节点。
-  // 它上面显示着你的十几条记录，和那十几条每一条都共用一个词，于是它连着的是屏幕上碰巧
-  // 显示的东西，不是它自己说的东西——实测图里清单最长的五条全是它。只对图片这么严：
-  // 一条记事里抄着 briffy 的设置页是你写的，里面有你要的东西，它当材料、也当节点。
-  // 以前问过的话（被复制回工作区的那几条）也不当节点：它们是问题，不是材料，却和那件事的
+  // 以前问过的话（被复制回工作区的那几条）不当节点：它们是问题，不是材料，却和那件事的
   // 每条记录都共用词。实测一条清单十三个格子里它们占三四个，把两跳才够得到的真货挤了出去。
+  // （briffy 拍到自己的那种曾经也在这儿单挡——它上面显示着你的十几条记录，和每一条都共用一个词，
+  // 实测图里清单最长的五条全是它。现在它在采集时就不会出现了，见 windows.hideForCapture；
+  // 剩下的旧记录盖了 context.self 的章，junkRecord 认。）
   const echoed = echoFilter([]);
   const memo = new Map();
   const ok = (id) => {
-    if (!memo.has(id)) {
-      const e = store.getEntry(id);
-      const picture = !!e && (e.type === 'screenshot' || e.type === 'image');
-      memo.set(id, !junkRecord(e) && !(picture && mirror.showsSelf(e.text)) && !echoed(id));
-    }
+    if (!memo.has(id)) memo.set(id, !junkRecord(store.getEntry(id)) && !echoed(id));
     return memo.get(id);
   };
   evIdx = vocab.lazyView(index, { ok });
@@ -384,8 +380,10 @@ function echoFilter(questions) {
  * 这条记录**本身**是不是材料。纯函数，只看这一条，不看别的记录——跨记录的去重在 junkFilter 里。
  *
  * 两种不是材料的：
- *   · briffy 拍到了自己：正文整个是 briffy 的界面文案（mirror.js）。对任何问题都不是答案，
- *     可它短、干净、离哪儿都不远，实测十个探针里六个的头几名有它。
+ *   · briffy 拍到了自己（context.self）：正文整个是 briffy 的界面文案。对任何问题都不是答案，
+ *     可它短、干净、离哪儿都不远，实测十个探针里六个的头几名有它。这一种现在只剩旧记录：
+ *     2026-09-09 起采集时 briffy 自己的窗就不在画面里（windows.hideForCapture），之前靠词表
+ *     认倒影的 mirror.js 删了，它认出的 24 条旧记录一次性盖了章。
  *   · 说不出任何一件事的：识别糊了，剩下一堆数字和单个字母。
  *
  * **正文识别不出东西的时候，标题顶上。** 一张图的窗口标题「jia — ◑ 主显示器文字模糊」是真话，
@@ -408,7 +406,7 @@ function junkRecord(e) {
   const text = String(e.text || '');
   const head = String(e.title || '').trim();
   if (!head && !text.trim()) return true;
-  if (mirror.isMirror(text)) return true;
+  if (e.context && e.context.self) return true;
   return !says(text) && !says(titleWorth(head));
 }
 

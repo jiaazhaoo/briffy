@@ -28,10 +28,11 @@
 //   全都能从工作区重新算出来。meta 里记着它是照着哪个工作区、哪一版 schema 建的，对不上就重建。
 const path = require('path');
 const chunk = require('./chunk');
+const ocrBoxes = require('./ocr-boxes');
 const fs = require('fs');
 const { segment } = require('./segment');
 
-const SCHEMA = 10;                  // 改了表结构就加一，旧库直接重建
+const SCHEMA = 11;                  // 改了表结构就加一，旧库直接重建（11：整屏截图的正文去掉菜单栏那一条，ocr-boxes.bodyText）
 const BODY_MAX = 4000;             // 一条记录进倒排的字数上限；OCR 大段的尾巴对找东西没有帮助
 
 let db = null;
@@ -53,7 +54,7 @@ function tokens(text) {
 function bodyOf(e) {
   const c = e.context || {};
   return tokens([
-    e.title, e.summary, e.text, e.note, (e.tags || []).join(' '), e.visionLabels,
+    e.title, e.summary, ocrBoxes.bodyText(e), e.note, (e.tags || []).join(' '), e.visionLabels,
     c.app, c.window, c.url, e.url, e.path,
   ].filter(Boolean).join(' ')).join(' ');
 }

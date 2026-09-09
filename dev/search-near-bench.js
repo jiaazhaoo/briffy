@@ -39,7 +39,7 @@ function fakeStore() {
   const settings = JSON.parse(fs.readFileSync(path.join(UD, 'settings.json'), 'utf8'));
   return {
     userData: UD, workspaceDir: WS,
-    paths: () => ({ entries: DIR, models: path.join(UD, 'models') }),
+    paths: () => ({ entries: DIR, ocr: path.join(WS, 'ocr'), models: path.join(UD, 'models') }),
     listDates: () => [...days.keys()].sort(),
     loadDay: (k) => days.get(k) || [],
     getEntry: (id) => byId.get(id) || null,

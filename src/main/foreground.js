@@ -262,4 +262,4 @@ async function probe() {
   return { ok: true, app: front.app, window, tab: lastTab ? lastTab.url : '', reason: window ? '' : 'accessibility' };
 }
 
-module.exports = { read, readInto, noteTab, forgetTab, currentTab, setEnabled, isEnabled, probe, trimWindowTitle, appWindowTitle, BROWSER_BUNDLES, APP_TITLE };
+module.exports = { read, readInto, frontApp, noteTab, forgetTab, currentTab, setEnabled, isEnabled, probe, trimWindowTitle, appWindowTitle, BROWSER_BUNDLES, APP_TITLE };
