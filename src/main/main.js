@@ -1181,34 +1181,6 @@ function setupIpc() {
   ipcMain.handle('ws:chat-append', (_e, id, turn) => chats.append(String(id || ''), turn || {}));
   ipcMain.handle('ws:chat-rename', (_e, id, title) => chats.rename(String(id || ''), String(title || '')));
   ipcMain.handle('ws:chat-remove', (_e, id) => chats.remove(String(id || '')));
-  ipcMain.handle('ws:related', (_e, id) => ask.relatedTo(id).map((i) => store.getEntry(i)).filter(Boolean).map(publicEntry));
-  // 和这一条有关的记录，一条按远近排好的清单。**每条都带着它凭什么在这儿**——
-  // 一对词、一页的名字、或者「同一段操作」。藏起理由的话它就退化成又一个「相关」了。
-  ipcMain.handle('ws:links', (_e, id) => ({
-    related: ask.linksOf(id).related
-      .map((x) => ({ score: x.score, why: x.why, entry: publicEntry(store.getEntry(x.id)) }))
-      .filter((x) => x.entry),
-  }));
-  // 软件从链上整理出来的那几件事，和「这一条在哪几件里、占多少分量」。
-  // 整理是后台的活（warm 里排在词表之后），没做完就是空的——界面上什么也不显示，不催。
-  ipcMain.handle('ws:events', () => ask.events().map((e) => {
-    const pub = (id) => publicEntry(store.getEntry(id));
-    const g = e.lineage || { spine: [], edges: [], hang: [] };
-    return {
-      id: e.id, name: e.name,
-      members: e.members.map((m) => ({ score: m.score, tier: m.tier, entry: pub(m.id) })).filter((m) => m.entry),
-      // 谱系：主轴（按顺序）、主轴相邻两条之间的边（带理由）、挂在底下的（带它挂在谁底下和理由）
-      quality: e.quality || 0,
-      // 谱系：站（一页和它的摘录是一站）、主轴（站的下标）、站与站之间的边（带理由）、挂在底下的站
-      lineage: {
-        stops: (g.stops || []).map((st) => ({ entry: pub(st.id), members: st.members.map(pub).filter(Boolean) })),
-        spine: g.spine || [],
-        edges: g.edges || [],
-        hang: g.hang || [],
-      },
-    };
-  }));
-  ipcMain.handle('ws:events-of', (_e, id) => ask.eventsOf(id));
   ipcMain.handle('ws:trail-sessions', (_e, day) => trail.sessions(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:trail-spans', (_e, day) => trail.spans(String(day || require('./store').localDateKey())));
   ipcMain.handle('ws:stats', () => store.stats());

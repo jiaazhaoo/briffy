@@ -338,22 +338,6 @@ body:not([data-tab="entries"]) .axis { display: none; }
 /* 行自己带 12px 内边距，所以这里减掉，字才真的落在 --pad 上、和顶栏对齐 */
 /* 滚动条也是一条线，而这里不许有线（网格早就 scrollbar-width: none 了，列表漏了，
    于是两栏中间和窗口右边各挂着一道灰杠） */
-/* ---------- 相关 ---------- */
-/* 详情页最底下一小块：讲同一件事的那几条。一条一行，日期在前、标题在后，
-   和「路过」那一页同一种读法。没有框、没有线——它是这一页的脚注，不是另一个卡片。 */
-.dt-related { padding: var(--a4) var(--a3) 0; }
-.dt-related h3 { font: 400 var(--fs-meta)/1.5 var(--sans); color: var(--ink-3); margin: 0 0 var(--a2); }
-.rel { display: grid; grid-template-columns: 84px 1fr; gap: var(--a3); align-items: baseline;
-  width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer;
-  padding: var(--a1) 0; font: inherit; }
-.rel .tm { color: var(--ink-3); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
-.rel .ti { color: var(--ink-2); font-size: var(--fs-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rel:hover .ti { color: var(--ink); }
-/* 左边那一栏写的是**凭什么**——一对词、那一页的名字、或者「同一段操作」，不是时间。
-   它比日期长，所以宽一档，也不用等宽数字。一条藏起理由的线，和「相关」没有区别。 */
-.rel.ev { grid-template-columns: 168px 1fr; }
-.rel.ev .tm { font-variant-numeric: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 /* ---------- 路过 ---------- */
 /* 一段一行，读起来是一页日记：时间在左（和网格的时间轴同一个位置），时长、应用、标题依次退墨。
    没有框、没有线、没有颜色——它和列表是同一种东西，只是说的是另一件事。 */
@@ -377,37 +361,6 @@ body:not([data-tab="entries"]) .axis { display: none; }
 .tv-more { border: 0; background: transparent; color: var(--ink-3); font: 400 var(--fs-act)/1.5 var(--sans);
   padding: var(--a3) 0; cursor: pointer; }
 .tv-more:hover { color: var(--ink); }
-
-/* 事件：软件从链上整理出来的那几件事。一件一行——名字满墨半粗、几条铅笔色——点开摊出成员，
-   成员是一片并排的词（和筛选托盘同一种说法）。核心成员满墨，沾边的铅笔色：
-   强度用墨说，不画条、不写数。没有框、没有线。 */
-.ev .lv-rows { grid-column: 1 / -1; }
-.ev-row { display: flex; align-items: baseline; gap: var(--a3); padding: var(--a2) 0; cursor: pointer; }
-.ev-row .nm { color: var(--ink); font: 600 var(--fs-title)/1.5 var(--sans); }
-.ev-row .n { color: var(--ink-3); font: 400 var(--fs-meta)/1.5 var(--sans); font-variant-numeric: tabular-nums; }
-.ev-row + .ev-row, .ev-members + .ev-row { margin-top: var(--a4); }
-/* 谱系图：主轴一行，支线往下垂。线是铅笔色的细线——这里的线是内容（双链的证据），不是装饰。
-   宽的在自己的框里横着滚，页面不横滚。 */
-.ev-graph { overflow-x: auto; overflow-y: hidden; padding: var(--a1) 0 var(--a3); scrollbar-width: none; }
-.ev-graph::-webkit-scrollbar { height: 0; }   /* 这张纸上没有线，横着滚靠触控板 */
-.ev-graph svg { display: block; width: auto; height: auto; }
-.ev-graph text { font-family: var(--sans); stroke: none; }   /* 顶上那条 svg 规则给图标描的边，字不要 */
-.ev-graph text.core { fill: var(--ink); font-weight: 600; font-size: 12px; }
-.ev-graph text.member { font-weight: 400; }          /* 同一页摘的那几条：站里的成员，不是站头 */
-.ev-row.loose .nm { color: var(--ink-3); font-weight: 400; }   /* 散的：名字铅笔色 */
-.ev-graph text.touch { fill: var(--ink-3); font-size: 12px; }
-.ev-graph text.why { fill: var(--ink-3); font-size: 11px; }
-.ev-graph line { stroke: var(--ink-3); stroke-width: 1; stroke-linecap: square; }
-.ev-node { cursor: pointer; }
-.ev-node:hover text { text-decoration: underline; }
-.ev-back { padding: 0 0 var(--a3) 0; }
-.dt-events .why { color: var(--ink-3); font-size: var(--fs-meta); margin-left: -2px; }
-/* 详情里「参与」那一行：日期底下、备注上面。核心满墨半粗，沾边铅笔色 */
-.dt-events { display: flex; flex-wrap: wrap; gap: var(--a1) var(--a2); align-items: baseline; }
-.dt-events .lb { color: var(--ink-3); font-size: var(--fs-meta); }
-.ev-tag { border: 0; background: transparent; padding: 0; cursor: pointer; font: 600 var(--fs-act)/1.5 var(--sans); color: var(--ink); }
-.ev-tag.touch { font-weight: 400; color: var(--ink-3); }
-.ev-tag:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .lv-rows { overflow: auto; padding: 0 var(--a3) 92px calc(var(--pad) - 12px); scrollbar-width: none; }
 .lv-rows::-webkit-scrollbar, .lv-prev::-webkit-scrollbar { width: 0; height: 0; }

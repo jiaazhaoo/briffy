@@ -26,7 +26,7 @@
 // 前者在真实工作区上只剥掉 3%（boilerplate.js 顶上量过），却要为它存下每条记录的每一行；
 // 后者是纯粹逐条的、不需要别的记录作证，而且是主力。所以这里只用后者（strip(text, null)）。
 const entity = require('./entity');
-const links = require('./links');
+const pageKey = require('./page-key');
 const boilerplate = require('./boilerplate');
 const ocrBoxes = require('./ocr-boxes');
 const { segment } = require('./segment');
@@ -111,7 +111,7 @@ function fill(index, getEntry, { budgetMs = 800, batch = 60 } = {}) {
  * 和库里一共有多少条记录没关系——这正是搬进表里要买的东西。
  *
  * @param {object} index
- * @param {string[]} ids 要为哪几条记录准备（story.grow 会沿着边走，所以给它一圈邻居）
+ * @param {string[]} ids 要为哪几条记录准备（追问的名字要沿着记录取，所以给它一圈邻居）
  * @returns {{post:Map, df:Map, words:Map, text:Map, kind:Map, alias:Map}}
  */
 function viewFor(index, ids, { maxDf = 30, minDf = 2, keep = 20 } = {}) {
@@ -194,7 +194,7 @@ function settle(index, { budgetMs = 800, batch = 100, keep = 20 } = {}) {
 /**
  * 和 viewFor 同一个形状，但**什么都不预先算**：问到哪一条才去库里取哪一条，取过就留着。
  *
- * 这是整件事的收口。story.grow 是沿着边一步一步走出去的，它事先并不知道会走到谁；
+ * 这是整件事的收口。追问取名字是沿着记录一条一条走的，它事先并不知道会走到谁；
  * 而以前那套要它开工之前先把整个工作区的词表建好（250 条 56ms / 11MB，20 万条 55s / 8.8GB）。
  * 换成懒的之后，一次扩散最多碰四十个节点，就只取这四十条的词——**和库里一共有多少条无关**。
  *
@@ -282,7 +282,7 @@ function collectPages(index, entries) {
   let n = 0;
   for (const e of entries || []) {
     if (!e || !e.id) continue;
-    const ks = links.pageKeysOf(e);
+    const ks = pageKey.pageKeysOf(e);
     // 一条记录同时带着网址和标题，就是「这两个说法指同一页」的一份证词
     if (ks.length > 1) index.pgUnion(ks);
     if (ks.length) {
@@ -292,7 +292,7 @@ function collectPages(index, entries) {
       n++;
     }
     // 「它就是这一页」——收藏了那一页，书签是这个节点本身，不是它的兄弟
-    for (const raw of links.pageIdentityOf(e)) {
+    for (const raw of pageKey.pageIdentityOf(e)) {
       if (index.putPage(e.id, index.pgRoot(raw), String(e.title || '').replace(/\s+/g, ' ').trim())) break;
     }
   }
@@ -300,13 +300,13 @@ function collectPages(index, entries) {
 }
 
 /**
- * 一个和 links.linksOf 同形状的答案，但只碰这一条周围那几行。
+ * 页面图上这一条周围那几行：它来自哪一页、那一页上还摘了哪几条、同一程里的页面。
  *
  * 「一页上摘了太多条就整组丢掉」（外壳页，比如 Google Maps、Claude）那条规矩在这儿兑现，
  * 不在存的时候——条数会变，而重扫全库很贵。和 df 那一处是同一个道理。
  * @returns {{source:object|null, clips:string[], run:{ids:string[], pages:object[]}}}
  */
-function linksOfDb(index, id, { runLimit = 6, maxClips = links.MAX_CLIPS, gapMs = links.RUN_GAP_MS } = {}) {
+function linksOfDb(index, id, { runLimit = 6, maxClips = pageKey.MAX_CLIPS, gapMs = pageKey.RUN_GAP_MS } = {}) {
   const me = String(id || '');
   const out = { source: null, clips: [], run: { ids: [], pages: [] } };
   const page = (k) => {
@@ -339,7 +339,7 @@ function linksOfDb(index, id, { runLimit = 6, maxClips = links.MAX_CLIPS, gapMs 
   return out;
 }
 
-/** 给 story.edgesOf 用的 g：它只问 linksOf 和 pages.get(key)。 */
+/** 搜索框「同一页」那条腿用的 g（ask.near）：它只问 linksOf 和 pages.get(key)。 */
 function pageGraph(index, opts = {}) {
   return {
     __db: true,

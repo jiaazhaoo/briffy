@@ -149,9 +149,6 @@
         mk(15, 20, 2, 'Telegram', 'Telegram @ jia'),
       ];
     },
-    // 主题：讲同一件事的记录归成的堆
-    // 「相关」：讲同一件事的那几条，当场算出来的
-    related: async (id) => entries.filter((e) => e.id !== id).slice(0, 3).map(pub),
     // 问过的那些对话
     _chats: [
       { id: 'c1', title: '我最近有个 walking 挑战，你帮我看看记录', at: new Date().toISOString(), n: 2, turns: [] },
@@ -168,21 +165,6 @@
     },
     chatRename: async function (id, title) { const c = this._chats.find((x) => x.id === id); if (c) c.title = title.trim(); return c || null; },
     chatRemove: async function (id) { this._chats = this._chats.filter((c) => c.id !== id); return true; },
-    // 和这一条有关的记录，一条按远近排好的清单，每条带着**凭什么**
-    links: async (id) => {
-      const me = entries.find((e) => e.id === id) || entries[0];
-      const rest = entries.filter((e) => e.id !== me.id);
-      const P = (a2, b2) => [{ a: a2, b: b2 || a2, fuzzy: !!b2 }];
-      const why = [
-        { kind: 'page', name: '赛程分前后半程 - Claude' },
-        { kind: 'word', pairs: P('TW20 0AE') },
-        { kind: 'word', pairs: P('泰晤士河', 'Thames') },
-        { kind: 'word', pairs: [...P('50km'), ...P('Ultra', '挑战')] },
-        { kind: 'run', name: '' },
-        { kind: 'near' },
-      ];
-      return { related: rest.slice(0, 6).map((e, i) => ({ entry: pub(e), score: 0.9 - i * 0.1, why: why[i] })) };
-    },
     // 「意思相近」：搜的时候慢一拍补上来的那几条，每条都带 near 标记
     searchNear: async (q, skip) => {
       await new Promise((r) => setTimeout(r, 300));
