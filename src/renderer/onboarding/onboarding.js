@@ -22,7 +22,6 @@
       permDev: '注意：现在是从源码运行，系统设置里要找的是「{name}」而不是 briffy。',
       permSkip: '不给也能用——录音和截图会关着，其它照常。',
       aiTitle: '谁来读这些记录？',
-      aiClaude: 'Claude', aiClaudeWhy: '填一个 API Key，最准',
       aiOpenrouter: 'OpenRouter', aiOpenrouterWhy: '浏览器授权一次，模型任选',
       aiLocal: '本机模型', aiLocalWhy: '完全离线，需要装 Ollama',
       aiNone: '先不配', aiNoneWhy: '标题退回文件名',
@@ -51,7 +50,6 @@
       permDev: 'Note: running from source, so the entry to look for is "{name}", not briffy.',
       permSkip: 'It works without these — recording and capture stay off, everything else is fine.',
       aiTitle: 'Who reads these records?',
-      aiClaude: 'Claude', aiClaudeWhy: 'An API key. The most accurate.',
       aiOpenrouter: 'OpenRouter', aiOpenrouterWhy: 'Authorise once in the browser, any model',
       aiLocal: 'A local model', aiLocalWhy: 'Fully offline, needs Ollama',
       aiNone: 'Not now', aiNoneWhy: 'Titles fall back to the file name',
@@ -145,7 +143,6 @@
 
   // ---------- provider ----------
   const CHOICES = [
-    { id: 'anthropic', t: 'aiClaude', w: 'aiClaudeWhy' },
     { id: 'openrouter', t: 'aiOpenrouter', w: 'aiOpenrouterWhy' },
     { id: 'ollama', t: 'aiLocal', w: 'aiLocalWhy' },
     { id: '', t: 'aiNone', w: 'aiNoneWhy' },

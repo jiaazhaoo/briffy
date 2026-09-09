@@ -1,10 +1,9 @@
 'use strict';
-// Provider-independent titling and daily recap. Dispatches to Anthropic, OpenRouter,
+// Provider-independent titling and daily recap. Dispatches to OpenRouter,
 // a local Ollama model, or any OpenAI-compatible endpoint. Prompts enforce the no-translation rule.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const ai = require('./ai');
 const oai = require('./openai-compat');
 const ollama = require('./ollama');
 const hardware = require('./hardware');
@@ -12,13 +11,18 @@ const { promptLanguageName } = require('./languages');
 
 const redact = require('./redact');
 
-const PROVIDERS = ['anthropic', 'openrouter', 'ollama', 'custom'];
+// 2026-09-09 从四家收成两家。去掉的是 Claude 直连和自定义 OpenAI 兼容接口——它们都要求用户
+// 离开 briffy 去别处干活（去控制台建一把 key 粘回来，或者装一个叫 ant 的命令行工具再登录一次），
+// 而那正是「登录一直不通」的真正原因。留下的两家各有一条真正走得通的路：
+// OpenRouter 有给第三方应用用的 OAuth（一次点击换一把属于用户自己的 key，同时通向 Claude 和 GPT），
+// Ollama 在本机，什么都不用登录。
+const PROVIDERS = ['openrouter', 'ollama'];
 // How much item text each provider gets (characters). Local models have small context windows.
-const TAG_LIMIT = { anthropic: 100000, openrouter: 60000, custom: 12000, ollama: 5000 };
+const TAG_LIMIT = { openrouter: 60000, ollama: 5000 };
 // ollama 那一档以前是 8000 字。numCtx 是 12288 token，8000 字的中英混排大约用掉一半，
 // 剩下的额度本来就空着。抬到 10000，同时把回答的 maxTokens 从 1200 抬到 1800——
 // 实测一份行程单答到「需跟随穿荧光背心的」就断在半句上，那是被 1200 卡掉的。
-const DIGEST_LIMIT = { anthropic: 80000, openrouter: 60000, custom: 12000, ollama: 10000 };
+const DIGEST_LIMIT = { openrouter: 60000, ollama: 10000 };
 
 // The model is asked for a title and a sentence, and nothing else. The words that index an entry are
 // extracted locally from its own text (see workspace.js): they should not change, or cost anything, or
@@ -75,12 +79,10 @@ function config(store, override = {}) {
   const secret = (name, overrideKey) => (typeof override[overrideKey] === 'string' && override[overrideKey] ? override[overrideKey] : store.getSecret(name));
   const rec = hardware.recommend(hardware.getCached());
   return {
-    provider: PROVIDERS.includes(s.provider) ? s.provider : 'anthropic',
+    provider: PROVIDERS.includes(s.provider) ? s.provider : 'openrouter',
     languageName: promptLanguageName(s.languages),
-    anthropic: { auth: s.anthropicAuth === 'account' ? 'account' : 'apiKey', apiKey: secret('apiKey', 'apiKey'), model: s.model || 'claude-opus-5', account: accountAvailable() },
     openrouter: { apiKey: secret('openrouterKey', 'openrouterKey'), model: s.openrouterModel || 'anthropic/claude-opus-5' },
     ollama: { host: s.ollamaHost || ollama.DEFAULT_HOST, model: s.ollamaModel || rec.model, recommended: !s.ollamaModel },
-    custom: { baseUrl: s.customBaseUrl || '', apiKey: secret('customKey', 'customKey'), model: s.customModel || '' },
     redactLevel: redact.levelOf(s),
   };
 }
@@ -101,36 +103,10 @@ function outbound(cfg, text, what) {
   return r.text;
 }
 
-/**
- * 「用已登录的账号」这一档，凭据到底在不在。
- *
- * SDK 认三样：两个环境变量，和 `ant auth login` 写在 ~/.config/anthropic/ 底下的 profile。
- * **它不认 Claude Code 的登录**——那份在 ~/.claude，是 Claude Code 自己用的（踩过，
- * 见 main.js 里 findAntCli 那段）。所以这儿只查 SDK 真正会去读的那三处。
- *
- * 同步、只碰文件系统一次，因为 isConfigured 是同步的、而且到处在调。
- */
-function accountAvailable() {
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_PROFILE) return true;
-  const dir = process.env.ANTHROPIC_CONFIG_DIR || (process.platform === 'win32'
-    ? path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Anthropic')
-    : path.join(os.homedir(), '.config', 'anthropic'));
-  try { return fs.existsSync(dir); } catch (_) { return false; }
-}
-
-/**
- * 这一家现在能不能真的发出一个请求。
- *
- * anthropic 那一行以前是 `auth === 'account' || apiKey` —— 选了「已登录的账号」就无条件为真，
- * **从来没查过那份凭据存不存在**。于是界面说「已配好」，一问就在运行时炸出 SDK 的原始报错
- * 「Could not resolve authentication method」。一个设置项是一句声明，不是证据。
- */
 function isConfigured(cfg) {
   switch (cfg.provider) {
-    case 'anthropic': return cfg.anthropic.auth === 'account' ? !!cfg.anthropic.account : !!cfg.anthropic.apiKey;
     case 'openrouter': return !!cfg.openrouter.apiKey;
     case 'ollama': return !!cfg.ollama.host && !!cfg.ollama.model;
-    case 'custom': return !!cfg.custom.baseUrl && !!cfg.custom.model;
     default: return false;
   }
 }
@@ -142,28 +118,18 @@ function isConfigured(cfg) {
  */
 function missing(cfg) {
   switch (cfg.provider) {
-    case 'anthropic':
-      if (cfg.anthropic.auth === 'account') return cfg.anthropic.account ? '' : 'account';
-      return cfg.anthropic.apiKey ? '' : 'apiKey';
     case 'openrouter': return cfg.openrouter.apiKey ? '' : 'apiKey';
     case 'ollama': return cfg.ollama.host ? (cfg.ollama.model ? '' : 'model') : 'host';
-    case 'custom': return cfg.custom.baseUrl ? (cfg.custom.model ? '' : 'model') : 'baseUrl';
     default: return 'provider';
   }
 }
 
 function label(cfg) {
   switch (cfg.provider) {
-    case 'anthropic': return `${cfg.anthropic.model} (Anthropic${cfg.anthropic.auth === 'account' ? ', account' : ''})`;
     case 'openrouter': return `${cfg.openrouter.model} (OpenRouter)`;
     case 'ollama': return `${cfg.ollama.model} (Ollama)`;
-    case 'custom': return `${cfg.custom.model} (${cfg.custom.baseUrl})`;
     default: return cfg.provider;
   }
-}
-
-function anthropicAuth(cfg) {
-  return cfg.anthropic.auth === 'account' ? { account: true } : { apiKey: cfg.anthropic.apiKey };
 }
 
 // ---------- prompts ----------
@@ -242,14 +208,8 @@ async function translate(cfg, { text }) {
   ].join(' ');
   let raw;
   switch (cfg.provider) {
-    case 'anthropic':
-      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text: body, maxTokens: 2000, effort: 'low' });
-      break;
     case 'openrouter':
       raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text: body, maxTokens: 2000 });
-      break;
-    case 'custom':
-      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text: body, maxTokens: 2000 });
       break;
     case 'ollama':
       raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text: body, maxTokens: 1600, numCtx: 8192 });
@@ -265,23 +225,15 @@ async function translate(cfg, { text }) {
 
 async function describe(cfg, input) {
   const limit = TAG_LIMIT[cfg.provider] || 12000;
-  const image = input.kind === 'image' && input.image ? ai.prepareImage(input.image, input.imageMime) : null;
-  const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
+  const image = input.kind === 'image' && input.image ? oai.prepareImage(input.image, input.imageMime) : null;
+  const small = cfg.provider === 'ollama';
   const system = tagSystem(cfg.languageName, small);
-  // 只有 Anthropic 那一档会把 PDF 原件带上，别的只带抽出来的字——所以正文分两种，
-  // 但**出门都走 outbound**：以前这一段在四个分支里各拼一次，多一个分支就多一个可能忘掉的地方。
-  const attachPdf = cfg.provider === 'anthropic' && input.kind === 'pdf' && input.pdf;
-  const text = outbound(cfg, buildTagText(input, limit, { attachedPdf: !!attachPdf, attachedImage: !!image }), '起标题');
+  // PDF 一律只带抽出来的字，不带原件——原来只有 Anthropic 那一档会附 PDF，那一家 2026-09-09 去掉了。
+  const text = outbound(cfg, buildTagText(input, limit, { attachedImage: !!image }), '起标题');
   let raw;
   switch (cfg.provider) {
-    case 'anthropic':
-      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text, image, pdf: attachPdf ? input.pdf : null, schema: TAG_SCHEMA, maxTokens: 800, effort: 'low' });
-      break;
     case 'openrouter':
       raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text, image, schema: TAG_SCHEMA, maxTokens: 800 });
-      break;
-    case 'custom':
-      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text, image, schema: TAG_SCHEMA, maxTokens: 800 });
       break;
     case 'ollama':
       raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, image, schema: TAG_SCHEMA, maxTokens: 600, numCtx: 8192 });
@@ -298,7 +250,7 @@ async function describe(cfg, input) {
 }
 
 function providerName(p) {
-  return { anthropic: 'Anthropic', openrouter: 'OpenRouter', ollama: 'Ollama', custom: 'custom' }[p] || p;
+  return { openrouter: 'OpenRouter', ollama: 'Ollama' }[p] || p;
 }
 
 // ---------- daily recap ----------
@@ -353,21 +305,15 @@ function digestSystem(languageName, small, headings) {
 
 async function dailySummary(cfg, { dateKey, entries, counts = '', headings = null }) {
   const limit = DIGEST_LIMIT[cfg.provider] || 12000;
-  const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
+  const small = cfg.provider === 'ollama';
   const system = digestSystem(cfg.languageName, small, headings);
   // The counts come first and are already true, so the model never has to work out how many of
   // anything there were -- the one thing it is reliably bad at and the one thing that is cheap to know.
   const text = outbound(cfg, `${counts ? `Counts for this day (these are correct, use them as given):\n${counts}\n\n` : ''}Date: ${dateKey}\nItems (${entries.length}):\n${buildDigest(entries, limit)}`, '每日摘要');
   let raw;
   switch (cfg.provider) {
-    case 'anthropic':
-      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text, maxTokens: 4096, effort: 'medium' });
-      break;
     case 'openrouter':
       raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text, maxTokens: 2048 });
-      break;
-    case 'custom':
-      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text, maxTokens: 2048 });
       break;
     case 'ollama':
       raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, maxTokens: 1500, numCtx: 12288 });
@@ -510,14 +456,8 @@ async function searchPlan(cfg, { question, history = [], seeds = [] }) {
   let raw;
   try {
     switch (cfg.provider) {
-      case 'anthropic':
-        raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300, effort: 'low' });
-        break;
       case 'openrouter':
         raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300 });
-        break;
-      case 'custom':
-        raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300 });
         break;
       case 'ollama':
         raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system: sys, text, schema: PLAN_SCHEMA, maxTokens: 300, numCtx: 8192 });
@@ -543,7 +483,7 @@ async function searchPlan(cfg, { question, history = [], seeds = [] }) {
 
 async function answerQuestion(cfg, { question, entries, terms = [], history = [] }) {
   const limit = DIGEST_LIMIT[cfg.provider] || 12000;
-  const small = cfg.provider === 'ollama' || cfg.provider === 'custom';
+  const small = cfg.provider === 'ollama';
   const system = askSystem(cfg.languageName, small);
   // 上文要给，否则「详细地址」这种省略了主语的追问，模型手上有对的记录也说不清是哪儿的地址。
   // 只给最近几轮、答案截短：多给会把这一问的主语淹掉，和 searchPlan 那边同一个道理。
@@ -551,14 +491,8 @@ async function answerQuestion(cfg, { question, entries, terms = [], history = []
   const text = outbound(cfg, `${talk ? `Conversation so far:\n${talk}\n\n` : ''}Question: ${question}\n\nItems (${entries.length}), most relevant first:\n${buildNumbered(entries, limit, terms)}`, '问');
   let raw;
   switch (cfg.provider) {
-    case 'anthropic':
-      raw = await ai.complete(anthropicAuth(cfg), { model: cfg.anthropic.model, system, text, schema: ASK_SCHEMA, maxTokens: 2048, effort: 'medium' });
-      break;
     case 'openrouter':
       raw = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), { system, text, schema: ASK_SCHEMA, maxTokens: 1600 });
-      break;
-    case 'custom':
-      raw = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1600 });
       break;
     case 'ollama':
       raw = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { system, text, schema: ASK_SCHEMA, maxTokens: 1800, numCtx: 12288 });
@@ -578,12 +512,10 @@ async function answerQuestion(cfg, { question, entries, terms = [], history = []
 async function testProvider(cfg) {
   const probe = { system: 'Reply with the single word OK.', text: 'ping', maxTokens: 16 };
   switch (cfg.provider) {
-    case 'anthropic': return ai.testAuth(anthropicAuth(cfg), cfg.anthropic.model);
     case 'openrouter': { const r = await oai.chat(oai.openrouterClient(cfg.openrouter.apiKey, cfg.openrouter.model), probe); return { ok: true, model: r.model, reply: r.text }; }
-    case 'custom': { const r = await oai.chat({ baseUrl: cfg.custom.baseUrl, apiKey: cfg.custom.apiKey, model: cfg.custom.model }, probe); return { ok: true, model: r.model, reply: r.text }; }
     case 'ollama': { const r = await ollama.chat({ host: cfg.ollama.host, model: cfg.ollama.model }, { ...probe, numCtx: 2048 }); return { ok: true, model: r.model, reply: r.text }; }
     default: throw new Error(`Unknown provider ${cfg.provider}`);
   }
 }
 
-module.exports = { config, isConfigured, missing, accountAvailable, label, describe, translate, dailySummary, answerQuestion, searchPlan, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, PLAN_SCHEMA, PLAN_MAX, _windowAround: windowAround, _buildNumbered: buildNumbered };
+module.exports = { config, isConfigured, missing, label, describe, translate, dailySummary, answerQuestion, searchPlan, testProvider, PROVIDERS, TAG_SCHEMA, ASK_SCHEMA, PLAN_SCHEMA, PLAN_MAX, _windowAround: windowAround, _buildNumbered: buildNumbered };

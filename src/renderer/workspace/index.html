@@ -257,10 +257,8 @@
             <div class="body">
             <label class="f"><span class="fl" data-i18n="sProvider">来源</span><span class="fc">
               <select id="provider">
-                <option value="anthropic">Claude (Anthropic)</option>
                 <option value="openrouter">OpenRouter</option>
                 <option value="ollama" data-i18n="sProviderOllama">本地模型 (Ollama)</option>
-                <option value="custom" data-i18n="sProviderCustom">自定义 OpenAI 兼容接口</option>
               </select>
               <span id="providerConfigured" class="st"></span>
             </span></label>
@@ -279,31 +277,6 @@
             </span></div>
             </div>
           </section>
-
-          <div id="panel-anthropic" class="panel">
-            <section class="card-section">
-              <h2>Claude</h2>
-              <div class="body">
-              <label class="f"><span class="fl" data-i18n="sAnthropicAuth">登录方式</span><span class="fc">
-                <select id="anthropicAuth">
-                  <option value="apiKey">API Key</option>
-                  <option value="account" data-i18n="sAccountOption">已登录的 Anthropic 账号（ant auth login）</option>
-                </select>
-              </span></label>
-              <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc"><select id="model"></select></span></label>
-              <label class="f" id="rowApiKey"><span class="fl">API Key</span><span class="fc">
-                <input id="apiKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
-                <button type="button" class="btn" id="btnClearKey" data-i18n="sClearKey">清除</button>
-                <span class="st" id="apiKeyStatus"></span>
-              </span></label>
-              <div class="f wide" id="rowAccount"><span class="fc">
-                <button type="button" class="btn" id="btnAnthropicInstall" data-i18n="sInstallAnt" hidden>装 ant 命令行工具</button>
-                <button type="button" class="btn" id="btnAnthropicLogin" data-i18n="sAnthropicLogin">用浏览器登录 Claude 账号</button>
-                <span id="anthropicAccountStatus" class="st"></span>
-              </span></div>
-              </div>
-            </section>
-          </div>
 
           <div id="panel-openrouter" class="panel">
             <section class="card-section">
@@ -372,20 +345,6 @@
             </section>
           </div>
 
-          <div id="panel-custom" class="panel">
-            <section class="card-section">
-              <h2><span data-i18n="sProviderCustom">自定义 OpenAI 兼容接口</span></h2>
-              <div class="body">
-              <label class="f"><span class="fl" data-i18n="sCustomBase">接口地址</span><span class="fc"><input id="customBaseUrl" placeholder="http://127.0.0.1:1234/v1" /></span></label>
-              <label class="f"><span class="fl" data-i18n="sModel">模型</span><span class="fc"><input id="customModel" placeholder="model name" /></span></label>
-              <label class="f"><span class="fl">API Key</span><span class="fc">
-                <input id="customKey" type="password" data-i18n-placeholder="sApiKeyPlaceholder" />
-                <button type="button" class="btn" id="btnClearCustomKey" data-i18n="sClearKey">清除</button>
-                <span class="st" id="customKeyStatus"></span>
-              </span></label>
-              </div>
-            </section>
-          </div>
         </div>
 
         <!-- ================= 工作区与关于 ================= -->

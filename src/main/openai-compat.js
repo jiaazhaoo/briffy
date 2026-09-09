@@ -2,8 +2,36 @@
 // Minimal chat client for OpenAI-compatible endpoints: OpenRouter, LM Studio, llama.cpp server, vLLM, DeepSeek, ...
 // Uses the global fetch of Electron's Node; no SDK needed.
 
+const { nativeImage } = require('electron');
+const fs = require('fs');
+
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const OPENROUTER_HEADERS = { 'HTTP-Referer': 'https://github.com/jiaazhaoo/briffy', 'X-Title': 'briffy' };
+
+// 一张图发出去之前先缩到模型吃得下的大小。**这一段原来在 ai.js**（Anthropic 那个客户端），
+// 2026-09-09 那一家去掉之后搬到这儿——现在只有 OpenAI 兼容这条路会带图。
+// 注意入库那条路从不带图（图片永远不进模型），这是给「重新处理」和别的调用方留的。
+const MAX_IMAGE_EDGE = 1568;
+const MAX_IMAGE_BYTES = 4.5 * 1024 * 1024;
+/** @returns {{data:string, media_type:string}|null} JPEG (or raw gif/webp) base64 sized for vision models */
+function prepareImage(source, mime) {
+  let img = Buffer.isBuffer(source) ? nativeImage.createFromBuffer(source) : nativeImage.createFromPath(source);
+  if (img.isEmpty()) {
+    if (mime === 'image/gif' || mime === 'image/webp') {
+      const raw = Buffer.isBuffer(source) ? source : fs.readFileSync(source);
+      if (raw.length <= MAX_IMAGE_BYTES) return { data: raw.toString('base64'), media_type: mime };
+    }
+    return null;
+  }
+  const { width, height } = img.getSize();
+  if (Math.max(width, height) > MAX_IMAGE_EDGE) {
+    img = width >= height ? img.resize({ width: MAX_IMAGE_EDGE }) : img.resize({ height: MAX_IMAGE_EDGE });
+  }
+  let quality = 85;
+  let buf = img.toJPEG(quality);
+  while (buf.length > MAX_IMAGE_BYTES && quality > 30) { quality -= 15; buf = img.toJPEG(quality); }
+  return { data: buf.toString('base64'), media_type: 'image/jpeg' };
+}
 
 function stripThinking(s) {
   return String(s || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
@@ -117,4 +145,4 @@ function openrouterClient(apiKey, model) {
   return { baseUrl: OPENROUTER_BASE, apiKey, model, headers: OPENROUTER_HEADERS };
 }
 
-module.exports = { chat, listModels, openrouterClient, OPENROUTER_BASE, OPENROUTER_HEADERS, stripThinking };
+module.exports = { chat, listModels, openrouterClient, prepareImage, OPENROUTER_BASE, OPENROUTER_HEADERS, stripThinking };

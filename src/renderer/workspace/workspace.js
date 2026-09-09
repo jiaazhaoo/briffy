@@ -92,18 +92,12 @@
       sDroppedHint: '截图一定会做文字识别；拖进来或复制来的图片可以选择要不要。识别不出文字的图片，会由本机分类器说出画面里有什么。',
       sDownloadsHint: '文字识别和语音识别的模型都在第一次用到时下载到本机，之后完全离线。网络不通时可以填一个镜像。',
       gLook: '外观与语言', gPet: '快捷键', gAI: 'AI 服务', gEngines: '本机引擎', gCapture: '自动采集', gAbout: '工作区与关于',
-      sAI: 'AI 服务', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)', sProviderCustom: '自定义 OpenAI 兼容接口',
-      sAnthropicAuth: '登录方式', sAccountOption: '已登录的 Anthropic 账号（ant auth login）', sAnthropicLogin: '用浏览器登录 Claude 账号',
+      sAI: 'AI 服务', sProvider: '来源', sProviderOllama: '本地模型 (Ollama)',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: '用 OpenRouter 账号登录', sRefreshModels: '刷新模型列表',
       sOllamaHost: '地址', sDetect: '重新检测', sOllamaModel: '使用的模型', sUseRecommended: '用推荐的', sPull: '下载模型',
-      sCustomBase: '接口地址', sCustomKey: 'API Key', sNormalizeZh: '中文语音转写统一为所选的简体 / 繁体（不是翻译）',
+      sNormalizeZh: '中文语音转写统一为所选的简体 / 繁体（不是翻译）',
       sAIHint: '给标题、每日摘要和问答用。没有配置时，标题用文件名代替，摘要退化成清单。标题和摘要用你的第一语言书写；采集到的原文（识别文字、语音转写）保持原样。',
       configured: '当前使用：{label}', notConfigured: '还没配置，标题先用文件名',
-      accountFound: '已检测到登录配置：{profiles}', accountEnv: '已通过环境变量提供凭据', accountNotFound: '未检测到登录，点右侧按钮在终端里完成 ant auth login',
-      cliMissing: '未安装 ant 命令行工具。**注意它不是 Claude Code**：SDK 只认 ant auth login 存下的那份（在 ~/.config/anthropic/），认不了 claude auth login 的（在 ~/.claude）',
-      cliMissingCmd: '装不了，你自己在终端跑一句：{cmd}',
-      sInstallAnt: '装 ant 命令行工具', installing: '正在装…', installed: '装好了，现在可以登录',
-      installFailed: '装失败了，你自己在终端跑一句：{cmd}', loginStarted: '已打开终端，按提示在浏览器里登录，完成后回来点「重新检测」',
       loginWaiting: '已打开浏览器，请在页面里完成登录…', loginOk: '登录成功，Key 已保存',
       hwLocal: '本机', hwCores: '{n} 线程', hwNoGpu: '未检测到', hwRecommend: '推荐', hwAlternatives: '备选',
       ollamaRunning: '运行中 {version}', ollamaInstalled: '已安装：{models}', ollamaNoModels: '还没有模型，点「下载模型」',
@@ -237,18 +231,12 @@
       sDroppedHint: 'Screenshots are always read for text; pictures you drop or copy in are up to you. A picture with no text is described by the classifier on this machine instead.',
       sDownloadsHint: 'The text and speech models download on first use and run offline afterwards. Fill in a mirror if the download cannot reach it.',
       gLook: 'Look & language', gPet: 'Shortcuts', gAI: 'AI service', gEngines: 'On-device engines', gCapture: 'What gets recorded', gAbout: 'Workspace & about',
-      sAI: 'AI service', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)', sProviderCustom: 'Custom OpenAI-compatible endpoint',
-      sAnthropicAuth: 'Sign in with', sAccountOption: 'Signed-in Anthropic account (ant auth login)', sAnthropicLogin: 'Sign in to Claude in the browser',
+      sAI: 'AI service', sProvider: 'Provider', sProviderOllama: 'Local model (Ollama)',
       sOpenrouterKey: 'API Key', sOpenrouterLogin: 'Sign in with OpenRouter', sRefreshModels: 'Refresh model list',
       sOllamaHost: 'Address', sDetect: 'Detect again', sOllamaModel: 'Model to use', sUseRecommended: 'Use recommended', sPull: 'Download model',
-      sCustomBase: 'Base URL', sCustomKey: 'API Key', sNormalizeZh: 'Normalise Chinese transcripts to the selected Simplified / Traditional script (not a translation)',
+      sNormalizeZh: 'Normalise Chinese transcripts to the selected Simplified / Traditional script (not a translation)',
       sAIHint: 'Used for titles, the daily summary and questions. Without one, titles fall back to file names and the summary becomes a plain list. Titles and summaries are written in your first language; captured text (OCR, transcripts) stays as it is.',
       configured: 'In use: {label}', notConfigured: 'Not configured yet – titles fall back to the file name',
-      accountFound: 'Sign-in profile found: {profiles}', accountEnv: 'Credentials provided via environment variables', accountNotFound: 'Not signed in – click the button to run ant auth login in a terminal',
-      cliMissing: 'The ant CLI is not installed. **It is not Claude Code**: the SDK only reads what `ant auth login` stores (in ~/.config/anthropic/), not what `claude auth login` stores (in ~/.claude)',
-      cliMissingCmd: "Can't install it here – run this in a terminal: {cmd}",
-      sInstallAnt: 'Install the ant CLI', installing: 'Installing…', installed: 'Installed – you can sign in now',
-      installFailed: 'Install failed – run this in a terminal: {cmd}', loginStarted: 'A terminal was opened – finish the browser sign-in, then click "Detect again"',
       loginWaiting: 'Browser opened – finish signing in there…', loginOk: 'Signed in, key saved',
       hwLocal: 'This machine', hwCores: '{n} threads', hwNoGpu: 'none detected', hwRecommend: 'Recommendation', hwAlternatives: 'Alternatives',
       ollamaRunning: 'running {version}', ollamaInstalled: 'installed: {models}', ollamaNoModels: 'no models yet – click "Download model"',
@@ -1764,17 +1752,15 @@
   //
   // 换模型是**问之前**的决定，而这儿是你问问题的地方；藏在设置里等于每次都要走一趟。
   // 只列**现在就能用**的：配好了的服务，加上本地已经下好的那几个模型。
-  // 没配好的也列出来但点不动——「这里为什么没有 Anthropic」比「点了没反应」更难查。
-  const PROV_LABEL = { anthropic: 'Anthropic', openrouter: 'OpenRouter', ollama: 'Ollama', custom: 'OpenAI 兼容' };
+  // 没配好的也列出来但点不动——「这里为什么没有 OpenRouter」比「点了没反应」更难查。
+  const PROV_LABEL = { openrouter: 'OpenRouter', ollama: 'Ollama' };
 
   /** 当前用的是哪个，短的那种写法。 */
   function modelLabel() {
     const s = state.settings || {};
-    const p = s.provider || 'anthropic';
+    const p = s.provider || 'openrouter';
     if (p === 'ollama') return s.ollamaModel || (state.providerStatus?.recommendation?.model) || 'Ollama';
-    if (p === 'openrouter') return (s.openrouterModel || '').split('/').pop() || 'OpenRouter';
-    if (p === 'custom') return s.customModel || 'OpenAI 兼容';
-    return s.model || 'Anthropic';
+    return (s.openrouterModel || '').split('/').pop() || 'OpenRouter';
   }
   function renderModelBtn() {
     const b = $('#btnModel');
@@ -1816,7 +1802,7 @@
     if (!box) return;
     if (!state.providerStatus) { try { await loadProviderStatus(); } catch (_) { /* 拿不到就按已知的画 */ } }
     const s = state.settings || {};
-    const cur = s.provider || 'anthropic';
+    const cur = s.provider || 'openrouter';
     const rows = [];
     const local = (state.providerStatus?.ollama?.models || []).map((m) => (typeof m === 'string' ? m : m.name)).filter(Boolean);
     if (local.length) {
@@ -1826,11 +1812,10 @@
         rows.push(`<button type="button" class="${on ? 'on' : ''}" data-prov="ollama" data-model="${esc(m)}">${esc(m)}</button>`);
       }
     }
-    const others = ['anthropic', 'openrouter', 'custom'].filter((p) => p !== 'ollama');
     rows.push(`<div class="grp">${esc(t('modelRemote'))}</div>`);
-    for (const p of others) {
+    for (const p of ['openrouter']) {
       const ready = provReady(p);
-      const name = p === 'anthropic' ? (s.model || '') : p === 'openrouter' ? (s.openrouterModel || '') : (s.customModel || '');
+      const name = s.openrouterModel || '';
       const label = `${PROV_LABEL[p]}${name ? ` · ${name}` : ''}`;
       const why = ready ? '' : t(MISS_LABEL[provMissing(p)] || 'modelNotSet');
       rows.push(`<button type="button" class="${cur === p ? 'on' : ''}" data-prov="${p}"${ready ? '' : ' disabled'}>`
@@ -1978,21 +1963,17 @@
     $('#hotkeyVoice').value = s.hotkeyVoice || '';
     $('#captureToClipboard').checked = s.captureToClipboard !== false;
     $('#hotkeyError').textContent = m.hotkeyError || '';
-    $('#provider').value = s.provider || 'anthropic';
+    // 老设置里可能存着一个已经不存在的来源（2026-09-09 去掉了 Claude 直连和自定义接口）。
+    // 给 <select> 赋一个它没有的值，结果是 value 变成空字符串——下拉一片空白，连带
+    // showProviderPanel 找不到任何 panel-${p}，整块设置就消失了。对不上就落回第一档。
+    $('#provider').value = s.provider || 'openrouter';
+    if (!$('#provider').value) $('#provider').value = 'openrouter';
     $('#redact').value = s.redact || 'secrets';
-    $('#anthropicAuth').value = s.anthropicAuth || 'apiKey';
-    $('#apiKey').value = '';
-    $('#apiKeyStatus').textContent = keyStatus(s.hasApiKey, s.apiKeyHint);
-    $('#model').innerHTML = m.models.map((x) => `<option value="${x.id}"${x.id === s.model ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
     $('#openrouterKey').value = '';
     $('#openrouterKeyStatus').textContent = keyStatus(s.hasOpenrouterKey, s.openrouterKeyHint);
     $('#openrouterModel').value = s.openrouterModel || '';
     $('#ollamaHost').value = s.ollamaHost || '';
     $('#ollamaModel').value = s.ollamaModel || '';
-    $('#customBaseUrl').value = s.customBaseUrl || '';
-    $('#customModel').value = s.customModel || '';
-    $('#customKey').value = '';
-    $('#customKeyStatus').textContent = keyStatus(s.hasCustomKey, s.customKeyHint);
     for (const b of document.querySelectorAll('#themeSeg button')) b.classList.toggle('active', b.dataset.theme === (s.theme || 'system'));
     $('#normalizeChineseScript').checked = s.normalizeChineseScript !== false;
     $('#recordContext').checked = s.recordContext !== false;
@@ -2073,7 +2054,6 @@
       hotkeyScreen: $('#hotkeyScreen').value.trim(),
       hotkeyVoice: $('#hotkeyVoice').value.trim(),
       captureToClipboard: $('#captureToClipboard').checked,
-      model: $('#model').value,
       sttModel: $('#sttModel').value,
       sttLanguage: $('#sttLanguage').value,
       hfMirror: $('#hfMirror').value.trim(),
@@ -2083,12 +2063,9 @@
     Object.assign(patch, {
       redact: $('#redact').value,
       provider: $('#provider').value,
-      anthropicAuth: $('#anthropicAuth').value,
       openrouterModel: $('#openrouterModel').value.trim() || 'anthropic/claude-opus-5',
       ollamaHost: $('#ollamaHost').value.trim() || 'http://127.0.0.1:11434',
       ollamaModel: $('#ollamaModel').value.trim(),
-      customBaseUrl: $('#customBaseUrl').value.trim(),
-      customModel: $('#customModel').value.trim(),
       normalizeChineseScript: $('#normalizeChineseScript').checked,
       recordContext: $('#recordContext').checked,
       recordTrail: $('#recordTrail').checked,
@@ -2103,7 +2080,7 @@
       micDeviceId: $('#micDevice').value,
       micLabel: $('#micDevice').value ? ($('#micDevice').selectedOptions[0] || {}).textContent || '' : '',
     });
-    for (const [field, id] of [['apiKey', '#apiKey'], ['openrouterKey', '#openrouterKey'], ['customKey', '#customKey']]) {
+    for (const [field, id] of [['openrouterKey', '#openrouterKey']]) {
       const v = $(id).value.trim();
       if (v) patch[field] = v;
     }
@@ -2230,19 +2207,14 @@
   function keyStatus(has, hint) { return has ? t('keySet', { hint }) : t('keyNotSet'); }
   function formOverride() {
     return {
-      provider: $('#provider').value, anthropicAuth: $('#anthropicAuth').value, model: $('#model').value,
-      apiKey: $('#apiKey').value.trim(), openrouterKey: $('#openrouterKey').value.trim(), openrouterModel: $('#openrouterModel').value.trim(),
+      provider: $('#provider').value,
+      openrouterKey: $('#openrouterKey').value.trim(), openrouterModel: $('#openrouterModel').value.trim(),
       ollamaHost: $('#ollamaHost').value.trim(), ollamaModel: $('#ollamaModel').value.trim(),
-      customBaseUrl: $('#customBaseUrl').value.trim(), customKey: $('#customKey').value.trim(), customModel: $('#customModel').value.trim(),
     };
   }
   function showProviderPanel() {
     const p = $('#provider').value;
     for (const el of document.querySelectorAll('.panel')) el.classList.toggle('active', el.id === `panel-${p}`);
-    const account = $('#anthropicAuth').value === 'account';
-    $('#rowApiKey').classList.toggle('hidden', account);
-    $('#apiKeyStatus').classList.toggle('hidden', account);
-    $('#rowAccount').classList.toggle('hidden', !account);
   }
   async function loadProviderStatus(refresh = false) {
     try {
@@ -2256,12 +2228,6 @@
     const st = state.providerStatus;
     if (!st) return;
     $('#providerConfigured').textContent = st.configured ? t('configured', { label: st.label }) : t('notConfigured');
-    const a = st.anthropic || {};
-    $('#anthropicAccountStatus').textContent = a.hasProfile ? t('accountFound', { profiles: (a.profiles || []).join(', ') })
-      : (a.envKey || a.envToken) ? t('accountEnv') : a.cliInstalled ? t('accountNotFound') : t('cliMissing');
-    // 没装就先给「装」，装好了才给「登录」。给一个点了只会说「你先去装」的按钮，等于没给。
-    $('#btnAnthropicInstall').hidden = !!a.cliInstalled;
-    $('#btnAnthropicLogin').hidden = !a.cliInstalled;
     const hw = st.hardware || { gpus: [], cpu: '', cores: 0, ramGB: 0 };
     const rec = st.recommendation || { reason: '', notes: [], alternatives: [], model: '' };
     const ol = st.ollama || { running: false, models: [] };
@@ -2845,33 +2811,8 @@ $('#chatNew').addEventListener('click', () => newChat());
       queueSave();
     });
     $('#provider').addEventListener('change', () => { showProviderPanel(); if ($('#provider').value === 'openrouter' && !state.orModels) loadOpenrouterModels(); });
-    $('#anthropicAuth').addEventListener('change', showProviderPanel);
     const clearSecret = (field) => async () => { const u = await ws.saveSettings({ [field]: '' }); await refreshMeta(u); toast(t('keyCleared')); };
-    $('#btnClearKey').addEventListener('click', clearSecret('apiKey'));
     $('#btnClearOpenrouterKey').addEventListener('click', clearSecret('openrouterKey'));
-    $('#btnClearCustomKey').addEventListener('click', clearSecret('customKey'));
-    $('#btnAnthropicInstall').addEventListener('click', async () => {
-      const btn = $('#btnAnthropicInstall');
-      const st = $('#anthropicAccountStatus');
-      btn.disabled = true;
-      st.textContent = t('installing');
-      const off = ws.onAnthropicInstall((line) => { st.textContent = String(line).slice(0, 120); });
-      try {
-        const r = await ws.anthropicInstall();
-        if (r.manual) st.textContent = t('cliMissingCmd', { cmd: r.command });
-        else if (!r.ok) st.textContent = t('installFailed', { cmd: r.command });
-        else { st.textContent = t('installed'); await loadProviderStatus(true); }
-      } catch (e) {
-        st.textContent = String(e && e.message || e);
-      } finally {
-        if (typeof off === 'function') off();
-        btn.disabled = false;
-      }
-    });
-    $('#btnAnthropicLogin').addEventListener('click', async () => {
-      const r = await ws.anthropicLogin();
-      toast(r.launched ? t('loginStarted') : t('cliMissingCmd', { cmd: r.command }));
-    });
     $('#btnOpenrouterLogin').addEventListener('click', async () => {
       $('#openrouterKeyStatus').textContent = t('loginWaiting');
       try {
