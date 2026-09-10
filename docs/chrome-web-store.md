@@ -140,13 +140,16 @@ npm run ext:pack     # → release/briffy-extension-<版本>.zip，上传前把�
 `release/briffy-extension-<版本>.zip` 解开、在自己的 Chrome 里加载已解压，然后截这三张：
 
 1. 一个真实的视频页（B 站 / YouTube 都行）按 `Alt+Shift+D`，面板列出媒体、勾了几个
-2. 面板那段**说明为什么没找到**的文案 —— 这是这个扩展和别的下载器最不一样的地方。
-   **注意条件**（[popup.js:92](../extension/popup.js:92)）：那几行诊断只在「页面有视频、但还没抓到流」时才出现，
-   靠的是 `state.players`（有 `<video>` 且地址是 `blob:`）和 `state.mse`。所以要的是**打开一个
-   YouTube 视频页、在它开始播之前立刻打开面板**——不是找一个没有媒体的页面。纯文字页上
-   `players` 和 `mse` 都是空的，只剩最后那句无条件的「试试先让视频播放几秒」，
-   而那句话在一篇没有视频的文章上是答非所问，还会留下八成的空白
-3. 发送之后 briffy 工作区里出现的那一条记录
+2. 发送之后 briffy 工作区里出现的那几条 —— 回答「然后呢」。只看面板的人不知道东西去哪了
+
+**空状态那张不要拍**（2026-09-10 定的）。原来的计划是拍「面板说明为什么没找到」那段诊断，
+但它的条件（[popup.js:92](../extension/popup.js:92)）是 `state.players`（有 `<video>` 且地址是 `blob:`）
+加 `state.mse`——也就是**必须是一个视频站的页面**，而那正好撞上 §5.3 要避开的框架。
+用户原话：「youtube 视频是无法下载的」。他说得对，而且比框架问题更实：
+`background.js:33` 那种「N 个分片」的条目定义就是**看到了分片、从没抓到播放列表**，
+而 App 那边要靠清单才能拼——所以那类条目是「这儿有视频」的记录，不是能取回的文件。
+拿它当商店截图是在夸大。**商店最少只要 1 张，两张够了，而且两张都站得住。**
+
 
 **磁贴是怎么来的**：`npm run store:assets`（[scripts/gen-store-assets.js](../scripts/gen-store-assets.js)）
 在 Electron 里开一扇看不见的窗，用**真的** `tokens.css` 和 `assets/fonts/` 里那几个 woff2 渲染，

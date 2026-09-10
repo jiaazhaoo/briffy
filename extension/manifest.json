@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "briffy 网页媒体采集",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "把当前网页里的图片、视频、音频一键发送到 briffy 工作区。",
   "permissions": [
     "activeTab",
