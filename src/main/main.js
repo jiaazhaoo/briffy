@@ -41,6 +41,7 @@ const setup = require('./setup');
 const permissions = require('./permissions');
 const { installPage } = require('./install-page');
 const { storeUrl } = require('./extension-store');
+const wsMove = require('./workspace-move');
 const stt = require('./stt');
 const ocr = require('./ocr');
 const fs = require('fs');
@@ -1041,9 +1042,61 @@ function setupIpc() {
     return { ok: true };
   });
 
+  // 换工作区文件夹。**这条路上会丢数据**，所以它不只是选个路径就完事。
+  //
+  // 2026-09-10 之前：选完只把 settings.workspaceDir 一改，界面当场变成一个空工作区，
+  // 而全部记录留在 `~/Library/Application Support/briffy/workspace`——正是各种卸载工具
+  // 专门扫的那个目录。用户会以为已经搬到自己看得见的地方了。
+  //
+  // 现在：先点清楚有多少东西，问一句，复制过去，再点一遍数，**原来那份一个字节不动、也不删**。
+  // 数对不上就不改设置，让他还留在原来那份上。判据在 workspace-move.js，台子在
+  // dev/workspace-move-test.js（它专门守「搬完之后原来那份还在」这一条）。
   ipcMain.handle('ws:choose-dir', async () => {
-    const r = await dialog.showOpenDialog(windows.getWorkspaceWindow() || undefined, { title: t('dialogChooseDir'), properties: ['openDirectory', 'createDirectory'] });
-    return r.canceled ? null : r.filePaths[0];
+    const win = windows.getWorkspaceWindow() || undefined;
+    const r = await dialog.showOpenDialog(win, { title: t('dialogChooseDir'), properties: ['openDirectory', 'createDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const dest = r.filePaths[0];
+    const src = store.workspaceDir;
+    if (path.resolve(dest) === path.resolve(src)) return null;      // 选中的就是现在这个
+
+    const here = wsMove.survey(src);
+    if (here.files === 0) return dest;                              // 现在这份是空的，直接换
+
+    const can = wsMove.canReceive(src, dest);
+    if (!can.ok) {
+      await dialog.showMessageBox(win, { type: 'warning', buttons: [t('ok')], message: t(`moveNo_${can.why}`) });
+      return null;
+    }
+
+    const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
+    const ask = await dialog.showMessageBox(win, {
+      type: 'question',
+      buttons: [t('moveCopy'), t('moveJustSwitch'), t('cancel')],
+      defaultId: 0,
+      cancelId: 2,
+      message: t('moveTitle', { files: here.files, size: mb(here.bytes) }),
+      detail: t('moveDetail', { from: src, to: dest }),
+    });
+    if (ask.response === 2) return null;
+    if (ask.response === 1) return dest;                            // 他自己知道在干什么
+
+    const done = wsMove.copyInto(src, dest);
+    if (!done.ok) {
+      await dialog.showMessageBox(win, {
+        type: 'error',
+        buttons: [t('ok')],
+        message: t('moveFailed'),
+        detail: `${done.error}\n${t('moveStillThere', { dir: src })}`,
+      });
+      return null;                                                  // **设置不改**，他还在原来那份上
+    }
+    await dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: [t('ok')],
+      message: t('moveDone', { files: done.files, size: mb(done.bytes) }),
+      detail: t('moveStillThere', { dir: src }),
+    });
+    return dest;
   });
   ipcMain.handle('ws:list-dates', () => store.listDates());
   ipcMain.handle('ws:list-entries', (_e, opts) => store.listEntries(opts || {}).map(publicEntry));
