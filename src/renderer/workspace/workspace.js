@@ -1779,17 +1779,43 @@
       ev.preventDefault();
       const fd = new FormData(ev.target);
       const updated = await ws.updateEntry(e.id, { title: fd.get('title'), text: fd.get('text') });
-      if (updated) upsert(updated);
+      if (updated && await showsInList(updated)) upsert(updated);
       state.editing = false;
       renderDetail(); renderList();
       toast(t('saved'));
     });
   }
 
+  /**
+   * 这条记录该不该出现在**当前这一屏**上。
+   *
+   * **问的是同一条路**：listEntries 带上 ids 只问这一条，条件和 loadEntries 那一句一字不差，
+   * 底下仍然是 store.entryMatches。所以「新到的一条」没有自己的一套判据。
+   *
+   * 2026-09-10 的毛病是它**根本没有判据**：这里以前只问了时间那一档（inRange），一级、二级、
+   * 「全部里不含剪贴板」、还有搜索，全都没问。于是 01:22 复制进来的一张图，在「录音」那一屏上
+   * 照样躺着——右边那条轴（来自 stats）算出 7 条，屏幕上摆着 8 条。筛选器的全部本事就是
+   * 「点下去之后屏上剩什么」，多出来一条它就什么都不是。
+   *
+   * 搜索也一并交回去了。这里原来自己拼了一条 haystack，比 store 那条**少了** path、note 和
+   * context（应用名 / 窗口标题 / 网址）——同一个词，新到的一条和刷新之后能筛出不一样的结果。
+   *
+   * 时间那一档仍然在本地先答：新到的一天可能还不在 state.dates 里，rangeDates 那时给不出它。
+   */
+  async function showsInList(entry) {
+    if (!inRange(entry.dateKey)) return false;
+    const [hit] = await ws.listEntries({
+      query: state.query, dates: [entry.dateKey], bucket: state.f.bucket, sub: state.f.sub,
+      hideInAll: hiddenInAll(), ids: [entry.id],
+    });
+    return !!hit;
+  }
+
+  /** 放进列表里该在的位置。**它不判断该不该放**——那是 showsInList 的事，问过了再叫它。 */
   function upsert(entry) {
     const i = state.entries.findIndex((x) => x.id === entry.id);
     if (i >= 0) state.entries[i] = entry;
-    else if (inRange(entry.dateKey)) {
+    else {
       state.entries.push(entry);
       state.entries.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     }
@@ -3607,19 +3633,28 @@ $('#chatNew').addEventListener('click', () => newChat());
     });
     $('#btnOpenDir').addEventListener('click', () => ws.openWorkspaceDir());
 
-    ws.onEntry(({ entry, kind }) => {
+    // 一条一条按到达顺序处理。中间要去问一次「这一屏要不要它」，那一问是异步的，不排队的话
+    // 两条挨着到的记录会抢着改同一个数组——一条删除还可能被它前面那条新增的回写盖掉。
+    let live = Promise.resolve();
+    ws.onEntry((msg) => { live = live.then(() => onEntryArrived(msg)).catch(() => { /* 下一条照常 */ }); });
+    async function onEntryArrived({ entry, kind }) {
       if (!entry) return;
       if (kind === 'delete') {
         state.entries = state.entries.filter((x) => x.id !== entry.id);
         if (state.selectedId === entry.id) { state.selectedId = null; state.editing = false; }
-      } else {
-        if (state.query) { const hay = `${entry.title} ${(entry.tags || []).join(' ')} ${entry.visionLabels || ''} ${entry.text} ${entry.summary}`.toLowerCase(); if (!hay.includes(state.query.toLowerCase()) && !state.entries.some((x) => x.id === entry.id)) return; }
+      } else if (await showsInList(entry)) {
         upsert(entry);
+      } else {
+        // 这一屏不要它：新到的就别放进来，已经在屏上的要拿走——改完之后不再合条件的那种
+        // （取消收藏、改了标题不再命中搜索），否则它会一直挂到下一次 loadEntries 为止。
+        // 详情窗还开着的话先存进 loose：currentEntry 会从那儿接住，屏幕中间不会忽然变空。
+        if (state.selectedId === entry.id) loose.set(entry.id, entry);
+        state.entries = state.entries.filter((x) => x.id !== entry.id);
       }
       renderList();
       if (kind === 'delete' && $('#detailModal').hidden === false && !state.selectedId) closeDetail();
       else if (state.selectedId === entry.id && !state.editing) renderDetail();
-    });
+    }
     ws.onSettings((s) => {
       // don't clobber a form the user is editing; the save handler refreshes explicitly
       if (state.tab === 'settings') { state.settings = s; return; }

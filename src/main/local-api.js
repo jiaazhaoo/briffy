@@ -39,7 +39,7 @@ function allowed(req, pathname) {
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Briffy, X-Briffy-Meta, X-DailyLogs, X-DailyLogs-Meta');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Briffy, X-Briffy-Ext, X-Briffy-Ext-Id, X-Briffy-Meta, X-DailyLogs, X-DailyLogs-Meta');
   res.setHeader('Access-Control-Max-Age', '600');
 }
 function json(res, code, obj) {
@@ -75,11 +75,12 @@ async function handle(req, res) {
   if (!allowed(req, url.pathname)) { json(res, 403, { ok: false, error: 'forbidden' }); return; }
   try {
     if (req.method === 'GET' && url.pathname === '/api/ping') {
-      // Only a real browser extension counts as "connected": the Origin header is set by the browser
-      // itself for extension fetches, so a local script or a curl cannot make the app claim it is installed.
+      // Only a real browser extension counts as "connected": the headers this reads are written by the
+      // browser itself, so a local script or a curl cannot make the app claim it is installed.
       const ver = req.headers['x-briffy-ext'] || req.headers['x-dailylogs-ext'];
-      const id = extensionOrigin(req.headers);
-      if (ver && id) {
+      const from = extensionRequest(req.headers);
+      if (ver && from) {
+        const id = from.id;
         const known = extension && extension.id === id;
         extension = { version: String(ver), id, lastSeen: Date.now() };
         if (deps.rememberExtension) deps.rememberExtension({ ...extension });
@@ -174,15 +175,31 @@ function status() {
 }
 
 /**
- * The extension id when the request really came from a browser extension, otherwise ''.
- * Both headers are written by the browser itself and cannot be set by page JavaScript, so a heartbeat
- * from a script, a terminal or a curl does not make the app claim the extension is installed.
+ * `{ id }` when the request really came from a browser extension, otherwise null. The headers it reads
+ * are written by the browser itself and are forbidden to page JavaScript, so a heartbeat from a script,
+ * a terminal or a curl does not make the app claim the extension is installed.
+ *
+ * The catch, measured on Chrome 153: a service worker's **GET** carries no `Origin` at all. The browser
+ * only writes one when the method is not GET or HEAD -- our POSTs get `Origin: chrome-extension://<id>`,
+ * the heartbeat GET gets nothing. Requiring an Origin here is what kept the heartbeat from ever counting
+ * while the popup, which only checks that its fetch came back, said "connected".
+ *
+ * So: when the browser did write an Origin, it settles the question and hands us the real id. When it
+ * did not, `Sec-Fetch-Site: none` stands in -- a page's fetch to 127.0.0.1 is always `cross-site`, and a
+ * page cannot set the header itself. A page cannot slip through the Origin-less door either way: sending
+ * `X-Briffy-Ext` at all forces cors mode, which forces the page's own Origin onto the request.
  */
-function extensionOrigin(headers) {
-  const m = /^(?:chrome|moz|safari-web|edge)-extension:\/\/([a-z0-9-]+)\/?$/i.exec(String(headers.origin || ''));
-  if (!m) return '';
-  if (!headers['sec-fetch-mode'] || !headers['sec-fetch-site']) return '';   // absent on non-browser clients
-  return m[1];
+function extensionRequest(headers) {
+  if (!headers['sec-fetch-mode'] || !headers['sec-fetch-site']) return null;   // absent on non-browser clients
+  const origin = String(headers.origin || '');
+  if (origin) {
+    const m = /^(?:chrome|moz|safari-web|edge)-extension:\/\/([a-z0-9-]+)\/?$/i.exec(origin);
+    return m ? { id: m[1] } : null;            // a page wrote this one, not an extension
+  }
+  if (headers['sec-fetch-site'] !== 'none') return null;
+  // No Origin to read the id off, so take the extension's word for it. It is a label for the log and for
+  // "is this the same extension as last time", never the thing that decides whether to trust the request.
+  return { id: String(headers['x-briffy-ext-id'] || '') };
 }
 
 /** @returns {{connected:boolean, version:string, id:string, lastSeen:number|null}} */
