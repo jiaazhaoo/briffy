@@ -17,6 +17,9 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+// **和应用同一套判据**，不是抄的一份（src/main/classify.js 里一个 fs、一个 electron 都没有，
+// 就是为了能在这儿 require 得动）。抄第二份就会漂，而漂了没人发现。
+const classify = require('../src/main/classify');
 
 const NAME = 'briffy';
 const VERSION = '1.0.0';
@@ -60,6 +63,10 @@ function brief(e, { chars = 220 } = {}) {
     at: e.createdAt,
     day: e.dateKey,
     kind: e.type,
+    // 用户在界面上看到的那一格。`kind` 是原始类型（screenshot / note / url…），
+    // `bucket` 是屏幕上那五种纸——他跟你说「我复制的那段」「我收藏的那条」时，说的是这个。
+    bucket: classify.entryBucket(e),
+    sub: classify.entrySub(e),
     title: e.title || '',
     link: `briffy://entry/${e.id}`,
   };
@@ -90,7 +97,7 @@ function haystack(e) {
 }
 
 // ---------- the tools ----------
-function searchEntries({ query = '', from = '', to = '', kind = '', app = '', pinned = false, limit = 20 } = {}) {
+function searchEntries({ query = '', from = '', to = '', kind = '', bucket = '', sub = '', app = '', pinned = false, limit = 20 } = {}) {
   const q = String(query || '').toLowerCase().trim();
   const terms = q ? q.split(/\s+/).filter(Boolean) : [];
   const out = [];
@@ -101,6 +108,8 @@ function searchEntries({ query = '', from = '', to = '', kind = '', app = '', pi
     for (const e of dayEntries(day)) {
       if (e.status === 'error') continue;
       if (kind && e.type !== kind) continue;
+      if (bucket && classify.entryBucket(e) !== bucket) continue;
+      if (sub && classify.entrySub(e) !== sub) continue;
       if (pinned && !e.pinned) continue;
       if (app && !((e.context && e.context.app) || '').toLowerCase().includes(String(app).toLowerCase())) continue;
       if (terms.length) { const hay = haystack(e); if (!terms.every((w) => hay.includes(w))) continue; }
@@ -171,7 +180,9 @@ const TOOLS = [
         query: { type: 'string', description: 'Words that must all appear somewhere in the entry (title, text, note, source app or page).' },
         from: { type: 'string', description: 'Earliest day, YYYY-MM-DD.' },
         to: { type: 'string', description: 'Latest day, YYYY-MM-DD.' },
-        kind: { type: 'string', description: 'One of screenshot, image, audio, url, note, text, pdf, file.' },
+        kind: { type: 'string', description: 'Raw type: screenshot, image, audio, url, note, text, pdf, file.' },
+        bucket: { type: 'string', description: 'The five kinds the user sees and names in the app: clip (things they copied), shot (screenshots), saved (bookmarked or pinned), file (dragged in), voice (recordings). Prefer this over `kind` when the user says "what I copied" or "that thing I saved".' },
+        sub: { type: 'string', description: 'Second level, and it means something different per bucket: for saved and shot a site or app name ("哔哩哔哩", "Claude"); for clip and file a format or file extension ("text", "image", "PDF"); for voice a microphone name.' },
         app: { type: 'string', description: 'Only entries saved while this app was in front, e.g. "WeChat", "Chrome".' },
         pinned: { type: 'boolean', description: 'Only entries the user pinned.' },
         limit: { type: 'number', description: 'Maximum results, 1-100 (default 20).' },
