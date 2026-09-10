@@ -53,9 +53,17 @@ function list({ limit = 200 } = {}) {
   for (const f of files) {
     const c = read(f.slice(0, -5));
     if (!c || !c.id) continue;
-    out.push({ id: c.id, title: c.title || titleOf(c.turns) || '', at: c.updatedAt || c.createdAt || '', n: (c.turns || []).length });
+    out.push({
+      id: c.id, title: c.title || titleOf(c.turns) || '', at: c.updatedAt || c.createdAt || '',
+      born: c.createdAt || '', n: (c.turns || []).length,
+    });
   }
-  return out.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, limit);
+  // **排序要是全序的。** 时间戳只精确到毫秒，两条落在同一毫秒时光比 `at` 是平局，
+  // 顺序就退回 readdirSync 给的任意次序——同一份数据，两次打开可能不一样。
+  // 平局再比创建时间，还平就比 id：id 之间谁前谁后没有意义，但**它至少是稳定的**。
+  // （2026-09-10 由 npm test 抓到：dev/chats-test.js 大约每六次红一次。）
+  const desc = (x, y) => String(y).localeCompare(String(x));
+  return out.sort((a, b) => desc(a.at, b.at) || desc(a.born, b.born) || desc(a.id, b.id)).slice(0, limit);
 }
 
 function create() {
