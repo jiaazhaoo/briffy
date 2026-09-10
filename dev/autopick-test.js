@@ -1,4 +1,5 @@
 // End-to-end check of the automatic OCR model choice, including the slow-machine downgrade.
+const path = require('path');
 const hardware = require('../src/main/hardware.js');
 const ocr = require('../src/main/ocr.js');
 (async () => {
