@@ -39,6 +39,7 @@ const region = require('./region');
 const viewer = require('./viewer');
 const setup = require('./setup');
 const permissions = require('./permissions');
+const updater = require('./updater');
 const { installPage } = require('./install-page');
 const { storeUrl } = require('./extension-store');
 const wsMove = require('./workspace-move');
@@ -246,8 +247,21 @@ async function main() {
   // 「问」那一页最小化，再点回来就被踹回了首页。不传页码：已经开着的窗留在你离开的地方，
   // 没开的窗自己就是从记录页起。要去某一页的那几个入口（深链、设置、每日摘要）照旧传。
   app.on('activate', () => { if (!windows.getPetWindow()) windows.createPetWindow(); windows.openWorkspace(); });
-  app.on('before-quit', () => { store.flushAll(); uptime.stop(); listen.stop(); globalShortcut.unregisterAll(); clipboardWatch.stop(); localApi.stop(); });
+  app.on('before-quit', () => { store.flushAll(); uptime.stop(); listen.stop(); globalShortcut.unregisterAll(); clipboardWatch.stop(); localApi.stop(); updater.stop(); });
   app.on('will-quit', () => { ocr.terminate().catch(() => {}); stt.dispose().catch(() => {}); });
+
+  // 有没有新版本。查到了才说话，查不到、断网、还没发过 release 都安静躺在设置页里——
+  // 见 updater.js。托盘那一条也跟着变，所以状态一动就重建一次菜单。
+  updater.start({
+    getSettings: () => store.getSettings(),
+    onState: (st) => {
+      windows.broadcastToWorkspace('ws:update', st);
+      if (st.phase === 'available') {
+        windows.setPetState('info', { message: t('updateFound', { version: st.version }), ms: 12000 });
+      }
+      rebuildTray();
+    },
+  });
 
   if (process.platform === 'darwin' && screenPermissionStatus() !== 'granted') {
     setTimeout(() => windows.setPetState('error', { message: t('screenPermission'), ms: 9000 }), 2500);
@@ -607,6 +621,14 @@ function menuTemplate({ includePetToggle = true } = {}) {
   const items = [];
   if (includePetToggle) {
     items.push({ label: windows.isPetHidden() ? t('trayShowPet') : t('trayHidePet'), click: () => { windows.setPetHidden(!windows.isPetHidden()); rebuildTray(); } });
+  }
+  // 新版本这一条只在真有的时候出现。没有的时候多一行「已是最新」是噪音——
+  // 想主动查的人会去设置页，那儿有按钮，也有上一次查的结果。
+  const up = updater.status();
+  if (up.phase === 'available' || up.phase === 'downloading' || up.phase === 'ready') {
+    const key = up.phase === 'ready' ? 'trayUpdateReady' : up.phase === 'downloading' ? 'trayUpdateDownloading' : 'trayUpdateFound';
+    items.push({ label: t(key, { version: up.version, percent: up.percent }), click: () => windows.openWorkspace('settings') });
+    items.push({ type: 'separator' });
   }
   items.push(
     { label: t('trayOpenWorkspace'), click: () => windows.openWorkspace('entries') },
@@ -1122,6 +1144,10 @@ function setupIpc() {
   ipcMain.handle('ws:add-files', () => addFilesDialog());
   ipcMain.handle('ws:add-url', (_e, url) => workspace.ingestUrl(url).then(publicEntry));
   ipcMain.handle('ws:add-note', (_e, text) => workspace.ingestNote(text).then(publicEntry));
+  ipcMain.handle('ws:update-status', () => updater.status());
+  ipcMain.handle('ws:update-check', () => updater.check({ manual: true }));
+  ipcMain.handle('ws:update-download', () => updater.download());
+  ipcMain.handle('ws:update-install', () => updater.install());
   ipcMain.handle('ws:capture', () => workspace.captureScreenshot().then(publicEntry));
   ipcMain.handle('ws:capture-region', () => workspace.captureRegion().then(publicEntry));
   ipcMain.handle('ws:list-summaries', () => summary.list());
