@@ -160,6 +160,12 @@
       sExtension: '浏览器扩展', sExtensionHint: '采集网页里的图片和视频。装上扩展后，在任意网页点扩展图标（或按 Alt+Shift+D），就能看到这一页所有图片、视频、音频，勾选后一键存入工作区。',
       sFfmpeg: '视频下载', sFfmpegInstall: '安装 ffmpeg', sFfmpegRecheck: '重新检查', sFfmpegHint: '网站上的视频通常是切成几百个分片的流（HLS / DASH），画面和声音还常常是两条轨。把它们合成一个能播的文件需要 ffmpeg。它不打包进安装包，也不会去下载来路不明的二进制——只用你系统自己的包管理器安装。',
       ffmpegFound: 'ffmpeg {version} 已就绪（{path}）', ffmpegMissing: '没有找到 ffmpeg —— 分片流可以被发现，但合并不了', ffmpegInstalling: '正在安装…', ffmpegManual: '这台电脑没有可用的包管理器，请手动安装：{url}',
+      sUpdate: '版本更新', sUpdateAuto: '自动检查新版本',
+      sUpdateHint: '每天问四次 GitHub「最新的版本是几」，只拿回一行版本号，不上传任何东西。这是 briffy 唯一一个自己发起的对外请求。关掉之后下面那个按钮还在，想查随时能手动查。有新版本也不会自己下载——下不下载由你点。',
+      updateCheck: '检查更新', updateChecking: '正在查…', updateLatest: '已经是最新的了',
+      updateAvailable: '有新版本 {version}（{size}）', updateDownload: '下载', updateDownloading: '正在下载… {percent}%',
+      updateReady: '{version} 已下好，重启后生效', updateRestart: '立即重启', updateFailed: '查不到：{error}',
+      updateUnsupported: '从源码运行，更新这条路走不了（它要打包时写进去的 app-update.yml）',
       sLocalApi: '允许浏览器扩展连接（本机接口，仅监听 127.0.0.1）', sLocalApiPort: '端口', sExportExt: '导出扩展文件夹…', sOpenExt: '打开扩展文件夹', sExtHelp: '安装步骤',
       apiRunning: '接口运行中：http://127.0.0.1:{port}{last}', apiStopped: '接口已关闭，扩展无法连接', apiLast: '，最近一次接收：{time}',
       extStore: '<b>从扩展商店安装</b><br>点 <a href="{store}" target="_blank" rel="noopener">打开扩展商店</a>，在商店页面点「添加至 Chrome」。装好之后上面那个状态灯会自己变实心。<br><br>下面几步是备用的：公司策略禁掉了商店、或者你想装一个改过的版本时才用。<br><br>',
@@ -322,6 +328,12 @@
       extOnTitle: 'Browser extension v{version} connected – press Alt+Shift+D on any page', extApiOff: 'Extension endpoint off', extApiOffTitle: 'Turn it back on in Settings › Browser extension',
       extGuideOpened: 'Opened the installation steps in your browser',
       sExtension: 'Browser extension', sExtensionHint: 'Collect pictures and video from web pages. With the extension installed, click its icon on any page (or press Alt+Shift+D) to see every image, video and audio file there and save the ones you tick.',
+      sUpdate: 'Updates', sUpdateAuto: 'Check for new versions automatically',
+      sUpdateHint: 'Asks GitHub four times a day what the latest version number is. It sends nothing and gets back one line. This is the only request briffy makes on its own. Turn it off and the button below still works. A new version is never downloaded by itself — that stays your call.',
+      updateCheck: 'Check now', updateChecking: 'Checking…', updateLatest: 'This is the latest version',
+      updateAvailable: 'Version {version} is out ({size})', updateDownload: 'Download', updateDownloading: 'Downloading… {percent}%',
+      updateReady: '{version} is ready — it takes effect after a restart', updateRestart: 'Restart now', updateFailed: 'Could not check: {error}',
+      updateUnsupported: 'Running from source, so updating is not available (it needs the app-update.yml written at package time)',
       sLocalApi: 'Allow the browser extension to connect (local endpoint, 127.0.0.1 only)', sLocalApiPort: 'Port', sExportExt: 'Export extension folder…', sOpenExt: 'Open extension folder', sExtHelp: 'Installation steps',
       apiRunning: 'Endpoint running: http://127.0.0.1:{port}{last}', apiStopped: 'Endpoint off – the extension cannot connect', apiLast: ', last received {time}',
       extStore: '<b>Install from the extension store</b><br>Click <a href="{store}" target="_blank" rel="noopener">Open the extension store</a>, then "Add to Chrome" on the store page. The status light above fills in by itself once it works.<br><br>The steps below are the fallback: for when a company policy blocks the store, or you want to run a modified build.<br><br>',
@@ -2485,6 +2497,7 @@
     $('#clipboardWatch').checked = s.clipboardWatch !== false;
     $('#clipboardInAll').checked = s.clipboardInAll === true;
     $('#clipboardMinChars').value = s.clipboardMinChars ?? 12;
+    $('#autoUpdate').checked = s.autoUpdate !== false;
     $('#localApi').checked = s.localApi !== false;
     $('#localApiPort').value = s.localApiPort ?? 47831;
     const api = m.localApi || {};
@@ -2574,6 +2587,7 @@
       clipboardInAll: $('#clipboardInAll').checked,
       clipboardMinChars: Math.max(1, Number($('#clipboardMinChars').value) || 12),
       ocrModel: $('#ocrModel').value,
+      autoUpdate: $('#autoUpdate').checked,
       localApi: $('#localApi').checked,
       localApiPort: Math.min(65535, Math.max(1024, Number($('#localApiPort').value) || 47831)),
       micDeviceId: $('#micDevice').value,
@@ -2603,6 +2617,41 @@
     renderModelBtn();
     renderList(); renderDetail();
   }
+
+  // ---------- 版本更新 ----------
+  //
+  // 一格里只说一句话加最多一个按钮。**每一句都得让人知道下一步该干嘛**：查到了就给「下载」，
+  // 下完了就给「立即重启」——「已下好」而不给按钮，等于让人自己猜要重启。
+  // 大小写在那句话里，不是藏在按钮里：要不要现在下，是看着那个数字决定的。
+  let updateState = null;
+  function fmtMB(n) { return n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : `${Math.round(n / 1048576)} MB`; }
+  function renderUpdate(st) {
+    const box = $('#updateBox');
+    if (!box) return;
+    updateState = st || updateState;
+    const u = updateState || {};
+    const btn = (action, label, cls = 'btn') => `<button type="button" class="${cls}" data-update="${action}">${esc(label)}</button>`;
+    let line = '';
+    let action = btn('check', t('updateCheck'));
+    if (!u.supported) { line = t('updateUnsupported'); action = ''; }
+    else if (u.phase === 'checking') { line = t('updateChecking'); action = ''; }
+    else if (u.phase === 'available') { line = t('updateAvailable', { version: u.version, size: fmtMB(u.size || 0) }); action = btn('download', t('updateDownload'), 'btn primary'); }
+    else if (u.phase === 'downloading') { line = t('updateDownloading', { percent: u.percent || 0 }); action = ''; }
+    else if (u.phase === 'ready') { line = t('updateReady', { version: u.version }); action = btn('install', t('updateRestart'), 'btn primary'); }
+    else if (u.phase === 'uptodate') line = t('updateLatest');
+    else if (u.phase === 'error') line = t('updateFailed', { error: u.error || '' });
+    box.innerHTML = `${action}<span class="st">${esc(line)}</span>`;
+  }
+  async function loadUpdate() {
+    try { renderUpdate(await ws.updateStatus()); } catch (_) { /* 应用要关了 */ }
+  }
+  $('#updateBox').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-update]');
+    if (!b) return;
+    if (b.dataset.update === 'check') renderUpdate(await ws.updateCheck());
+    else if (b.dataset.update === 'download') renderUpdate(await ws.updateDownload());
+    else if (b.dataset.update === 'install') await ws.updateInstall();
+  });
 
   // ---------- browser-extension status chip ----------
   function renderExtChip(st) {
@@ -3584,6 +3633,8 @@ $('#chatNew').addEventListener('click', () => newChat());
     });
     $('#extChip').addEventListener('click', onExtChipClick);
     ws.onExtension((st) => renderExtChip({ ...(state.extStatus || {}), running: true, extension: st }));
+    ws.onUpdate((st) => renderUpdate(st));
+    loadUpdate();
     loadExtStatus();
     setInterval(loadExtStatus, 30000);   // the extension heartbeat can go stale while the window is open
     $('#btnSetup').addEventListener('click', runSetup);

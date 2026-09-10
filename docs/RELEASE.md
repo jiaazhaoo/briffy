@@ -119,11 +119,15 @@ npm run verify:mac        # 这次必须连 dmg 那三项一起绿
 | --- | --- |
 | Git 标签 | `v0.1.0` —— **带 `v`**，跟着 `package.json` 的 `version` |
 | dmg 的文件名 | `briffy-0.1.0-arm64.dmg` —— electron-builder 的 `artifactName` 已经这么出了，别改名 |
+| zip 的文件名 | `briffy-0.1.0-arm64.zip` —— **没有 `-mac`**。那个后缀是 electron-builder 的默认名，`artifactName` 把它盖掉了 |
+
+**四个文件都要传，一个都不能少**（见下一节）：
 
 ```bash
 gh release create v0.1.0 \
   release/briffy-0.1.0-arm64.dmg \
-  release/briffy-0.1.0-arm64-mac.zip \
+  release/briffy-0.1.0-arm64.zip \
+  release/briffy-0.1.0-arm64.zip.blockmap \
   release/latest-mac.yml \
   --title "briffy 0.1.0" --notes-file <(echo "第一个公开版本")
 
@@ -135,6 +139,33 @@ tag，中间那段时间点下载就是 404。
 
 `npm run deploy` 顺便把 dmg 的**真实体积**读出来写进页面（读的是本地 `release/` 里那个文件），
 所以要在打完包的那台机器上发布。
+
+## 自动更新靠 release 上那四个文件
+
+装好的 briffy 每天问四次 GitHub「最新的版本是几」（[src/main/updater.js](../src/main/updater.js)），
+问的就是这个 release。四个文件各有各的活，少传一个就有一样功能安静地坏掉：
+
+| 文件 | 少了它会怎样 |
+| --- | --- |
+| `latest-mac.yml` | **谁也收不到更新提醒。** 这是被轮询的那一份，里面只有版本号、大小和 sha512 |
+| `…-arm64.zip` | 提醒能出来，但点「下载」会失败。macOS 换版本走的是 Squirrel.Mac，它认 zip，**不认 dmg**——dmg 是给人拖的，不是给程序换的 |
+| `…-arm64.zip.blockmap` | 提醒和下载都正常，但**每次都是全量下载**（一两百 MB）。这一份是分块校验表，有它才只下变了的那些块 |
+| `…-arm64.dmg` | 官网下载按钮 404。它只服务第一次安装的人，更新完全不碰它 |
+
+关于差分下载，有一处得先说清楚，不然会以为坏了：**装完之后的第一次更新一定是全量的**。
+electron-updater 拿「上一次下过的那个 zip」跟新的 blockmap 比对才知道哪些块变了，而从 dmg
+装进来的人本地没有那一份（`MacUpdater.js` 里那句 "Unable to locate previous update.zip for
+differential download (is this first install?)"）。第一次更新会把 zip 存进缓存，从第二次起才是差分。
+
+zip 也要公证，理由和 dmg 那一节一样：用户真正拿到的是哪个文件，就得验哪个文件。
+
+发布之后自己确认一遍（这三件在本机验过一次，2026-09-10）：
+
+```bash
+curl -sL https://github.com/jiaazhaoo/briffy/releases/latest/download/latest-mac.yml
+```
+
+版本号对得上、`path` 指的 zip 在 release 里躺着、同名的 `.blockmap` 也在，就算成了。
 
 ## 验证（每次发布都要跑）
 
@@ -173,7 +204,10 @@ open ~/Downloads/briffy-*.dmg
 
 ## 已知的取舍
 
-**没有自动更新。** 现在装了 briffy 的人不会知道有新版本。`zip` 和 `latest-mac.yml` 已经在打了，接 `electron-updater` + GitHub Releases 只差写代码——但那是一个功能，不在这次的发布准备里。**在做之前，每次发版都得自己在下载页说一声。**
+**自动更新是「提醒 + 你点下载」，不是无声替换。** 2026-09-10 接上了 `electron-updater` + GitHub
+Releases。查到新版本会在托盘和宠物气泡上说一声，但**不会自己下载**——这个应用半个 G，在别人的网上
+替他做这个决定不合适；何况这是 briffy 唯一一个自己发起的对外请求，所以它在设置里有开关，
+默认开着，关掉之后手动那个按钮还在。下好之后也不强制重启：不点「立即重启」，下次正常退出时换上。
 
 **为什么不出 Intel 版。** `sherpa-onnx-node`（说话人分段）没有 darwin-x64 预编译库。硬要出 x64 包，得先确认这台机器上装得到 x64 的 optional dependencies，且那个功能在 Intel 上是关着的。README 已经这么说了；`build.mac.target` 现在把 arm64 写死，避免出一个半残的包。
 
