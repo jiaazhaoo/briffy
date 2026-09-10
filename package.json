@@ -1,7 +1,7 @@
 {
   "name": "briffy",
   "productName": "briffy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A floating desktop pet that captures screenshots (OCR), voice notes (speech-to-text) and dropped files into a daily workspace, tags everything with five words and writes a daily summary.",
   "main": "src/main/main.js",
   "private": true,
