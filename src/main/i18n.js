@@ -118,6 +118,9 @@ const STRINGS = {
     recorded: '记下了：{title}',
     recordedTitle: '记下了：{title}',
     screenPermission: 'macOS 需要「屏幕录制」权限：系统设置 › 隐私与安全性 › 屏幕录制',
+    // 没拍，而不是拍了一张空的。没有这个权限时 macOS 给出的画面里所有窗口都被抹掉，只剩壁纸。
+    screenBlocked: '没拍：缺「屏幕录制」权限，这时候拍下来只有一张壁纸。已经给你打开设置——把 {app} 勾上，再重开一次应用。',
+    screenBlockedAgain: '还是缺「屏幕录制」权限。系统设置 › 隐私与安全性 › 屏幕录制，勾上 {app}，再重开一次应用。',
     hotkeyFailed: '快捷键 {key} 注册失败，可能被其他程序占用',
     trayShowPet: '显示 briffy',
     trayHidePet: '隐藏 briffy',
@@ -237,6 +240,8 @@ const STRINGS = {
     recorded: 'Recorded: {title}',
     recordedTitle: 'Recorded: {title}',
     screenPermission: 'macOS needs Screen Recording permission: System Settings › Privacy & Security › Screen Recording',
+    screenBlocked: 'Nothing captured: without Screen Recording permission the picture would be the wallpaper and nothing else. Settings is open — switch {app} on, then relaunch the app.',
+    screenBlockedAgain: 'Screen Recording is still off. System Settings › Privacy & Security › Screen Recording, switch {app} on, then relaunch the app.',
     hotkeyFailed: 'Could not register shortcut {key} – it may be taken by another app',
     trayShowPet: 'Show briffy',
     trayHidePet: 'Hide briffy',
