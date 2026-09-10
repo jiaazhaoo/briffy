@@ -6,7 +6,12 @@
 //
 // Defines BriffyExtract in the content script's isolated world; bookmark.js is the only caller.
 (() => {
-  const MAX_TEXT = 20000;
+  // 一页最多留多少字。**2026-09-10 从 20000 提到 50 万**：一条 1723 条评论的 Hacker News 帖子
+  // 量出来整页 474,209 字，20000 只留得下 4%——而收藏一个帖子，要的正是那些评论。
+  // 50 万不是随手一个数：它盖得住上面那种量级的讨论页，而一条记录 500 KB 落在天文件里
+  // （现在整个库的正文加起来才 0.49 MB）仍然读得动。到顶了要说出来，不能默默截断，
+  // 所以 extract() 会带一个 truncated 回去。
+  const MAX_TEXT = 500000;
 
   // The handful of sites where guessing is silly: they have one obvious container and a generic
   // density heuristic would drag in the sidebar of recommendations around it.
@@ -192,9 +197,16 @@
     '.toc', '#toc', '[class*="vector-toc"]', '[class*="table-of-contents"]',
     '[class*="navbox"]', '[class*="sidebar"]', '[class*="breadcrumb"]',
     '[class*="advert"]', '[class*="share"]', '[class*="related"]', '[class*="recommend"]',
-    '[class*="comment"]', '[class*="newsletter"]', '[class*="subscribe"]', '[class*="cookie"]',
+    // **`[class*="comment"]` 2026-09-10 从这儿拿掉了**，和 SKIP 里那个是同一件事的两处。
+    // 只拆 SKIP 那一处毫无用处：HN 的评论树是 `table.comment-tree`，它在这儿被整棵跳过，
+    // 于是那一页 498,323 字只读出 104 字。改一个地方不动，是因为坏在两个地方。
+    '[class*="newsletter"]', '[class*="subscribe"]', '[class*="cookie"]',
   ].join(', ');
-  const SKIP = /(^|\s|-|_)(nav|header|footer|aside|menu|sidebar|comment|related|recommend|advert|promo|share|toolbar|toc)(\s|-|_|$)/i;
+  // 挑正文容器时按名字排掉的那些。**`comment` 2026-09-10 从这里拿掉了**：
+  // 它原来和 nav、advert 并排，于是评论区被当成页面家具扔掉——在那条 HN 帖子上，
+  // 这一个词命中了 1728 个元素。评论不是家具，收藏一个讨论帖要的就是它。
+  // 它现在由 commentBlocks() 单独收，见下面。
+  const SKIP = /(^|\s|-|_)(nav|header|footer|aside|menu|sidebar|related|recommend|advert|promo|share|toolbar|toc)(\s|-|_|$)/i;
 
   function isHidden(el, win) {
     try {
@@ -223,13 +235,42 @@
   // The page usually says where its content is; only guess when it does not.
   const CONTENT_SEL = ['article', 'main', '[role="main"]', '#mw-content-text', '.post-content', '.entry-content', '.article-content', '#content'];
 
+  // 评论区在哪。**它几乎从来不在正文容器里面**，而是它的兄弟节点——所以「找到正文就返回」
+  // 这件事本身就把评论漏掉了，哪怕 SKIP 不再排它。这一段单独去收，收完接在正文后面。
+  //
+  // 判据是名字：class 或 id 里带 comment / discussion / replies / 评论 / 回复。粗，但这一档
+  // 宁可粗——漏掉一整个评论区的代价，比多带进来一块「相关推荐」大得多（而那一块本来就有
+  // JUNK_SEL 在挡）。**取最外层那一个**：评论区里每一条评论自己也叫 comment，
+  // 不去重的话同一段字会被收上几十遍。
+  const COMMENT_SEL = '[class*="comment" i], [id*="comment" i], [class*="discussion" i], [id*="discussion" i], '
+    + '[class*="replies" i], [id*="replies" i], [class*="评论"], [id*="评论"], [class*="回复"]';
+  function commentBlocks(doc, win, inside) {
+    const found = [];
+    let els;
+    try { els = [...doc.querySelectorAll(COMMENT_SEL)]; } catch (_) { return ''; }
+    for (const el of els) {
+      if (inside && (inside === el || inside.contains(el))) continue;      // 正文里那部分已经收过了
+      if (found.some((f) => f.contains(el))) continue;                     // 已经在某个外层里
+      if (el.innerText && el.innerText.length < 40) continue;
+      for (let i = found.length - 1; i >= 0; i--) if (el.contains(found[i])) found.splice(i, 1);
+      found.push(el);
+      if (found.length > 40) break;
+    }
+    return found.map((el) => readText(el, win)).join('\n');
+  }
+
   function genericBody(doc) {
     const win = doc.defaultView || window;
     for (const sel of CONTENT_SEL) {
       const el = doc.querySelector(sel);
       if (!el) continue;
       const text = readText(el, win);
-      if (text.replace(/\s+/g, '').length >= 200) return text;
+      // **正文 + 评论，不是二选一。** 原来这里够 200 字就 return，而 article / main 装的
+      // 通常只有帖子本身。
+      if (text.replace(/\s+/g, '').length >= 200) {
+        const talk = commentBlocks(doc, win, el);
+        return talk ? `${text}\n${talk}` : text;
+      }
     }
     const candidates = [...doc.querySelectorAll('div, section, td')];
     let best = null;
@@ -246,11 +287,17 @@
       const score = text.length * (1 + Math.min(paragraphs, 40) / 40) * (1 - density);
       if (!best || score > best.score) best = { el, score };
     }
-    return best ? readText(best.el, win) : (doc.body ? doc.body.innerText : '');
+    if (!best) return doc.body ? doc.body.innerText : '';
+    const talk = commentBlocks(doc, win, best.el);
+    return talk ? `${readText(best.el, win)}\n${talk}` : readText(best.el, win);
   }
 
+  /** 上一次 tidy 有没有截断过。extract() 读它，读完清零。 */
+  let cut = false;
   function tidy(text) {
-    return String(text || '')
+    const raw = String(text || '');
+    if (raw.length > MAX_TEXT) cut = true;
+    return raw
       .replace(/\r/g, '')
       .replace(/[ \t]+/g, ' ')
       .replace(/ *\n */g, '\n')
@@ -276,6 +323,7 @@
       picked = null;
     }
     const title = (picked && picked.title) || pageTitle(doc);
+    cut = false;
     const text = tidy((picked && picked.text) || genericBody(doc));
     return {
       title: (title || '').slice(0, 300),
@@ -286,6 +334,8 @@
       image: meta(doc, 'meta[property="og:image"]'),
       site: host,
       source,
+      // 到顶了就说出来。默默截断是这一整天在修的那种毛病：屏幕上写着一个数，实际是另一个。
+      truncated: cut || undefined,
     };
   }
 

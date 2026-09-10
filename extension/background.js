@@ -355,7 +355,25 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       if (typeof tabId === 'number' && tabId >= 0) await addHooked(tabId, msg.items);
       return { ok: true };
     }
-    if (msg.type === 'bookmarked') return sendBookmark(msg.page);
+    if (msg.type === 'bookmarked') {
+      const out = await sendBookmark(msg.page);
+      // **收藏一页，把这一页的图和视频也一起拿下来**，而且拿的是文件不是地址。
+      // 2026-09-10 之前这条路只送文本：`bookmark.js` 只调 BriffyExtract.extract()，
+      // 而采集媒体的那套（scan.js + hook.js）明明就在旁边，只是没接上——收藏一条小红书笔记，
+      // 存下来的是几百字加一串图片链接，链接过几天就带不出图了。
+      //
+      // 不打断正在跑的传输：sendItems 自己会看 job，这里只在闲着的时候发起。
+      const tabId = sender.tab && sender.tab.id;
+      if (typeof tabId === 'number' && tabId >= 0 && !(job && job.done < job.total)) {
+        const pageUrl = msg.page.pageUrl || msg.page.url || '';
+        collect(tabId, pageUrl)
+          .then(({ items }) => (items && items.length
+            ? sendItems({ pageUrl, pageTitle: msg.page.title || '', items, downloadVideos: true })
+            : null))
+          .catch(() => { /* 页面已经关了，或者这一页本来就没有媒体 */ });
+      }
+      return out;
+    }
     if (msg.type === 'collect') return collect(msg.tabId, msg.pageUrl);
     if (msg.type === 'getSniffed') return (await collect(msg.tabId, msg.pageUrl)).items;
     if (msg.type === 'ping') return ping();
