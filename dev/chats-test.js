@@ -48,6 +48,10 @@ ok('切页回来还在——这就是这个文件存在的理由', () => {
 });
 
 ok('新的在前', () => {
+  // 等时钟走过一毫秒再建第二条。不等的话两条的 updatedAt 会一模一样，这一句断言的就不是
+  // 「新的在前」而是平局时谁碰巧排前面——那是 2026-09-10 之前每六次红一次的原因。
+  const t0 = Date.now();
+  while (Date.now() === t0) { /* 毫秒级的时间戳，等它跳一下 */ }
   chats.append('', turn('后来问的', 'x'));
   const l = chats.list();
   assert.strictEqual(l[0].title, '后来问的', JSON.stringify(l.map((c) => c.title)));
