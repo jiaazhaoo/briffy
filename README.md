@@ -11,23 +11,15 @@ copy — it files everything into one folder a day, reads the words out of your 
 transcribes your voice notes, and lets you ask about any of it later. Recognition runs on
 your machine, and it works with the network off.
 
-**[Download](https://github.com/jiaazhaoo/briffy/releases)** · [briffy.cc](https://briffy.cc) ·
-[中文](docs/README.zh.md)
+**[Download at briffy.cc](https://briffy.cc)** · [中文](docs/README.zh.md)
 
 ![briffy](docs/screenshot.png)
 
-## Install
+## Get it
 
-Download the [latest release](https://github.com/jiaazhaoo/briffy/releases) — macOS (Apple
-Silicon) or Windows. Nothing to configure: the first launch checks the machine and prepares the
-local OCR and speech engines itself.
-
-From source:
-
-```bash
-npm install     # fetches the Electron runtime, once
-npm start
-```
+macOS and Windows, at **[briffy.cc](https://briffy.cc)**. Download it, open it, done — no account,
+no sign-up, nothing to configure. On first launch it checks the machine and gets local text and
+speech recognition ready by itself.
 
 ## Gestures
 
@@ -67,8 +59,8 @@ involved. Your stored records are never altered.
 [Packaging and release](docs/RELEASE.md) · [Give an agent your workspace](mcp/README.md) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
-Preview the UI without building anything: `node dev/preview/serve.js`, then `/`, `/pet`,
-`/viewer`, `/onboarding` — real CSS and JS, mock data. `npm test` runs the checks.
+From source: `npm install && npm start`. `npm test` runs the checks; `node dev/preview/serve.js`
+opens the UI on mock data (`/`, `/pet`, `/viewer`, `/onboarding`) with no build step.
 House rules are in [CLAUDE.md](CLAUDE.md).
 
 ## License
