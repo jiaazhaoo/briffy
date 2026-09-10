@@ -21,6 +21,7 @@
   "scripts": {
     "postinstall": "install-electron && node scripts/fetch-fonts.js || echo fonts: skipped",
     "start": "electron .",
+    "test": "node dev/run-tests.js",
     "icons": "node scripts/gen-icons.js && node scripts/gen-ext-icons.js",
     "pet": "node scripts/gen-pet.js",
     "pet:electron": "electron scripts/gen-pet.js",

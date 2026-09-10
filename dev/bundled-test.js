@@ -1,6 +1,7 @@
 const ocr = require('../src/main/ocr.js');
 const stt = require('../src/main/stt.js');
 const fs = require('fs');
+const path = require('path');
 function readWav(file) {
   const buf = fs.readFileSync(file); let pos = 12, fmt = null, data = null;
   while (pos + 8 <= buf.length) { const id = buf.toString('ascii', pos, pos + 4); const size = buf.readUInt32LE(pos + 4);
