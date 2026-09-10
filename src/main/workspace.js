@@ -17,6 +17,7 @@ const { extractPdfText } = require('./pdftext');
 const { whisperLang } = require('./languages');
 const { localDateKey, timeStamp } = require('./store');
 const { captureDisplayUnderCursor, screenPermissionStatus } = require('./capture');
+const permissions = require('./permissions');
 const { normalizeChineseScript } = require('./chinese');
 const region = require('./region');
 const longshot = require('./longshot');
@@ -220,7 +221,43 @@ function saveShot(png, { width, height, displayLabel, region = false, context = 
   return entry;
 }
 
+// 缺权限的时候，上一次把设置推到眼前是什么时候。按一下弹一扇设置窗，连按五下就是五扇。
+let lastScreenPrompt = 0;
+
+/**
+ * 没有「屏幕录制」权限就**不要拍**。
+ *
+ * macOS 在这件事上不报错。它照样返回一张图，只是里面所有窗口都被抹掉了，只剩壁纸。于是：
+ *   框选   遮罩冻住的是一张干净的桌面——按下去像是应用把你退到了桌面，其实是那张图里
+ *          本来就没有东西。
+ *   整屏   更糟，它**安静地存下这张壁纸**：库里多一条你没截过的东西，而且当时不会有任何提示。
+ *
+ * 2026-09-10 撞上的就是这个：把一份新的 .app 装到 /Applications，权限跟着旧路径留在原地。
+ * 原来只有 catch 那一支查权限，可这条路根本不抛异常，所以那句提示一次都没轮到过。
+ *
+ * 拿不到就走引导：permissions.askScreen 先试一次捕获——那一下是为了让 macOS 把 briffy 列进
+ * 名单，不然设置里根本找不到它可勾——再打开那一页。
+ *
+ * 话里必须带上「重开应用」：开关拨过之后本次进程里问到的还是旧答案
+ * （CGPreflightScreenCaptureAccess 到重启才换口径），不说清楚就像是勾了也没用。
+ * @returns {Promise<boolean>} 这一下能不能拍
+ */
+async function ensureScreenAccess() {
+  if (process.platform !== 'darwin') return true;
+  if (screenPermissionStatus() === 'granted') return true;
+  const recent = Date.now() - lastScreenPrompt < 60000;
+  if (!recent) {
+    lastScreenPrompt = Date.now();
+    if ((await permissions.askScreen()).ok) return true;
+  }
+  // 从源码跑的时候，名单上写的是 Electron 而不是 briffy——照着「briffy」去找是找不到的。
+  const who = permissions.status().grantedTo;
+  windows.setPetState('error', { message: t(recent ? 'screenBlockedAgain' : 'screenBlocked', { app: who }), ms: 9000 });
+  return false;
+}
+
 async function captureScreenshot() {
+  if (!(await ensureScreenAccess())) return null;
   // Sampled before anything is hidden or shown, so it names the app the user was actually looking at.
   // skipSelf：这一下常常是从 briffy 自己的按钮或托盘按的，那时前台就是 briffy——而拍的是它后面
   // 那个窗口，所以要的是它后面那个应用。见 foreground.frontApp。
@@ -246,6 +283,7 @@ async function captureScreenshot() {
 /** Drag-a-box capture. Resolves to null when the user cancels. */
 async function captureRegion() {
   if (region.active()) return null;
+  if (!(await ensureScreenAccess())) return null;
   const context = foreground.read({ skipSelf: true });   // 在选择遮罩盖住屏幕之前，而且要 briffy 后面那个应用
   windows.setPetState('capturing');            // the selection overlay carries its own instructions
   let picked;
