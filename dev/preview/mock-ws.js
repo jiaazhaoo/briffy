@@ -4,6 +4,10 @@
   const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const at = (dayOffset, h, m) => { const d = new Date(today); d.setDate(d.getDate() + dayOffset); d.setHours(h, m, 0, 0); return d; };
   const mk = (dayOffset, h, m, e) => { const d = at(dayOffset, h, m); return { id: `${dayOffset}-${h}${m}`, createdAt: d.toISOString(), dateKey: key(d), status: 'done', tagsSource: 'ollama', model: 'qwen3.5:9b (Ollama)', summary: '', text: '', path: '', tags: [], ...e }; };
+  // ?lang=en 看英文界面（和 mock-ob.js 同一个约定）。第一门语言决定界面写哪种语言。
+  // **声明在最前面**：下面那份英文文案覆盖要用它，而 const 不会提升。
+  const enFirst = new URLSearchParams(location.search).get('lang') === 'en';
+
   const entries = [
     mk(0, 9, 12, { type: 'screenshot', title: '截图 09:12', path: 'screenshots/x.png', fileUrl: '/sample.png', width: 2320, height: 1520, ocrBoxes: 4, pinned: true, note: '这个版面就照这个来', context: { app: 'briffy', window: '记录' }, tags: ['Electron', '浮动窗口', '截图', 'OCR', '工作区'], text: 'briffy — 记录 / 每日摘要 / 设置\n搜索标题 / 三个词 / 文字\n2026年9月3日周四 · 8', summary: '一张关于 briffy 工作区界面的截图。' }),
     mk(0, 10, 3, { type: 'audio', title: '语音 10:03', path: 'audio/a.webm', fileUrl: '', durationSec: 42, sttLanguage: 'zh', tags: ['预算', '张老师', '产品方案', '下午三点', '会议'], text: '你好，这是一段测试录音。明天上午记得把项目预算发给张老师，下午三点开会讨论产品方案。' }),
@@ -25,6 +29,35 @@
     mk(0, 21, 41, { type: 'image', title: '剪贴板图片 21:41', path: 'files/clipshot.png', fileUrl: '/sample.png', width: 1160, height: 760, origin: 'clipboard', context: { app: 'Google Chrome', window: '地图' }, tags: ['剪贴板', '图片'] }),
     mk(0, 14, 2, { type: 'image', title: 'chart.png', path: 'files/chart.png', fileUrl: '/sample.png', width: 1600, height: 900, origin: 'browser', sourceTitle: '2026 年 Q3 财报', tags: ['财报', '营收', '同比', '图表', 'Q3'] }),
   );
+  // ?lang=en 的那一份文案。**只覆盖几个字段，不另开一套 fixture**——这一屏的布局是照中文那份
+  // 调出来的（卡片大小看的是字数，见 isBigTile），两套数据会各自漂。键是原来的标题。
+  // README 的首图就是从这一屏截的。
+  const EN = {
+    '截图 09:12': { title: 'Screenshot 09:12', note: 'Lay the page out like this',
+      text: 'briffy — Records / Daily recap / Settings\nSearch title, three words, text\nThursday 3 September 2026 · 8',
+      summary: 'A screenshot of the briffy workspace.', tags: ['Electron', 'floating window', 'screenshot', 'OCR', 'workspace'] },
+    '语音 10:03': { title: 'Voice note 10:03', tags: ['budget', 'Emma', 'product plan', '3 pm', 'meeting'],
+      text: "Quick note to self — send Emma the project budget tomorrow morning, and we're reviewing the product plan at three." },
+    '第三季度预算与路线图会议.pdf': { title: 'Q3 budget and roadmap.pdf', tags: ['Q3', 'budget', 'roadmap', 'product team', 'minutes'],
+      text: 'Q3 budget review and roadmap planning\n1. Budget overview …', summary: 'Meeting material for the Q3 budget review.' },
+    '明天上午十点和产品团队开会': { title: 'Ten tomorrow with the product team',
+      text: 'Ten tomorrow with the product team — Q3 budget and roadmap. Send the minutes to Emma afterwards.' },
+    '截图 09:05': { title: 'Screenshot 09:05' },
+    '语音 18:45': { title: 'Voice note 18:45' },
+    '为什么 SQLite 不需要服务器': { title: 'Why SQLite does not need a server' },
+    '从 Slack 复制的一段': { title: 'Copied from Slack',
+      text: 'Shipping Thursday. Freeze on Wednesday evening, so anything not merged by then waits for the next one.' },
+    '剪贴板图片 21:41': { title: 'Clipboard image 21:41' },
+    // 这一条停在「处理中」，好让样张上看得见那个状态。中文那份的 progress 会和标题挤在
+    // 同一条边上叠成一团（见 README 首图的第一版），英文这份也一样短不了多少——
+    // 所以顺手把它挪成没有标题的那种卡（图片卡本来就用文件名当标题）。
+    'design-ref.png': { progress: 'Reading text 40%', tags: ['icon', 'blue', 'logo', 'rounded'] },
+    '这是一个测试笔记。明天上午十点和产品团队开会，讨论第三季度的预算和路线图。记得把会议纪要发给王经理。': {
+      title: 'Ten tomorrow with the product team',
+      text: 'Ten tomorrow with the product team — Q3 budget and roadmap. Send the minutes to Emma afterwards.' },
+  };
+  if (enFirst) for (const e of entries) { const t = EN[e.title]; if (t) Object.assign(e, t); }
+
   // ?dup=N 把这批记录复制 N 份：布局、滚动、拉框这些只有在装不下一屏时才看得出问题
   const dup = Math.max(1, Math.min(40, Number(new URLSearchParams(location.search).get('dup')) || 1));
   const base = entries.slice();
@@ -40,7 +73,7 @@
     { code: 'fr', name: 'Français', english: 'French' }, { code: 'de', name: 'Deutsch', english: 'German' }, { code: 'es', name: 'Español', english: 'Spanish' },
   ];
   const settings = {
-    languages: ['zh-Hans', 'en'], hotkey: 'Alt+S', model: 'claude-opus-5', sttModel: 'Xenova/whisper-small', sttLanguage: 'auto', summaryTime: '08:00',
+    languages: enFirst ? ['en', 'zh-Hans'] : ['zh-Hans', 'en'], hotkey: 'Alt+S', model: 'claude-opus-5', sttModel: 'Xenova/whisper-small', sttLanguage: 'auto', summaryTime: '08:00',
     workspaceDir: '', hfMirror: '', tessLangPath: '', petHidden: false, ocrDroppedImages: true, normalizeChineseScript: true, micDeviceId: '', micLabel: '',
     recordTrail: true,          // 预览里开着，好看见「路过」那一页
     ocrEngine: 'paddle', ocrModel: '', clipboardWatch: true, clipboardInAll: false, clipboardMinChars: 12, localApi: true, localApiPort: 47831,

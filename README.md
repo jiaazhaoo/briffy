@@ -1,12 +1,33 @@
 # briffy 📎
 
-**<https://briffy.cc>** · [Download](https://github.com/jiaazhaoo/briffy/releases) · [Why it works this way](docs/NOTES.md) · [Privacy](docs/PRIVACY.md) · [中文](docs/README.zh.md)
+[![Release](https://img.shields.io/github/v/release/jiaazhaoo/briffy?style=flat-square&label=release)](https://github.com/jiaazhaoo/briffy/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-black?style=flat-square)](https://github.com/jiaazhaoo/briffy/releases)
+[![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-black?style=flat-square)](LICENSE)
 
-A paperclip sits in the corner of your screen and writes down what you saw, heard and were handed.
-No filing, no folders. Recognition runs on your machine.
+**A paperclip that writes down what you saw, heard and were handed.**
 
-Windows and macOS (Apple Silicon). Source-available, free for personal and non-profit use,
-**not commercial** — see [License](#license).
+briffy sits in the corner of your screen. Click it to capture, drop things on it, or just
+copy — it files everything into one folder a day, reads the words out of your screenshots,
+transcribes your voice notes, and lets you ask about any of it later. Recognition runs on
+your machine, and it works with the network off.
+
+**[Download](https://github.com/jiaazhaoo/briffy/releases)** · [briffy.cc](https://briffy.cc) ·
+[中文](docs/README.zh.md)
+
+![briffy](docs/screenshot.png)
+
+## Install
+
+Download the [latest release](https://github.com/jiaazhaoo/briffy/releases) — macOS (Apple
+Silicon) or Windows. Nothing to configure: the first launch checks the machine and prepares the
+local OCR and speech engines itself.
+
+From source:
+
+```bash
+npm install     # fetches the Electron runtime, once
+npm start
+```
 
 ## Gestures
 
@@ -17,142 +38,42 @@ Windows and macOS (Apple Silicon). Source-available, free for personal and non-p
 | **Middle-click** (or hold 0.55 s) | Start / stop a voice note |
 | **Drop** an image, file, link, text | Into the workspace — images get OCR, PDFs and pages their text |
 | **Copy** anything | Text, images and files land in the workspace as you copy them |
-| **Right-click** it or the tray | Workspace, settings, today's recap, hide, quit |
 | `Ctrl+Alt+A / S / V` (`⌘⇧A / S / V`) | Box · full screen · voice note |
 | `Alt+Shift+D` in the browser | The extension lists the page's images, video and audio |
 
 ## What it does
 
-- **Everything names itself** — a title and a sentence. Pictures with no words in them are named by the local classifier. Each morning it writes up yesterday.
-- **Ask it** — one line in the bottom bar. Records are picked **locally**, then the model reads only those and cites each one. So asking works offline, and with no provider at all.
-- **Search has two legs** — exact hits, plus records that only *mean* the same thing. The second kind is always labelled.
-- **Two-level filter** — Clipboard · Screenshots · Saved · Files · Recordings, the five kinds of paper you see on screen. Each has its own second level: a site, an app, a file type, a microphone.
-- **Picture viewer** — pen, mosaic, crop, translate, pin, copy.
-- **Import** — Notion and Gmail with your own credentials, or an exported zip / mbox.
-- **Off until you ask** — recording meetings (only while another app holds the mic), and keeping a trail of what you looked at (stored apart from your records).
+- **Everything names itself** — a title and a sentence. Each morning it writes up yesterday.
+- **Ask your log** — briffy picks the records locally, then a model reads only those and cites
+  each one. Asking works offline, and with no provider configured at all.
+- **Search that also finds the near misses** — exact hits, plus records that only *mean* the same
+  thing, always labelled as such.
+- **Filter by the five kinds of paper** — Clipboard, Screenshots, Saved, Files, Recordings, each
+  with its own second level: a site, an app, a file type, a microphone.
+- **Local everything** — OCR is PP-OCRv6, speech is Whisper, both through onnxruntime.
 
-OCR is PP-OCRv6, speech is Whisper, both via onnxruntime. Works with the network off.
+## Your data
 
-**Pictures are never sent to a model** — OCR already read the words. What *is* sent has card
+One folder, `~/Library/Application Support/briffy/workspace` (or `%APPDATA%\briffy\workspace`),
+movable from Settings. Originals are never rewritten. Deleting the app does not delete it.
+
+**Pictures are never sent to a model** — OCR already read the words. Whatever *is* sent has card
 numbers, ID numbers, keys and passwords masked first, by checksum and fixed shape, no model
-involved ([redact.js](src/main/redact.js)). Stored records are never altered.
+involved. Your stored records are never altered.
 
-## Run
+## Docs
 
-```bash
-npm install     # fetches the Electron runtime (~367 MB, once) and five OFL typefaces
-npm start
-npm test        # 29 checks, ~7 s
-```
+[Why it works this way](docs/NOTES.md) · [Privacy](docs/PRIVACY.md) ·
+[Packaging and release](docs/RELEASE.md) · [Give an agent your workspace](mcp/README.md) ·
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
-**Nothing to configure** — first launch prepares the local OCR and speech engines itself.
-Worth a look:
-
-1. **Settings › Languages** — two packs (default Simplified Chinese + English). They drive OCR, speech and the interface; the first decides what language briffy writes in.
-2. **Settings › AI** — [OpenRouter](https://openrouter.ai) (one click, no key to paste) or local **Ollama**. With neither, titles fall back to filenames and the recap to a list. Keys live in the system keychain, or come from `OPENROUTER_API_KEY`.
-3. **macOS** — grant Screen Recording and Microphone in System Settings › Privacy & Security.
-
-## The workspace
-
-One folder — `%APPDATA%\briffy\workspace`, `~/Library/Application Support/briffy/workspace`:
-
-```
-entries/2026-09-03.json     one index per day: title, OCR / transcript, what a picture shows
-screenshots/ files/ audio/  the originals, by day — nothing here is ever rewritten
-ocr/ thumbs/                derived: line boxes, thumbnails. Deletable, regenerated on demand
-summaries/2026-09-02.md     the daily recap, Markdown + .json
-chats/ trail/ uptime/       what you asked · the trail layer (off) · when briffy was awake
-```
-
-Files over 200 MB are not copied; the path is recorded instead.
-
-**Deleting the app does not delete this folder** — but an uninstaller tool will, so
-**Settings › Workspace folder** moves it somewhere you can see: it copies every file, verifies the
-count and the bytes, and leaves the original for you to remove yourself.
-
-## Size
-
-| | |
-| --- | --- |
-| Windows installer | **171 MB** |
-| Installed | 562 MB |
-| of which Electron | ~300 MB, and it does not compress further |
-
-English speech (Whisper tiny.en, 42 MB) and both OCR sizes (PP-OCRv6 tiny 6 MB + small 30 MB) ship
-inside the installer, so it works offline the moment it lands. Other languages download on demand.
-
-## Packaging
-
-```bash
-npm run dist:win       # NSIS installer → release/
-npm run release:mac    # sign + notarise + dmg, then verify (on macOS)
-npm run pack           # quick local build: signed, not notarised
-npm run verify:mac     # check a .app that is already built
-```
-
-macOS signing and notarisation, including the three environment variables that silently produce a
-build nobody else can open: [docs/RELEASE.md](docs/RELEASE.md).
-**The Mac App Store is out** — the sandbox, not any setting
-([why](docs/app-store/mas-blockers.md)).
-
-## Development
-
-```bash
-node dev/preview/serve.js
-```
-
-`/` (workspace, fake data), `/pet`, `/viewer`, `/shelf`, `/region`, `/onboarding` — the real CSS and
-JS from `src/renderer`, with Electron's IPC swapped for `dev/preview/mock-*.js`.
-`npm test` runs everything in `dev/` that runs under plain node, and says what it skipped.
-`DAILYLOGS_SMOKE=1` (or `audio` / `url` / `files` / `summary`) opens the workspace, performs one
-action, prints `SMOKE_RESULT …` and quits.
-
-House rules: [CLAUDE.md](CLAUDE.md). Visual standard:
-[.claude/skills/paper-ui/SKILL.md](.claude/skills/paper-ui/SKILL.md).
-
-## Give an agent your workspace
-
-`mcp/` is an MCP server: it lets Claude Code, Codex, Cursor or Claude desktop search what you kept.
-It reads the workspace files directly, so it answers whether or not briffy is running, there is no
-port to secure, and it is read-only by construction. One line for Claude Code:
-
-```bash
-claude mcp add --scope user briffy "$(which node)" "$PWD/mcp/briffy-mcp.js"
-```
-
-Config for every other client, and what the five tools return: [mcp/README.md](mcp/README.md).
-
-## Site
-
-**<https://briffy.cc>** · **<https://briffy.cc/en/>** — `site/` is one bilingual source published
-as two single-language pages. No build step beyond `node`.
-
-```bash
-npm run site     # split into two: site-dist/
-npm run deploy   # → briffy.cc
-```
-
-## Why it works this way
-
-Every decision here was made against a measurement, and both are in
-**[docs/NOTES.md](docs/NOTES.md)** — why briffy scrolls the window itself instead of watching you
-scroll, why the search index lives on disk, why embeddings can never answer on their own, why the
-idle animation loops were deleted.
+Preview the UI without building anything: `node dev/preview/serve.js`, then `/`, `/pet`,
+`/viewer`, `/onboarding` — real CSS and JS, mock data. `npm test` runs the checks.
+House rules are in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
-**[PolyForm Noncommercial 1.0.0](LICENSE)** — source is open, commercial use is not.
-
-| | |
-| --- | --- |
-| **Yes** | Personal use, study, research, hobby projects, modification, redistribution (carry [LICENSE](LICENSE) and its `Required Notice:` line); charities, schools, public research bodies, government |
-| **No**, without asking | Any commercial use — inside a company's operations, as a paid service, sold or embedded in a paid product |
-| **Commercial licence** | <zhaojia789456@gmail.com> |
-
-Not open source as the OSI defines it — that definition forbids discriminating against a field of
-endeavour, commerce included, which is why GitHub labels it "Other". The accurate word is
-*source-available*. The restriction covers briffy's own code only; dependencies, models, typefaces
-and artwork keep their upstream licences ([THIRD-PARTY.md](THIRD-PARTY.md)). The name and the
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for personal use, study, research and non-profits;
+**commercial use needs a licence** (<zhaojia789456@gmail.com>). Source-available, not OSI open
+source. Dependencies keep their own licences ([THIRD-PARTY.md](THIRD-PARTY.md)). The name and the
 drawing are not licensed with the code — fork it and ship it under another name.
-
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md)

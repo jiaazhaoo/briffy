@@ -826,10 +826,18 @@
     if (el) box.scrollTo({ top: Math.max(0, el.offsetTop - 14), behavior: 'smooth' });
   }
 
-  function statusPill(e) {
+  /**
+   * 一条记录现在什么状态，写成一个词。
+   *
+   * @param {{short?:boolean}} o short＝网格里那张卡。**卡上只写状态，不写进度。**
+   *   进度那半截（「处理中 · 识别文字 40%」）在一张 142px 宽的卡上量出来是 136px——
+   *   比卡片本身还宽，于是它被挤出左边缘、整个压在标题上（2026-09-10 做 README 首图时看见的）。
+   *   「还在处理」是卡片该说的，「处理到哪一步了」是详情该说的。
+   */
+  function statusPill(e, { short = false } = {}) {
     // 搜出来的「意思相近」要标出来。用现成的 .pill——房里已经有「一个词」这个说法了，别再造一个
     if (e.near) return `<span class="pill near">${esc(t('near'))}</span>`;
-    if (e.status === 'processing') return `<span class="pill processing">${esc(t('processing'))}${e.progress ? ` · ${esc(e.progress)}` : ''}</span>`;
+    if (e.status === 'processing') return `<span class="pill processing">${esc(t('processing'))}${!short && e.progress ? ` · ${esc(e.progress)}` : ''}</span>`;
     if (e.status === 'error') return `<span class="pill error">${esc(t('error'))}</span>`;
     // "local words" used to mark the entries a model had not seen; now that is every entry, so it says nothing
     return '';
@@ -1000,7 +1008,7 @@
   function tileMarkup(e) {
     const kind = cardKind(e);
     const name = esc(cardTitle(e));
-    const mark = `${e.pinned ? '<span class="jg-pin"></span>' : ''}${statusPill(e)}`;
+    const mark = `${e.pinned ? '<span class="jg-pin"></span>' : ''}${statusPill(e, { short: true })}`;
     // 抬头：名字在前，来源跟在后面。**放顶上不放底下**——一眼扫过去，视线先落在卡片上沿，
     // 名字该在那儿。来源是次要的一档，所以淡一号，而且名字挤不下时先牺牲来源。
     const src = ctxShort(e);

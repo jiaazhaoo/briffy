@@ -358,7 +358,13 @@ body:not([data-tab="entries"]) .axis { display: none; }
   font: 600 10px/1.3 var(--sans); padding: 2px 6px; background: var(--ink); color: var(--slip);
   font-variant-numeric: tabular-nums; pointer-events: none; }
 .jg-tile:hover .jg-time, .jg-tile:focus-visible .jg-time { opacity: 1; }
-.jg-tile > .pill { position: absolute; right: 9px; top: 9px; z-index: 2; }
+/* 卡片右上角那个状态词。**它和抬头站在同一条边上，所以两个都要守规矩**：
+   状态词自己不许超过卡片的一半（超了就省略号收掉），抬头则给它让出那半边——
+   不让的话两样东西直接叠成一团。这条和碎片卡底边「来源让位给时间」是同一条规矩。
+   （2026-09-10：在一张 142px 宽的卡上量到状态词 136px，比卡片还宽。） */
+.jg-tile > .pill { position: absolute; right: 9px; top: 9px; z-index: 2;
+  max-width: calc(50% - 12px); overflow: hidden; text-overflow: ellipsis; }
+.jg-tile:has(> .pill) .cap, .jg-tile:has(> .pill) .lab { right: 50%; }
 /* 一张便签上写的字。截断按整行：网格把行数算好写进 --lines，clamp 放在 .bb 上
    （.b 是 flex 子项，会被块化，-webkit-line-clamp 在它身上会失效） */
 .jg-txt { position: absolute; inset: 0; padding: var(--a3) 15px 15px; display: flex; flex-direction: column; }
