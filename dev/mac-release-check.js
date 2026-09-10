@@ -93,6 +93,13 @@ if (process.argv.includes('--preflight')) {
 }
 
 const app = findApp();
+if (process.argv[2] && !fs.existsSync(process.argv[2])) {
+  // zsh 交互模式默认不把 # 当注释（interactive_comments 是关的），所以从文档里连注释一起贴过来的
+  // 命令会把 `#` 和后面的字当参数传进来。报「找不到 .app」会让人去查构建，而错在这一行的尾巴。
+  console.error(`参数 ${JSON.stringify(process.argv[2])} 不是一个存在的路径。`);
+  if (process.argv.slice(2).some((a) => a.startsWith('#'))) console.error('看起来是把行尾注释一起贴进来了——zsh 不会替你去掉它。去掉 # 后面那段重跑。');
+  process.exit(1);
+}
 if (!app || !fs.existsSync(app)) {
   console.error('No .app found. Build one first (npm run pack, or npm run dist:mac), or pass a path.');
   process.exit(1);

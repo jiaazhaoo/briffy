@@ -39,7 +39,11 @@ if (!dmg) {
   if (found.length !== 1) die(found.length ? `release/ 里有 ${found.length} 个 dmg，指明是哪一个：\n  ${found.join('\n  ')}` : 'release/ 里没有 dmg，先跑 npm run release:mac');
   dmg = path.join(dir, found[0]);
 }
-if (!fs.existsSync(dmg)) die(`找不到 ${dmg}`);
+if (!fs.existsSync(dmg)) {
+  // 同 dev/mac-release-check.js：zsh 交互模式不吃 # 注释，粘贴带注释的命令会把它变成参数。
+  if (process.argv.slice(2).some((a) => a.startsWith('#'))) die('看起来是把行尾注释一起贴进来了——zsh 不会替你去掉 #。去掉 # 后面那段重跑。');
+  die(`找不到 ${dmg}`);
+}
 
 // ---------- 凭据 ----------
 const missing = NEED_ENV.filter((k) => !process.env[k]);
