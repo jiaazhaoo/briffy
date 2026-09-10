@@ -31,6 +31,10 @@ const DEFAULT_SETTINGS = {
   ocrModel: '',                   // '' => decided by the machine probe + language pair
   ocrModelAuto: '',               // the model the app settled on for this machine
   setupDone: false,               // the one-click setup wizard has run at least once
+  // 每天问四次 GitHub「最新的 tag 是几」。**这是 briffy 唯一一个自己发起的对外请求**——
+  // 其余的联网都是你按了什么才发生的。问的时候只拿回一行版本号，下不下载是你点的（516MB，
+  // 不替你决定）。关掉之后设置页里那个「检查更新」按钮还在，手动仍然能查。
+  autoUpdate: true,
   // Let a small local embedding model choose which of an entry's own words describe it. Off means the
   // words come from counting alone, which is faster but noisier.
   normalizeChineseScript: true,   // unify Whisper's random simplified/traditional output to the selected pack

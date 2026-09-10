@@ -32,6 +32,12 @@ contextBridge.exposeInMainWorld('ws', {
   openExtensionDir: invoke('ws:open-extension-dir'),
   extensionStatus: invoke('ws:extension-status'),
   openExtensionGuide: invoke('ws:open-extension-guide'),
+  // 更新。凭据没有，往外只发一次「最新版本是几」的询问；回来的只有状态，见 src/main/updater.js
+  updateStatus: invoke('ws:update-status'),
+  updateCheck: invoke('ws:update-check'),
+  updateDownload: invoke('ws:update-download'),
+  updateInstall: invoke('ws:update-install'),
+  onUpdate: listen('ws:update'),
   onExtension: listen('ws:extension'),
   // 接进来的东西。凭据只从这里往主进程走，回来的永远只有状态。
   connectList: () => ipcRenderer.invoke('ws:connect-list'),
