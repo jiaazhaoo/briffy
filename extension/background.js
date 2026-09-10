@@ -113,8 +113,11 @@ async function apiBase() {
 }
 async function ping() {
   try {
+    // The id goes in a header because this is a GET: the browser writes `Origin: chrome-extension://<id>`
+    // only for methods other than GET/HEAD, so there is nothing for the app to read the id off. What the
+    // app trusts is still the browser's own headers -- this one is only the name on the label.
     const res = await fetch(`${await apiBase()}/api/ping`, {
-      headers: { 'X-Briffy': '1', 'X-Briffy-Ext': chrome.runtime.getManifest().version },
+      headers: { 'X-Briffy': '1', 'X-Briffy-Ext': chrome.runtime.getManifest().version, 'X-Briffy-Ext-Id': chrome.runtime.id },
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const body = await res.json();
