@@ -170,4 +170,50 @@ ok('inUrl only looks back to the nearest space', () => {
   assert.strictEqual(redact.inUrl('see 12345', 4), false);
 });
 
+// ── 2026-09-10 补的四个洞。三个是量出来的漏，一个是明确的 bug。
+//    量法：拿真库里的东西和一排常见密钥形状过一遍 redact.scan，看哪些一处都没命中。
+
+// **这一条是 bug，不是「没覆盖到」**：规则写的是 `sk-` 连字符，而 Stripe 的私密键用下划线
+// （`sk_live_`）。更糟的是可公开的那个（`pk_live_`）本来就有一条单独的规则——
+// 于是最不该漏的那个漏了，最不要紧的那个盖住了。
+ok('Stripe 的私密键（下划线）也要盖，不只是可公开的那个', () => {
+  // **这几个假键是拼出来的，不写成字面量。** 第一次写成字面量的时候 GitHub 的推送保护
+  // 直接把这次提交拦了（GH013，认成 Stripe API Key）——它没错，那正是我要让 redact 认出来的
+  // 那个形状。别把它们「整理」回一整串，不然下一个人推不上去。
+  const body = '51AbCdEfGhIjKlMnOpQrStUvWxYz';
+  for (const kind of ['sk_live_', 'sk_test_', 'pk_live_']) {
+    assert.strictEqual(M(kind + body), '[api key]', kind);
+  }
+});
+
+ok('Bearer 后面那一串是令牌', () => {
+  assert.strictEqual(M('Authorization: Bearer abc123XYZdef456GHI789jkl'), 'Authorization: Bearer [api key]');
+  assert.strictEqual(M('curl -H "Bearer sometoken1234567890"'), 'curl -H "Bearer [api key]"');
+});
+ok('Bearer 后面太短的不算（不是令牌，别糊）', () => assert.strictEqual(M('Bearer token'), 'Bearer token'));
+
+// 只盖密码那一段，协议、用户名、主机都留着——模型还得看得懂这是个数据库连接串。
+ok('连接串里的密码', () => {
+  assert.strictEqual(M('postgres://user:s3cr3tpass@db.example.com:5432/mydb'),
+    'postgres://user:[secret]@db.example.com:5432/mydb');
+  assert.strictEqual(M('mongodb+srv://admin:hunter2hunter@cluster0.abc.mongodb.net'),
+    'mongodb+srv://admin:[secret]@cluster0.abc.mongodb.net');
+});
+ok('没有密码的网址不动', () => assert.strictEqual(M('https://example.com/a/b'), 'https://example.com/a/b'));
+
+// 标签表里原来只有 `api_key`，于是 .env 里最常见的那几种名字全认不出。
+ok('带前缀或后缀的 key 也是标签', () => {
+  assert.strictEqual(M('PRIVATE_KEY=abc123def456'), 'PRIVATE_KEY=[secret]');
+  assert.strictEqual(M('ACCESS_KEY = abc123def456'), 'ACCESS_KEY = [secret]');
+  assert.strictEqual(M('aws_secret_access_key = wJalrXUtnFEMI1234567890'), 'aws_secret_access_key = [secret]');
+  assert.strictEqual(M('MY_KEY=abc123def456'), 'MY_KEY=[secret]');
+});
+ok('光一个 key 字不是标签（不然 "key: value" 满世界都是）', () => {
+  assert.strictEqual(M('key: value1'), 'key: value1');
+  assert.strictEqual(M('monkey business here'), 'monkey business here');
+});
+ok('真库里那个 Apple 专用密码仍然盖得住（2026-09-10 在真工作区里抓到的）', () => assert.strictEqual(
+  M('export APPLE_APP_SPECIFIC_PASSWORD=mnuh-dgge-yagh-whbj'),
+  'export APPLE_APP_SPECIFIC_PASSWORD=[secret]'));
+
 console.log(`redact: ${pass} passed`);

@@ -107,7 +107,10 @@ const RULES = [
   // ── 密钥：形状就是身份，不需要校验位
   { kind: 'pem', re: /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z]+ )?PRIVATE KEY-----/g },
   { kind: 'key', re: /\bsk-(?:ant|or|proj|live|test)?-?[A-Za-z0-9_-]{20,}/g },   // OpenAI / Anthropic / OpenRouter / Stripe
-  { kind: 'key', re: /\b(?:pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}/g },            // Stripe 的另外两种
+  // Stripe。**sk_ 必须在里面**：上面那条 `sk-` 是连字符（OpenAI / Anthropic / OpenRouter 那一族），
+  // 而 Stripe 用下划线。2026-09-10 之前只有 pk_ / rk_ 在这儿——可公开的那个盖住了，
+  // 私密的那个漏了，正好反过来。
+  { kind: 'key', re: /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{16,}/g },
   { kind: 'key', re: /\bAKIA[0-9A-Z]{16}\b/g },                                  // AWS
   { kind: 'key', re: /\bgh[pousr]_[A-Za-z0-9]{30,}\b/g },                        // GitHub
   { kind: 'key', re: /\bglpat-[A-Za-z0-9_-]{16,}\b/g },                          // GitLab
@@ -116,12 +119,26 @@ const RULES = [
   { kind: 'key', re: /\bhf_[A-Za-z0-9]{30,}\b/g },                               // Hugging Face
   { kind: 'key', re: /\bnpm_[A-Za-z0-9]{30,}\b/g },                              // npm
   { kind: 'key', re: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g },   // JWT
+  // `Authorization: Bearer xxx`。名字就写在旁边，不用猜是什么。16 位起——短的那种
+  // （`Bearer token` 这种占位词）不是令牌，盖了只会把一句人话糊掉。
+  { kind: 'key', re: /\b(Bearer)(\s+)([A-Za-z0-9._~+/=-]{16,})/g, group: 3 },
+
+  // 连接串里的密码：`postgres://user:pass@host`。**只盖密码那一段**，协议、用户名、主机都留着——
+  // 模型还得看得懂这是个数据库连接串，盖掉整条它就只知道「这儿本来有个网址」。
+  { kind: 'secret', re: /\b([a-z][a-z0-9+.-]{1,20}:\/\/[^\s:@/]{1,64}:)([^\s:@/]{1,120})@/g, group: 2 },
 
   // ── 写着自己名字的秘密。「password: hunter2」——名字就在旁边，不用猜。
   //    值取到行尾或者引号收口；太短的不算（「password: 」后面跟一句话不是密码）。
   //    名字前面容一段前缀，为的是 access_token= / refresh_token= / xsec_token= 这些是**故意**命中的，
   //    不是靠「token」正好是它的后半截撞上的——网址里带着令牌是真的会漏出去的一种。
-  { kind: 'secret', re: /((?:[A-Za-z][A-Za-z0-9]*[_-])?(?:password|passwd|passphrase|api[\s_-]?key|secret|token)|授权码|口令|密码)(\s*[:：=]\s*)(["']?)([^\s"'\n]{6,120})\3/gi, group: 4, urlCut: true },
+  //    名字前后都容一段：前缀是为了 access_token= / xsec_token= 这些**故意**命中；
+  //    后缀是为了 aws_secret_access_key= 这种把关键词夹在中间的写法。
+  //    **`key` 单独出现不算标签**（不然满世界的 `key: value` 都会被糊掉），
+  //    但带了前缀就算——PRIVATE_KEY= / ACCESS_KEY= / MY_KEY= 是 .env 里最常见的几种，
+  //    2026-09-10 之前它们一个都认不出，因为表里只有 `api_key`。
+  //    代价：`Cache-Key: no-cache` 这类请求头的值会被盖掉。认了——糊掉一个请求头不值钱，
+  //    漏一个 PRIVATE_KEY 什么都不值了。
+  { kind: 'secret', re: /((?:(?:[A-Za-z][A-Za-z0-9]*[_-])?(?:password|passwd|passphrase|api[\s_-]?key|secret|token)(?:[_-][A-Za-z0-9]+)*|[A-Za-z][A-Za-z0-9]*[_-]key)|授权码|口令|密码)(\s*[:：=]\s*)(["']?)([^\s"'\n]{6,120})\3/gi, group: 4, urlCut: true },
   //    验证码：中间容得下「是」「为」「is」这类字，但不容得下换行。
   { kind: 'code', re: /((?:验证码|校验码|动态码|verification code|security code|one[\s-]?time code|OTP)[^\n\d]{0,12})(\d{4,8})(?!\d)/gi, group: 2 },
 
@@ -167,6 +184,10 @@ function cardOk(raw) {
 
 // ── 盖 ────────────────────────────────────────────────────────────────────
 
+// 每条规则都要能报出 group 的位置，所以统一补上 `d`。`d` 不改变匹配，只是多给一份 m.indices。
+// 在这儿一次性做完：规则是共享对象，scan 里每次重建正则会把 lastIndex 那套弄乱。
+for (const r of RULES) if (!r.re.flags.includes('d')) r.re = new RegExp(r.re.source, `${r.re.flags}d`);
+
 /**
  * 这段字里有哪些该盖掉的东西。
  * @param {string} text
@@ -184,11 +205,16 @@ function scan(text, { level = 'secrets' } = {}) {
     let m;
     while ((m = r.re.exec(s)) !== null) {
       if (m[0] === '') { r.re.lastIndex++; continue; }
-      // group：只盖值，不盖它前面那个「password:」——盖了标签，模型就不知道这里本来是什么了
+      // group：只盖值，不盖它前面那个「password:」——盖了标签，模型就不知道这里本来是什么了。
+      // **位置由正则自己报**（`d` 标志给的 m.indices），不靠在 m[0] 里 indexOf 去猜。
+      // 原来那句是 `m.index + m[0].indexOf(val, (m[1] || '').length)`——它默认 group 1 是标签，
+      // 于是新加一条「值就在 group 1」的规则时，indexOf 找不着、返回 -1，盖的位置整个偏一格
+      // （症状：`Authorization: Bearer abc…` 盖成了 `Authorization:[api key]HI789jkl`）。
       const g = r.group || 0;
       let val = m[g];
       if (!val) continue;
-      const at = g ? m.index + m[0].indexOf(val, (m[1] || '').length) : m.index;
+      const span = m.indices && m.indices[g];
+      const at = span ? span[0] : m.index;
       // 网址里 & 是下一个参数的开头，不是密码的一部分。在正文里它可以是——所以只在网址里断。
       if (r.urlCut && inUrl(s, at) && val.includes('&')) val = val.slice(0, val.indexOf('&'));
       if (val.length < 6 && r.urlCut) continue;
