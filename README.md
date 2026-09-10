@@ -110,6 +110,18 @@ action, prints `SMOKE_RESULT …` and quits.
 House rules: [CLAUDE.md](CLAUDE.md). Visual standard:
 [.claude/skills/paper-ui/SKILL.md](.claude/skills/paper-ui/SKILL.md).
 
+## Give an agent your workspace
+
+`mcp/` is an MCP server: it lets Claude Code, Codex, Cursor or Claude desktop search what you kept.
+It reads the workspace files directly, so it answers whether or not briffy is running, there is no
+port to secure, and it is read-only by construction. One line for Claude Code:
+
+```bash
+claude mcp add --scope user briffy "$(which node)" "$PWD/mcp/briffy-mcp.js"
+```
+
+Config for every other client, and what the five tools return: [mcp/README.md](mcp/README.md).
+
 ## Site
 
 **<https://briffy.cc>** · **<https://briffy.cc/en/>** — `site/` is one bilingual source published
