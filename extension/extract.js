@@ -244,12 +244,18 @@
   // 不去重的话同一段字会被收上几十遍。
   const COMMENT_SEL = '[class*="comment" i], [id*="comment" i], [class*="discussion" i], [id*="discussion" i], '
     + '[class*="replies" i], [id*="replies" i], [class*="评论"], [id*="评论"], [class*="回复"]';
+  // 名字里带 comment 但不是评论的：每条评论旁边那个「删除 / 举报」菜单。**它们常常被 portal 到
+  // 评论容器外面**，所以「已经在某个外层里」那一条去重吃不掉它们——2026-09-10 在一条小红书笔记上
+  // 量到 14 块里有 13 块是这种，正文只有一块。
+  const NOT_COMMENT = /(dropdown|popover|tooltip|modal|dialog|menu|toolbar|placeholder|editor|composer)/i;
   function commentBlocks(doc, win, inside) {
     const found = [];
     let els;
     try { els = [...doc.querySelectorAll(COMMENT_SEL)]; } catch (_) { return ''; }
     for (const el of els) {
       if (inside && (inside === el || inside.contains(el))) continue;      // 正文里那部分已经收过了
+      const cls = `${typeof el.className === 'string' ? el.className : ''} ${el.id || ''}`;
+      if (NOT_COMMENT.test(cls)) continue;
       if (found.some((f) => f.contains(el))) continue;                     // 已经在某个外层里
       if (el.innerText && el.innerText.length < 40) continue;
       for (let i = found.length - 1; i >= 0; i--) if (el.contains(found[i])) found.splice(i, 1);
@@ -324,7 +330,22 @@
     }
     const title = (picked && picked.title) || pageTitle(doc);
     cut = false;
-    const text = tidy((picked && picked.text) || genericBody(doc));
+    // **站点规则挑中的是帖子本身，评论区从来不在它里面。** 上一版只把 commentBlocks 接在
+    // genericBody 那一支上，于是有站点规则的那五个站（x / reddit / 小红书 / 知乎 / B 站）
+    // 一条评论都拿不到——而那恰恰是最该拿到的几个。
+    // 2026-09-10 在一条小红书笔记上量的：整页 2,549 字，站点规则拿到 284 字（11%），
+    // 评论区另有 571 字，一个字都没进来。
+    //
+    // 这儿传 null 而不是帖子的根：评论区是那个根的兄弟节点，传进去反而把它自己排掉了。
+    // 代价是在信息流页面上可能带进别的帖子的评论——而收藏几乎总是在详情页发生。
+    const win = doc.defaultView || window;
+    let text;
+    if (picked && picked.text) {
+      const talk = commentBlocks(doc, win, null);
+      text = tidy(talk ? `${picked.text}\n${talk}` : picked.text);
+    } else {
+      text = tidy(genericBody(doc));
+    }
     return {
       title: (title || '').slice(0, 300),
       url: postUrl(host, picked && picked.url),

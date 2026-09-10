@@ -59,6 +59,13 @@ ok('到顶了要说出来，不能默默截断', () => assert.ok(/truncated/.tes
 ok('有一段专门去收评论区', () => assert.ok(/function commentBlocks/.test(extract)));
 ok('正文和评论是相加不是二选一', () => assert.ok(/commentBlocks\(doc, win, el\)/.test(extract)
   && /commentBlocks\(doc, win, best\.el\)/.test(extract), '两条分支都要接上评论'));
+// **站点规则那一支最容易漏**：它一命中就短路，而有规则的正是 x / reddit / 小红书 / 知乎 / B 站——
+// 最该拿到评论的那几个。2026-09-10 第一版就漏在这儿，小红书上量到 284 字、评论 0。
+ok('站点规则命中时也要收评论', () => {
+  const tail = extract.slice(extract.indexOf('function extract('));
+  assert.ok(/picked && picked\.text/.test(tail) && /commentBlocks\(doc, win, null\)/.test(tail),
+    '站点规则那一支没接评论，那五个站就一条评论都拿不到');
+});
 ok('收最外层那一个，不然同一段字收几十遍', () => assert.ok(/found\.some\(\(f\) => f\.contains\(el\)\)/.test(extract)));
 
 // ---------- 收藏时把媒体一起带走 ----------
