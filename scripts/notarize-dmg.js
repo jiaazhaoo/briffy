@@ -19,6 +19,7 @@
 //    **只认 Developer ID Application 那一张**，并用它的哈希去签——名字不进仓库，也不会歧义。
 // ③ **票 staple 不到 zip 上。** zip 分发靠里面那个 app 自己带票，那是正确做法，不用也不能补。
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -84,6 +85,29 @@ process.stdout.write('3/3  staple… ');
 const staple = run('xcrun', ['stapler', 'staple', dmg]);
 if (staple.code !== 0) die(`stapler 失败：\n${staple.out.trim()}`);
 console.log('好\n');
+
+// ---------- 顺手把 latest-mac.yml 里 dmg 那一条更新掉 ----------
+// electron-builder 在**签这个 dmg 之前**就写好了清单，而上面三步改了 dmg 的字节——
+// 于是清单里那个 sha512 从此对不上。自动更新本身不受影响（macOS 上 Squirrel 用的是 `path:`
+// 指的 zip，那一条没被动过），但发出去的是一份错数据，而且每次发版都会错。所以在这里补。
+{
+  const yml = path.join(path.dirname(dmg), 'latest-mac.yml');
+  const name = path.basename(dmg);
+  if (fs.existsSync(yml)) {
+    const buf = fs.readFileSync(dmg);
+    const sha = crypto.createHash('sha512').update(buf).digest('base64');
+    let text = fs.readFileSync(yml, 'utf8');
+    // 只动 url 是这个 dmg 的那一段：它后面紧跟着自己的 sha512 和 size
+    const re = new RegExp(`(- url: ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n\\s*sha512: )[^\\n]*(\\s*\\n\\s*size: )\\d+`);
+    if (re.test(text)) {
+      text = text.replace(re, `$1${sha}$2${buf.length}`);
+      fs.writeFileSync(yml, text);
+      console.log(`  · latest-mac.yml 里 ${name} 的 sha512/size 已更新`);
+    } else {
+      console.log(`  · latest-mac.yml 里没找到 ${name} 那一段，没动`);
+    }
+  }
+}
 
 // ---------- 复验：就用 Gatekeeper 自己那套 ----------
 const checks = [
