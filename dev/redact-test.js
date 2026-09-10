@@ -212,8 +212,12 @@ ok('光一个 key 字不是标签（不然 "key: value" 满世界都是）', () 
   assert.strictEqual(M('key: value1'), 'key: value1');
   assert.strictEqual(M('monkey business here'), 'monkey business here');
 });
-ok('真库里那个 Apple 专用密码仍然盖得住（2026-09-10 在真工作区里抓到的）', () => assert.strictEqual(
-  M('export APPLE_APP_SPECIFIC_PASSWORD=mnuh-dgge-yagh-whbj'),
+// Apple 的 App 专用密码：四组四个小写字母，没有任何前缀可认，只能靠变量名那一侧的标签。
+// **这里的值是编的。** 上一版写的是从真工作区里抓到的那一串，于是它跟着这个公开仓库发了出去——
+// 而这个文件顶上就写着「不写死一个真号码进仓库」。规则是对的，破例的是我们自己。
+// 要复现一个真实样本就现编一个同形状的，别把真的粘进来。
+ok('Apple 专用密码（四组四字母）盖得住', () => assert.strictEqual(
+  M('export APPLE_APP_SPECIFIC_PASSWORD=abcd-efgh-ijkl-mnop'),
   'export APPLE_APP_SPECIFIC_PASSWORD=[secret]'));
 
 console.log(`redact: ${pass} passed`);
