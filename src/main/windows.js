@@ -97,10 +97,24 @@ function createPetWindow() {
   petWin.setAlwaysOnTop(true, 'floating', 1);
   petWin.setContentProtection(EXCLUDE_FROM_CAPTURE);   // keeps the pet out of the screenshots it takes
   petWin.keepProtected = true;                          // ...and out of everyone else's, always
-  // Not over full-screen apps. A film or a presentation is the one time the whole screen is the point,
-  // and a character in the corner of it is in the way. On macOS a full-screen app gets a Space of its own and
-  // this flag is all it takes to stay out of it.
-  petWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+  // 不要出现在全屏应用上面。看片和讲演是「整块屏幕就是全部内容」的时刻，角落里杵一个东西就是碍事。
+  //
+  // **原来这儿写的是 `setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false })`，
+  // 那句注释说「macOS 上全屏应用有自己的 Space，这个 flag 就够了」——是错的。**
+  // `setVisibleOnAllWorkspaces(true, …)` 设的是 `canJoinAllSpaces`（让它跟着你换桌面），
+  // 而全屏应用的 Space 也是一个 Space，于是它被一起带过去了；`visibleOnFullScreen: false`
+  // 只是不加 `fullScreenAuxiliary`，取消不掉前者。两个 flag 打架，前者赢。
+  //
+  // 2026-09-10 量过另外两条兜底，都不成立，记在这儿省得下次再试：
+  //   · workArea >= bounds：真的全屏时 workArea 1059 → 1122，而 bounds 是 1152，仍然是 false
+  //     （菜单栏那 30px 照样被扣），所以下面那个轮询在 macOS 上开了也永远不触发；
+  //   · 按窗口几何认：全屏那扇窗在另一个 Space，窗口列表里根本看不见（窗口数 12 → 8），
+  //     反倒是只是最大化的 Chrome 被判成「盖满整屏」。
+  // 唯一问得准的是辅助功能树的 AXFullScreen，但那要每几秒起一次 osascript（实测 90–260ms）。
+  //
+  // **所以这儿选的是「不跟着换桌面」**（2026-09-10 用户定的）：小猫待在你放它的那个桌面上，
+  // 换一个桌面它就不在了，而全屏应用上面也干净了。代价明明白白，换来的是零开销、零轮询。
+  petWin.setVisibleOnAllWorkspaces(false);
   petWin.loadFile(rendererPath('pet', 'index.html'));
   petWin.once('ready-to-show', () => { if (!petHidden) petWin.showInactive(); watchFullscreen(); watchPetGround(); });
   petWin.on('closed', () => { petWin = null; petGround.reset(); });
@@ -135,7 +149,8 @@ function createShelfWindow() {
   shelfWin.setAlwaysOnTop(true, 'floating', 2);
   shelfWin.setContentProtection(EXCLUDE_FROM_CAPTURE);
   shelfWin.keepProtected = true;
-  shelfWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+  // 书架跟着小猫走：小猫只在一个桌面上，它的面板就不该自己跑到别的桌面去（理由见 createPetWindow）
+  shelfWin.setVisibleOnAllWorkspaces(false);
   shelfWin.loadFile(rendererPath('shelf', 'index.html'));
   shelfWin.on('closed', () => { shelfWin = null; shelfOpen = false; });
   shelfWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -333,7 +348,9 @@ function somethingIsFullscreen() {
 }
 
 function watchFullscreen() {
-  if (process.platform === 'darwin') return;      // the Space flag already handles it
+  // macOS 不走这条：那儿靠的是「小猫不跟着换桌面」，全屏应用自己占一个 Space，它自然就不在
+  // （见 createPetWindow 那段账——这个轮询的判据在 macOS 上量出来永远是 false，开了也没用）。
+  if (process.platform === 'darwin') return;
   if (fullscreenTimer) clearInterval(fullscreenTimer);
   fullscreenTimer = setInterval(() => {
     const full = somethingIsFullscreen();
