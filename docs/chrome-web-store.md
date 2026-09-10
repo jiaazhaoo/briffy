@@ -67,7 +67,8 @@ npm run ext:pack     # → release/briffy-extension-<版本>.zip，上传前把�
 - ✅ I do not use or transfer user data for purposes that are unrelated to my item's single purpose — 唯一用途就是交给本机的 briffy。
 - ✅ I do not use or transfer user data to determine creditworthiness or for lending purposes。
 
-**Privacy policy URL**：`https://briffy.cc/privacy`（中文）· `https://briffy.cc/en/privacy`（English）
+**Privacy policy URL**：`https://briffy.cc/zh/privacy`（中文，和列表语言一致）· `https://briffy.cc/privacy`（English）
+站点 2026-09-10 改成英文在根、中文在 `/zh/`；旧的 `/en/privacy` 现在是 301，能用但不是规范地址。
 
 ---
 
@@ -127,7 +128,7 @@ npm run ext:pack     # → release/briffy-extension-<版本>.zip，上传前把�
 | 商店图标 | 128×128 PNG | 必需 | ✅ [extension/icons/128.png](../extension/icons/128.png) |
 | 截图 | 1280×800 或 640×400，1–5 张 | **必需（至少 1 张）** | ⚠️ **只能你自己截**，见下。截完 `npm run store:shots -- <图…>` 垫成规定尺寸 |
 | 小宣传磁贴 | 440×280 PNG | 可选 | ✅ [assets/store/promo-440x280.png](../assets/store/promo-440x280.png) — `npm run store:assets` 重新生成 |
-| 隐私政策 | 公网 URL | 必需 | ✅ `https://briffy.cc/privacy`（记得先 `npm run deploy`） |
+| 隐私政策 | 公网 URL | 必需 | ✅ `https://briffy.cc/zh/privacy`（中文）· `/privacy`（英文），两个都 200 |
 
 **尺寸交给脚本**：商店只收 1280×800 或 640×400，屏幕截图永远不是这两个尺寸，而后台会**替你拉伸**——
 一张界面截图拉伸之后字就歪了，那是最容易让人一眼觉得「这东西不专业」的地方。
