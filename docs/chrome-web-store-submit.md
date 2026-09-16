@@ -6,7 +6,7 @@
 素材都在仓库里，路径可直接拖进上传框：
 
 ```
-release/briffy-extension-0.1.2.zip      上传包
+release/briffy-extension-0.1.3.zip      上传包
 assets/store/screenshots/01.png         截图 1（1280×800）
 assets/store/screenshots/02.png         截图 2（1280×800）
 assets/store/promo-440x280.png          小宣传磁贴（可选）
@@ -17,7 +17,7 @@ extension/icons/128.png                 商店图标（清单里已声明，一�
 
 ## ① Package（软件包）
 
-上传 `release/briffy-extension-0.1.2.zip`。
+上传 `release/briffy-extension-0.1.3.zip`。
 
 传完后台会读清单，**Product name 和 Summary 自动带出来**，不用手打：
 
@@ -25,7 +25,7 @@ extension/icons/128.png                 商店图标（清单里已声明，一�
 | --- | --- |
 | Product name | `briffy 网页媒体采集` |
 | Summary（≤132） | `把当前网页里的图片、视频、音频一键发送到 briffy 工作区。` |
-| Version | `0.1.2` |
+| Version | `0.1.3` |
 
 ---
 
