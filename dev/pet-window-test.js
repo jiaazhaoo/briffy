@@ -13,7 +13,7 @@
 //   · workArea >= bounds：真全屏时 1059 → 1122，而 bounds 1152，仍然是 false
 //   · 按窗口几何认：全屏那扇窗在另一个 Space，窗口列表里根本看不见
 //
-// 用户选的是「不跟着换桌面」：零开销，代价是换个桌面小猫就不在了。
+// 用户选的是「不跟着换桌面」：零开销，代价是换个桌面回形针就不在了。
 // 这个台子只看源码——窗口行为要真的开起来才看得见，那一步得人来。
 const assert = require('assert');
 const fs = require('fs');
@@ -29,7 +29,7 @@ const ok = (name, fn) => {
 
 const calls = [...src.matchAll(/(\w+)\.setVisibleOnAllWorkspaces\(([^)]*)\)/g)].map((m) => ({ win: m[1], args: m[2] }));
 
-ok('小猫和书架都不跟着换桌面', () => {
+ok('回形针和书架都不跟着换桌面', () => {
   assert.strictEqual(calls.length, 2, `windows.js 里该只有两处，实际 ${calls.length}`);
   for (const c of calls) {
     assert.ok(/^false$/.test(c.args.trim()),
@@ -38,7 +38,7 @@ ok('小猫和书架都不跟着换桌面', () => {
   assert.deepStrictEqual(calls.map((c) => c.win).sort(), ['petWin', 'shelfWin']);
 });
 
-ok('书架不能和小猫分家', () => {
+ok('书架不能和回形针分家', () => {
   const pet = calls.find((c) => c.win === 'petWin');
   const shelf = calls.find((c) => c.win === 'shelfWin');
   assert.strictEqual(pet.args.trim(), shelf.args.trim(), '面板和它的主人必须在同一个桌面上');

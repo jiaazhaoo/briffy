@@ -112,7 +112,7 @@ function createPetWindow() {
   //     反倒是只是最大化的 Chrome 被判成「盖满整屏」。
   // 唯一问得准的是辅助功能树的 AXFullScreen，但那要每几秒起一次 osascript（实测 90–260ms）。
   //
-  // **所以这儿选的是「不跟着换桌面」**（2026-09-10 用户定的）：小猫待在你放它的那个桌面上，
+  // **所以这儿选的是「不跟着换桌面」**（2026-09-10 用户定的）：回形针待在你放它的那个桌面上，
   // 换一个桌面它就不在了，而全屏应用上面也干净了。代价明明白白，换来的是零开销、零轮询。
   petWin.setVisibleOnAllWorkspaces(false);
   petWin.loadFile(rendererPath('pet', 'index.html'));
@@ -149,7 +149,7 @@ function createShelfWindow() {
   shelfWin.setAlwaysOnTop(true, 'floating', 2);
   shelfWin.setContentProtection(EXCLUDE_FROM_CAPTURE);
   shelfWin.keepProtected = true;
-  // 书架跟着小猫走：小猫只在一个桌面上，它的面板就不该自己跑到别的桌面去（理由见 createPetWindow）
+  // 书架跟着回形针走：回形针只在一个桌面上，它的面板就不该自己跑到别的桌面去（理由见 createPetWindow）
   shelfWin.setVisibleOnAllWorkspaces(false);
   shelfWin.loadFile(rendererPath('shelf', 'index.html'));
   shelfWin.on('closed', () => { shelfWin = null; shelfOpen = false; });
@@ -348,7 +348,7 @@ function somethingIsFullscreen() {
 }
 
 function watchFullscreen() {
-  // macOS 不走这条：那儿靠的是「小猫不跟着换桌面」，全屏应用自己占一个 Space，它自然就不在
+  // macOS 不走这条：那儿靠的是「回形针不跟着换桌面」，全屏应用自己占一个 Space，它自然就不在
   // （见 createPetWindow 那段账——这个轮询的判据在 macOS 上量出来永远是 false，开了也没用）。
   if (process.platform === 'darwin') return;
   if (fullscreenTimer) clearInterval(fullscreenTimer);
@@ -446,7 +446,7 @@ function openOnboarding(query) {
 /**
  * 某个功能因为系统权限失效了——打开引导页，只讲这一项，一个按钮通到那一页设置，再一个按钮重启。
  *
- * 2026-09-16 之前这种时候只有小猫身上 9 秒的一句话（小猫还被设计成不进任何截图），
+ * 2026-09-16 之前这种时候只有回形针身上 9 秒的一句话（回形针还被设计成不进任何截图），
  * 外加每分钟最多一次悄悄打开系统设置。用户按了几天截图，以为软件坏了。
  * **一个功能因为权限用不了，唯一的提示不该是最看不见的那个地方。**
  * @param {'screen'|'mic'|'ax'} which

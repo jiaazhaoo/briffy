@@ -4,8 +4,8 @@
 //   node dev/permission-guide-test.js
 //
 // 2026-09-16 用户定的规矩。起因：换了版本后签名一变，旧的屏幕录制授权对新包无效，
-// 而设置里那个开关看着还是开的。briffy 那时唯一的提示是小猫身上 9 秒的一句话——
-// 小猫又被设计成永远不进任何截图。用户按了六天截图，以为软件坏了。
+// 而设置里那个开关看着还是开的。briffy 那时唯一的提示是回形针身上 9 秒的一句话——
+// 回形针又被设计成永远不进任何截图。用户按了六天截图，以为软件坏了。
 //
 // 这个台子守三件事：每个失效点都接了引导；三项权限（屏幕 / 麦克风 / 辅助功能）都在；
 // 引导页里那三句话（点名功能、「开关看着是开的也要关一下」、重启键）两种语言都有。
@@ -41,9 +41,9 @@ ok('换了版本第一次启动，缺哪项就开哪项，之后不再念', () =
   assert.ok(/s0\.setupDone && s0\.permGuideVersion !== ver/.test(main), '该在 setupDone 之后才提，首次引导本身就讲权限');
   assert.ok(/openGuide\(missing\[0\], missing\[1\]\)/.test(main));
 });
-ok('小猫身上那句话没被删掉——引导是加上去的，不是换掉的', () => {
-  assert.ok(/screenBlockedAgain/.test(workspace), '截图那条路的小猫提示没了');
-  assert.ok(/message: t\('micDenied'\)/.test(main), '麦克风那条路的小猫提示没了');
+ok('回形针身上那句话没被删掉——引导是加上去的，不是换掉的', () => {
+  assert.ok(/screenBlockedAgain/.test(workspace), '截图那条路的回形针提示没了');
+  assert.ok(/message: t\('micDenied'\)/.test(main), '麦克风那条路的回形针提示没了');
 });
 
 // ---------- 三项权限 ----------

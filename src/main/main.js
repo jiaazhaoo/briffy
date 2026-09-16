@@ -940,7 +940,7 @@ function setupIpc() {
   });
   ipcMain.on('pet:mic-denied', () => {
     windows.setPetState('error', { message: t('micDenied') });
-    // 小猫那句话最看不见；开引导页，只讲麦克风这一项（和截图那条路同一个道理，见 ensureScreenAccess）
+    // 回形针那句话最看不见；开引导页，只讲麦克风这一项（和截图那条路同一个道理，见 ensureScreenAccess）
     windows.openGuide('mic', t('featVoice'));
   });
   ipcMain.on('pet:open-workspace', () => windows.openWorkspace());

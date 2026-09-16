@@ -65,7 +65,7 @@ const check = (ok, line) => { total++; if (ok) pass++; console.log(`${ok ? 'PASS
   await workspace.captureRegion();
   check(calls.askScreen === 1, `连按三下只推一次设置（askScreen ${calls.askScreen}）`);
   check(calls.pet.filter((p) => p.startsWith('error|')).length === 3, `但每一下都告诉你为什么（气泡 ${calls.pet.filter((p) => p.startsWith('error|')).length} 次）`);
-  // 气泡最看不见（小猫不进截图，还只停 9 秒）；每一下还得把引导页开出来，而且开的是屏幕录制那一项
+  // 气泡最看不见（回形针不进截图，还只停 9 秒）；每一下还得把引导页开出来，而且开的是屏幕录制那一项
   check(calls.guide.length === 3 && calls.guide.every((g) => g.startsWith('screen|')), `每一下都开了引导页，讲的是屏幕录制（${calls.guide.join(' / ')}）`);
   check(calls.captured === 0, `三下一张都没拍（捕获调用 ${calls.captured} 次）`);
 
