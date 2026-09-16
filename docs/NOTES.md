@@ -1,288 +1,636 @@
-# 为什么这么做
+# Why it's done this way
 
-briffy 的设计笔记：每一节都是一个决定，以及量出来的、让它变成那个决定的数。
-README 是「它是什么、怎么跑起来」，这里是「为什么长这样」。
+briffy's design notes: every section is a decision, and the measured numbers that made it that
+decision. The README is "what it is and how to run it"; this is "why it's shaped this way".
 
-回到 [README](../README.md) · 官网 <https://briffy.cc>
+Back to [README](../README.md) · site <https://briffy.cc>
 
 ---
 
-## 第一次打开
+## First launch
 
-第一次启动会走一个六步的引导（[src/renderer/onboarding/](../src/renderer/onboarding/)），一屏一件事：**这是什么 → 两个语言包 → 权限 → 谁来读这些记录 → 准备本机引擎 → 手势速查**。做完写进 `setupDone`，之后不再出现；想重看就删掉设置里的这一项。
+The first launch walks a six-step onboarding ([src/renderer/onboarding/](../src/renderer/onboarding/)),
+one thing per screen: **what this is → two language packs → permissions → who reads these records →
+prepare the local engines → gesture cheatsheet**. Done, it writes `setupDone` and doesn't appear
+again; to see it again, delete that item in settings.
 
-权限那一步是它存在的主要理由。macOS 上这两项权限的行为完全不同，一个「授权」按钮糊不过去：
+The permissions step is the main reason it exists. On macOS the two permissions behave nothing alike,
+and one "grant" button can't paper over it:
 
-| | 能不能由程序发起 | 之后 |
+| | Can the app initiate it | After |
 | --- | --- | --- |
-| **麦克风** | 能。`askForMediaAccess` 会弹出系统对话框 | 点一下就好了 |
-| **屏幕录制** | **不能**。只有先尝试过一次截图，macOS 才会把这个应用列进系统设置；开关要用户自己拨 | **必须重启应用**才生效 |
+| **Microphone** | Yes. `askForMediaAccess` pops the system dialog | One tap and it's done |
+| **Screen recording** | No. Only after a capture has been attempted once does macOS list the app in System Settings; the user flips the switch | Takes effect only after relaunching the app |
 
-所以卡片会分别说清楚将要发生什么，屏幕录制那张点完会打开对应的系统设置面板并提示需要重启。从源码运行时还会额外提醒一句：系统设置里要找的是「Electron」而不是 briffy——授权是挂在可执行文件上的。
+So the cards say clearly what's about to happen, and the screen-recording one, when clicked, opens the
+corresponding System Settings pane and notes that a restart is needed. Running from source it also adds
+a line: the entry to look for in System Settings is "Electron", not briffy — the grant hangs on the
+executable.
 
-不授权也能继续，只是对应的功能关着，其它照常。界面预览：`node dev/preview/serve.js` 然后开 http://localhost:5173/onboarding （`?perm=mic|all` 看不同的授权状态，`?lang=en` 看英文）。
+You can continue without granting; the corresponding features are just off, everything else as usual.
+UI preview: `node dev/preview/serve.js` then open http://localhost:5173/onboarding (`?perm=mic|all` for
+different grant states, `?lang=en` for English).
 
-## 问自己的记录
+## Asking your own records
 
-底栏中间那条就是 **问**：随时可以打字，旁边能挑用哪个模型答这一句（换模型是问之前的决定，所以它在你问问题的地方，不只在设置里）。点左边那枚 briffy 切到问答页——右边列出它依据的记录，左边是答案，答案里的 ①② 点一下就跳到对应那条，卡片点一下就打开原始记录。问过的对话留在磁盘上（[chats.js](../src/main/chats.js)），第二天还翻得回去。
+The middle of the bottom bar is Ask: type anytime, and beside it pick which model answers this one
+(switching models is a decision made before asking, so it's where you ask, not only in settings). Click
+the briffy on the left to switch to the Q&A page — the right lists the records it relies on, the left
+is the answer, the ①② in the answer jump to the corresponding record when clicked, and clicking a card
+opens the original record. Past conversations stay on disk ([chats.js](../src/main/chats.js)),
+retrievable the next day.
 
-问题分两半读：
+A question is read in two halves:
 
-- **时间**当过滤条件。认得 今天 / 昨天 / 前天、本周 / 上周（周一到周日）、本月 / 上个月、最近三天 / 过去 10 天、9月3日、`2026-08-27`，以及对应的英文（today、last week、last 5 days…）。「上周我都在忙什么」这类只有时间没有关键词的问题，直接把那一整段时间的记录交出去，不做筛选。
-- **词**当检索条件。时间词会先从问题里删掉，不然「上周」还会去正文里找「上周」两个字。中文按**字符二元组**匹配（ICU 的分词会把「报错」切成「报」和「错」，单字又到处命中，所以 `报错截图` 变成 `报错 / 错截 / 截图`，配不上的那个自然没人理），英文按词，`AI`、`PR` 这种两个字母的也留着。命中位置有权重：画面内容 3.5、标题 3、一句话摘要 2、OCR/转写正文 1；一个词在大部分记录里都出现（常驻的应用名、你自己的用户名）就自动降权；答上了问题里更多词的记录排在前面。
+- **Time** as a filter. It recognizes today / yesterday / the day before, this week / last week (Mon to
+  Sun), this month / last month, last three days / past 10 days, September 3, `2026-08-27`, and their
+  English equivalents (today, last week, last 5 days…). A question with only time and no keyword, like
+  "what was I busy with last week", hands over that whole stretch of records without filtering.
+- **Words** as retrieval. Time words are stripped from the question first, or "last week" would also go
+  looking for the literal characters in the body. Chinese matches by character bigram (ICU's segmenter
+  cuts "报错" into "报" and "错", and single characters hit everywhere, so "报错截图" becomes "报错 /
+  错截 / 截图" and the mismatching one naturally gets no attention), English by word, keeping two-letter
+  ones like "AI", "PR". Hit position is weighted: what's in a picture 3.5, title 3, one-sentence summary
+  2, OCR/transcript body 1; a word appearing in most records (a persistent app name, your own username)
+  is auto-downweighted; records that answered more of the question's words rank higher.
 
-排在前面的至多 40 条送给 AI，附上时间、类型、标题和正文摘录（没有文字的图片则附上画面内容），要求它**只依据这些作答**、答不上来就直说、引用时原样保留标题和词条不做翻译。答案用问题本身的语言写。
+Up to 40 top records are sent to the AI with time, type, title, and body excerpts (a picture with no
+text gets what's in it instead), told to **answer only from these**, say so if it can't, and preserve
+titles and terms verbatim when citing, no translation. The answer is written in the question's own
+language.
 
-**没有配 AI 服务、或者调用失败时，这一页照样有用**：检索到的记录会照常列出来，只是没人替你读它们。挑记录这一步**完全不经过模型**——这不是省事，是这个功能能成立的前提：换掉 OpenRouter 换成本地 Ollama，索引不受影响；断网也照样定位得到；延迟是确定的，不取决于对方的网络。
+**With no AI service configured, or when the call fails, this page is still useful**: the retrieved
+records are listed as usual, just with no one to read them for you. The step of picking records never
+involves a model — this isn't for convenience, it's the precondition for this feature to hold:
+switching from OpenRouter to a local Ollama doesn't affect the index; it locates things with the
+network off; and latency is deterministic, not subject to someone else's network.
 
-回归测试：`node dev/ask-test.js`、`node dev/retrieval-test.js`（都是纯 node，不需要 Electron），把日期表达式、分词、排序和融合的行为都钉住了。
+Regression tests: `node dev/ask-test.js`, `node dev/retrieval-test.js` (both plain node, no Electron),
+pinning the behavior of date expressions, segmentation, ranking, and fusion.
 
-### 记录多了以后：一个磁盘上的索引
+### Once records grow: an index on disk
 
-原来每问一次就 `store.listEntries({ limit: Infinity })`，把工作区每一天都读进内存拼成一个数组。20 万条实测占 **215 MB 堆、打分 707 ms**；按真实平均长度外推到 185 万条约 7 GB——那不是慢，是每问一次崩一次。而模型那头始终只看 40 条，从来不是瓶颈。
+Originally each question did `store.listEntries({ limit: Infinity })`, reading every day of the
+workspace into memory into one array. Measured at 200,000 records: **215 MB heap, 707 ms to score**;
+extrapolated by real average length to 1.85M is about 7 GB — that's not slow, it's a crash per
+question. And the model end only ever looks at 40, never the bottleneck.
 
-所以有了 [src/main/index-db.js](../src/main/index-db.js)：一个住在用户数据目录里的 SQLite 倒排索引，**不加任何依赖**——Electron 44 自带的 Node 里 `node:sqlite` 就有 FTS5。20 万条、齐夫分布的语料上实测：
+So [src/main/index-db.js](../src/main/index-db.js): a SQLite inverted index living in the user data
+directory, with no dependency added — Electron 44's bundled Node has `node:sqlite` with FTS5. Measured
+on a 200,000-record, Zipf-distributed corpus:
 
 | | |
 | --- | --- |
-| 建索引 | 40 秒（一次性，之后只重读改过的那一天），库 115 MB，进程堆 **28 MB**（旧路径 215 MB） |
-| 稀有词 | 1 ms，全库仅有的那一条准确命中 |
-| 两个词 AND | 46 ms；常见词 73 ms；英文 14 ms |
-| 按天取一周 | 1 ms；334 天的计数 0 ms |
+| Build the index | 40s (one-off, then only re-reads changed days), library 115 MB, process heap **28 MB** (old path 215 MB) |
+| Rare word | 1 ms, the one record in the whole library hit precisely |
+| Two-word AND | 46 ms; common words 73 ms; English 14 ms |
+| A week by day | 1 ms; a 334-day count 0 ms |
 
-三件量出来才知道的事：
+Three things known only by measuring:
 
-- **中文必须自己分词。** FTS5 自带的 `unicode61` 把一整串中文当成一个词，`trigram` 又要求至少三个字符——两者搜「会议」都返回 0。所以入库和查询都先过 [segment.js](../src/main/segment.js)（ICU），存空格分开的词流。
-- **耗时跟命中行数走，不跟库大小走。** 命中 0.16% 时 2 ms，命中全部时 1427 ms，因为 `ORDER BY rank` 要给每一个命中打分。所以查询先用天和类型收窄范围，并丢掉过于常见的词。
-- **索引是可以扔的。** 它住在用户数据目录而不是工作区——工作区会被搬走、拷贝、换掉，而索引里的一切都能从工作区重新算出来。`meta` 里记着它是照着哪个工作区、哪一版 schema 建的，对不上就重建。
+- **Chinese must be segmented ourselves.** FTS5's `unicode61` treats a whole run of Chinese as one
+  word, and `trigram` requires at least three characters — both return 0 for "会议". So both ingestion
+  and query first pass through [segment.js](../src/main/segment.js) (ICU), storing a space-separated
+  word stream.
+- **Cost tracks the number of hit rows, not the library size.** 2 ms at 0.16% hit, 1427 ms at all-hit,
+  because `ORDER BY rank` scores every hit. So a query narrows first by day and type and drops
+  overly-common words.
+- **The index is disposable.** It lives in the user data directory, not the workspace — the workspace
+  gets moved, copied, swapped, while everything in the index can be recomputed from the workspace.
+  `meta` records which workspace and which schema version it was built against, and on a mismatch it
+  rebuilds.
 
-### 词面之外：向量，以及它为什么不能单干
+### Beyond the term: vectors, and why they can't work alone
 
-搜索框和「问」还有第二条腿：把问题和记录都算成向量，找**意思相近**的（[embed.js](../src/main/embed.js) / [chunk.js](../src/main/chunk.js) / [vector.js](../src/main/vector.js)，模型是 `paraphrase-multilingual-MiniLM-L12-v2`，约 120 MB，跑在一个 utilityProcess 里，闲 3 分钟就退）。搜「跑步」出得来那场 walking 挑战，搜「屏幕」出得来那条讲 296 PPI 的笔记。这类结果一律标着「相近」，**不和精确命中混在一起假装是同一回事**——一个搜索框安静地返回一堆不含关键词的东西，看起来就是搜坏了。
+The search box and "Ask" have a second leg: compute both question and record as vectors and find what's
+similar in meaning ([embed.js](../src/main/embed.js) / [chunk.js](../src/main/chunk.js) /
+[vector.js](../src/main/vector.js), the model `paraphrase-multilingual-MiniLM-L12-v2`, ~120 MB, running
+in a utilityProcess that exits after 3 idle minutes). Search "running" and that walking challenge comes
+up, search "screen" and that note about 296 PPI comes up. These results are all labeled "similar", not
+blended with exact hits to pretend they're the same thing — a search box quietly returning a pile of
+things without the keyword looks simply broken.
 
-`dev/semantic-bench.js` 在真实工作区上量过：六道有答案的日常题，**词面对四道、向量也对四道，但错的不是同几道**——向量找得到「显示器型号」（问题里没有一个字出现在那条英文记录里），却丢了「推荐跑哪个模型」（那条记录的标题里就写着答案）。并集是五道。所以两边都要，谁也别想单干。
+`dev/semantic-bench.js` measured on the real workspace: six answerable daily questions, term right on
+four, vector right on four too, but not the same four — vector finds "monitor model" (not one character
+of the question appears in that English record), while missing "which model to run" (the record's title
+holds the answer). The union is five. So both are needed, neither can work alone.
 
-更硬的一条理由是**向量不会说「找不到」**：同一次实测里，一条正确答案得 0.445，而一个工作区里根本没有的问题（「我上个月去哪里旅游了」）照样能凑出 0.432。分数没有绝对意义，没有可用的阈值。所以定死一条规则：**词面交白卷时，向量也不出手**。
+The harder reason is that vectors never say "not found": in the same measurement, one correct answer
+scored 0.445, while a question with nothing in the workspace at all ("where did I travel last month")
+still scraped 0.432. The score has no absolute meaning, no usable threshold. So a firm rule: **when term
+comes up blank, vectors don't fire either.**
 
-切块不是优化，是必须的：这个模型一次只读 128 个 token，一条一万三千字的网页不切的话，只会被自己的**开头**代表——而存下来的网页开头永远是语言选择、Cookie 提示和面包屑。正文先剥一遍网页家具（[boilerplate.js](../src/main/boilerplate.js)），实测去掉 17% 的字而地名桥词一条不少；**剥的只是喂给向量的那一份视图，存下来的记录一个字不动**，全文搜索照旧。
+Chunking isn't an optimization, it's necessary: this model reads 128 tokens at a time, and a
+13,000-character web page, unchunked, is represented only by its beginning — and a saved web page's
+beginning is always language selectors, cookie prompts, and breadcrumbs. The body is stripped of web
+furniture first ([boilerplate.js](../src/main/boilerplate.js)), measured removing 17% of the characters
+with not one place-name bridge word lost; **only the view fed to the vector is stripped, the stored
+record not a character changed**, full-text search as before.
 
-### 记录之间的边
+### Edges between records
 
-[links.js](../src/main/links.js) 把记录连起来，但**不是靠「一个更好的相似度」**。`dev/thames-link-probe.js` 在真实工作区上量过：「Windsor Road, Egham TW20 0AE」和它所属的那场徒步，向量相似度 **0.155**——而 0.4 上下就已经是瞎猜。门槛降到 0.30 连上 0/8，降到 0.20 连上 3/8，代价是每条记录连到全工作区 236 条里的 126 条。
+[links.js](../src/main/links.js) connects records, but not via "a better similarity".
+`dev/thames-link-probe.js` measured on the real workspace: "Windsor Road, Egham TW20 0AE" and the walk
+it belongs to have a vector similarity of **0.155** — while around 0.4 is already guessing. Lowering the
+threshold to 0.30 connects 0/8, to 0.20 connects 3/8, at the cost of each record connecting to 126 of
+the workspace's 236.
 
-而那几条停车记录的窗口标题和同一小时里那条书签的标题**一字不差**。关系一直写在记录里，那是「相等」不是「相似」——而 embedding 恰恰是唯一一种专门把字符串碾成近似含义、从而销毁精确匹配的工具。所以只有一条规则，用三次：**一条边只在能说出它的证据时才存在，而证据永远不合成一个数。**
+And those parking records' window titles are character for character identical to the title of a
+bookmark saved in the same hour. The relation was written in the record all along, and it's "equal" not
+"similar" — and an embedding is precisely the one tool that crushes strings into approximate meaning and
+thereby destroys exact matching. So one rule, applied three times: **an edge exists only when it can
+state its evidence, and evidence is never summed into one number.**
 
-| 边 | 连什么 | 怎么连 |
+| Edge | Connects | How |
 | --- | --- | --- |
-| 同一处 | 页面 ↔ 从它上面摘下来的记录 | 按 key 分组。精确，无阈值无模型 |
-| 同一程 | 页面 ↔ 页面 | 时间上一遍扫。结构性，会捞进不相干的 |
-| 同一件事 | 记录 ↔ 记录 | 向量，≥ 0.70 才算数 |
+| Same place | page ↔ records clipped from it | group by key. Exact, no threshold, no model |
+| Same sitting | page ↔ page | one pass over time. Structural, drags in unrelated ones |
+| Same subject | record ↔ record | vectors, ≥ 0.70 to count |
 
-前两种根本不是算法，是 join 和一维分段——它们精确、便宜、可解释，正因为它们不是相似度。这个文件里没有向量也没有模型，`node dev/links-test.js` 直接跑得起来。都不落库：存下来只会多一个会过期的东西，而这两种边在一百八十万条上仍然是一张哈希表和一遍扫。
+The first two aren't algorithms, they're a join and a one-dimensional segmentation — exact, cheap,
+explainable, precisely because they aren't similarity. This file has no vectors and no model,
+`node dev/links-test.js` runs directly. Neither is stored: storing only adds something that goes stale,
+and both edges stay a hash map and one pass at 1.85M records.
 
-## 看图
+## The picture viewer
 
-工作区里点开一张图，它有**自己的窗口**（[src/main/viewer.js](../src/main/viewer.js) + [src/renderer/viewer/](../src/renderer/viewer/)），而不是把详情面板撑大——一张图是用来看的，看图和读它的说明是两件事。和聊天软件点开一张照片是同一个动作：一扇自己的窗，图尽可能大，工具条在下面，右边一条是工作区里所有图片的胶片。
+Open a picture in the workspace and it gets its own window
+([src/main/viewer.js](../src/main/viewer.js) + [src/renderer/viewer/](../src/renderer/viewer/)) rather
+than stretching the detail panel — a picture is for looking at, and looking at it and reading its
+caption are two things. It's the same gesture as opening a photo in a chat app: its own window, the
+picture as large as possible, a toolbar below, and a filmstrip of every image in the workspace on the
+right.
 
-工具条：**画笔 / 方框 / 椭圆 / 马赛克 / 文字 / 裁切**，加上缩放、适应窗口、旋转、网格、撤销、置顶、复制。所有绘制都发生在图片上方的一层 canvas 里；主进程只做渲染进程做不到的四件事——把图片放进系统剪贴板、让窗口压在所有东西上面、翻译一段文字、保存一块裁切。
+Toolbar: **pen / box / ellipse / mosaic / text / crop**, plus zoom, fit, rotate, grid, undo, pin, copy.
+All drawing happens on a canvas layer above the picture; the main process does only the four things the
+renderer can't — put the picture on the system clipboard, make the window sit over everything, translate
+a piece of text, save a crop.
 
-**一键翻译走的是文字，不是图片。** 图片从不出这台电脑（这是工作区那条规矩），而 OCR 早就把字读出来了，再把原图发一遍既慢又多余。
+**One-click translate goes through the text, not the picture.** Pictures never leave this computer (the
+workspace rule), and OCR already read the words, so re-sending the original is slow and redundant.
 
-## 长截图
+## Long shots
 
-一整页装不进一屏：双击进框选，拉出一个矩形，按框旁边的**长截图**，然后 briffy **自己去滚**——不是看着你滚。
+A whole page won't fit one screen: double-click to enter box selection, drag a rectangle, press the
+**long shot** button beside it, and briffy scrolls itself — not watching you scroll.
 
-原来是看着你滚的：比较前后两帧算出内容挪了多远。那条路做不成。真实界面是周期性的——行、卡片、列表项、消息气泡，长得几乎一模一样——所以「刚好差一整张卡片」的拼接看上去和正确的那个一样好，任何「最佳匹配是不是够独特」的判据都分不开它们。在一页普通的重复区块上实测：匹配器锁在了错误的周期上，把 **90 px 的真实滚动变成了 7445 px 的图**，而且一声不吭。
+It used to watch you scroll: compare consecutive frames to compute how far content moved. That path
+can't work. Real interfaces are periodic — rows, cards, list items, message bubbles, nearly identical —
+so a "off by exactly one card" stitch looks as good as the correct one, and no "is the best match
+distinctive enough" predicate can tell them apart. Measured on a page of ordinary repeated blocks: the
+matcher locked onto the wrong period, turning **90 px of real scrolling into a 7445 px picture**,
+silently.
 
-所以现在是走一步拍一张：发一个已知大小的滚动，等它停稳，取一帧，并把搜索范围限制在内容**可能**到达的地方。第一步顺便量出在这扇窗里「一步」到底值多少像素，之后每一步都拿这个量出来的数去对——比任何猜测都紧。
+So now it takes a step and shoots: send a scroll of known size, wait for it to settle, take a frame, and
+limit the search range to where content could reach. The first step also measures what "one step"
+actually is in this window in pixels, and every step after checks against that measured number — tighter
+than any guess.
 
-代价是**辅助功能权限**，而且只在第一次真的要长截图时才要。不给就没有长截图：**旧的那套看着猜的模式不作为退路提供，因为一张悄悄拼错的图比没有图更糟。**
+The cost is Accessibility, and only the first time a long shot is really needed. Without it there's no
+long shot: the old watch-and-guess mode isn't offered as a fallback, because a quietly mis-stitched
+picture is worse than no picture.
 
-底下那条控制栏把自己排除在捕获之外（`setContentProtection`），所以它能压在正在被截的区域上面而永远不出现在图里。抓帧走的是实时捕获流（一帧 0.1 ms），不是 `desktopCapturer.getSources`（一次约 190 ms，每秒五帧，跟不上滚动）；流在你开始长截图时才打开、做完立刻丢掉——一直开着要占 2.4% 的一个核，更要命的是只要它活着，菜单栏上就挂着一个屏幕录制标志。**briffy 不是录屏工具。**
+The control bar at the bottom excludes itself from capture (`setContentProtection`), so it can sit over
+the region being captured and never appear in the picture. Frame grabs go through the live capture
+stream (0.1 ms a frame), not `desktopCapturer.getSources` (~190 ms a call, five frames a second, can't
+keep up with scrolling); the stream opens when you start a long shot and is dropped as soon as it's done
+— left open it takes 2.4% of a core, and worse, as long as it's alive there's a screen-recording
+indicator in the menu bar. briffy is not a screen recorder.
 
-## 接进来
+## Import
 
-除了你自己截的、复制的、拖进来的，还可以把别处的东西接进来（设置 › 接进来）：**Notion 的页面**和 **Gmail 的邮件**。
+Besides what you capture, copy, and drop in, you can import from elsewhere (Settings › Import): Notion
+pages and Gmail messages.
 
-**凭据是你自己的，briffy 不内置任何 client id。** 这不是偷懒，是一条硬约束逼出来的：Gmail 的 `gmail.readonly` 在 Google 那里是「受限权限」，要给外部用户用，应用得过 CASA Tier 2 安全审计——每年一次，首次 6～12 周、几千到几万美元；在那之前应用是「未验证」状态，授权页带一张警告，而且最多 100 个测试用户。briffy 内置一个自己的 client id，只会把每个用户都卡在那张警告页上。所以 Notion 用你自己建的 integration token，Gmail 用你自己在 Google Cloud 建的「桌面应用」client——你是那个应用的所有者，就没有这道门。
+The credentials are your own, briffy bundles no client id. This isn't laziness, it's forced by a hard
+constraint: Gmail's `gmail.readonly` is a "restricted scope" at Google, and to give it to external
+users the app must pass a CASA Tier 2 security audit — annual, 6~12 weeks the first time, thousands to
+tens of thousands of dollars; before that the app is "unverified", the consent screen carries a warning,
+and it's capped at 100 test users. briffy bundling its own client id would just park every user on that
+warning page. So Notion uses your own integration token, Gmail uses your own "desktop app" client made
+in Google Cloud — you own that app, so there's no such gate.
 
-Notion 用 integration token 而不是 OAuth，还有一个额外的好处：你得手动把要同步的页面「连接」给那个 integration，也就是**你决定它能看见哪些页面**，而不是一授权就把整个工作区端过来。
+Notion using an integration token rather than OAuth has an extra benefit: you have to manually "connect"
+the pages you want to sync to that integration, meaning you decide which pages it can see, rather than
+one authorization handing over the whole workspace.
 
-还有一条不需要任何凭据的路：**整包导入**（[import-bulk.js](../src/main/import-bulk.js)）。在 Notion 或 Google 那边点一次导出，把 zip / mbox / 文件夹拖进来就完事——没有 OAuth、没有 token、没有网络请求、没有审计。代价是它是一次快照而不是持续同步。两条路并存，不互相取代。（zip 用系统自带的 `unzip`，和这个项目里用 `pmset`、`osascript`、`mdls` 是同一类：操作系统本来就有的命令，不是随包夹带的二进制——那条是硬规矩，ffmpeg 也是这么定的。）
+There's also a path needing no credentials at all: bulk import
+([import-bulk.js](../src/main/import-bulk.js)). Export once on Notion or Google, drag the zip / mbox /
+folder in, done — no OAuth, no token, no network request, no audit. The cost is it's a one-time snapshot
+rather than continuous sync. Both paths coexist, neither replacing the other. (The zip uses the system's
+own `unzip`, of a kind with using `pmset`, `osascript`, `mdls` in this project: commands the OS already
+has, not a binary smuggled in the package — that's a hard rule, ffmpeg is set the same way.)
 
-接进来的东西直接进 `store.addEntry`，不走采集那条流水线：那条是给 OCR 和转写用的，而这里进来的本来就是文字。
+Imported things go straight into `store.addEntry`, not through the capture pipeline: that's for OCR and
+transcription, while what comes in here is text to begin with.
 
-## 会议自己录下来
+## Meetings record themselves
 
-**这是 briffy 唯一一件不用你动手的事，所以它默认关着**（设置 › 自动录音）。别的东西都在等一次按键或一次复制，只有这一件在听。打开之后，会议和通话会进工作区，不论有没有人打算让它进去——包括别人的声音。要不要打开是用它的人自己的问题。
+This is the one thing briffy does without you lifting a finger, so it's off by default (Settings › Auto
+recording). Everything else waits for a keypress or a copy, only this one listens. Turned on, meetings
+and calls go into the workspace whether or not anyone meant them to — including other people's voices.
+Whether to turn it on is the user's own question.
 
-它**不听房间，它跟着麦克风**：别的软件打开了麦克风，briffy 才跟着录（[micwatch.js](../src/main/micwatch.js)）。一直听着房间会把游戏语音、屋里另一个人说话、电视全都切成记录存起来——2026-09-05 就是这么录进 170 条游戏语音的。macOS 上不用写原生模块也能问到这件事：每有一个进程在采集音频，`coreaudiod` 就会持有一条带着**是谁**开的防休眠断言，`pmset -g assertions` 一次 10 ms，每 5 秒问一次的开销可以忽略，而且不需要任何权限。
+It doesn't listen to the room, it follows the microphone: only when another app opens the mic does
+briffy record along ([micwatch.js](../src/main/micwatch.js)). Listening to the room all the time would
+turn game voice chat, another person in the room, the TV, all into stored records — that's how 170 game
+voice recordings got in on 2026-09-05. On macOS this can be asked without a native module: for each
+process capturing audio, `coreaudiod` holds a wake-lock assertion carrying who opened it, `pmset -g
+assertions` is 10 ms a call, and asking every 5 seconds is negligible, and needs no permission.
 
-要排除三类：briffy 自己（不排除就永远停不下来）、24 小时占着麦克风的常驻录音器（`corespeechd`、screenpipe 这类，算进来就退回成「一直录」），以及浏览器——**浏览器不作为应用进名单**，把 Chrome 整个放行等于放行它打开的每一个网页。浏览器带来的是它对应的**会议网站**。
+Three kinds are excluded: briffy itself (or it never stops), always-on recorders holding the mic 24
+hours (`corespeechd`, screenpipe and the like, counting them regresses to "always recording"), and
+browsers — the browser doesn't enter the list as an app, allowing all of Chrome would allow every page
+it opens. What a browser brings is its corresponding meeting site.
 
-白名单不是一串写死的名字。原来是的：Teams、Webex、Slack、飞书、钉钉……对着一台只装了 Zoom 和微信的电脑，十八项里十四项永远不会命中，打开设置看到的是一份别人的清单。现在名单从 [apps.js](../src/main/apps.js) 长出来——扫一遍应用目录，把**真的装了的**会议软件作为默认白名单。
+The whitelist isn't a hardcoded list of names. It used to be: Teams, Webex, Slack, Feishu, DingTalk…
+against a machine with only Zoom and WeChat installed, fourteen of eighteen never hit, and opening
+settings you see someone else's list. Now the list grows from [apps.js](../src/main/apps.js) — scan the
+applications directory and default-whitelist the meeting apps actually installed.
 
-代价是在动手之前量出来的：
+The cost was measured before touching anything:
 
-| | 一个核 |
+| | one core |
 | --- | --- |
-| 麦克风打开、它自己的回声 / 降噪 / 增益处理都在跑 | 4.5% |
-| 在这之上再加语音检测 | 1.4% |
-| 两者都有，但关掉那些处理、采样率降到 16 kHz | **2.6%** ← 实际发布的 |
+| Mic open, with its own echo / noise / gain processing running | 4.5% |
+| Plus voice activity detection on top | 1.4% |
+| Both, but with that processing off and the sample rate down to 16 kHz | **2.6%** ← what shipped |
 
-所以渲染进程里定死：不要回声消除、不要降噪、不要自动增益、16 kHz 单声道。Whisper 本来就要 16 kHz，而且是拿普通的嘈杂语音训练的，什么也没损失，成本省掉一半多。有一项成本不是数字：**只要它在跑，macOS 就一直亮着那个橙色的麦克风点**。
+So the renderer hardcodes: no echo cancellation, no noise suppression, no auto gain, 16 kHz mono.
+Whisper wants 16 kHz anyway, and is trained on ordinary noisy speech, so nothing is lost and the cost is
+more than halved. One cost isn't a number: as long as it's running, macOS keeps that orange mic dot
+lit.
 
-监听住在一扇自己的隐藏窗口里，不在 briffy 那扇——把它藏起来不该悄悄把监听也停掉。
+The listening lives in its own hidden window, not briffy's — hiding it shouldn't quietly stop the
+listening.
 
-**说话人分段**（[diarize.js](../src/main/diarize.js)）：sherpa-onnx 跑 pyannote 分段和一个声纹模型，回答「这段录音里谁在什么时候说话」。本机实测，57 秒四人中文录音 3.8 秒（0.07x 实时）认出正好四个人，16 秒两人英文 0.6 秒认出正好两个——五分钟的会议约二十秒，和它旁边那个转写是同一个量级。标签在文件内部是任意的（实测四个人回来的编号是 0、1、2、7），所以按各自说话的多少重排成 说话人 1 / 2 / 3。
+Speaker diarization ([diarize.js](../src/main/diarize.js)): sherpa-onnx runs pyannote segmentation and a
+voiceprint model, answering "who spoke when in this recording". Measured locally, a 57-second four-person
+Chinese recording 3.8s (0.07x realtime) recognized exactly four people, a 16-second two-person English
+0.6s recognized exactly two — a five-minute meeting about twenty seconds, the same order as the
+transcription beside it. The labels are arbitrary internally (the four came back as 0, 1, 2, 7), so
+they're reordered by how much each spoke into Speaker 1 / 2 / 3.
 
-它**故意不跨录音记人**。原来有第二半：每个声音被平均成一枚声纹存下来，下次录音比对，认出来就能起名字。2026-09-06 砍掉了——**不同会议有不同的人**，周二会议里起的名字到周四就是噪音，而设置页里那份起了一半的名字清单，是应用向你要工时却不给回报。
+It deliberately doesn't remember people across recordings. It used to have a second half: each voice
+averaged into a voiceprint and stored, compared next recording, and if recognized, named. Cut on
+2026-09-06 — different meetings have different people, a name given in Tuesday's meeting is noise by
+Thursday, and a half-named list in the settings page is the app asking you for labor and giving nothing
+back.
 
-## 路过
+## Trail
 
-**你今天都在看什么**——这是 briffy 里第一样不是你有意存下的东西，所以它有自己的地方（`workspace/trail/`），**不进 `entries/`**。记录页是「你决定留下的」，把路过的东西混进去，那一页就不再是那个意思了。同样默认关着（设置 `recordTrail`）。
+What you were looking at today — this is the first thing in briffy you didn't deliberately save, so it
+has its own place (`workspace/trail/`), not in `entries/`. The records page is "what you decided to
+keep", and mixing what you merely passed by into it changes what that page means. Also off by default
+(setting `recordTrail`).
 
-两条进料，成本天差地别：
+Two feeds, wildly different in cost:
 
-- **焦点**：每两秒问一次前台是谁，变了才记一条。实测 0.31% 的一个核，每天约 0.2 MB。
-- **网页**：浏览器扩展在页面里读 DOM 直接交上来。**0.2 ms 读出 12031 个字**，不截屏、不 OCR。
+- **Focus**: ask who's in front every two seconds, record one when it changes. Measured 0.31% of a core,
+  about 0.2 MB a day.
+- **Web**: the browser extension reads the page DOM and hands it over directly. **0.2 ms to read 12,031
+  characters**, no screenshot, no OCR.
 
-为什么不走 OCR：Vision 的 fast 档要 800 ms 才读出一千一百个字，而且是「认」出来的；页面内读 `innerText` 是 0.2 ms、一万两千字、原文——快四千倍，字多十倍，还准。辅助功能树那条更糟，用 AppleScript 走一遍 Chrome 是 8.8 秒、Claude 是 32 秒。
+Why not OCR: Vision's fast tier takes 800 ms to read eleven hundred characters, and it's "recognized";
+reading `innerText` in the page is 0.2 ms, twelve thousand characters, verbatim — four thousand times
+faster, ten times the text, and accurate. The accessibility-tree path is worse, an AppleScript pass over
+Chrome is 8.8s, Claude 32s.
 
-所以只有微信、Telegram 这类既不交出 DOM 也不交出辅助功能树的应用是 OCR 才能读的，而那恰好是私人聊天——这一层**只记它们的窗口标题，不碰内容**。机器闲着也不记：`powerMonitor.getSystemIdleTime()` 是免费的，超过一分钟没人动就停手。
+So only apps that yield neither DOM nor accessibility tree — WeChat, Telegram — are OCR-only, and those
+happen to be private chats, so this layer records only their window titles, not the content. Nor does it
+record while the machine is idle: `powerMonitor.getSystemIdleTime()` is free, and over a minute untouched
+it stops.
 
-## 技术组成
+## Tech stack
 
-- **Electron 44**：浮动透明窗口（briffy 本人）+ 工作区窗口 + 看图窗口 + 悬停货架 + 框选层 + 引导 + 托盘。
-- **OCR（和大模型完全无关）**：**PP-OCR（PaddleOCR）v6** 的 ONNX 模型，通过 `onnxruntime-node` 本地推理。`v6-tiny`（6 MB）和 `v6-small`（30 MB）**两个模型都内置在安装包里**，启动时自动选一个：
+- **Electron 44**: the floating transparent window (briffy itself) + workspace window + viewer window +
+  hover shelf + box-selection layer + onboarding + tray.
+- **OCR (entirely unrelated to the LLM)**: PP-OCR (PaddleOCR) v6 ONNX models, inferred locally via
+  `onnxruntime-node`. `v6-tiny` (6 MB) and `v6-small` (30 MB) are both bundled in the installer, one
+  chosen at startup:
 
-  - 判据是内存、核心数和一次约 160 ms 的 CPU 测速（`hardware.js` 里的 `cpuProbe`，跑一次 384×384 矩阵乘法）。内存 ≥ 8 GB、核心 ≥ 4、测速不超过参考机三倍（≤ 160 ms）就用 `v6-small`，否则 `v6-tiny`。
-  - 结果写进设置（`ocrModelAuto`），可在设置里手动指定覆盖。
-  - 会自我纠正：如果自动选中的模型连续多次单张超过 6 秒（取中位数），自动降回 `v6-tiny`。
-  - 语言优先于性能：选了日文 / 韩文这类 tiny 覆盖不了的语言时，会用能覆盖该语言的模型（必要时下载）。
+  - The predicate is memory, core count, and a ~160 ms CPU probe (`cpuProbe` in `hardware.js`, one
+    384×384 matrix multiply). Memory ≥ 8 GB, cores ≥ 4, probe within 3× the reference machine (≤ 160 ms)
+    uses `v6-small`, otherwise `v6-tiny`.
+  - The result is written to settings (`ocrModelAuto`), overridable manually.
+  - It self-corrects: if the auto-chosen model repeatedly exceeds 6 seconds per image (by median), it
+    drops back to `v6-tiny`.
+  - Language beats performance: choosing Japanese / Korean and the like that tiny can't cover uses a
+    model that covers that language (downloading if needed).
 
-  其他语种（日、韩、阿拉伯、泰、俄、拉丁语系）的专用模型按需下载到 `<用户数据目录>/ocr-models`。OCR 只做文字识别，任何 AI 服务的切换都不影响识别结果。
+  Other languages' (Japanese, Korean, Arabic, Thai, Russian, Latin-script) dedicated models download on
+  demand to `<user data>/ocr-models`. OCR does text recognition only, and switching any AI service
+  doesn't affect recognition.
 
-  运行参数是按笔记本调的，不是按跑分调的：线程数取核心数的一半（2～4 个）、关掉 onnxruntime 的内存池、检测输入最长边压到 1280 px。在一张 2560×1440 的中文截图上实测（Ryzen 5 5600X）：
+  The runtime parameters are tuned for laptops, not benchmarks: threads at half the core count (2~4),
+  onnxruntime's memory arena off, detection input's longest edge down to 1280 px. Measured on a
+  2560×1440 Chinese screenshot (Ryzen 5 5600X):
 
-  | 模型 | 单次耗时 | 内存峰值 | 说明 |
+  | Model | Per run | Peak memory | Note |
   | --- | --- | --- | --- |
-  | v6-tiny（默认） | 约 0.8 秒 | 约 420 MB | 内置，中英够用 |
-  | v6-small | 约 2.7 秒 | 约 650 MB | 更准，多语言 |
+  | v6-tiny (default) | ~0.8s | ~420 MB | bundled, enough for Chinese and English |
+  | v6-small | ~2.7s | ~650 MB | more accurate, multilingual |
 
-  用默认参数（占满所有核心、开内存池、不限尺寸）时 v6-tiny 要 750 MB 和 4.5 秒 CPU 时间，识别结果反而不比现在好。空闲 2 分钟后模型会被卸载，内存归还系统。
-- **语音转文字**：`@huggingface/transformers` + `onnxruntime-node` 本地运行 Whisper（默认 `whisper-small`，可换 tiny/base/medium）。模型首次录音时下载到 `<用户数据目录>/models`，之后离线。国内网络可在设置里填镜像 `https://hf-mirror.com/`。转写前先在两个语言包之间做一次语言判别（transformers.js 本身不会自动检测语言，不指定就会当成英文并把中文“翻译”掉）；中文结果用 `opencc-js` 统一成你选的简体 / 繁体。
-- **分片流下载**：`src/main/ffmpeg.js` 负责找到 / 安装 / 调用 ffmpeg，`src/main/stream.js` 负责按清单下载并合并。见上面「分片流怎么变回一个文件」。
-- **检索**：三层，都在本地，都不经过模型。[recall.js](../src/main/recall.js) 是时间表达式和加权打分，[retrieve.js](../src/main/retrieve.js) 决定一个问题该给模型看哪几条（它不 require store 也不 require electron，所以 `dev/retrieval-test.js` 跑的就是这一份、不是它的复制品），[index-db.js](../src/main/index-db.js) 是磁盘上的 SQLite/FTS5 倒排索引（`node:sqlite`，零依赖），中文先过 [segment.js](../src/main/segment.js) 的 ICU 分词。[ask.js](../src/main/ask.js) 把选中的记录交给 `llm.js` 作答并要求它标注引用。
-- **向量**：[embed.js](../src/main/embed.js) 在一个 utilityProcess 里跑 `paraphrase-multilingual-MiniLM-L12-v2`（约 120 MB，闲 3 分钟退出，跑不起来就静静退回数词），[chunk.js](../src/main/chunk.js) 按 128 token 的上限切块，[vector.js](../src/main/vector.js) 补向量和查相近，[links.js](../src/main/links.js) 是记录之间的边。补向量挂在 ask.js 已有的那条限时预算循环上，不新建调度：实测每条 21 ms，攒十条约 0.2 秒。见上面「问自己的记录」。
-- **自动录音**：[listen.js](../src/main/listen.js) 在一扇隐藏窗口里持麦，[micwatch.js](../src/main/micwatch.js) 靠 `pmset -g assertions` 问「谁在用麦克风」（一次 10 ms，不需要权限），[apps.js](../src/main/apps.js) 扫应用目录长出白名单，[diarize.js](../src/main/diarize.js) 用 sherpa-onnx 做录音内的说话人分段。默认全关。
-- **路过**：[trail.js](../src/main/trail.js) 每两秒问一次前台是谁（[foreground.js](../src/main/foreground.js)），网页正文由浏览器扩展直接交上来。写进 `workspace/trail/`，不进 `entries/`。默认关。
-- **标题 & 摘要**：`src/main/llm.js` 统一调度四种来源。Claude 走 Anthropic SDK（默认 `claude-opus-5`，结构化输出 + 服务端 refusal fallback，PDF 直接作为文档送入）；OpenRouter 和自定义接口走 OpenAI 兼容的 chat/completions（JSON schema 不支持时自动降级）；Ollama 走原生 `/api/chat`（`format` 结构化输出、自动关闭 Qwen 的 thinking、非视觉模型自动去掉图片）。截图以图片 + OCR 文本送入；PDF 先用 `pdf-parse` 本地抽文字（也用于搜索）；网页抓正文后送入。本地模型的输入会按上下文长度截断。
-- **一条记录叫什么**：[title.js](../src/main/title.js)。「截图 22:46」不是标题是时间戳——这个工作区里 255 条记录，83 条（33%）的标题就是「类型 + 时间」，看着它根本不知道那是什么。抽关键词试过了，跑那 83 条截图的 OCR 抽出来是「剩下 · Project · 剪切 · 改成」这种东西，所以改成先问那个应用自己在显示什么。
-- **来源**：[foreground.js](../src/main/foreground.js) 在保存的那一刻问三个便宜的问题——哪个应用、哪扇窗、什么网址。一条记录不知道自己从哪来就丢了一半意思：截图是「从哪个聊天」，复制的段落是「从哪篇文章」。
-- **去重**：[picture-id.js](../src/main/picture-id.js) 判断两张图是不是同一张，在它们的字节不同的时候。微信的截图会进来两次——剪贴板同时带着它刚写的临时文件和位图本身，监听器偏好文件、存了它，几秒后微信删掉临时文件，下一次轮询只看得见位图。实测那一对是 4.3 MB 的 JPEG 和 16.6 MB 的 PNG，都是 4096×3072，肉眼一模一样而没有一个字节相同。
-- **每日摘要**：[day-stats.js](../src/main/day-stats.js) 全是算术，不问模型、不做推断——没配 AI 服务时这一页也仍然说得出真话，而不是退回一份光秃秃的清单。[uptime.js](../src/main/uptime.js) 补上另一半：一天没有记录有两种截然相反的读法（没什么值得留，或者程序根本没开），所以每五分钟留一个印子，摘要才不会有一半时候在撒谎。
-- **词表与证据**：[vocab.js](../src/main/vocab.js) 把「这个工作区里有哪些词、谁提过、谁和谁是一回事」一条一条落进库里——原来是每五分钟把每一天读进内存重算三个 Map，250 条上 69 ms / 11 MB 看不出问题，按 O(n) 外推到 20 万条是 55 秒、8.8 GB，而且**每存一条新记录就整个重来一次**。[entity.js](../src/main/entity.js) 认记录里反复出现的东西（一个地点、一个日期、一场活动、一笔钱），[story.js](../src/main/story.js) 从一条记录出发沿着边长出一片——**那不是聚类**，聚类要一个全局门槛，而这份数据上那个门槛不存在（实测：该进的那条对真成员 0.685、对堆心 0.647，**对代表只有 0.523**，被代表挡在门外）。
-- **说话人对上词**：[attribute.js](../src/main/attribute.js)。Whisper 知道说了什么、大概什么时候，分段知道谁在什么时候说——两边的边界从不对齐（Whisper 按句子和停顿切，分段按声音切），所以每一块字给那个在它里面说得最久的人。
-- **`briffy://`**：[deeplink.js](../src/main/deeplink.js) 让一条记录能被从外面指到。摘要里说「14:20 你存了那个 Postgres 报错」，这句话里的字要是能点回那条记录才值钱——摘要、导出的笔记、问答里的答案都能带上，你粘到别处（任务清单、commit message、别的笔记应用）也一样。
-- **硬件检测 & 推荐**：`src/main/hardware.js` 读取 CPU / 内存 / 显卡（Windows 用 nvidia-smi 或注册表里的显存大小，macOS 用 system_profiler，Apple Silicon 按统一内存算），按显存 / 内存预算推荐 `qwen3.5:0.8b / 2b / 4b / 9b / 27b`，备选 `gemma3:4b`。
+  With default parameters (all cores, arena on, no size cap) v6-tiny takes 750 MB and 4.5s of CPU time,
+  and recognition isn't any better. After 2 idle minutes the model is unloaded and memory returned.
+- **Speech to text**: `@huggingface/transformers` + `onnxruntime-node` running Whisper locally (default
+  `whisper-small`, swappable for tiny/base/medium). The model downloads to `<user data>/models` on the
+  first recording, then offline. On restricted networks a mirror `https://hf-mirror.com/` can be set in
+  settings. Before transcribing it does a language ID between the two language packs (transformers.js
+  doesn't auto-detect language, and unspecified would treat it as English and "translate" the Chinese
+  away); Chinese results are normalized to your chosen Simplified / Traditional with `opencc-js`.
+- **Segment stream download**: `src/main/ffmpeg.js` finds / installs / calls ffmpeg, `src/main/stream.js`
+  downloads by manifest and merges. See "how a segment stream becomes one file" below.
+- **Retrieval**: three layers, all local, none through a model. [recall.js](../src/main/recall.js) is
+  time expressions and weighted scoring, [retrieve.js](../src/main/retrieve.js) decides which records a
+  question shows the model (it requires neither store nor electron, so `dev/retrieval-test.js` runs this
+  file itself, not a copy), [index-db.js](../src/main/index-db.js) is the on-disk SQLite/FTS5 inverted
+  index (`node:sqlite`, zero dependency), Chinese first through [segment.js](../src/main/segment.js)'s
+  ICU segmentation. [ask.js](../src/main/ask.js) hands the chosen records to `llm.js` to answer and asks
+  it to mark citations.
+- **Vectors**: [embed.js](../src/main/embed.js) runs `paraphrase-multilingual-MiniLM-L12-v2` in a
+  utilityProcess (~120 MB, exits after 3 idle minutes, quietly falls back to counting words if it can't
+  start), [chunk.js](../src/main/chunk.js) chunks by the 128-token limit, [vector.js](../src/main/vector.js)
+  backfills vectors and finds neighbors, [links.js](../src/main/links.js) is the edges between records.
+  Backfilling vectors hangs on ask.js's existing time-budgeted loop, no new scheduler: measured 21 ms a
+  record, ~0.2s for ten. See "Asking your own records" above.
+- **Auto recording**: [listen.js](../src/main/listen.js) holds the mic in a hidden window,
+  [micwatch.js](../src/main/micwatch.js) asks "who's using the mic" via `pmset -g assertions` (10 ms a
+  call, no permission), [apps.js](../src/main/apps.js) scans the applications directory to grow the
+  whitelist, [diarize.js](../src/main/diarize.js) does in-recording speaker diarization with sherpa-onnx.
+  All off by default.
+- **Trail**: [trail.js](../src/main/trail.js) asks who's in front every two seconds
+  ([foreground.js](../src/main/foreground.js)), web body handed over directly by the browser extension.
+  Written to `workspace/trail/`, not `entries/`. Off by default.
+- **Title & summary**: `src/main/llm.js` orchestrates four sources. Claude goes through the Anthropic SDK
+  (default `claude-opus-5`, structured output + server-side refusal fallback, PDFs sent in as documents);
+  OpenRouter and the custom endpoint go through OpenAI-compatible chat/completions (auto-degrading when
+  JSON schema isn't supported); Ollama goes through native `/api/chat` (`format` structured output,
+  auto-disabling Qwen's thinking, auto-stripping images for non-vision models). Screenshots are sent as
+  image + OCR text; PDFs are first extracted locally with `pdf-parse` (also for search); web pages are
+  sent after extracting the body. A local model's input is truncated to its context length.
+- **What a record is called**: [title.js](../src/main/title.js). "Screenshot 22:46" isn't a title, it's
+  a timestamp — of this workspace's 255 records, 83 (33%) have a title that is just "type + time", and
+  you can't tell what it is. Keyword extraction was tried, running those 83 screenshots' OCR extracts
+  things like "remaining · Project · cut · change to", so it was changed to ask the app itself what it's
+  showing.
+- **Source**: [foreground.js](../src/main/foreground.js) asks three cheap questions at the moment of
+  saving — which app, which window, what URL. A record that doesn't know where it came from has lost half
+  its meaning: a screenshot is "from which chat", a copied passage is "from which article".
+- **Deduplication**: [picture-id.js](../src/main/picture-id.js) judges whether two images are the same
+  when their bytes differ. A WeChat screenshot comes in twice — the clipboard carries both the temp file
+  it just wrote and the bitmap itself, the watcher prefers the file and saves it, and seconds later
+  WeChat deletes the temp file, so the next poll sees only the bitmap. Measured that pair as a 4.3 MB
+  JPEG and a 16.6 MB PNG, both 4096×3072, visually identical with not one byte in common.
+- **Daily summary**: [day-stats.js](../src/main/day-stats.js) is all arithmetic, no model, no inference —
+  with no AI service configured this page still tells the truth rather than falling back to a bare list.
+  [uptime.js](../src/main/uptime.js) fills the other half: a day with no records reads two opposite ways
+  (nothing worth keeping, or the app just wasn't open), so every five minutes it leaves a mark, and the
+  summary isn't lying half the time.
+- **Word table and evidence**: [vocab.js](../src/main/vocab.js) files "which words are in this workspace,
+  who mentioned them, who is the same as whom" into the database one at a time — it used to be three Maps
+  recomputed by reading every day into memory every five minutes, 69 ms / 11 MB at 250 records looking
+  fine, extrapolated O(n) to 200k is 55s, 8.8 GB, and the whole thing redone on every new record saved.
+  [entity.js](../src/main/entity.js) recognizes recurring things in records (a place, a date, an event, a
+  sum of money), [story.js](../src/main/story.js) grows a cluster outward from one record along edges —
+  that's not clustering, clustering needs a global threshold and this data has none (measured: the record
+  that should be in scores 0.685 to a real member, 0.647 to the centroid, only 0.523 to the
+  representative, kept out).
+- **Speakers matched to words**: [attribute.js](../src/main/attribute.js). Whisper knows what was said
+  and roughly when, diarization knows who spoke when — the two sides' boundaries never align (Whisper cuts
+  by sentence and pause, diarization by voice), so each block of text goes to whoever spoke longest within
+  it.
+- **`briffy://`**: [deeplink.js](../src/main/deeplink.js) lets a record be pointed at from outside. A
+  summary saying "at 14:20 you saved that Postgres error" is worth more if those words click back to the
+  record — summaries, exported notes, and answers in Q&A all carry it, and pasting it elsewhere (a todo
+  list, a commit message, another notes app) works the same.
+- **Hardware detection & recommendation**: `src/main/hardware.js` reads CPU / memory / GPU (Windows via
+  nvidia-smi or the VRAM size in the registry, macOS via system_profiler, Apple Silicon by unified
+  memory), recommending `qwen3.5:0.8b / 2b / 4b / 9b / 27b` by VRAM / memory budget, with `gemma3:4b` as
+  an alternative.
 
-## 浏览器扩展（采集网页图片 / 视频）
+## Browser extension (collecting web images / video)
 
-`extension/` 是一个 Chrome / Edge 扩展（Manifest V3），原理和 AixDownloader 一类工具一样，从三个地方找媒体，合并去重后列出来：
+`extension/` is a Chrome / Edge extension (Manifest V3), working like tools of the AixDownloader kind,
+finding media from three places, merging, deduplicating, and listing:
 
-1. **扫描页面 DOM**（[scan.js](../extension/scan.js)）：`img` / `video` / `audio` / `srcset` / 懒加载属性 / CSS 背景图 / 指向媒体文件的链接，含 iframe，也**穿透 open shadow root**——很多播放器是自定义元素，`<video>` 藏在影子树里，`querySelectorAll` 根本看不见。
-2. **监听网络响应**（[background.js](../extension/background.js) + [classify.js](../extension/classify.js)）：抓 mp4、m3u8、mpd、图片，过滤掉追踪像素和图标。
-3. **钩住页面自己的请求**（[hook.js](../extension/hook.js)）：这是能不能发现现代视频的关键。用 MSE 的播放器，`<video>` 上挂的是 `blob:`，真正的流全靠页面 JS 的 `fetch` / `XMLHttpRequest` 拉分片——DOM 里什么都没有。所以在 `document_start`、页面代码跑起来之前，往**页面自己的世界**注入一段脚本包住 `fetch`、`XMLHttpRequest.open` 和 `URL.createObjectURL`，只**观察**经过的 URL：不拦截、不改写、不读响应体，且只上报形状像媒体或清单的那些，普通接口调用直接忽略。
+1. Scan the page DOM ([scan.js](../extension/scan.js)): `img` / `video` / `audio` / `srcset` / lazy-load
+   attributes / CSS background images / links to media files, including iframes, and piercing open shadow
+   roots — many players are custom elements with `<video>` hidden in a shadow tree that `querySelectorAll`
+   can't see.
+2. Listen to network responses ([background.js](../extension/background.js) +
+   [classify.js](../extension/classify.js)): catch mp4, m3u8, mpd, images, filtering out tracking pixels
+   and icons.
+3. Hook the page's own requests ([hook.js](../extension/hook.js)): this is the key to whether modern
+   video can be found. Players using MSE have a `blob:` on the `<video>`, and the real stream is pulled by
+   the page's JS `fetch` / `XMLHttpRequest` in segments — nothing in the DOM. So at `document_start`,
+   before the page code runs, inject a script into the page's own world that wraps `fetch`,
+   `XMLHttpRequest.open` and `URL.createObjectURL`, only observing the URLs passing through: not
+   intercepting, not altering, not reading the response body, and reporting only those shaped like media
+   or a manifest, ordinary API calls ignored.
 
-判断清单不看 Content-Type 只看 URL：大量 CDN 把 m3u8 发成 `text/plain` 或 `application/octet-stream`，也有干脆没扩展名的（`/manifest`、`?format=m3u8`）。`.ts` / `.m4s` 分片不单独列出来（要的是播放列表），但**按目录计数**——一个页面只留下 300 个分片请求，那它照样是个有视频的页面，面板会显示「N 个分片」而不是一片空白。Service Worker 代发的请求 `tabId` 是 -1，按来源域归到对应标签页，不再直接丢弃。
+Judging a manifest looks not at Content-Type but the URL: many CDNs serve m3u8 as `text/plain` or
+`application/octet-stream`, some with no extension at all (`/manifest`, `?format=m3u8`). `.ts` / `.m4s`
+segments aren't listed individually (the playlist is what's wanted), but are counted by directory — a
+page that leaves only 300 segment requests is still a page with video, and the panel shows "N segments"
+rather than a blank. A Service-Worker-relayed request has `tabId` -1, and is grouped by origin domain to
+the corresponding tab rather than dropped.
 
-什么都没找到时面板会说明**为什么**：页面里有几个 `<video>`、地址是不是 `blob:`、有没有检测到 MSE，以及「先让视频播几秒再打开面板」——分片请求出现之后才认得出来。
+When nothing's found the panel explains why: how many `<video>` are on the page, whether the src is
+`blob:`, whether MSE was detected, and "let the video play a few seconds then open the panel" — segment
+requests are only recognizable after they appear.
 
-这层判断有回归测试：`node dev/media-detect-test.js`（纯 node，不需要浏览器），30 条用例覆盖了各种伪装成文本的清单、必须计数而非列出的分片、以及绝不能当成图片端上来的追踪像素。
+This layer has a regression test: `node dev/media-detect-test.js` (plain node, no browser), 30 cases
+covering manifests disguised as text, segments that must be counted not listed, and tracking pixels that
+must never be served up as images.
 
-**安装**：记录页右上角有一个状态灯——没装时显示「装浏览器扩展」，点一下会在你的默认浏览器里打开一个引导页（`http://127.0.0.1:47831/install`），上面有可复制的 `chrome://extensions/` 地址和扩展文件夹路径，装好后那个页面**自己变绿**，App 里的状态灯也变成「扩展已连接」。
+Install: the top-right of the records page has a status light — when not installed it says "install
+browser extension", clicked it opens a guide page in your default browser
+(`http://127.0.0.1:47831/install`) with a copyable `chrome://extensions/` address and the extension
+folder path, and once installed that page turns green itself, and the app's status light becomes
+"extension connected".
 
-（浏览器出于安全不允许外部程序直接跳转到 `chrome://extensions`，所以只能复制粘贴这一步需要手动。默认浏览器是 Edge 时地址会自动换成 `edge://extensions/`。）
+(Browsers, for security, don't allow an external program to navigate directly to `chrome://extensions`,
+so that copy-paste step is manual. When the default browser is Edge the address auto-changes to
+`edge://extensions/`.)
 
-手动的三步是：
+The manual three steps are:
 
-1. 打开 `chrome://extensions`（Edge 是 `edge://extensions`），开启「开发者模式」。
-2. 点「加载已解压的扩展程序」，选择本项目的 `extension/` 文件夹（或用 App 里的「导出扩展文件夹…」复制一份到别处）。
-3. 在任意网页点扩展图标，或按 `Alt+Shift+D`。
+1. Open `chrome://extensions` (Edge is `edge://extensions`), enable "Developer mode".
+2. Click "Load unpacked", choose this project's `extension/` folder (or use the app's "Export extension
+   folder…" to copy one elsewhere).
+3. Click the extension icon on any page, or press `Alt+Shift+D`.
 
-扩展装好后每 5 分钟向 App 报一次到（`chrome.alarms`），所以状态灯不需要你先打开扩展面板就能变绿；连续两次没报到（11 分钟）就算断开。
+Once installed the extension checks in with the app every 5 minutes (`chrome.alarms`), so the status
+light turns green without you opening the extension panel first; two missed check-ins (11 minutes) counts
+as disconnected.
 
-判断"是不是真的扩展"只认浏览器自己写的请求头，网页脚本伪造不了，所以状态灯不会假绿。
+Judging "is it a real extension" trusts only headers the browser writes itself, which a web script can't
+forge, so the status light won't turn green falsely.
 
-这里有个坑，是照着「浏览器会写 `Origin`」想当然想出来的：**Service Worker 发的 GET 根本没有 `Origin`**——浏览器只给 GET 和 HEAD 以外的方法写这一行（Chrome 153 实测）。心跳正是 GET，所以它从来没被算作报到，而扩展面板那边只看自己的 fetch 有没有回来，照样写「已连接」：两处于是长期对不上。
+There's a trap here, thought up by assuming "the browser writes `Origin`": a Service Worker's GET carries
+no `Origin` at all — the browser only writes that line for methods other than GET and HEAD (measured on
+Chrome 153). The heartbeat is a GET, so it was never counted as checking in, and the extension panel,
+only checking whether its own fetch came back, wrote "connected" regardless: the two long disagreed.
 
-现在的规矩是：浏览器写了 `Origin` 就认它（`chrome-extension://…`，顺带拿到真实的扩展 id）；没写就退到 `Sec-Fetch-Site: none`——网页发往 127.0.0.1 的请求这一行永远是 `cross-site`，而这个头网页自己改不了。网页也绕不开：只要带上 `X-Briffy-Ext` 就是 cors 模式，浏览器就会把它自己的 Origin 按上去。
+The rule now: if the browser wrote an `Origin`, trust it (`chrome-extension://…`, getting the real
+extension id along the way); if not, fall back to `Sec-Fetch-Site: none` — for a request from a web page
+to 127.0.0.1 this line is always `cross-site`, and the page can't change this header. A page can't get
+around it either: with `X-Briffy-Ext` attached it's cors mode, and the browser stamps its own Origin on.
 
-这条有回归测试：`node dev/api-test.js` 在独立端口上跑一遍伪造场景，外加两种真扩展的形状（带 Origin 的 POST、不带 Origin 的心跳 GET）。测试里那两组请求头是拿一个探针扩展在 Chrome 153 上抓下来的真实值，不是猜的——上一版就是猜错了才漏掉这个 bug。
+This has a regression test: `node dev/api-test.js` runs the forged scenarios on an isolated port, plus
+the two real-extension shapes (a POST with Origin, a heartbeat GET without). The two header sets in the
+test are the real values captured from a probe extension on Chrome 153, not guessed — the last version
+guessed wrong and missed this bug.
 
-面板里可以按类型（图片 / 视频 / 音频）和最小边长筛选、全选、单选，勾好后「发送到 briffy」。图片由扩展带着页面 cookie 和 Referer 下载后传给 App（能拿到防盗链的图）；视频默认只记录地址和来源页面，勾上「同时下载视频 / 音频文件」才会真的下载。
+The panel can filter by type (image / video / audio) and minimum edge length, select all or one, and
+"send to briffy" once picked. Images are downloaded by the extension with the page's cookies and Referer
+then handed to the app (getting hotlink-protected images); video by default records only the address and
+source page, downloading for real only when "also download video / audio files" is checked.
 
-条目的名字按 URL 里的文件名取，取不到就用**页面标题**（剥掉 `_哔哩哔哩_bilibili`、`- YouTube` 这类站名后缀，但只在结尾那段确实是这个站的名字时才剥——不然 github.com 上一条「fix: bug in hub」会被砍掉半截）。
+An item's name is taken from the filename in the URL, and failing that the page title (stripping site
+suffixes like `_哔哩哔哩_bilibili`, `- YouTube`, but only when the trailing segment really is that site's
+name — or a "fix: bug in hub" on github.com would get chopped in half).
 
-### 分片流怎么变回一个文件
+### How a segment stream becomes one file
 
-网站上的视频通常不是一个文件：它是一个播放列表加几百个分片（HLS 的 `.ts` / DASH 的 `.m4s`），而且画面和声音常常是分开的两条轨。勾了下载之后，**扩展只把播放列表的地址交给 App**（去下载那个地址只会得到几 KB 的文本），由 App 这边用 **ffmpeg** 跟着清单把所有分片拉下来、把两条轨合成一个 `.mp4`（`-c copy`，只重封装不重编码，快且无损）。视频 CDN 基本都做防盗链，所以来源页会作为 `Referer` 传给 ffmpeg，否则分片全是 403。
+Video on a site is usually not one file: it's a playlist plus hundreds of segments (HLS's `.ts` / DASH's
+`.m4s`), and the video and audio are often two separate tracks. With download checked, the extension only
+hands the playlist's address to the app (downloading that address gives just a few KB of text), and the
+app, with ffmpeg, follows the manifest to pull all the segments and merge the two tracks into one `.mp4`
+(`-c copy`, remux not re-encode, fast and lossless). Video CDNs almost all hotlink-protect, so the source
+page is passed to ffmpeg as `Referer`, or the segments are all 403.
 
-**ffmpeg 不打包进安装包，也不会去下载来路不明的二进制。** 先在系统里找（PATH 以及 Homebrew / Program Files 这些包管理器常用的位置），找不到就在 设置 › 视频下载 里用**系统自己的包管理器**装（macOS `brew install ffmpeg`、Windows `winget install Gyan.FFmpeg`、Linux `apt-get install ffmpeg`），和安装 Ollama 走的是同一条路。没装的时候分片流照样能被**发现**，只是合并不了，条目会说明原因。
+ffmpeg is not bundled into the installer, nor does it download an unknown binary. It's found in the
+system first (PATH and the locations package managers use, Homebrew / Program Files), and failing that,
+installed in Settings › Video download via the system's own package manager (macOS `brew install ffmpeg`,
+Windows `winget install Gyan.FFmpeg`, Linux `apt-get install ffmpeg`), the same path as installing
+Ollama. When not installed a segment stream can still be found, just not merged, and the item explains
+why.
 
-这条链路有端到端回归测试：`node dev/stream-test.js` 会用 ffmpeg 现场生成一段 5 秒的 HLS（视频 + 独立音轨），起一个**强制要求 Referer 的**本地服务器（也就是防盗链），走一遍真实的下载流程，再验证产物是一个 h264 + aac 都在、时长分辨率都对的可播文件，以及错误 Referer 时会如实报出 403。
+This chain has an end-to-end regression test: `node dev/stream-test.js` uses ffmpeg to generate a 5-second
+HLS on the spot (video + a separate audio track), starts a local server that requires a Referer (i.e.
+hotlink protection), runs the real download flow, then verifies the product is a playable file with h264 +
+aac both present and the right duration and resolution, and that a wrong Referer honestly reports a 403.
 
-App 这边监听 `http://127.0.0.1:47831`（只绑定本机，要求扩展带自定义请求头，端口可在设置里改，也可以整个关掉）。收到的条目会标记来源为「🧩 网页」，并带上来源页面标题、图片的 alt 文本，一起交给 AI 写标题。
+The app listens on `http://127.0.0.1:47831` (bound to localhost only, requiring the extension's custom
+header, the port changeable in settings, and switchable off entirely). Received items are marked source
+"🧩 web", and carry the source page title and the image's alt text, all handed to the AI for a title.
 
-## 收藏即存档
+## Bookmark is archive
 
-浏览器里点「收藏」的那一下，页面的**标题、正文和网址**就一起进了工作区。X 的 Bookmark、Reddit 的 Save、小红书和知乎的收藏、以及任何一个写着「收藏 / Save / Bookmark」的按钮，都算数；`Cmd/Ctrl+D` 也算。
+The moment you click "bookmark" in the browser, the page's title, body, and URL all go into the
+workspace. X's Bookmark, Reddit's Save, Xiaohongshu's and Zhihu's collections, and any button labeled
+"Save / Bookmark" count; `Cmd/Ctrl+D` counts too.
 
-**它不监视浏览。** 内容脚本平时什么都不做，只在一次保存手势发生之后才去读页面；其余的点击只被看一眼，够判断它不是收藏按钮就丢开。
+It doesn't monitor browsing. The content script does nothing normally, reading the page only after a save
+gesture happens; other clicks are only glanced at, enough to tell it's not a save button and drop it.
 
-正文是**在页面里**抽的（[extract.js](../extension/extract.js)），不是把网址交给 App 去抓——真正值得收藏的页面大多要登录，从 App 这边请求只会拿到一个空壳。抽取先认站点自己的容器（X 的 `tweetText`、Reddit 的 `shreddit-post`、小红书的 `#detail-desc`），认不出来就走通用启发式：优先 `article` / `main` / `[role=main]` 这类语义容器，再按「正文长、段落多、链接少」打分，最后读文本时把目录、分享栏、相关推荐这些**藏在正文容器里面**的东西剔掉（Wikipedia 的目录就是这么混进来的）。
+The body is extracted in the page ([extract.js](../extension/extract.js)), not by handing the URL to the
+app to fetch — the pages worth bookmarking mostly require login, and a request from the app gets only an
+empty shell. Extraction recognizes the site's own container first (X's `tweetText`, Reddit's
+`shreddit-post`, Xiaohongshu's `#detail-desc`), falling back to a generic heuristic: prefer semantic
+containers like `article` / `main` / `[role=main]`, then score by "long body, many paragraphs, few
+links", and finally when reading text remove the table of contents, share bar, related recommendations
+hidden inside the body container (Wikipedia's TOC got mixed in this way).
 
-### 难的地方是分清「收藏」和「取消收藏」
+### The hard part is telling "bookmark" from "un-bookmark"
 
-几乎每个网站都用同一个按钮做这两件事，判错的代价是不对称的：**在你决定取消收藏的那一刻反而存了一份**。所以判定不看点击本身，看点完之后的状态——`aria-pressed`、按钮变成了什么字（「取消收藏」「Unsave」），以及站点专属选择器（X 的 `removeBookmark`）。措辞也不能太死板：X 的标签是 `Remove Tweet from Bookmarks`，动词和名词之间夹着别的词。
+Almost every site uses the same button for both, and the cost of misjudging is asymmetric: saving a copy
+at the very moment you decide to un-bookmark. So the judgment looks not at the click but at the state
+after it — `aria-pressed`, what text the button became ("un-bookmark", "Unsave"), and site-specific
+selectors (X's `removeBookmark`). Wording can't be rigid either: X's label is `Remove Tweet from
+Bookmarks`, with other words between the verb and noun.
 
-判定逻辑单独放在 [savedetect.js](../extension/savedetect.js) 里，可以对着各站真实的按钮结构验证：把仓库根目录用 http 服务起来，打开 `dev/fixtures/save-gestures.html`，控制台里跑 `copy(window.runCases())`。19 条用例覆盖 X / Reddit / 小红书的收藏与取消、`aria-pressed` 两种朝向、图标套在按钮里的情况，以及**不该**被当成收藏的「分享」和「保存文件到本地」。
+The judgment logic is separated into [savedetect.js](../extension/savedetect.js), verifiable against each
+site's real button structure: serve the repo root over http, open `dev/fixtures/save-gestures.html`, run
+`copy(window.runCases())` in the console. 19 cases cover X / Reddit / Xiaohongshu save and unsave, both
+directions of `aria-pressed`, an icon nested in a button, and the "share" and "save file locally" that
+must not be taken as a save.
 
-（夹具只能验判定，不能验事件通路：`HTMLElement.click()` 的 `isTrusted` 是 false，而 [bookmark.js](../extension/bookmark.js) 特意只认真实点击——否则页面可以自己伪造一次收藏。）
+(The fixture can only verify the judgment, not the event path: `HTMLElement.click()`'s `isTrusted` is
+false, and [bookmark.js](../extension/bookmark.js) deliberately recognizes only real clicks — or a page
+could forge a bookmark itself.)
 
-同一个网址一天之内只存一次，所以连点两下星星不会存两份。收藏来的条目在记录页的**来源筛选**里自成一档。
+The same URL is saved only once a day, so double-clicking the star doesn't save two copies. Bookmarked
+items are their own cell in the records page's source filter.
 
-## 桌面上那一枚
+## The one on the desktop
 
-**它不是一张图片，是 logo 本身在动。** [assets/brand/briffy.svg](../assets/brand/briffy.svg) 里每一个数都是从原稿上**量**出来的，不是照着描的（[gen-brand.js](../scripts/gen-brand.js) 扫描原图里成串的品牌蓝像素：一条水平线在弧心以下会切中弧两次、以上一次，切换发生的位置就定死了圆心）。[briffy-anim.js](../assets/brand/briffy-anim.js) 就是这张图，只是在脸上装了弹簧。
+It's not a picture, it's the logo itself moving. In [assets/brand/briffy.svg](../assets/brand/briffy.svg)
+every number is measured from the original, not traced ([gen-brand.js](../scripts/gen-brand.js) scans the
+runs of brand-blue pixels in the original: a horizontal line below the arc center cuts the arc twice,
+above it once, and where the switch happens fixes the center). [briffy-anim.js](../assets/brand/briffy-anim.js)
+is that same image, only with springs on its face.
 
-图标里的那个标记是**从底下切开的**——两道弧各自走出画面，因为它得蹲在一个方形图标里。桌面上这一枚不一样，它得是一枚真的回形针，而回形针**是一根连着的铁丝**，不是两个分开的圈：所以它是一条路径一笔画完，大环右腿（自由端）↑ → 顶弧 → 左腿 ↓ → 底下兜过去的半圆 → 小环右腿 ↑ → 顶弧 → 左腿 ↓（自由端）。数还是那几个，新的只有那个半圆；脸一个像素没动，只是换了一块取景。直腰比标记里长一截——标记是切开的看不出腰身，整只站起来之后短腰会读成一颗药丸。
+The mark in the icon is cut from below — the two arches each run off the frame, because it has to sit in a
+square icon. The one on the desktop is different, it has to be a real paperclip, and a paperclip is one
+continuous wire, not two separate loops: so it's one path drawn in a single stroke, the big loop's right
+leg (free end) ↑ → top arc → left leg ↓ → the semicircle that loops under → the small loop's right leg ↑ →
+top arc → left leg ↓ (free end). The numbers are the same, only the semicircle is new; the face not a
+pixel moved, only a different crop. The straight waist is a bit longer than the mark's — the mark is cut
+and shows no waist, and standing whole a short waist reads as a pill.
 
-**两道弧永远不变形。** 半径、圆心、线宽从 SVG 里抄过来，任何时候都不动：不管它在做什么，随手停一帧，它还是那个 logo。会动的只有脸（两只眼睛和一张嘴）和作为一个刚体的整只——可以被抬起、倾斜、弹一下，像在桌上挪动一张画，但从不被压扁或拉长。
+The two arches never deform. Radius, center, line width copied from the SVG, unmoving at any time: whatever
+it's doing, stop a frame at random and it's still the logo. Only the face (two eyes and a mouth) and the
+whole thing as a rigid body move — it can be lifted, tilted, bounced, like moving a drawing on a table, but
+never squashed or stretched.
 
-用弹簧而不是关键帧，有两个理由，第二个才是它能存在的原因：
+Springs rather than keyframes, two reasons, the second being why it can exist at all:
 
-- 关键帧得为每一对可能互相切换的状态各画一遍；弹簧只需要终点，半路被打断是免费的——它只是从当前位置、以当前速度改朝新的方向去。而 briffy 的状态**一直在互相打断**（录音跑着的时候来了一次截图，存到一半来了个错误）。
-- **弹簧会停。** 这扇窗透明、置顶、永不关闭，它要的每一帧都是一次永不结束的 alpha 合成——`pet.css` 里量过：三个 `infinite` 待机循环要占掉一个核的 **11.4%**，完全静止只要 **0.9%**，所以待机循环被删了。而弹簧会收敛：每个变量都进了目标的 ε 范围、速度也归零之后，循环把它们精确对齐到目标，然后**取消掉下一次 requestAnimationFrame**。两个状态之间没有任何东西在动，也没有任何东西在合成；状态一变把它叫醒，动完，回到不要钱的样子。
+- Keyframes have to be drawn for every pair of states that can switch to each other; a spring needs only an
+  endpoint, and being interrupted mid-way is free — it just heads for the new direction from its current
+  position and velocity. And briffy's states interrupt each other constantly (a capture arrives while
+  recording runs, an error while a save is half done).
+- Springs settle. This window is transparent, always-on-top, never closes, and every frame it wants is a
+  never-ending alpha composite — measured in `pet.css`: three `infinite` idle loops take 11.4% of a core,
+  full stillness only 0.9%, so the idle loops were deleted. And a spring converges: once every variable is
+  within ε of its target and velocity is zero, the loop snaps them exactly to the target and cancels the
+  next requestAnimationFrame. Between two states nothing moves and nothing composites; a state change wakes
+  it, it moves, and it returns to the free version.
 
-只有普通数字和一个 `<svg>`：没有 canvas、没有依赖、没有构建步骤，所以它能被 node 下的测试直接 `require`（`node dev/briffy-anim-test.js`），也能用一个 `<script>` 标签丢进任何页面——官网上那一枚和桌面上这一枚是同一份文件。
+Only plain numbers and one `<svg>`: no canvas, no dependency, no build step, so it can be `require`d
+directly by a test under node (`node dev/briffy-anim-test.js`), and dropped into any page with a `<script>`
+tag — the one on the site and the one on the desktop are the same file.
 
-窗口 80×80，画的内容不占满：四周留出的透明边是给投影、录音红圈和每个动作的余量，不然放大一下就会被窗口的矩形边裁掉。状态特效（录音红圈 + REC、思考小点、摘要角标、拖入时的虚线接框）都在 [pet.css](../src/renderer/pet/pet.css) 里画。
+The window is 80×80, the content not filling it: the transparent margin is room for the shadow, the
+recording ring, and each motion, or a slight enlargement gets clipped by the window's rectangle. State
+effects (the recording ring + REC, thinking dots, summary badge, the dashed drop frame on drag-in) are all
+drawn in [pet.css](../src/renderer/pet/pet.css).
 
-**它站在别人的桌面上**（[pet-ground.js](../src/main/pet-ground.js)）：底下可能是纯白的文档，也可能是纯黑的终端，而它自己只有一个蓝——`#2a6cf0` 压在纯黑上只有 4.1:1，闷。镶一圈描边试过，被否了：一根干净的蓝铁丝镶上白边就成了贴纸。现在改成跟着**系统外观**换一档蓝，同一个色相 219°、只动明度，所以还是它。读的是系统那个开关而不是 briffy 自己的「配色」——这两个真的会不一样，而它站的是别人的桌面，跟它同色系的是壁纸和别的应用，不是 briffy 的窗口。
+It stands on someone else's desktop ([pet-ground.js](../src/main/pet-ground.js)): under it might be a
+pure-white document or a pure-black terminal, while it has only one blue — `#2a6cf0` on pure black is only
+4.1:1, muddy. A stroke around it was tried and rejected: a clean blue wire with a white outline becomes a
+sticker. Now it shifts a shade of blue with the system appearance, the same hue 219° with only lightness
+changing, so it's still it. It reads the system switch rather than briffy's own "theme" — those really can
+differ, and it stands on someone else's desktop, its color relatives being the wallpaper and other apps,
+not briffy's window.
 
-（另一条路是量它脚下那块底的真实亮度——写出来也跑通了，把自己排除在捕获之外、抓一张缩略图、裁出它站的那块算平均亮度。更准，但 `desktopCapturer.getSources` 在这台机器上量过是 190–330 ms 一次，只能在「刚出生 / 被拖走 / 屏幕变了」这几个时刻打点，站着不动时底下开了个黑窗口它不会跟上。）
+(The other path is measuring the real brightness of the ground under it — written and working too, exclude
+itself from capture, grab a thumbnail, crop the patch it stands on, compute mean brightness. More accurate,
+but `desktopCapturer.getSources` measured 190–330 ms a call on this machine, so it can only sample at
+"just born / dragged away / screen changed" moments, and standing still with a black window opened
+underneath it wouldn't keep up.)
 
-### 想要透明底、全身、多表情的那种
+### Wanting the transparent-background, full-body, many-expression kind
 
-如果想要一只画出来的动物而不是这根回形针，`.claude/skills/pet-as-character/` 里有一套完整的生成流程——改自公开项目 [ip-as-logo](https://github.com/s1dashu/ip-as-logo-skill)，但**不生成图标**：改成透明底、居中全身、一只角色画 8 帧表情（`idle` `blink` `capture` `think` `listen` `happy` `sad` `sleep`），且每帧都拿选定的那张当参考图，保证是同一只。三个方向和每帧姿势写在 [scripts/pet-brief.json](../scripts/pet-brief.json)。
+If you want a drawn animal rather than this paperclip, `.claude/skills/pet-as-character/` has a full
+generation flow — adapted from the public project [ip-as-logo](https://github.com/s1dashu/ip-as-logo-skill),
+but it doesn't generate an icon: it's changed to transparent background, centered full body, one character
+drawn in 8 expression frames (`idle` `blink` `capture` `think` `listen` `happy` `sad` `sleep`), each frame
+using the chosen one as a reference image to guarantee it's the same creature. The three directions and each
+frame's pose are in [scripts/pet-brief.json](../scripts/pet-brief.json).
 
 ```bash
-npm run pet -- identity --dry-run   # 只写出提示词，不调 API（assets/pet/raw/*.txt）
-npm run pet -- identity             # 六个候选：A1 A2 B1 B2 C1 C2
-npm run pet:cutout                  # 抠图 + 裁切 + 缩放，并拼出 assets/pet/candidates.png
-npm run pet -- frames --from assets/pet/raw/B1.png   # 选定后画 8 帧
+npm run pet -- identity --dry-run   # write out the prompts only, no API call (assets/pet/raw/*.txt)
+npm run pet -- identity             # six candidates: A1 A2 B1 B2 C1 C2
+npm run pet:cutout                  # cut out + crop + scale, and assemble assets/pet/candidates.png
+npm run pet -- frames --from assets/pet/raw/B1.png   # once chosen, draw the 8 frames
 ```
 
-需要画图模型的 Key：`OPENAI_API_KEY`（`gpt-image-2`，能直接出透明底）、`GEMINI_API_KEY` 或 `OPENROUTER_API_KEY`（出纯色底，由 `scripts/pet-cutout.js` 抠掉）。`npm run pet:electron -- identity` 会走 Electron，直接复用设置里存好的 OpenRouter Key。抠图是从四条边往里漫水填充，角色内部和背景同色的地方不会被误抠，边缘按颜色距离给半透明并反解掉溢色。走这条路要另外改 `pet.css`，把自绘的回形针换成透明贴图。
+Needs an image model's key: `OPENAI_API_KEY` (`gpt-image-2`, produces transparent background directly),
+`GEMINI_API_KEY` or `OPENROUTER_API_KEY` (produces a solid background, cut out by `scripts/pet-cutout.js`).
+`npm run pet:electron -- identity` goes through Electron, reusing the OpenRouter key saved in settings.
+Cutout is flood-fill inward from the four edges, so where the character's interior matches the background it
+isn't wrongly cut, and edges are made semi-transparent by color distance with color spill removed. Taking
+this path also means changing `pet.css` to swap the self-drawn paperclip for a transparent sprite.
