@@ -17,6 +17,34 @@ npx electron dev/xxx-test.js   the 18 that need electron
 npm run preview                http://localhost:5173/ runs the real UI on fake data (/pet /viewer /shelf /region /onboarding)
 ```
 
+## Putting your build on this machine
+
+```
+npm run dev:install    build current source, sign it, replace /Applications/briffy.app, relaunch
+npm run doctor         what is actually installed and running, and is it current
+```
+
+**Never install a build any other way.** Three rules `dev:install` enforces, each one measured on
+2026-09-17 after a whole afternoon was lost to them:
+
+- **Developer ID signing only, never ad-hoc.** An ad-hoc build's TCC identity is `Electron`, not
+  `com.briffy.app`, so macOS treats it as a different app and it inherits none of the screen-recording
+  or microphone grants — and every rebuild mints yet another identity. The user watched the briffy
+  toggle sit switched on in System Settings while the running app kept asking for permission, because
+  that toggle belonged to a different app. `dev:install` refuses to run without the certificate rather
+  than falling back.
+- **One briffy.app on the machine.** It installs to `/Applications` (same path and identity the user
+  granted) and deletes the copy under `release/`. Two double-clickable briffys guarantee that sooner or
+  later you test one and run the other.
+- **Every build carries a stamp** (`scripts/stamp.js` → `src/build-info.json`: commit, branch, dirty,
+  build time). Before this, four builds on this machine all reported version `1.0.1` and nothing could
+  tell them apart — which is why "the fix is in the source" and "the fix is in the app you are running"
+  went unnoticed for six days.
+
+**Source fixed is not app fixed.** When a fix is about window behaviour, permissions, or anything only
+observable in a packaged app, `npm run dev:install` and check there before telling the user it works.
+`npm run doctor` will say it plainly when the running build is behind HEAD.
+
 ## Must not be violated
 
 These aren't preferences, they're the reason this product can be trusted to run all day. If a change

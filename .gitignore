@@ -24,3 +24,6 @@ dev/preview/sample.png
 *.mobileprovision
 .DS_Store
 assets/store/screenshots/
+
+# 构建戳：跟着包走，不跟着源码走（scripts/stamp.js）
+src/build-info.json

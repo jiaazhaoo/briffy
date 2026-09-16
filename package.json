@@ -36,14 +36,16 @@
     "store:shots": "node scripts/store-shots.js",
     "readme:shot": "electron scripts/gen-readme-shot.js",
     "deploy": "npm run site && wrangler deploy",
-    "pack": "npm run fetch-models && npm run fetch-fonts && electron-builder --dir",
-    "dist": "npm run fetch-models && npm run fetch-fonts && electron-builder",
-    "dist:win": "npm run fetch-models && npm run fetch-fonts && electron-builder --win",
-    "dist:mac": "npm run fetch-models && npm run fetch-fonts && electron-builder --mac",
+    "pack": "node scripts/stamp.js && npm run fetch-models && npm run fetch-fonts && electron-builder --dir",
+    "dist": "node scripts/stamp.js && npm run fetch-models && npm run fetch-fonts && electron-builder",
+    "dist:win": "node scripts/stamp.js && npm run fetch-models && npm run fetch-fonts && electron-builder --win",
+    "dist:mac": "node scripts/stamp.js && npm run fetch-models && npm run fetch-fonts && electron-builder --mac",
     "release:mac": "node dev/mac-release-check.js --preflight && npm run dist:mac && npm run verify:mac",
     "verify:mac": "node dev/mac-release-check.js",
     "notarize:dmg": "node scripts/notarize-dmg.js",
-    "fetch-fonts": "node scripts/fetch-fonts.js"
+    "fetch-fonts": "node scripts/fetch-fonts.js",
+    "doctor": "node scripts/doctor.js",
+    "dev:install": "node scripts/dev-install.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
