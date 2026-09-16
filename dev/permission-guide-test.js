@@ -91,8 +91,12 @@ ok('引导模式藏掉六步导航，露出两个键', () => {
   assert.ok(/body\.guide #btnBack, body\.guide #btnNext, body\.guide \.steps/.test(obCss), '导航没藏');
   assert.ok(/body\.guide \.guide-only \{ display: inline-flex; \}/.test(obCss));
 });
-ok('给了之后重启键才变主键（没给时重启了也没用）', () => {
-  assert.ok(/btnRestart'\)\.classList\.toggle\('primary', ok\)/.test(ob));
+ok('给了之后重启键才变主键——但屏幕录制那一项一开始就是主键', () => {
+  // 屏幕录制在本进程里问到的永远是旧答案，等它变绿是等不到的；用户拨完开关回来页面没反应，以为没拨对
+  assert.ok(/const blind = GUIDE === 'screen'/.test(ob));
+  assert.ok(/toggle\('primary', ok \|\| blind\)/.test(ob));
+  assert.strictEqual((ob.match(/\bguideStaleScreen:/g) || []).length, 2, '那句话两种语言都要有');
+  assert.ok(/guideStaleScreen: '[^']*直接点/.test(ob) && /guideStaleScreen: '[^']*click "Restart briffy"/.test(ob));
 });
 ok('引导模式每 2 秒问一次权限——用户是去别的窗口拨开关的，这边得自己看见', () => {
   assert.ok(/setInterval\(refreshPerms, 2000\)/.test(ob));

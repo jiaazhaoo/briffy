@@ -25,6 +25,7 @@
       guideSub: '给了之后这个功能就能用。三步：打开开关 → 重启 briffy → 再试一次。',
       permNameScreen: '屏幕录制', permNameMic: '麦克风', permNameAx: '辅助功能',
       guideStale: '开关看着已经是开的？**关掉再打开一次。** 换过版本之后，旧的那条授权对新版本是无效的，但开关不会自己变回去。',
+      guideStaleScreen: '拨完开关**直接点「重启 briffy」**——这一项要重启后才生效，这一页不会变绿。开关看着已经是开的？关掉再打开一次：换过版本之后，旧授权对新版本无效。',
       guideGranted: '已经给了。重启一次就生效。',
       guideRestart: '重启 briffy', guideOpen: '去打开', guideLater: '以后再说',
       permDev: '注意：现在是从源码运行，系统设置里要找的是「{name}」而不是 briffy。',
@@ -60,6 +61,7 @@
       guideSub: 'Grant it and the feature works. Three steps: flip the switch → restart briffy → try again.',
       permNameScreen: 'Screen Recording', permNameMic: 'Microphone', permNameAx: 'Accessibility',
       guideStale: 'Switch already looks on? **Turn it off and on again.** After an update, the old grant no longer applies to the new build, but the switch does not flip itself.',
+      guideStaleScreen: 'Flip the switch, then **click "Restart briffy"** -- this one only takes effect after a restart, so this page will not turn green. Switch already looks on? Turn it off and on again: after an update the old grant no longer applies.',
       guideGranted: 'Granted. Restart once and it takes effect.',
       guideRestart: 'Restart briffy', guideOpen: 'Open settings', guideLater: 'Later',
       permDev: 'Note: running from source, so the entry to look for is "{name}", not briffy.',
@@ -153,13 +155,18 @@
     }).join('');
     const note = $('#permNote');
     if (GUIDE) {
-      // 引导模式：给了就说「重启一次就生效」，没给就提醒那个最容易踩的坑（开关看着是开的）
+      // 引导模式：给了就说「重启一次就生效」，没给就提醒那个最容易踩的坑（开关看着是开的）。
+      //
+      // **屏幕录制这一项例外：本进程里问到的永远是旧答案**（CGPreflightScreenCaptureAccess 到重启
+      // 才换口径，workspace.js 那边有账）。所以等它变绿是等不到的——2026-09-16 用户拨了开关回来，
+      // 页面没任何反应，以为没拨对。这一项从一开始就把「重启」当主键，话也直接说：拨完就重启。
+      const blind = GUIDE === 'screen';
       const ok = p[GUIDE] === 'granted';
       note.className = ok ? 'note ok' : 'note warn';
-      note.innerHTML = md(ok ? t('guideGranted') : t('guideStale'))
+      note.innerHTML = md(ok ? t('guideGranted') : blind ? t('guideStaleScreen') : t('guideStale'))
         + (state.perms && !state.perms.packaged ? `<br>${esc(t('permDev', { name: state.perms.grantedTo }))}` : '');
-      $('#btnRestart').classList.toggle('primary', ok);
-      $('#btnRestart').classList.toggle('ghost', !ok);
+      $('#btnRestart').classList.toggle('primary', ok || blind);
+      $('#btnRestart').classList.toggle('ghost', !(ok || blind));
       return;
     }
     if (!now) { note.textContent = ''; note.className = 'note'; return; }
