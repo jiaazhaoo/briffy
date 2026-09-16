@@ -417,21 +417,43 @@ function dragEnd() {
 // A window of its own rather than a page inside the workspace: on the first launch there is nothing in
 // the workspace to look at, and the permission steps need the app to be the thing in front of you.
 let obWin = null;
-function openOnboarding() {
-  if (obWin && !obWin.isDestroyed()) { obWin.show(); obWin.focus(); return obWin; }
+/**
+ * @param {{guide?:string, feature?:string}} [query] 只走权限那一步：guide 是哪一项（screen / mic / ax），
+ *   feature 是刚才失败的那个功能的名字，页面上要点名。不传就是完整的六步引导。
+ */
+function openOnboarding(query) {
+  const q = query && query.guide ? { guide: query.guide, feature: query.feature || '' } : undefined;
+  if (obWin && !obWin.isDestroyed()) {
+    // 已经开着：换成这次要说的那一项再抬起来。同一扇窗，不叠第二扇。
+    if (q) obWin.loadFile(rendererPath('onboarding', 'index.html'), { query: q });
+    obWin.show(); obWin.focus(); return obWin;
+  }
   obWin = new BrowserWindow({
-    width: 620, height: 720, minWidth: 520, minHeight: 620,
+    width: 620, height: q ? 560 : 720, minWidth: 520, minHeight: 520,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     backgroundColor: '#0f1115',
     show: false, title: 'briffy',
     webPreferences: { preload: preloadPath('onboarding.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
   });
   syncDock();
-  obWin.loadFile(rendererPath('onboarding', 'index.html'));
+  obWin.loadFile(rendererPath('onboarding', 'index.html'), q ? { query: q } : undefined);
   obWin.once('ready-to-show', () => { obWin.show(); obWin.focus(); });
   obWin.on('closed', () => { obWin = null; syncDock(); });
   obWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   return obWin;
+}
+
+/**
+ * 某个功能因为系统权限失效了——打开引导页，只讲这一项，一个按钮通到那一页设置，再一个按钮重启。
+ *
+ * 2026-09-16 之前这种时候只有小猫身上 9 秒的一句话（小猫还被设计成不进任何截图），
+ * 外加每分钟最多一次悄悄打开系统设置。用户按了几天截图，以为软件坏了。
+ * **一个功能因为权限用不了，唯一的提示不该是最看不见的那个地方。**
+ * @param {'screen'|'mic'|'ax'} which
+ * @param {string} feature 刚才失败的那个功能，页面上点名（「截图」「录音」「读取窗口文字」）
+ */
+function openGuide(which, feature) {
+  return openOnboarding({ guide: which, feature });
 }
 function closeOnboarding() { if (obWin && !obWin.isDestroyed()) obWin.close(); }
 function broadcastToOnboarding(channel, payload) {
@@ -547,7 +569,7 @@ module.exports = {
   syncDock,
   EXCLUDE_FROM_CAPTURE,
   init, createPetWindow,
-  openOnboarding, closeOnboarding, broadcastToOnboarding,
+  openOnboarding, openGuide, closeOnboarding, broadcastToOnboarding,
   setPetState, getState, sendPetCommand, hideForCapture, restoreAfterCapture, setPetHidden, isPetHidden,
   dragStart, dragMove, dragEnd, petGroundChanged, openWorkspace, broadcastToWorkspace, getPetWindow, getWorkspaceWindow,
   createShelfWindow, hoverPet, hideShelf, isShelfOpen, getShelfWindow,

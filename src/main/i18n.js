@@ -152,6 +152,8 @@ const STRINGS = {
     dialogAddFiles: '选择要存入工作区的文件',
     dialogImport: '选择导出文件或文件夹',
     dialogChooseDir: '选择工作区文件夹',
+    // 引导页点名的那几个功能：「截图需要屏幕录制权限」
+    featScreenshot: '截图', featVoice: '录音', featWindowText: '读取窗口里的文字',
     ok: '好',
     cancel: '取消',
     // 换工作区文件夹。这条路上会丢数据，所以每一句都要说清楚「原来那份还在」。
@@ -311,6 +313,7 @@ const STRINGS = {
     dialogAddFiles: 'Choose files to save into the workspace',
     dialogImport: 'Choose an export file or folder',
     dialogChooseDir: 'Choose workspace folder',
+    featScreenshot: 'Screenshot', featVoice: 'Voice note', featWindowText: 'Reading text from windows',
     ok: 'OK',
     cancel: 'Cancel',
     moveTitle: 'Copy {files} files ({size}) to the new folder?',

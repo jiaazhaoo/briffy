@@ -19,6 +19,14 @@
       permScreen: '看你屏幕上的东西', permScreenWhy: '截图并识别里面的文字',
       grant: '去授权 →', granted: '已授权', denied: '已拒绝', opening: '正在打开系统设置…',
       permRestart: '在系统设置里打开开关后，需要重启一次 briffy 才生效。',
+      permAx: '读窗口里的文字', permAxWhy: '截图时直接读窗口的正文，识别更准；长截图也靠它',
+      // 引导模式：某个功能因为权限失效了，只讲这一项
+      guideTitle: '{feature}需要「{perm}」权限',
+      guideSub: '给了之后这个功能就能用。三步：打开开关 → 重启 briffy → 再试一次。',
+      permNameScreen: '屏幕录制', permNameMic: '麦克风', permNameAx: '辅助功能',
+      guideStale: '开关看着已经是开的？**关掉再打开一次。** 换过版本之后，旧的那条授权对新版本是无效的，但开关不会自己变回去。',
+      guideGranted: '已经给了。重启一次就生效。',
+      guideRestart: '重启 briffy', guideOpen: '去打开', guideLater: '以后再说',
       permDev: '注意：现在是从源码运行，系统设置里要找的是「{name}」而不是 briffy。',
       permSkip: '不给也能用——录音和截图会关着，其它照常。',
       aiTitle: '谁来读这些记录？',
@@ -47,6 +55,13 @@
       permScreen: 'See what is on your screen', permScreenWhy: 'Capture the screen and read the text in it',
       grant: 'Grant →', granted: 'granted', denied: 'denied', opening: 'Opening System Settings…',
       permRestart: 'After you flip the switch in System Settings, briffy has to be restarted for it to take effect.',
+      permAx: 'Read the text in windows', permAxWhy: 'Reads a window\'s own text when capturing, more accurate than OCR; long shots need it too',
+      guideTitle: '{feature} needs the "{perm}" permission',
+      guideSub: 'Grant it and the feature works. Three steps: flip the switch → restart briffy → try again.',
+      permNameScreen: 'Screen Recording', permNameMic: 'Microphone', permNameAx: 'Accessibility',
+      guideStale: 'Switch already looks on? **Turn it off and on again.** After an update, the old grant no longer applies to the new build, but the switch does not flip itself.',
+      guideGranted: 'Granted. Restart once and it takes effect.',
+      guideRestart: 'Restart briffy', guideOpen: 'Open settings', guideLater: 'Later',
       permDev: 'Note: running from source, so the entry to look for is "{name}", not briffy.',
       permSkip: 'It works without these — recording and capture stay off, everything else is fine.',
       aiTitle: 'Who reads these records?',
@@ -107,23 +122,29 @@
   // Two permissions that behave nothing alike: the microphone can be asked for, screen recording can
   // only be pointed at. The card says which of those is about to happen before it happens.
   const PERMS = [
-    { id: 'mic', icon: '🎙️', title: 'permMic', why: 'permMicWhy' },
-    { id: 'screen', icon: '🖥️', title: 'permScreen', why: 'permScreenWhy' },
+    { id: 'mic', icon: '🎙️', title: 'permMic', why: 'permMicWhy', name: 'permNameMic' },
+    { id: 'screen', icon: '🖥️', title: 'permScreen', why: 'permScreenWhy', name: 'permNameScreen' },
+    { id: 'ax', icon: '📄', title: 'permAx', why: 'permAxWhy', name: 'permNameAx' },
   ];
+  // ?guide=screen&feature=截图 → 只讲这一项。某个功能刚因为权限失效了，主进程把窗开到这儿。
+  const Q = new URLSearchParams(location.search);
+  const GUIDE = PERMS.some((x) => x.id === Q.get('guide')) ? Q.get('guide') : '';
+  const FEATURE = Q.get('feature') || '';
   function nextUngranted() {
     const p = state.perms || {};
     return (PERMS.find((x) => p[x.id] !== 'granted') || {}).id || '';
   }
   function renderPerms() {
     const p = state.perms || {};
-    const now = nextUngranted();
-    $('#permCards').innerHTML = PERMS.map((x) => {
+    const now = GUIDE || nextUngranted();
+    const list = GUIDE ? PERMS.filter((x) => x.id === GUIDE) : PERMS;
+    $('#permCards').innerHTML = list.map((x) => {
       const st = p[x.id] || 'unknown';
       const ok = st === 'granted';
       const cls = ok ? 'granted' : x.id === now ? 'now' : 'idle';
       const right = ok
         ? `<span class="state ok">${esc(t('granted'))}</span>`
-        : `<button type="button" class="act" data-perm="${x.id}">${esc(t('grant'))}</button>`;
+        : `<button type="button" class="act" data-perm="${x.id}">${esc(t(GUIDE ? 'guideOpen' : 'grant'))}</button>`;
       return `<div class="perm ${cls}">
         <div class="ico">${ok ? '✓' : x.icon}</div>
         <div><div class="t">${esc(t(x.title))}</div><div class="d">${esc(t(x.why))}</div></div>
@@ -131,11 +152,23 @@
       </div>`;
     }).join('');
     const note = $('#permNote');
+    if (GUIDE) {
+      // 引导模式：给了就说「重启一次就生效」，没给就提醒那个最容易踩的坑（开关看着是开的）
+      const ok = p[GUIDE] === 'granted';
+      note.className = ok ? 'note ok' : 'note warn';
+      note.innerHTML = md(ok ? t('guideGranted') : t('guideStale'))
+        + (state.perms && !state.perms.packaged ? `<br>${esc(t('permDev', { name: state.perms.grantedTo }))}` : '');
+      $('#btnRestart').classList.toggle('primary', ok);
+      $('#btnRestart').classList.toggle('ghost', !ok);
+      return;
+    }
     if (!now) { note.textContent = ''; note.className = 'note'; return; }
     note.className = 'note';
     note.textContent = state.perms && !state.perms.packaged
       ? t('permDev', { name: state.perms.grantedTo }) : t('permSkip');
   }
+  /** 只认 **粗体**，别的原样。文案里就这一种标记。 */
+  function md(str) { return esc(str).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); }
   async function refreshPerms() {
     state.perms = await ob.permissions();
     renderPerms();
@@ -210,6 +243,8 @@
     renderChoices();
   });
   $('#btnBack').addEventListener('click', () => show(state.i - 1));
+  $('#btnLater').addEventListener('click', () => window.close());
+  $('#btnRestart').addEventListener('click', () => ob.relaunch());
   $('#btnNext').addEventListener('click', async () => {
     const step = ORDER[state.i];
     if (step === 'lang') await ob.save({ languages: [$('#lang1').value, $('#lang2').value] });
@@ -234,6 +269,19 @@
     opts($('#lang2'), state.meta.languages1);
     state.provider = '';
     renderChoices();
+    if (GUIDE) {
+      // 只有一步：标题点名刚失败的功能和缺的权限；步骤点和上一步/继续都不要；
+      // 底下两个键：「以后再说」关窗，「重启 briffy」重启。每 2 秒问一次权限，给了就把重启键变成主键。
+      const perm = PERMS.find((x) => x.id === GUIDE);
+      document.body.classList.add('guide');
+      $('h1[data-i18n="permTitle"]').textContent = t('guideTitle', { feature: FEATURE, perm: t(perm.name) });
+      $('p[data-i18n="permSub"]').textContent = t('guideSub');
+      $('#btnLater').textContent = t('guideLater');
+      $('#btnRestart').textContent = t('guideRestart');
+      show(ORDER.indexOf('perm'));
+      setInterval(refreshPerms, 2000);
+      return;
+    }
     show(0);
   })();
 })();

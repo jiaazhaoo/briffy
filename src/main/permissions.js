@@ -18,12 +18,20 @@ function screenStatus() {
   if (!MAC) return 'granted';
   try { return systemPreferences.getMediaAccessStatus('screen'); } catch (_) { return 'unknown'; }
 }
+// 辅助功能：读辅助功能树的正文（ax-text）、窗口标题和前台应用（foreground）、长截图都靠它。
+// 2026-09-16 之前这一项**根本没查过**——没给的话那几处只是静静地退回 OCR 和「未知」，
+// 用户永远不知道少了什么。
+function axStatus() {
+  if (!MAC) return 'granted';
+  try { return systemPreferences.isTrustedAccessibilityClient(false) ? 'granted' : 'denied'; } catch (_) { return 'unknown'; }
+}
 
 function status() {
   return {
     platform: process.platform,
     mic: micStatus(),
     screen: screenStatus(),
+    ax: axStatus(),
     // Running from source, the permission is attached to Electron rather than to briffy, and the
     // System Settings list says so. Worth admitting rather than letting someone hunt for the wrong name.
     grantedTo: app.isPackaged ? app.getName() : 'Electron',
@@ -56,12 +64,32 @@ async function askScreen() {
   return { ok: after === 'granted', status: after, needsRestart: after !== 'granted' };
 }
 
-function openSettingsPane(which) {
-  if (!MAC) return Promise.resolve();
-  const pane = which === 'mic'
-    ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
-    : 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture';
-  return shell.openExternal(pane);
+/**
+ * 辅助功能可以让系统弹一次提示（isTrustedAccessibilityClient(true)），但那个提示只弹一次，
+ * 之后就只能去设置里拨。所以和屏幕录制一样：先弹，没成就打开那一页。
+ */
+async function askAx() {
+  if (!MAC) return { ok: true, status: 'granted' };
+  try { systemPreferences.isTrustedAccessibilityClient(true); } catch (_) { /* 提示弹不出来就算了 */ }
+  const after = axStatus();
+  if (after !== 'granted') await openSettingsPane('ax');
+  return { ok: after === 'granted', status: after, needsRestart: after !== 'granted' };
 }
 
-module.exports = { status, askMic, askScreen, openSettingsPane, micStatus, screenStatus };
+const PANES = {
+  mic: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+  screen: 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+  ax: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+};
+function openSettingsPane(which) {
+  if (!MAC) return Promise.resolve();
+  return shell.openExternal(PANES[which] || PANES.screen);
+}
+
+/** 拨完开关要重启才生效。让用户自己去找「退出」再双击，是这条路上最容易断掉的一步。 */
+function relaunch() {
+  app.relaunch();
+  app.exit(0);
+}
+
+module.exports = { status, askMic, askScreen, askAx, openSettingsPane, relaunch, micStatus, screenStatus, axStatus };

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ob', {
   runSetup: invoke('ob:run-setup'),
   summary: invoke('ob:summary'),
   finish: invoke('ob:finish'),
+  relaunch: invoke('ob:relaunch'),
   onSetup: (cb) => {
     const h = (_e, p) => cb(p);
     ipcRenderer.on('ob:setup-progress', h);

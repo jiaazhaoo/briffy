@@ -12,7 +12,7 @@ const path = require('path');
 const Module = require('module');
 const ROOT = path.join(__dirname, '..');
 
-const calls = { askScreen: 0, pet: [], captured: 0, opened: 0 };
+const calls = { askScreen: 0, pet: [], captured: 0, opened: 0, guide: [] };
 let status = 'denied';
 
 const electron = {
@@ -46,6 +46,8 @@ Module._load = function (req) {
 const workspace = require(path.join(ROOT, 'src', 'main', 'workspace.js'));
 workspace.init({ store: { getSettings: () => ({}) }, windows: {
   setPetState: (s, o) => calls.pet.push(`${s}|${((o || {}).message || '').slice(0, 30)}`),
+  // 2026-09-16 起被拦住时还会开引导页（只讲缺的那一项）；这儿记下来，顺便验它开的是哪一项
+  openGuide: (which, feature) => calls.guide.push(`${which}|${feature}`),
   hideForCapture: async () => 0, restoreAfterCapture() {},
 } });
 
@@ -63,6 +65,8 @@ const check = (ok, line) => { total++; if (ok) pass++; console.log(`${ok ? 'PASS
   await workspace.captureRegion();
   check(calls.askScreen === 1, `连按三下只推一次设置（askScreen ${calls.askScreen}）`);
   check(calls.pet.filter((p) => p.startsWith('error|')).length === 3, `但每一下都告诉你为什么（气泡 ${calls.pet.filter((p) => p.startsWith('error|')).length} 次）`);
+  // 气泡最看不见（小猫不进截图，还只停 9 秒）；每一下还得把引导页开出来，而且开的是屏幕录制那一项
+  check(calls.guide.length === 3 && calls.guide.every((g) => g.startsWith('screen|')), `每一下都开了引导页，讲的是屏幕录制（${calls.guide.join(' / ')}）`);
   check(calls.captured === 0, `三下一张都没拍（捕获调用 ${calls.captured} 次）`);
 
   // 3. 给了权限就照常走

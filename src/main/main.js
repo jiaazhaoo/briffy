@@ -266,6 +266,22 @@ async function main() {
   if (process.platform === 'darwin' && screenPermissionStatus() !== 'granted') {
     setTimeout(() => windows.setPetState('error', { message: t('screenPermission'), ms: 9000 }), 2500);
   }
+  // **换了版本之后权限会死**（签名一变，旧授权就认不出新包）。这种时候用户什么都没做错，
+  // 却什么提示都看不到——2026-09-16 用户按了六天截图，以为软件坏了。所以每个版本第一次启动，
+  // 凡是缺的权限就把引导页开出来，只讲缺的那一项。之后不再提：他若是故意不给，不该天天被念。
+  // 首次启动的六步引导本身就会讲权限，那时不重复。
+  if (process.platform === 'darwin') {
+    const s0 = store.getSettings();
+    const ver = app.getVersion();
+    if (s0.setupDone && s0.permGuideVersion !== ver) {
+      const p = permissions.status();
+      const missing = p.screen !== 'granted' ? ['screen', t('featScreenshot')]
+        : p.mic !== 'granted' ? ['mic', t('featVoice')]
+          : p.ax !== 'granted' ? ['ax', t('featWindowText')] : null;
+      store.updateSettings({ permGuideVersion: ver });
+      if (missing) setTimeout(() => windows.openGuide(missing[0], missing[1]), 3000);
+    }
+  }
 
   if (process.env.DAILYLOGS_SMOKE) setTimeout(() => smokeTest().catch((e) => { console.log('SMOKE_ERROR', e && e.stack || e); app.quit(); }), 2500);
 }
@@ -922,7 +938,11 @@ function setupIpc() {
     if (process.platform !== 'darwin') return true;
     try { return await systemPreferences.askForMediaAccess('microphone'); } catch (_) { return false; }
   });
-  ipcMain.on('pet:mic-denied', () => windows.setPetState('error', { message: t('micDenied') }));
+  ipcMain.on('pet:mic-denied', () => {
+    windows.setPetState('error', { message: t('micDenied') });
+    // 小猫那句话最看不见；开引导页，只讲麦克风这一项（和截图那条路同一个道理，见 ensureScreenAccess）
+    windows.openGuide('mic', t('featVoice'));
+  });
   ipcMain.on('pet:open-workspace', () => windows.openWorkspace());
 
   // --- workspace ---
@@ -1045,7 +1065,10 @@ function setupIpc() {
     };
   });
   ipcMain.handle('ob:permissions', () => permissions.status());
-  ipcMain.handle('ob:grant', (_e, which) => (which === 'mic' ? permissions.askMic() : permissions.askScreen()));
+  ipcMain.handle('ob:grant', (_e, which) => (which === 'mic' ? permissions.askMic() : which === 'ax' ? permissions.askAx() : permissions.askScreen()));
+  // 拨完开关要重启才生效。这个按钮就在引导页上，省得用户自己去找「退出」再双击。
+  ipcMain.handle('ob:relaunch', () => { permissions.relaunch(); return true; });
+
   ipcMain.handle('ob:save', (_e, patch) => store.updateSettings(patch || {}));
   ipcMain.handle('ob:run-setup', () => setup.run(
     { store, onProgress: (p) => windows.broadcastToOnboarding('ob:setup-progress', p) },

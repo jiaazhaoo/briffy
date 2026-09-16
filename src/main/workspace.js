@@ -253,6 +253,9 @@ async function ensureScreenAccess() {
   // 从源码跑的时候，名单上写的是 Electron 而不是 briffy——照着「briffy」去找是找不到的。
   const who = permissions.status().grantedTo;
   windows.setPetState('error', { message: t(recent ? 'screenBlockedAgain' : 'screenBlocked', { app: who }), ms: 9000 });
+  // 小猫身上那句话是最看不见的提示（它连截图都不进，还只停 9 秒）。用户按了截图什么都没发生，
+  // 得有一扇窗当面告诉他：缺哪一项、去哪儿开、开完要重启——三个按钮，最短的路。
+  windows.openGuide('screen', t('featScreenshot'));
   return false;
 }
 

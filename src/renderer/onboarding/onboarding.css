@@ -56,6 +56,15 @@ select { appearance: none; -webkit-appearance: none; padding-right: 18px; cursor
 .perm .state.ok { color: var(--ok); }
 .note { margin-top: var(--a4); font-size: var(--fs-act); color: var(--ink-3); min-height: 1.5em; }
 .note.warn { color: var(--stamp); }
+.note.ok { color: var(--ink); }
+.note b { font-weight: 600; color: var(--ink); }
+
+/* 引导模式：只有一步。步骤点、计数、上一步/继续都藏起来，只留「以后再说」和「重启 briffy」。
+   没给的时候「重启」是幽灵键（重启了也没用），给了之后它变成主键——那是唯一剩下的一步。 */
+.guide-only { display: none; }
+body.guide .guide-only { display: inline-flex; }
+body.guide #btnBack, body.guide #btnNext, body.guide .steps, body.guide .count { display: none; }
+body.guide .foot .muted { display: none; }
 
 /* ---------- 谁来读：选中的那张被荧光笔划过 ---------- */
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2px; }

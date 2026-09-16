@@ -1,10 +1,18 @@
 // Mock of `window.ob` for browser previews of the first-run flow.
 // ?perm=none|mic|all  which permissions are already granted   ?lang=en  英文界面
+// ?guide=screen|mic|ax&feature=截图   引导模式：某个功能因为权限失效了，只讲这一项
+// ?grantafter=5   引导模式下几秒后假装用户在系统设置里把开关拨上了（看那个「重启」键怎么变）
 (() => {
   const q = new URLSearchParams(location.search);
   const perm = q.get('perm') || 'none';
-  const granted = { none: {}, mic: { mic: 1 }, all: { mic: 1, screen: 1 } }[perm] || {};
-  const state = { mic: granted.mic ? 'granted' : 'not-determined', screen: granted.screen ? 'granted' : 'not-determined' };
+  const granted = { none: {}, mic: { mic: 1 }, all: { mic: 1, screen: 1, ax: 1 } }[perm] || {};
+  const state = {
+    mic: granted.mic ? 'granted' : 'not-determined',
+    screen: granted.screen ? 'granted' : 'not-determined',
+    ax: granted.ax ? 'granted' : 'denied',
+  };
+  const after = Number(q.get('grantafter') || 0);
+  if (after > 0 && q.get('guide')) setTimeout(() => { state[q.get('guide')] = 'granted'; }, after * 1000);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const setupCbs = [];
   window.ob = {
@@ -27,6 +35,7 @@
     save: async () => ({ ok: true }),
     summary: async () => ({ configured: false, label: '' }),
     finish: async () => ({ ok: true }),
+    relaunch: async () => { alert('（预览）这里会重启 briffy'); return true; },
     onSetup: (cb) => { setupCbs.push(cb); return () => {}; },
     runSetup: async () => {
       const steps = [
