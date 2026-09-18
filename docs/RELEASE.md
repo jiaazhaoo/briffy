@@ -132,6 +132,7 @@ gh release create v0.1.0 \
   --title "briffy 0.1.0" --notes-file <(echo "第一个公开版本")
 
 npm run deploy        # 官网重新构建 + 发到 briffy.cc，下载按钮指向上面这个 tag
+npm run release:clean # 删掉 release/mac-arm64 —— 它是打包的中间产物，留着机器上就有两个 briffy.app（doctor 会报）
 ```
 
 **顺序不能反**：先建 release 再 `npm run deploy`。反了的话官网上线时那个链接指着一个还不存在的

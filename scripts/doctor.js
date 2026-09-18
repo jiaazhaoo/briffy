@@ -79,7 +79,7 @@ function main() {
     const st = stampOf(a);
     const sg = signOf(a);
     const isLive = live.includes(a);
-    const where = a.startsWith(ROOT) ? 'release/（构建产物）' : a;
+    const where = a.startsWith(ROOT) ? 'release/mac-arm64（release:mac 的中间产物，发完 npm run release:clean）' : a;
     console.log(`\n  ${isLive ? '▶ 在跑' : '  '} ${where}`);
     if (st) {
       const behind = head && st.commit !== head ? git(`rev-list --count ${st.commit}..HEAD`, '') : '0';

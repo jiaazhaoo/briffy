@@ -45,7 +45,8 @@
     "notarize:dmg": "node scripts/notarize-dmg.js",
     "fetch-fonts": "node scripts/fetch-fonts.js",
     "doctor": "node scripts/doctor.js",
-    "dev:install": "node scripts/dev-install.js"
+    "dev:install": "node scripts/dev-install.js",
+    "release:clean": "rm -rf release/mac-arm64 && node scripts/doctor.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
