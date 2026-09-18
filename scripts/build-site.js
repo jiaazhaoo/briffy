@@ -1,10 +1,13 @@
 'use strict';
 // 把 site/ 那份双语源文件切成两个真正的单语页面，输出到 site-dist/。
 //
-//   node scripts/build-site.js      →  site-dist/index.html         中文
-//                                      site-dist/en/index.html      English
-//                                      site-dist/privacy.html       隐私政策（中文）
-//                                      site-dist/en/privacy.html    Privacy policy
+//   node scripts/build-site.js      →  site-dist/index.html         English（默认语言，站点根就是它）
+//                                      site-dist/zh/index.html      中文
+//                                      site-dist/privacy.html       Privacy policy
+//                                      site-dist/zh/privacy.html    隐私政策
+//
+// 默认语言是英文：/ 是英文，/zh/ 是中文，x-default 指着 /。
+// 老的 /en/* 链接由 _redirects 301 到对应的新地址，分享出去的旧链接不会断。
 //
 // 下载地址和版本号**不写在页面里**，构建时从唯一来源注入（见下面的 facts）：版本来自 package.json，
 // 扩展商店地址来自 src/main/extension-store.js。所以发一个新版本只要改 package.json 一处，
@@ -101,7 +104,7 @@ function stripByClass(html, cls) {
 function build(lang, page) {
   const src = fs.readFileSync(path.join(SRC, page), 'utf8');
   const other = lang === 'zh' ? 'en' : 'zh';
-  const sub = lang === 'en';                       // English 住在 /en/，静态文件在上一级
+  const sub = lang === 'zh';                       // 中文住在 /zh/，静态文件在上一级
   const up = sub ? '../' : '';
 
   let h = stripByClass(src, other);
@@ -135,13 +138,13 @@ function build(lang, page) {
 
   // 每一页认自己，并互相指认。首页是目录（带尾斜杠），其余页是一个具体的地址。
   const slug = page === 'index.html' ? '' : page.replace(/\.html$/, '');
-  const pathOf = (l) => (l === 'zh' ? `/${slug}` : `/en/${slug}`) + (slug ? '' : '');
+  const pathOf = (l) => (l === 'en' ? `/${slug}` : `/zh/${slug}`) + (slug ? '' : '');
   const self = ORIGIN + pathOf(lang);
   h = h.replace(/<link rel="canonical" href="[^"]*"\s*\/?>/,
     `<link rel="canonical" href="${self}" />\n`
     + `<link rel="alternate" hreflang="zh-Hans" href="${ORIGIN + pathOf('zh')}" />\n`
     + `<link rel="alternate" hreflang="en" href="${ORIGIN + pathOf('en')}" />\n`
-    + `<link rel="alternate" hreflang="x-default" href="${ORIGIN + pathOf('zh')}" />`);
+    + `<link rel="alternate" hreflang="x-default" href="${ORIGIN + pathOf('en')}" />`);
   h = h.replace(/<meta property="og:type" content="website"\s*\/?>/,
     `<meta property="og:type" content="website" />\n`
     + `<meta property="og:url" content="${self}" />\n`
@@ -149,7 +152,7 @@ function build(lang, page) {
   h = h.replace(/<meta property="og:image" content="og.png"\s*\/?>/,
     `<meta property="og:image" content="${ORIGIN}/og.png" />`);
 
-  // 静态文件往上退一格（只有 en/ 那一页需要）
+  // 静态文件往上退一格（只有 zh/ 那一页需要）
   if (sub) {
     for (const a of ASSETS) h = h.split(`"${a}"`).join(`"${up}${a}"`);
     h = h.replace(/href="#/g, 'href="#');           // 锚点不动
@@ -160,9 +163,9 @@ function build(lang, page) {
   //
   // href 上带着 ?lang=：那是「他自己挑的」这件事唯一的载体。head 里那段自动判断见到就记下来，
   // 从此不再替他决定——否则从英文页点「中文」会被当场弹回英文。
-  const to = lang === 'zh'
-    ? (slug ? `en/${slug}?lang=en` : 'en/?lang=en')
-    : (slug ? `../${slug}?lang=zh` : '../?lang=zh');
+  const to = lang === 'en'
+    ? (slug ? `zh/${slug}?lang=zh` : 'zh/?lang=zh')
+    : (slug ? `../${slug}?lang=en` : '../?lang=en');
   h = h.replace(/<button type="button" id="langBtn" class="lang"[^>]*>([\s\S]*?)<\/button>/,
     `<a class="lang" href="${to}" hreflang="${other === 'zh' ? 'zh-Hans' : 'en'}">$1</a>`);
   h = h.replace(/<button type="button" class="lang" data-lang-toggle>([\s\S]*?)<\/button>/,
@@ -180,19 +183,19 @@ function build(lang, page) {
 
 // ---------- 写出去 ----------
 fs.rmSync(OUT, { recursive: true, force: true });
-fs.mkdirSync(path.join(OUT, 'en'), { recursive: true });
+fs.mkdirSync(path.join(OUT, 'zh'), { recursive: true });
 fs.mkdirSync(path.join(OUT, 'paper'), { recursive: true });
 
 for (const page of PAGES) {
-  fs.writeFileSync(path.join(OUT, page), build('zh', page));
-  fs.writeFileSync(path.join(OUT, 'en', page), build('en', page));
+  fs.writeFileSync(path.join(OUT, page), build('en', page));       // 默认语言在根上
+  fs.writeFileSync(path.join(OUT, 'zh', page), build('zh', page));
 }
 for (const a of ASSETS) fs.copyFileSync(path.join(SRC, a), path.join(OUT, a));
 
 // 404。两种语言都写在上面——走丢的人不一定是从哪一页走丢的。
 // 它自己带一小段样式：整站的 css 是给一整页排版的，这里只有三行字。
 const NOT_FOUND = `<!doctype html>
-<html lang="zh-Hans">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -209,21 +212,30 @@ const NOT_FOUND = `<!doctype html>
     text-autospace: normal; text-spacing-trim: space-first; }
   img { width: 84px; height: 84px; }
   p { margin: 0; color: var(--ink-2); }
-  p.en { color: var(--ink-3); font-size: 13.5px; }
+  p.alt { color: var(--ink-3); font-size: 13.5px; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; text-underline-offset: 3px; }
 </style>
 </head>
 <body>
   <img src="/favicon.svg" alt="briffy" />
-  <p>这一页没有记下来。<a href="/">回首页</a></p>
-  <p class="en">This page was never written down. <a href="/en/">Home</a></p>
+  <p>This page was never written down. <a href="/">Home</a></p>
+  <p class="alt">这一页没有记下来。<a href="/zh/">回首页</a></p>
 </body>
 </html>
 `;
 fs.writeFileSync(path.join(OUT, '404.html'), NOT_FOUND);
 
 // Pages 的响应头。资源名字里没有指纹，所以不给长缓存。
+// 老地址。默认语言从中文换成英文那一次，/en/* 全部搬到了根上——
+// 分享出去的旧链接不该因此变成 404。纯静态 Worker 认这个文件。
+fs.writeFileSync(path.join(OUT, '_redirects'), [
+  '/en / 301',
+  '/en/ / 301',
+  '/en/* /:splat 301',
+  '',
+].join('\n'));
+
 fs.writeFileSync(path.join(OUT, '_headers'), [
   '/*',
   '  X-Content-Type-Options: nosniff',
@@ -232,7 +244,7 @@ fs.writeFileSync(path.join(OUT, '_headers'), [
   '',
 ].join('\n'));
 
-for (const page of PAGES) for (const f of [page, `en/${page}`]) {
+for (const page of PAGES) for (const f of [page, `zh/${page}`]) {
   const n = fs.readFileSync(path.join(OUT, f), 'utf8');
   console.log(f.padEnd(20), (n.length / 1024).toFixed(1) + ' KB');
 }

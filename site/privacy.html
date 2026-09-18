@@ -42,14 +42,14 @@
 
   var picked = /[?&]lang=(zh|en)\b/.exec(location.search);
   if (picked) { save(picked[1]); history.replaceState(null, '', location.pathname); return; }
-  if (root.lang === 'en') return;
+  if (root.lang !== 'en') return;                      // 默认语言是英文：只有英文页替人做决定
 
   var want = read();
   if (!want) {
     var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
     want = /^zh\b/i.test(first) ? 'zh' : 'en';
   }
-  if (want === 'en') location.replace('en/privacy');
+  if (want === 'zh') location.replace('zh/privacy');
 })();
 </script>
 </head>
@@ -57,17 +57,17 @@
 <a class="skip" href="#main"><span class="zh">跳到正文</span><span class="en">Skip to content</span></a>
 
 <header class="top">
-  <a class="brand zh" href="/">
+  <a class="brand zh" href="/zh/">
     <span class="brand-mark" id="markSmall" aria-hidden="true"></span>
     <span>briffy</span>
   </a>
-  <a class="brand en" href="/en/">
+  <a class="brand en" href="/">
     <span class="brand-mark" aria-hidden="true"></span>
     <span>briffy</span>
   </a>
   <nav class="topnav">
-    <a class="zh" href="/">回首页</a>
-    <a class="en" href="/en/">Home</a>
+    <a class="zh" href="/zh/">回首页</a>
+    <a class="en" href="/">Home</a>
     <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
     <button type="button" id="langBtn" class="lang" aria-label="Switch language">
       <span class="zh">EN</span><span class="en">中文</span>
@@ -295,8 +295,8 @@
     </div>
   </div>
   <nav class="foot-r">
-    <a class="zh" href="/">回首页</a>
-    <a class="en" href="/en/">Home</a>
+    <a class="zh" href="/zh/">回首页</a>
+    <a class="en" href="/">Home</a>
     <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
     <a href="https://github.com/jiaazhaoo/briffy/blob/main/LICENSE"><span class="zh">许可</span><span class="en">License</span></a>
     <button type="button" class="lang" data-lang-toggle><span class="zh">English</span><span class="en">中文</span></button>

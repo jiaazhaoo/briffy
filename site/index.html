@@ -35,11 +35,12 @@
 <link rel="stylesheet" href="site.css" />
 
 <!-- 自动判断中英文。
-     只有入口那一页（/）替人做决定；/en/ 是有人明确要的英文，分享出去的链接不该被弹走。
+     默认语言是英文：只有入口那一页（/，英文）替人做决定，中文浏览器会被送去 /zh/。
+     /zh/ 是有人明确要的中文，分享出去的链接不该被弹走。
      跟着语言链接过来的（?lang=）就是他自己挑的，记下来，以后不再判断——
-     不然从英文页点「中文」会被立刻弹回英文，那个开关就等于没有。
+     不然从中文页点 EN 会被立刻弹回中文，那个开关就等于没有。
      放在 css 后面、</head> 前面同步跑：样式表本来就挡着首屏，所以这一跳在画之前就发生了。
-     不带 JS 的访客留在中文页，两页的 hreflang 都在上面，各自都进得了索引。 -->
+     不带 JS 的访客留在英文页，两页的 hreflang 都在上面，各自都进得了索引。 -->
 <script>
 (function () {
   var root = document.documentElement;
@@ -54,14 +55,15 @@
     history.replaceState(null, '', location.pathname);
     return;
   }
-  if (root.lang === 'en') return;                      // 英文页不判断
+  if (root.lang !== 'en') return;                      // 中文页不判断
 
   var want = read();
   if (!want) {
     var first = (navigator.languages && navigator.languages[0]) || navigator.language || '';
     want = /^zh\b/i.test(first) ? 'zh' : 'en';         // 看第一顺位：列表里还有 zh 不代表他想读中文
   }
-  if (want === 'en') location.replace('en/');
+  // 带上当前文件名，否则从 /privacy.html 判过去会落到 /zh/ 首页，把这一页弄丢
+  if (want === 'zh') location.replace('zh/' + location.pathname.split('/').pop());
 })();
 </script>
 </head>
@@ -115,10 +117,10 @@
       <p class="en">Everything becomes text, then groups itself into topics with the summaries written for you.</p>
     </div>
     <div>
-      <h3 class="zh">一句话出一份报告</h3>
-      <h3 class="en">A report in one sentence</h3>
-      <p class="zh">调研报告、行程单、材料表——说一句你要什么，它只读你自己的记录来写，每句标着第几条。</p>
-      <p class="en">A research write-up, an itinerary, a parts list — say what you need. It writes only from your own records, and every line cites the one it came from.</p>
+      <h3 class="zh">每条记录都带着上下文</h3>
+      <h3 class="en">Every record keeps its context</h3>
+      <p class="zh">哪个应用、哪个窗口、哪个网页，跟着记录一起存；MCP 把这些一并交给你的 AI。</p>
+      <p class="en">Which app, which window, which page — kept alongside the record, and handed to your AI through MCP.</p>
     </div>
   </div>
   </div>
@@ -323,8 +325,8 @@
   <div class="sec-head">
     <h2 class="zh">本子得有出口</h2>
     <h2 class="en">A notebook needs a way out</h2>
-    <p class="sub zh">只进不出的本子，就是另一个收藏夹。一句话问它，答案标着依据的第几条。</p>
-    <p class="sub en">A notebook you only put things into is just another bookmarks folder. Ask in a sentence; every claim carries the draft it came from.</p>
+    <p class="sub zh">只进不出的本子，就是另一个收藏夹。一句话问它——调研报告、行程单、材料表，答案标着依据的第几条。</p>
+    <p class="sub en">A notebook you only put things into is just another bookmarks folder. Ask in a sentence — a research write-up, an itinerary, a parts list — and every claim carries the draft it came from.</p>
   </div>
 
   <div class="ask">
@@ -455,8 +457,8 @@
     <a href="https://github.com/jiaazhaoo/briffy">GitHub</a>
     <a href="https://github.com/jiaazhaoo/briffy/releases"><span class="zh">发布</span><span class="en">Releases</span></a>
     <a href="https://github.com/jiaazhaoo/briffy/blob/main/LICENSE"><span class="zh">许可</span><span class="en">License</span></a>
-    <a class="zh" href="/privacy">隐私</a>
-    <a class="en" href="/en/privacy">Privacy</a>
+    <a class="zh" href="/zh/privacy">隐私</a>
+    <a class="en" href="/privacy">Privacy</a>
     <button type="button" class="lang" data-lang-toggle><span class="zh">English</span><span class="en">中文</span></button>
   </nav>
 </footer>
