@@ -242,6 +242,17 @@ let lastScreenPrompt = 0;
  * （CGPreflightScreenCaptureAccess 到重启才换口径），不说清楚就像是勾了也没用。
  * @returns {Promise<boolean>} 这一下能不能拍
  */
+let lastAxNudge = 0;
+/** 截图时辅助功能树读不到、而且是因为没授权：开引导页，只讲这一项。一小时最多一次。 */
+function nudgeAxPermission() {
+  if (process.platform !== 'darwin') return;
+  if (permissions.axStatus() !== 'granted') {
+    if (Date.now() - lastAxNudge < 3600000) return;
+    lastAxNudge = Date.now();
+    windows.openGuide('ax', t('featWindowText'));
+  }
+}
+
 async function ensureScreenAccess() {
   if (process.platform !== 'darwin') return true;
   if (screenPermissionStatus() === 'granted') return true;
@@ -967,7 +978,14 @@ async function processEntry(id) {
           patch.text = text;
           patch.textSource = 'ax';
           store.updateEntry(id, { text, textSource: 'ax' });
-        } else if (entry.type === 'screenshot' || s.ocrDroppedImages) {
+        } else {
+          // 拿不到有两种原因，只有一种该提醒：**辅助功能没授权**（另一种是那个应用不开放这棵树，
+          // 比如 Claude 桌面版，那和用户无关）。2026-09-19 之前这儿一声不吭地退回 OCR，
+          // 用户永远不知道自己少了什么——三项权限里它是唯一没有运行时引导的。
+          // 但它不像屏幕录制那样让功能整个死掉，只是识别变差，所以一小时最多提一次，别在每张截图上念。
+          if (entry.type === 'screenshot') nudgeAxPermission();
+        }
+        if (!ax && (entry.type === 'screenshot' || s.ocrDroppedImages)) {
           setProgress(id, t('ocrRunning'), true);
           const r = await ocr.recognize(abs, ocrConfig(s, langs), ocrProgress(id));
           text = r.text;

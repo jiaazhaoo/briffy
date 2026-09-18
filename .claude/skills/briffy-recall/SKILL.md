@@ -12,7 +12,7 @@ briffy 存的是**用户主动保留下来的东西**，不是全天录屏。所
 
 优先用 MCP 工具（服务名 `briffy`）：
 
-- `search_entries` — 关键词。支持 `from` / `to` 限定日期、`kind` 限定类型
+- `search_entries` — **用人话问，不用猜关键词。** 和应用里的「问」同一套三条腿：词面精确、形状（问地址扫邮编、问几点扫时刻、问多少钱扫金额——记录里没那个词也够得着）、词面全扫。支持 `from` / `to` 限定日期；**优先用 `bucket`**（clip 剪贴板 / shot 截图 / saved 收藏 / file 文件 / voice 录音，就是用户嘴里说的那五种）和 `sub`（收藏和截图是站点或应用名，剪贴板和文件是格式或扩展名），`kind` 是原始类型，只在真的要按 screenshot/url/note 这种分时才用
   （screenshot / image / audio / url / note / text / pdf / file）、`app` 限定当时的前台应用、
   `pinned` 只看置顶。返回的是摘要。
 - `get_entry` — 拿一条的全文（整段 OCR 文字或语音转写、文件路径、来源）。

@@ -1,0 +1,20 @@
+# 推送就跑 npm test。2026-09-19 之前这个公开仓库一条 CI 都没有——56 个台子只靠人记得跑。
+# 这儿只跑纯 node 那 34 个；要 electron 的那 20 个读的是真工作区、要显示器，不上 CI，
+# 本地 npx electron dev/xxx-test.js 跑（CLAUDE.md 里写着）。
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  node:
+    runs-on: macos-latest   # 台子里有 macOS 专用的路径（pmset / osascript 的替身、TCC 的账），linux 上会假红
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # postinstall 会拉 electron 和字体；CI 上只要台子能 require 到模块就够了
+      - run: npm ci --ignore-scripts
+      - run: npm test

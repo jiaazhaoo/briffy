@@ -12,7 +12,7 @@ notes into day-by-day records, and then you can ask it. **Closed source** (PolyF
 
 ```
 npm start                      the app
-npm test                       28 tests, ~7s; it lists the ones needing electron and the ones needing arguments
+npm test                       34 tests, ~8s (56 test files; the rest need electron or arguments); it lists the ones needing electron and the ones needing arguments
 npx electron dev/xxx-test.js   the 18 that need electron
 npm run preview                http://localhost:5173/ runs the real UI on fake data (/pet /viewer /shelf /region /onboarding)
 ```

@@ -35,6 +35,14 @@ ok('截图被权限拦住时开引导', () => {
   const fn = workspace.slice(workspace.indexOf('async function ensureScreenAccess'));
   assert.ok(/openGuide\('screen'/.test(fn.slice(0, fn.indexOf('\n}'))), 'ensureScreenAccess 里没开引导');
 });
+ok('截图时辅助功能读不到、且是因为没授权 → 开引导，一小时最多一次', () => {
+  // 2026-09-19 前三项权限里只有它没有运行时引导：AX 树读不到就静静退回 OCR
+  assert.ok(/function nudgeAxPermission\(\)/.test(workspace), '没有 nudgeAxPermission');
+  assert.ok(/permissions\.axStatus\(\) !== 'granted'/.test(workspace), '该先问系统是不是真没授权（那个应用不开放这棵树不算）');
+  assert.ok(/lastAxNudge < 3600000/.test(workspace), '要限流一小时——它只是识别变差，不是功能死掉，别每张截图都念');
+  assert.ok(/openGuide\('ax'/.test(workspace), '没开 ax 那一项的引导');
+  assert.ok(/if \(entry\.type === 'screenshot'\) nudgeAxPermission\(\)/.test(workspace), '只在整屏截图上提（框选那块本来就不走 AX）');
+});
 ok('麦克风被拒时开引导', () => assert.ok(/pet:mic-denied[\s\S]{0,300}openGuide\('mic'/.test(main), '收到 pet:mic-denied 没开引导'));
 ok('换了版本第一次启动，缺哪项就开哪项，之后不再念', () => {
   assert.ok(/permGuideVersion/.test(main), '没有「每个版本只提一次」的记号');

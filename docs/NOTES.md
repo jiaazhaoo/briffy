@@ -14,13 +14,14 @@ one thing per screen: **what this is → two language packs → permissions → 
 prepare the local engines → gesture cheatsheet**. Done, it writes `setupDone` and doesn't appear
 again; to see it again, delete that item in settings.
 
-The permissions step is the main reason it exists. On macOS the two permissions behave nothing alike,
+The permissions step is the main reason it exists. On macOS the three permissions behave nothing alike,
 and one "grant" button can't paper over it:
 
 | | Can the app initiate it | After |
 | --- | --- | --- |
 | **Microphone** | Yes. `askForMediaAccess` pops the system dialog | One tap and it's done |
 | **Screen recording** | No. Only after a capture has been attempted once does macOS list the app in System Settings; the user flips the switch | Takes effect only after relaunching the app |
+| **Accessibility** | Once. `isTrustedAccessibilityClient(true)` prompts a single time; after that only the Settings toggle | Takes effect only after relaunching the app. Without it, window text falls back to OCR and long shots are off |
 
 So the cards say clearly what's about to happen, and the screen-recording one, when clicked, opens the
 corresponding System Settings pane and notes that a restart is needed. Running from source it also adds
@@ -362,10 +363,10 @@ it stops.
 - **Trail**: [trail.js](../src/main/trail.js) asks who's in front every two seconds
   ([foreground.js](../src/main/foreground.js)), web body handed over directly by the browser extension.
   Written to `workspace/trail/`, not `entries/`. Off by default.
-- **Title & summary**: `src/main/llm.js` orchestrates four sources. Claude goes through the Anthropic SDK
-  (default `claude-opus-5`, structured output + server-side refusal fallback, PDFs sent in as documents);
-  OpenRouter and the custom endpoint go through OpenAI-compatible chat/completions (auto-degrading when
-  JSON schema isn't supported); Ollama goes through native `/api/chat` (`format` structured output,
+- **Title & summary**: `src/main/llm.js` orchestrates two sources (narrowed from four on 2026-09-09:
+  direct Claude and the custom endpoint were removed because only OpenRouter's login is a real login).
+  OpenRouter goes through OpenAI-compatible chat/completions (auto-degrading when JSON schema isn't
+  supported); Ollama goes through native `/api/chat` (`format` structured output,
   auto-disabling Qwen's thinking, auto-stripping images for non-vision models). Screenshots are sent as
   image + OCR text; PDFs are first extracted locally with `pdf-parse` (also for search); web pages are
   sent after extracting the body. A local model's input is truncated to its context length.
